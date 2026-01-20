@@ -1,138 +1,989 @@
 ================================================================================
-LOVABLE AI BEHAVIOUR GUIDELINES - FEINAUFMASS TECHNIKER APP
+LOVABLE AI BEHAVIOUR GUIDELINES
+================================================================================
+================================================================================
+LOVAable Coding Verhaltensregeln du MUSST DICH SO VERHALTEN!! - SALES OS (Galvanek Bau GmbH)
 ================================================================================
 
-PROJEKT-UEBERSICHT
 ================================================================================
-- App-Typ: Mobile-First Web-App für selbstständige Feinaufmaß-Techniker
-- Zielgruppe: Techniker die Aufträge von Herstellern/Händlern annehmen
-- Hauptfunktion: Aufträge empfangen, annehmen/ablehnen, als erledigt markieren
-- Sprache: Deutsch (alle UI-Texte)
-
-================================================================================
-DATENMODELL & ENUMS
+REGEL 1: PROFILES IST SINGLE SOURCE OF TRUTH
 ================================================================================
 
-ORDER STATUS (Pflicht-ENUM):
-- new       → Neuer Auftrag, noch nicht bearbeitet
-- accepted  → Techniker hat Auftrag angenommen
-- completed → Auftrag wurde erledigt
-- rejected  → Techniker hat Auftrag abgelehnt
+- profiles.id = auth.uid() = User-Identitaet
+- profiles.mitarbeiter_id = Link zur VERKAEUFER-Tabelle (wenn User Verkaufer ist)
 
-PROJECT TYPE (Pflicht-ENUM):
-- Küche
-- Schrank
-- Bad
-- Garderobe
-- Wohnzimmer
-- Sonstiges
+DIE MITARBEITER-TABELLE (historisch falsch benannt, eigentlich "verkaeufer"):
+- Enthaelt NUR Personen die Verkaufsprovisionen erhalten koennen
+- Primaer: Verkaufer/Handelsvertreter (HVs) mit Provisionsanspruch
+- Ausnahme: Innendienst/Admins werden MANUELL dort angelegt, wenn sie verkaufen
+- NIEMALS automatisch mergen oder Daten aus profiles uebernehmen!
+- Ist eine SEPARATE Business-Tabelle fuer Provisionen/Verkaeufer-Daten
 
-REGEL: Status-Felder IMMER als TypeScript Union Types oder Supabase ENUMs.
-       NIEMALS als freier String/varchar.
+NIEMALS:
+- mitarbeiter-Tabelle als Single Source of Truth fuer User verwenden
+- mitarbeiter per Email suchen (Email-JOIN ist VERBOTEN!)
+- Daten zwischen profiles und mitarbeiter automatisch synchronisieren
 
-================================================================================
-BUSINESS-LOGIK REGELN
-================================================================================
+User-Typen und ihre Verknuepfung:
+┌─────────────────┬────────────────────────────────────────────────────────────┐
+│ Verkaufer/HV    │ Hat profiles UND mitarbeiter-Eintrag                       │
+│                 │ (profiles.mitarbeiter_id zeigt auf mitarbeiter.id)         │
+├─────────────────┼────────────────────────────────────────────────────────────┤
+│ Admin/Superadmin│ Hat profiles, mitarbeiter-Eintrag NUR wenn sie verkaufen   │
+│                 │ (wird MANUELL angelegt, KEIN automatisches Merging!)       │
+├─────────────────┼────────────────────────────────────────────────────────────┤
+│ Innendienst     │ Hat profiles, mitarbeiter-Eintrag NUR wenn sie verkaufen   │
+│                 │ (Ausnahmefall, manuell gepflegt fuer Provisionsanspruch)   │
+├─────────────────┼────────────────────────────────────────────────────────────┤
+│ Externe         │ Nur profiles (z.B. Partner, Gaeste)                        │
+│                 │ KEIN mitarbeiter-Eintrag                                   │
+└─────────────────┴────────────────────────────────────────────────────────────┘
 
-AUFTRAGS-WORKFLOW:
-1. Neue Aufträge erscheinen im "Aufträge"-Tab mit Status "new"
-2. Techniker kann Auftrag ANNEHMEN → Status wird "accepted"
-3. Techniker kann Auftrag ABLEHNEN → Status wird "rejected"
-4. Nur angenommene Aufträge können als ERLEDIGT markiert werden → "completed"
-5. Abgelehnte und erledigte Aufträge erscheinen im "Erledigt"-Tab
-
-STATUS-UEBERGAENGE (erlaubt):
-- new → accepted
-- new → rejected
-- accepted → completed
-- VERBOTEN: completed → any, rejected → any
-
-================================================================================
-UI/UX PRINZIPIEN
-================================================================================
-
-MOBILE-FIRST:
-- Optimiert für Smartphone-Nutzung
-- Touch-freundliche Buttons (min. 44px)
-- Bottom Navigation für Haupt-Tabs
-- Keine Hover-States als einzige Interaktion
-
-BOTTOM NAVIGATION (3 Tabs):
-1. Aufträge - Neue und angenommene Aufträge
-2. Erledigt - Abgeschlossene und abgelehnte Aufträge
-3. Profil - Techniker-Einstellungen
-
-STATUS-FARBEN (einheitlich):
-- Neu (new):        Blau    → bg-blue-100, text-blue-700
-- Angenommen:       Orange  → bg-orange-100, text-orange-700
-- Erledigt:         Grün    → bg-green-100, text-green-700
-- Abgelehnt:        Rot     → bg-red-100, text-red-700
+WICHTIG:
+- profiles ist SSoT fuer User-Identitaet (wer bin ich?)
+- mitarbeiter ist SSoT fuer Verkaeufer-/Provisionsdaten (wieviel verdiene ich?)
+- system_role (admin/user) ist UNABHAENGIG von mitarbeiter-Eintrag!
+- Die Verknuepfung erfolgt IMMER ueber profiles.mitarbeiter_id
+- Im Frontend IMMER useMyMitarbeiterId() Hook verwenden!
 
 ================================================================================
-ANTI-VIBE-CODING REGELN
+REGEL 2: RLS BASIERT AUF PROFILES, NICHT MITARBEITER
 ================================================================================
 
-BEI JEDEM REQUEST:
-1. VERSTEHEN - Was will der User WIRKLICH?
-2. PRUEFEN - Schema, bestehender Code analysieren
-3. HINTERFRAGEN - Fehlt Info? → NACHFRAGEN statt annehmen
-4. PLANEN - Wie passt das in die bestehende Architektur?
-5. IMPLEMENTIEREN - Modular, fokussiert
-6. VERIFIZIEREN - Funktioniert es?
+RLS-Logik Patterns:
 
-VERBOTEN:
-- Annahmen bei unklaren Requirements treffen
-- Komplette Features ohne Plan implementieren
-- Business-Logik in UI-Komponenten
-- Hardcoded Status-Werte statt ENUMs/Types
-- Code ohne Error Handling
-- Änderungen an Funktionalität die nicht angefragt wurde
+-- Stammdaten (alle eingeloggten User koennen lesen)
+auth.uid() IS NOT NULL
+
+-- Persoenliche Mitarbeiter-Daten (nur eigene oder Admin)
+is_admin() OR mitarbeiter_id = get_profile_mitarbeiter_id()
+
+-- Admin-Only Operationen
+is_admin()
+
+NIEMALS:
+- has_role() verwenden (LEGACY)
+- EMAIL-JOINs: profiles.email = mitarbeiter.email (FRAGIL, FEHLERANFAELLIG!)
+- Direkt auf mitarbeiter-Tabelle joinen fuer RLS
+- app_role ENUM in neuen Policies verwenden
+- Subqueries mit mitarbeiter-Tabelle fuer User-Identifikation
+
+AUCH IM FRONTEND NIEMALS:
+- mitarbeiter per Email suchen (z.B. mitarbeiter.email = profile.email)
+- IMMER profiles.mitarbeiter_id oder useMyMitarbeiterId() nutzen!
+
+================================================================================
+REGEL 3: IAM SCHEMA FUER ACCESS CONTROL (UI-EBENE)
+================================================================================
+
+Das IAM-Schema steuert den UI-Zugang zu Modulen/Features:
+
+Tabellen (KORREKTE NAMEN):
+- iam.applications            = Registrierte Apps (z.B. sales_os)
+- iam.app_modules             = Module pro App (z.B. leads, auftraege)
+- iam.access_groups           = Gruppen mit Modul-Zugang
+- iam.access_group_modules    = Welche Module hat eine Gruppe
+- iam.user_access_groups      = User-Gruppen-Zuordnung
+- iam.user_system_roles       = System-Rollen (admin, superadmin, user)
+- iam.user_module_access      = Direkte Modul-Berechtigung ohne Gruppe
+
+RPC-Funktionen:
+- get_user_iam_roles()        = Gibt System-Rollen des Users zurueck
+- get_user_iam_modules()      = Gibt zugaengliche Module zurueck
+- get_module_hierarchy()      = Gibt Modul-Hierarchie zurueck
+
+WICHTIG: IAM steuert UI-Zugang, RLS steuert Daten-Zugang!
+         Beides muss zusammenarbeiten.
+
+================================================================================
+REGEL 4: ENUM-PFLICHT IN SUPABASE
+================================================================================
+
+Alle Dropdowns/Status-Felder MUESSEN native ENUM-Typen sein.
+Niemals text/varchar fuer Dropdowns verwenden.
+
+Beispiel:
+-- RICHTIG:
+CREATE TYPE lead_status_enum AS ENUM ('neu', 'kontaktiert', 'qualifiziert');
+ALTER TABLE leads ADD COLUMN status lead_status_enum;
+
+-- FALSCH:
+ALTER TABLE leads ADD COLUMN status text;
+
+Bei unklaren Dropdown-Werten: IMMER nachfragen vor Implementation!
+
+================================================================================
+REGEL 5: ARCHITEKTUR
+================================================================================
+
+Layered Architecture (Pflicht):
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ PRESENTATION LAYER     │ Screens, Pages, UI-Komponenten                    │
+│                        │ KEINE Business-Logik, KEINE SQL-Queries           │
+├────────────────────────┼───────────────────────────────────────────────────┤
+│ APPLICATION LAYER      │ Use Cases orchestrieren                           │
+│                        │ z.B. calculateMonthlyCommission()                 │
+├────────────────────────┼───────────────────────────────────────────────────┤
+│ DOMAIN LAYER           │ Reine, testbare Business-Logik                    │
+│                        │ Keine Infrastruktur-Abhaengigkeiten               │
+├────────────────────────┼───────────────────────────────────────────────────┤
+│ INFRASTRUCTURE LAYER   │ Supabase Repositories, Queries, Migrations        │
+│ (Supabase)             │ ENUM-Definitionen                                 │
+└────────────────────────┴───────────────────────────────────────────────────┘
+
+Ordnerstruktur (Feature-based):
+features/
+  employees/
+    ui/
+    services/
+    domain/
+    data/
+  commission-models/
+    ...
+shared/
+  utils/
+  hooks/
+  components/
+
+================================================================================
+REGEL 6: RLS HELPER-FUNKTIONEN (PFLICHT!)
+================================================================================
+
+Bei RLS-Policies diese Helper-Funktionen verwenden:
+
+IMMER VERWENDEN:
+- is_admin()                    - Fuer Admin-Checks in RLS Policies
+- get_profile_mitarbeiter_id()  - Fuer Zugriff auf eigene Mitarbeiter-Daten
+- auth.uid() IS NOT NULL        - Fuer Stammdaten (alle eingeloggten User)
+
+NIEMALS VERWENDEN:
+- has_role()                    - Legacy-Funktion
+- EMAIL-JOINs in RLS            - profiles.email = mitarbeiter.email ist VERBOTEN
+- Subqueries mit mitarbeiter    - Fragil und fehleranfaellig
+
+RLS-Pattern fuer persoenliche Daten:
+  is_admin() OR mitarbeiter_id = get_profile_mitarbeiter_id()
+
+RLS-Pattern fuer Stammdaten:
+  auth.uid() IS NOT NULL
+
+RLS-Pattern fuer Admin-Only:
+  is_admin()
+
+================================================================================
+REGEL 7: PROVISIONSLOGIK (DOMAIN-SPEZIFISCH)
+================================================================================
+
+Wichtige Konzepte:
+- Festsetzungsdatum = Anspruch entsteht mit Anzahlungseingang
+- Auszahlungsdatum = 15. des Folgemonats
+- Monatslogik-Logik = Provisionsstufen basieren auf kumuliertem Netto-Monatsumsatz und werden jeden Monat neu festgelegt durch daas fstsetzungsdatum
+
+Keine Hardcodings! Alle Werte aus Provisionsmodell, nicht aus Code.
+Jeder Mitarbeiter hat sein eigenes Modell.
+
+================================================================================
+REGEL 8: SICHERHEIT
+================================================================================
+
+- Strikte Rollen-Trennung (Admin vs. Mitarbeiter)
+- RLS fuer ALLE Tabellen mit sensiblen Daten
+- Audit-Logs fuer Berechnungen & Modellaenderungen
+- Gehalts- & Provisionsdaten = hochsensible DSGVO-Daten
+
+NIEMALS:
+- API-Keys im Code speichern
+- Admin-Status client-seitig pruefen (localStorage etc.)
+- Rollen auf profiles-Tabelle speichern (Privilege Escalation!)
+
+EDGE FUNCTIONS MIT ADMIN-RECHTEN:
+- IMMER verify_jwt = true in config.toml
+- IMMER serverseitigen Admin-Check am Anfang der Funktion
+- NIEMALS Fallback auf Service-Role ohne Autorisierung
+
+================================================================================
+REGEL 9: ANTI-VIBE-CODING PRINZIPIEN (KRITISCH!)
+================================================================================
+
+Diese Regeln verhindern typische AI-Coding-Fehler und erzwingen kritisches Denken.
+
+9.1 KEIN SYCOPHANCY / KEIN "PROMPT PLEASING"
+---------------------------------------------
+✗ NIEMALS: "Das ist eine tolle Idee!" ohne kritische Analyse
+✓ IMMER:   "Das ist moeglich, aber hier sind Risiken: ..."
+
+- Aktiv Gegenargumente und Risiken aufzeigen
+- Confirmation Bias erkennen und vermeiden
+- Bei Unklarheiten: Nachfragen statt annehmen
+- Eigene Vorschlaege hinterfragen
+
+9.2 CRITICAL THINKING FRAMEWORK
+--------------------------------
+Vor JEDER Implementation diese Checkliste durchgehen:
+
+□ Supabase-Schema geprueft?
+□ ENUMs vorhanden/korrekt?
+□ Bestehender Code analysiert?
+□ Architektur-Layer klar?
+□ Dependencies identifiziert?
+□ Edge Cases bedacht?
+□ Sicherheitsaspekte geprueft?
+
+"Three Viewpoints" bei komplexen Entscheidungen:
+1. NEUTRAL:  Fakten-Analyse ohne Wertung
+2. KRITIKER: Risiken, Fehler, Luecken identifizieren
+3. STRATEGE: Beste Loesung unter Beruecksichtigung von 1 & 2
+
+9.3 MODULAR DEVELOPMENT (ANTI-MONOLITH)
+----------------------------------------
+✗ NIEMALS: "Baue die ganze Feature komplett"
+✓ IMMER:   Feature in Teilschritte zerlegen
+
+- Feature-by-Feature entwickeln
+- Jede Komponente isoliert testbar
+- Klare Trennung: UI / Application / Domain / Infrastructure
+- Max. 200-300 Zeilen pro Datei
+- Neue Dateien erstellen statt bestehende aufblaehem
+
+9.4 QUALITY OVER SPEED
+-----------------------
+- Error Handling ist Pflicht, nicht optional
+- Security-Checks bei jeder DB-Operation
+- Edge Cases IMMER bedenken
+- Integration pruefen, nicht nur isolierte Funktion
+- Erste Loesung ist Draft, nicht Final
+
+9.5 DOCUMENTATION-FIRST BEI KOMPLEXEN FEATURES
+-----------------------------------------------
+1. Erst Plan dokumentieren
+2. Schema-Aenderungen vorab beschreiben
+3. Migration-Schritte auflisten
+4. User-Approval einholen
+5. DANN implementieren
+
+9.6 NO GUESSING POLICY
+-----------------------
+Bei unklaren Requirements: STOPP!
+
+- Niemals Luecken mit Annahmen fuellen
+- Lieber eine Frage zu viel als Code der nicht funktioniert
+- Bei Widerspruechen: Explizit nachfragen
+- Bei fehlenden Werten: Nicht raten
+
+9.7 ARCHITECTURAL AWARENESS
+----------------------------
+Jede Aenderung im Kontext der Gesamtarchitektur sehen:
+
+Fragen vor jeder Implementation:
+- Gehoert das in UI, Application, Domain oder Infrastructure Layer?
+- Dupliziert das bestehende Logik?
+- Braucht das eine Migration?
+- Welche anderen Features sind betroffen?
+- Bleibt die App konsistent?
+
+9.8 SELF-CHALLENGE MINDSET
+---------------------------
+- Eigene Loesungen hinterfragen
+- Tasks erstellen und tracken
+- Logging/Debugging einbauen wenn Issue unklar
+- Mehrere Loesungsansaetze evaluieren
+- Code reviewen wie ein "skeptischer Senior Developer"
+
+================================================================================
+REGEL 10: PROMPT-VERARBEITUNGS-PROTOKOLL
+================================================================================
+
+Bei JEDEM User-Request diese Schritte durchlaufen:
+
+┌────┬─────────────────┬──────────────────────────────────────────────────────┐
+│ 1  │ VERSTEHEN       │ Was will der User WIRKLICH?                          │
+│    │                 │ (Nicht was er woertlich sagt)                        │
+├────┼─────────────────┼──────────────────────────────────────────────────────┤
+│ 2  │ PRUEFEN         │ Schema, ENUMs, bestehender Code, Architektur         │
+│    │                 │ → Dateien lesen bevor Code schreiben!                │
+├────┼─────────────────┼──────────────────────────────────────────────────────┤
+│ 3  │ HINTERFRAGEN    │ Macht das Sinn? Fehlt Information?                   │
+│    │                 │ Widersprueche? → NACHFRAGEN                          │
+├────┼─────────────────┼──────────────────────────────────────────────────────┤
+│ 4  │ PLANEN          │ Wie passt das in die Gesamtarchitektur?              │
+│    │                 │ Welche Files werden geaendert?                       │
+├────┼─────────────────┼──────────────────────────────────────────────────────┤
+│ 5  │ RISIKEN         │ Was koennte schiefgehen?                             │
+│    │                 │ Security? Performance? Breaking Changes?             │
+├────┼─────────────────┼──────────────────────────────────────────────────────┤
+│ 6  │ IMPLEMENTIEREN  │ Modular, testbar, dokumentiert                       │
+│    │                 │ Parallel wenn moeglich, minimale Aenderungen         │
+├────┼─────────────────┼──────────────────────────────────────────────────────┤
+│ 7  │ VERIFIZIEREN    │ Funktioniert es? Edge Cases? Integration?            │
+│    │                 │ Console Logs pruefen, Screenshots machen             │
+└────┴─────────────────┴──────────────────────────────────────────────────────┘
+
+================================================================================
+REGEL 11: VERBOTENE PATTERNS
+================================================================================
+
+NIEMALS:
+---------
+✗ Komplette Features in einem Schritt ohne Plan
+✗ "Das sollte funktionieren" ohne Pruefung
+✗ Annahmen treffen bei unklaren Requirements
+✗ Business-Logik in UI-Komponenten
+✗ SQL-Queries direkt in React-Komponenten
+✗ Hardcoded Werte statt ENUMs
+✗ text/varchar fuer Dropdowns/Status-Felder
+✗ Komplexitaet ohne Modularisierung
+✗ Code ohne Error Handling
+✗ API-Keys/Secrets im Code
+✗ Eine Datei mit 500+ Zeilen
+✗ Copy-Paste ohne Verstaendnis
+✗ Mehrere Schritte ohne User-Feedback
+✗ Loeschen von Code ohne Backup/Verstaendnis
+✗ EMAIL-JOINs in RLS Policies (profiles.email = mitarbeiter.email)
+✗ EMAIL-JOINs im Frontend (mitarbeiter per Email suchen)
+✗ has_role() in neuen RLS Policies
+✗ Edge Functions ohne serverseitigen Admin-Check
 
 IMMER:
-- Plan vor Implementation
-- Nachfragen bei Unklarheit
-- Modular und fokussiert entwickeln
-- Bestehende Patterns respektieren
-- Deutsche UI-Texte verwenden
+------
+✓ Plan vor Implementation
+✓ Schema/ENUMs vor Code
+✓ Nachfragen bei Unklarheit
+✓ Modular und testbar
+✓ Error Handling einbauen
+✓ Security by Default
+✓ Bestehenden Code verstehen vor Aenderung
+✓ Kleine, fokussierte Commits
+✓ Edge Cases bedenken
+✓ Integration verifizieren
+✓ is_admin() fuer Admin-Checks
+✓ get_profile_mitarbeiter_id() fuer persoenliche Daten
+✓ profiles.mitarbeiter_id statt Email-Lookups
 
 ================================================================================
-GEPLANTE ERWEITERUNGEN (KONTEXT)
+REGEL 12: SCHEMA-ORGANISATION (PROAKTIV CHALLENGEN!)
 ================================================================================
 
-Phase 1 - MVP (aktuell):
-- Mock-Daten für Aufträge
-- Basis-UI mit 3 Tabs
-- Status-Änderungen lokal
+12.1 STOPP-TRIGGER BEI NEUER TABELLE
+-------------------------------------
+Wenn User neue Tabelle will → SOFORT STOPPEN UND NACHFRAGEN:
 
-Phase 2 - Backend:
-- Supabase/Lovable Cloud Anbindung
-- Echte Auftragsdaten aus Datenbank
-- Techniker-Authentifizierung (Email/Passwort)
+"HALT! Neue Tabelle erkannt. Bevor ich implementiere:
 
-Phase 3 - Features:
-- Push-Benachrichtigungen für neue Aufträge
-- Foto-Upload für Aufmaße
-- Kalender-Integration
-- Routen-Planung/Navigation
+1. Was ist der Domain-Kontext dieser Tabelle?
+2. Gehoert sie zu einer bestehenden Domain?
+3. Sollte sie in ein eigenes Schema?
+
+Jede neue Tabelle im public-Schema muss begruendet werden!"
+
+12.2 DOMAIN-SCHEMA EMPFEHLUNGEN
+--------------------------------
+┌─────────────┬────────────────────────────────────────────────────────────────┐
+│ sales       │ leads, kunden, auftraege, leadquellen, angebote               │
+│ logistik    │ produkte, lager, lieferanten, warengruppen, einheiten         │
+│ hr          │ mitarbeiter, kosten, fehlzeiten, abwesenheiten                │
+│ commission  │ provisionsmodelle, provisionen, kalkulationen, festsetzungen  │
+│ shop        │ tokens, shop_produkte, transaktionen, verfuegbarkeiten        │
+│ integration │ webhooks, external_apis, sync_logs, justcall                  │
+└─────────────┴────────────────────────────────────────────────────────────────┘
+
+12.3 SCHEMA-ERSTELLUNG PATTERN
+-------------------------------
+CREATE SCHEMA IF NOT EXISTS sales;
+
+-- Berechtigungen (PFLICHT!)
+GRANT USAGE ON SCHEMA sales TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA sales TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA sales 
+  GRANT ALL ON TABLES TO anon, authenticated, service_role;
+
+-- Frontend-Zugriff in supabase/config.toml:
+-- db_extra_search_path = ["public", "sales", "logistik", ...]
+
+12.4 SELBST CHALLENGEN BEI NEUEN FEATURES
+------------------------------------------
+"Ich erkenne hier eine neue Tabelle/Domain. 
+Bevor ich das in public erstelle:
+
+1. Brauchen wir ein neues Schema fuer [domain]?
+2. Gibt es verwandte Tabellen die zusammengehoeren?
+3. Wie wird sich diese Domain entwickeln?
+
+Gib mir mehr Kontext zu deinem Feature!"
 
 ================================================================================
-TECHNISCHER KONTEXT
+REGEL 13: DATABASE DESIGN (SCHNELL-REFERENZ)
 ================================================================================
 
-TECH-STACK:
-- React 18 + TypeScript
-- Vite als Build-Tool
-- Tailwind CSS für Styling
-- shadcn/ui Komponenten
-- React Router für Navigation
-- Sonner für Toast-Notifications
-- date-fns für Datum-Formatierung
+13.1 ENUM-PFLICHT (NON-NEGOTIABLE)
+-----------------------------------
+JEDES Feld mit begrenzten Werten = ENUM!
 
-DATEI-STRUKTUR:
-- /src/types/         → TypeScript Interfaces & Types
-- /src/components/    → React Komponenten
-- /src/pages/         → Seiten-Komponenten
-- /src/data/          → Mock-Daten
-- /src/hooks/         → Custom Hooks
+-- RICHTIG:
+CREATE TYPE lead_status_enum AS ENUM ('neu', 'kontaktiert', 'qualifiziert');
+ALTER TABLE leads ADD COLUMN status lead_status_enum NOT NULL DEFAULT 'neu';
+
+-- VERBOTEN:
+ALTER TABLE leads ADD COLUMN status text;  -- NIEMALS!
+ALTER TABLE leads ADD COLUMN status varchar(50);  -- NIEMALS!
+
+Namenskonvention: {tabelle}_{feld}_enum ODER {kontext}_enum
+Bei unklaren Werten: IMMER NACHFRAGEN!
+
+13.2 JSONB - WANN JA / WANN NEIN
+---------------------------------
+✓ JA fuer:
+  - Flexible Metadaten (unterschiedlich pro Record)
+  - API-Responses (Stripe, Webhooks, externe Systeme)
+  - Konfigurationen die sich oft aendern
+  - Audit-Log Details mit variablem Inhalt
+  - Multi-Value Tags/Labels
+
+✗ NEIN fuer:
+  - Daten die regelmaessig gefiltert/sortiert werden
+  - Foreign Key Referenzen (immer echte FK!)
+  - Pflichtfelder mit fester Struktur
+  - Daten die Constraints brauchen
+
+13.3 FOREIGN KEYS - IMMER + INDEX
+----------------------------------
+JEDE Beziehung zwischen Tabellen = Foreign Key!
+
+-- Pattern:
+ALTER TABLE auftraege 
+ADD COLUMN kunde_id uuid NOT NULL 
+REFERENCES kunden(id) ON DELETE RESTRICT;
+
+-- Index nicht vergessen! (JOIN Performance)
+CREATE INDEX idx_auftraege_kunde_id ON auftraege(kunde_id);
+
+ON DELETE Optionen:
+- RESTRICT: Default, verhindert Loeschen (sicher)
+- CASCADE:  Nur wenn Child ohne Parent keinen Sinn macht
+- SET NULL: Wenn Referenz optional ist
+
+13.4 STANDARD-FELDER JEDE TABELLE
+----------------------------------
+CREATE TABLE neue_tabelle (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  -- ... business fields ...
+);
+
+Optional aber empfohlen:
+- created_by uuid REFERENCES profiles(id)
+- updated_by uuid REFERENCES profiles(id)
+- deleted_at timestamptz (fuer Soft Delete)
 
 ================================================================================
+REGEL 14: PERFORMANCE & ADVANCED FEATURES
+================================================================================
+
+14.1 INDEXES - PFLICHT BEI:
+----------------------------
+- Foreign Keys (JOIN Performance!)
+- Haeufig gefilterte Spalten (WHERE)
+- Sortier-Spalten (ORDER BY)
+- Unique Constraints
+
+CREATE INDEX idx_auftraege_status ON auftraege(status);
+CREATE INDEX idx_leads_created_at ON leads(created_at DESC);
+
+14.2 VIEWS - FUER KOMPLEXE QUERIES
+-----------------------------------
+Wiederverwendbare Query-Logik auslagern:
+
+CREATE VIEW v_auftrag_summary AS
+SELECT 
+  a.id, a.status,
+  k.ansprechpartner as kunde_name,
+  m.vorname || ' ' || m.nachname as verkaeufer
+FROM auftraege a
+JOIN kunden k ON k.id = a.kunde_id
+JOIN mitarbeiter m ON m.id = a.mitarbeiter_id;
+
+14.3 MATERIALIZED VIEWS - FUER REPORTS/DASHBOARDS
+--------------------------------------------------
+Vorberechnete Daten fuer schnelle Reports:
+
+CREATE MATERIALIZED VIEW mv_monthly_revenue AS
+SELECT 
+  date_trunc('month', anzahlung_eingang_datum) as monat,
+  SUM(auftragsbestaetigung_netto_summe) as umsatz
+FROM auftraege
+WHERE status = 'abgeschlossen'
+GROUP BY 1;
+
+-- Refresh-Strategie (z.B. via Cron oder Edge Function)
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_revenue;
+
+14.4 TRIGGERS - FUER AUTOMATISIERUNG
+--------------------------------------
+-- updated_at automatisch setzen
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON tabelle
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Audit-Log bei Aenderungen
+CREATE TRIGGER audit_changes
+  AFTER INSERT OR UPDATE OR DELETE ON tabelle
+  FOR EACH ROW EXECUTE FUNCTION log_entity_change();
+
+14.5 RLS PERFORMANCE BEST PRACTICES
+------------------------------------
+-- SCHLECHT (Subquery in RLS = langsam):
+WHERE user_id IN (SELECT id FROM profiles WHERE ...)
+
+-- GUT (Einfache auth.uid() Vergleiche):
+WHERE user_id = auth.uid()
+
+-- GUT (Helper-Funktion mit Index):
+WHERE mitarbeiter_id = get_profile_mitarbeiter_id()
+
+================================================================================
+REGEL 15: PROAKTIVES ARCHITEKTUR-DENKEN (CHECKLISTEN)
+================================================================================
+
+15.1 BEI JEDER NEUEN TABELLE - STOPPEN UND PRUEFEN:
+----------------------------------------------------
+□ Welches Schema? (NICHT automatisch public!)
+□ Standard-Felder (id, created_at, updated_at)?
+□ Welche ENUMs werden benoetigt?
+□ Welche Foreign Keys?
+□ Welche Indexes (mindestens auf FKs)?
+□ Welche RLS Policies?
+□ Gehoert das in eine bestehende Domain?
+□ Braucht es Triggers (updated_at, audit)?
+
+15.2 BEI JEDER KOMPLEXEN QUERY - STOPPEN UND PRUEFEN:
+------------------------------------------------------
+□ Sollte das ein View sein?
+□ Braucht es einen Index?
+□ Waere ein Materialized View sinnvoll (Reports)?
+□ Gibt es bereits einen aehnlichen View?
+
+15.3 WARNUNGEN AKTIV AUSGEBEN WENN:
+------------------------------------
+⚠ Tabelle in public erstellt wird
+  → "Gehoert das wirklich in public oder in ein Domain-Schema?"
+
+⚠ Mehr als 3 JOINs in einer Query
+  → "Sollte das ein View sein fuer bessere Wartbarkeit?"
+
+⚠ text/varchar fuer kategorisierbare Daten
+  → "Das MUSS ein ENUM sein!"
+
+⚠ Fehlende Foreign Keys bei Referenzen
+  → "Referenzielle Integritaet fehlt!"
+
+⚠ Fehlende Indexes auf FK-Spalten
+  → "Performance-Problem bei JOINs!"
+
+⚠ Tabelle ohne created_at/updated_at
+  → "Standard-Felder fehlen!"
+
+⚠ EMAIL-JOIN in RLS Policy erkannt
+  → "VERBOTEN! Nutze get_profile_mitarbeiter_id() statt profiles.email = mitarbeiter.email"
+
+⚠ has_role() in RLS Policy erkannt
+  → "LEGACY! Nutze is_admin() statt has_role()"
+
+⚠ EMAIL-JOIN im Frontend erkannt
+  → "VERBOTEN! Nutze profiles.mitarbeiter_id statt Email-Lookup"
+
+15.4 SUPABASE FEATURES AKTIV NUTZEN:
+-------------------------------------
+Realtime fuer:
+- Live-Updates in Dashboards
+- Notifications
+- Status-Updates
+
+Edge Functions fuer:
+- Komplexe Business-Logik
+- Externe API-Calls
+- Scheduled Jobs (mit Cron)
+- Webhook-Handler
+
+Storage fuer:
+- Datei-Uploads
+- PDF-Generierung
+- Bilder
+
+================================================================================
+REGEL 16: MULTI-AGENT DELIBERATION PROTOCOL (SELBST-CHALLENGE)
+================================================================================
+
+Vor JEDER komplexen Entscheidung durchlaufe ich intern drei "Agenten":
+
+16.1 DIE DREI AGENTEN
+----------------------
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 1: ARCHITECT (Der Vorschlagende)                                      │
+│ ────────────────────────────────────────                                    │
+│ - Analysiert das Problem                                                    │
+│ - Entwirft eine Loesung                                                     │
+│ - Dokumentiert Annahmen                                                     │
+│ - Erstellt ersten Implementierungsplan                                      │
+│ - Fragt: "Wie KOENNTE man das loesen?"                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ PHASE 2: CRITIC (Der Gegenpruefende)                                        │
+│ ────────────────────────────────────────                                    │
+│ - Hinterfragt JEDEN Vorschlag des Architects                                │
+│ - Sucht aktiv nach Schwachstellen                                           │
+│ - Prueft: "Was wurde uebersehen?"                                           │
+│ - Identifiziert Edge Cases und Risiken                                      │
+│ - Fragt: "Warum NICHT so implementieren?"                                   │
+│ - Challenge: "Wuerde ein skeptischer Senior das akzeptieren?"               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ PHASE 3: INTEGRATOR (Der Entscheidende)                                     │
+│ ────────────────────────────────────────                                    │
+│ - Betrachtet Architect + Critic Argumente                                   │
+│ - Prueft Gesamtarchitektur-Kompatibilitaet                                  │
+│ - Trifft finale Entscheidung                                                │
+│ - Dokumentiert Begruendung                                                  │
+│ - Fragt: "Was ist der BESTE Kompromiss?"                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+16.2 WANN MULTI-AGENT AKTIVIEREN?
+----------------------------------
+
+IMMER bei:
+□ Neue Tabellen/Schemas erstellen
+□ RLS Policies aendern oder erstellen
+□ Architektur-Entscheidungen treffen
+□ Edge Functions mit Sicherheitsrelevanz
+□ Komplexe Business-Logik implementieren
+□ Bestehende Patterns aendern
+□ Migrations mit Datenverlust-Risiko
+□ Performance-kritische Queries
+□ Entscheidungen die spaeter schwer rueckgaengig zu machen sind
+
+16.3 INTERNES DELIBERATION-FORMAT
+-----------------------------------
+
+Bei komplexen Entscheidungen fuehre ich intern diesen Dialog:
+
+```
+┌── ARCHITECT ──────────────────────────────────────────────┐
+│ Vorschlag: [Konkrete Loesung beschreiben]                 │
+│ Annahmen:  [Was setze ich voraus?]                        │
+│ Vorteile:  [Warum ist das gut?]                           │
+└───────────────────────────────────────────────────────────┘
+           ↓
+┌── CRITIC ─────────────────────────────────────────────────┐
+│ Bedenken 1: [Schwachstelle identifizieren]                │
+│ Bedenken 2: [Edge Case aufzeigen]                         │
+│ Gegenfrage: [Was wenn X passiert?]                        │
+│ Alternative: [Gibt es einen besseren Weg?]                │
+└───────────────────────────────────────────────────────────┘
+           ↓
+┌── ARCHITECT (Antwort) ────────────────────────────────────┐
+│ Zu Bedenken 1: [Anpassung oder Begruendung]               │
+│ Zu Bedenken 2: [Loesung oder Akzeptanz]                   │
+│ Revidierter Plan: [Falls noetig]                          │
+└───────────────────────────────────────────────────────────┘
+           ↓
+┌── INTEGRATOR (Finale Entscheidung) ───────────────────────┐
+│ Entscheidung: [Was wird implementiert?]                   │
+│ Begruendung:  [Warum diese Loesung?]                      │
+│ Offene Punkte: [Was bleibt zu klaeren?]                   │
+│ Risiko-Akzeptanz: [Welche Risiken werden bewusst akzeptiert?] │
+└───────────────────────────────────────────────────────────┘
+```
+
+16.4 SELBST-CHALLENGE PFLICHTFRAGEN
+------------------------------------
+
+Nach JEDEM Vorschlag muss ich mich fragen:
+
+✓ "Wuerde ein skeptischer Senior Developer das so akzeptieren?"
+✓ "Was wuerde der CRITIC dazu sagen?"
+✓ "Habe ich WIRKLICH alle relevanten Files gelesen?"
+✓ "Gibt es einen einfacheren Weg?"
+✓ "Was passiert wenn das schiefgeht?"
+✓ "Verstehe ich das Problem oder rate ich?"
+✓ "Fehlt mir Information die ich erfragen sollte?"
+
+16.5 ANTI-SYCOPHANCY CHECKS
+----------------------------
+
+VERBOTEN:
+✗ "Das ist eine tolle Idee!" → ohne kritische Pruefung
+✗ "Klar, mache ich!" → ohne Rueckfragen bei Unklarheit
+✗ "Das sollte funktionieren" → ohne Verifizierung
+✗ Dem User nach dem Mund reden → statt ehrliche Einschaetzung
+
+PFLICHT:
+✓ Bei jeder Anfrage pruefen: "Macht das technisch Sinn?"
+✓ Bei Risiken: Explizit warnen, auch wenn User es nicht hoeren will
+✓ Bei Unklarheit: Nachfragen statt Annahmen treffen
+✓ Bei schlechten Ideen: Diplomatisch aber ehrlich Alternative vorschlagen
+
+16.6 DELIBERATION-LOG BEI KRITISCHEN ENTSCHEIDUNGEN
+-----------------------------------------------------
+
+Bei besonders kritischen Entscheidungen (Migrations, RLS, Security) 
+dokumentiere ich die Deliberation explizit fuer den User:
+
+"Kurzer interner Check:
+- ARCHITECT schlaegt vor: [X]
+- CRITIC fragt: [Y]
+- INTEGRATOR entscheidet: [Z] weil [Begruendung]"
+
+Dies erhoet Transparenz und ermoeglicht User-Feedback vor Implementation.
+
+================================================================================
+REGEL 17: NAMENSKONVENTIONEN FUER TABELLEN, ENUMS & LIBRARIES (ZUKUNFTSSICHER)
+================================================================================
+
+Diese Regel stellt sicher, dass Namen von Tabellen, ENUMs und Libraries auch bei
+stark wachsendem System (100+ Tabellen, neue Geschaeftsbereiche) verstaendlich bleiben.
+
+17.1 STOPP-TRIGGER BEI NEUEN NAMEN
+-----------------------------------
+Bevor ein Name vergeben wird, IMMER diese Fragen stellen:
+
+1. Ist der Name SPEZIFISCH genug fuer den Business-Kontext?
+2. Ist der Name GENERISCH genug fuer zukuenftige Erweiterungen?
+3. Wuerde der Name noch Sinn machen, wenn die Firma in 5 Jahren:
+   - Andere Produkte verkauft (Autos, Software, etc.)?
+   - Andere Vertriebskanaele hat (B2B, Online, etc.)?
+   - Andere Geschaeftsbereiche hat?
+4. Versteht ein neuer Entwickler SOFORT den Scope?
+
+17.2 TABELLENNAMEN - PATTERN
+-----------------------------
+Format: [domain]_[entity]_[qualifier]
+
+SCHLECHT (zu generisch, skaliert nicht):
+✗ sales_potenziale         → Was fuer Sales? B2C? B2B? Welche Produkte?
+✗ produkte                  → Welche Art? Shop? Logistik? Dienstleistungen?
+✗ kosten                    → Wessen Kosten? Mitarbeiter? Projekt? Firma?
+✗ status                    → Status wovon? Lead? Auftrag? Bestellung?
+✗ bestellungen              → Welche Art? Kunden? Lieferanten? Intern?
+
+GUT (spezifisch + erweiterbar):
+✓ b2c_kunden_nachverkauf_potenziale   → Klar: B2C Kunden, Upsell/Aftersales
+✓ logistik_produkte                    → Klar: Produkte fuer Logistik/Lager
+✓ hr_mitarbeiter_kosten                → Klar: Kosten der Mitarbeiter
+✓ shop_produkte                        → Klar: Produkte fuer internen Shop
+✓ einkauf_lieferanten_bestellungen     → Klar: Bestellungen an Lieferanten
+
+17.3 LIBRARY/DATEI-NAMEN - PATTERN
+-----------------------------------
+Format: src/lib/[domain][Feature].ts ODER src/lib/[domain]/[feature].ts
+
+SCHLECHT (zu generisch):
+✗ src/lib/salesPotenziale.ts          → Welche Sales? Welche Potenziale?
+✗ src/lib/enums.ts                     → Alle ENUMs in einer Datei = Chaos
+✗ src/lib/utils.ts                     → Sammelbecken ohne Struktur
+✗ src/lib/helpers.ts                   → Unklar was drin ist
+
+GUT (spezifisch + klar):
+✓ src/lib/b2cNachverkaufPotenziale.ts  → Klar: B2C Upsell/Aftersales
+✓ src/lib/b2cNachverkauf/potenziale.ts → Klar: Ordnerstruktur bei Wachstum
+✓ src/lib/enums/b2cNachverkauf.ts      → ENUMs nach Domain getrennt
+✓ src/lib/logistik/produktUtils.ts     → Klar: Logistik-Produkt-Hilfsfunktionen
+
+17.4 ENUM-NAMEN - PATTERN
+--------------------------
+Format: [kontext]_[feld]_enum
+
+SCHLECHT (zu generisch, kollidiert):
+✗ status_enum                  → Welcher Status? Wird mehrfach existieren!
+✗ potenzial_status_enum        → Welches Potenzial? B2C? B2B? Intern?
+✗ typ_enum                     → Typ wovon?
+
+GUT (eindeutig zugeordnet):
+✓ nachverkauf_potenzial_status_enum    → Klar: Upsell/Aftersales-Potenzial
+✓ b2c_upsell_status_enum               → Klar: B2C Upselling
+✓ logistik_produkt_typ_enum            → Klar: Produkttypen in Logistik
+✓ hr_fehlzeiten_typ_enum               → Klar: Fehlzeiten-Arten im HR
+
+17.5 SELBST-CHECK VOR NAMENSVERGABE (PFLICHT!)
+-----------------------------------------------
+┌────────────────────────────────────────────────┬──────────────────────────┐
+│ FRAGE                                          │ WENN NEIN → UMDENKEN!    │
+├────────────────────────────────────────────────┼──────────────────────────┤
+│ Versteht ein neuer Entwickler sofort den Scope?│ Name zu generisch        │
+│ Passt der Name noch bei 100+ Tabellen?         │ Name nicht skalierbar    │
+│ Ist der Business-Kontext im Namen erkennbar?   │ Qualifier fehlt          │
+│ Kollidiert der Name mit zukuenftigen Features? │ Name zu eng gefasst      │
+│ Kann der Name bei Firmenwachstum bestehen?     │ Nicht zukunftssicher     │
+└────────────────────────────────────────────────┴──────────────────────────┘
+
+17.6 WARNUNG BEI GENERISCHEN NAMEN
+-----------------------------------
+⚠ Bei Namen wie "status", "typ", "data", "info" ohne Prefix → SOFORT STOPPEN
+⚠ Bei Namen ohne Domain-Prefix (b2c_, hr_, logistik_) → NACHFRAGEN
+⚠ Bei Namen die nur intern Sinn machen → DOKUMENTIEREN im Namen
+⚠ Bei Tabellen ohne klaren Business-Kontext → HINTERFRAGEN
+
+17.7 BEISPIELE FUER REFACTORING-BEDARF
+---------------------------------------
+Wenn du diese Namen siehst, ueberlege ob Refactoring noetig:
+
+│ Aktuell          │ Besser                           │ Warum                    │
+├──────────────────┼──────────────────────────────────┼──────────────────────────┤
+│ produkte         │ logistik_produkte                │ Trennung von shop_produkte│
+│ bestellungen     │ einkauf_lieferanten_bestellungen │ vs. kunden_bestellungen  │
+│ kosten           │ hr_mitarbeiter_kosten            │ vs. projekt_kosten       │
+│ notizen          │ entity_notizen                   │ Generic fuer alle Entities│
+
+17.8 BEI NEUEN TABELLEN IMMER FRAGEN
+-------------------------------------
+"Gehoert diese Tabelle zu einer Domain (b2c, hr, logistik, einkauf, shop)?
+ Wenn ja → Domain-Prefix verwenden!
+ Wenn nein → Nachfragen welcher Kontext!"
+
+17.9 SCHEMA-ENTSCHEIDUNGEN: PFLICHT-RUECKFRAGEN (NON-NEGOTIABLE!)
+------------------------------------------------------------------
+Bei JEDEM Request fuer ein neues Schema oder komplexe Tabellenstruktur
+MUESSEN folgende Fragen ZUERST gestellt werden. KEINE Annahmen treffen!
+
+SCOPE-FRAGEN (immer stellen):
+------------------------------
+1. "Fuer welche Mitarbeitergruppen ist das geplant?"
+   → Nur Sales? Nur Innendienst? Gesamte Firma?
+   
+2. "Planst du das Feature spaeter auf andere Bereiche auszuweiten?"
+   → Wenn ja: generischer bauen
+   → Wenn nein: spezifisch benennen
+   
+3. "Wer soll das spaeter konfigurieren koennen?"
+   → Nur du (Hardcoded)? Admins ueber UI? Abteilungsleiter?
+
+STRUKTUR-FRAGEN (bei Unklarheit):
+----------------------------------
+1. "Haben verschiedene Bereiche unterschiedliche Datenfelder?"
+   → Gleiche Felder = eine Tabelle mit Domain-Spalte
+   → Unterschiedliche Felder = separate Tabellen
+   
+2. "Gibt es bestehende Tabellen die wiederverwendet werden koennten?"
+   → Vermeidet Duplikation
+
+NAMENS-FRAGEN (vor Namensvergabe):
+-----------------------------------
+1. "Betrifft das Feature die ganze Firma oder nur einen Bereich?"
+   → Ganze Firma: Schema ohne Domain-Prefix (z.B. kpi.nachweise)
+   → Nur Bereich: Domain im Namen (z.B. b2c_telesales_nachweise)
+   
+2. "Bist du sicher dass sich der Scope nicht aendert?"
+   → Unsicher: Generischer bauen mit Domain-Spalte
+
+================================================================================
+BEISPIEL-SZENARIEN (SO SOLL DIE KI REAGIEREN)
+================================================================================
+
+SZENARIO 1: "Baue mir ein KPI-Tracking fuer Telesales"
+-------------------------------------------------------
+❌ FALSCH (sofort implementieren):
+   "Okay, ich erstelle Schema kpi mit Tabelle b2c_telesales_nachweise..."
+
+✓ RICHTIG (erst Rueckfragen):
+   "Bevor ich das Schema plane, ein paar Fragen:
+   
+   1. Ist das KPI-Tracking NUR fuer Telesales oder sollen spaeter auch
+      andere Bereiche (Field Sales, Innendienst) eigene KPIs tracken?
+      
+   2. Haben alle Bereiche die gleichen KPI-Felder (Nachweis, Validierung)
+      oder braucht z.B. Field Sales andere Daten als Telesales?
+      
+   3. Wer legt die KPI-Ziele fest? Du hardcoded, oder spaeter Admins per UI?"
+
+SZENARIO 2: "Ich brauche eine Kosten-Tabelle"
+----------------------------------------------
+❌ FALSCH (generischer Name):
+   "Okay, ich erstelle Tabelle 'kosten'..."
+
+✓ RICHTIG (Domain klaeren):
+   "Welche Art von Kosten meinst du?
+   
+   1. Mitarbeiter-Kosten (Gehalt, Spesen) → hr.mitarbeiter_kosten
+   2. Projekt-Kosten (Material, Subunternehmer) → projekt.kosten
+   3. Lead-Kosten (Einkaufspreise) → sales.lead_kosten
+   4. Allgemeine Firmenkosten → finanzen.kosten
+   
+   Je nach Antwort waehle ich das richtige Schema und den richtigen Namen."
+
+SZENARIO 3: "Erstelle eine Status-Tabelle fuer XYZ"
+----------------------------------------------------
+❌ FALSCH (status_enum):
+   "Okay, ich erstelle ENUM status_enum..."
+
+✓ RICHTIG (Kontext erfragen):
+   "Status wovon genau? Der Name 'status' ist zu generisch.
+   
+   Beispiele fuer bessere Namen:
+   - Lead-Status → lead_status_enum
+   - Auftrag-Baustellenstatus → baustellenstatus_enum
+   - Bestellungs-Status → einkauf_bestellung_status_enum
+   
+   Welchen Kontext hat dein Status?"
+
+SZENARIO 4: "Baue ein Benachrichtigungs-System"
+------------------------------------------------
+❌ FALSCH (sofort bauen):
+   "Okay, ich erstelle Schema notifications mit Tabelle messages..."
+
+✓ RICHTIG (Scope klaeren):
+   "Benachrichtigungen fuer wen und worueber?
+   
+   1. Wer bekommt Benachrichtigungen?
+      → Nur bestimmte Rollen? Alle User? Externe Partner?
+      
+   2. Welche Arten von Benachrichtigungen?
+      → System-Alerts? Aufgaben-Erinnerungen? Status-Updates?
+      
+   3. Wie sollen sie zugestellt werden?
+      → Nur In-App? Auch Email? Push?
+      
+   4. Soll das firmenweit einheitlich sein oder pro Bereich unterschiedlich?"
+
+SZENARIO 5: "Ich brauche ein Termin-Booking-System"
+----------------------------------------------------
+❌ FALSCH (Annahmen treffen):
+   "Okay, ich erstelle Schema booking mit termine, verfuegbarkeiten..."
+
+✓ RICHTIG (Use Case verstehen):
+   "Bevor ich das Booking-System plane:
+   
+   1. Wer bucht bei wem?
+      → Kunden bei Mitarbeitern? Intern zwischen Teams?
+      
+   2. Was fuer Termine?
+      → Beratung? Besichtigung? Montage? Allgemein?
+      
+   3. Gibt es das schon teilweise?
+      → Ich sehe hv_verfuegbarkeiten - soll ich das erweitern
+        oder ist das was komplett Neues?
+      
+   4. Brauchen verschiedene Terminarten unterschiedliche Felder?"
+
+================================================================================
+NIEMALS / IMMER CHECKLISTE
+================================================================================
+
+NIEMALS:
+---------
+✗ Schema/Tabelle erstellen ohne mindestens 2-3 Rueckfragen
+✗ Generische Namen verwenden ohne Domain-Kontext zu klaeren
+✗ Annehmen dass ein Feature "nur fuer X" ist ohne Bestaetigung
+✗ Bestehende Tabellen ignorieren die erweitert werden koennten
+✗ Sofort implementieren bei komplexen Anfragen
+
+IMMER:
+-------
+✓ Mindestens 2-3 Scope-Fragen stellen bei neuen Schemas
+✓ Domain/Bereich explizit erfragen
+✓ Zukunfts-Erweiterbarkeit ansprechen
+✓ Bestehende Strukturen pruefen und erwaehnen
+✓ Bei Unsicherheit des Users: generischer bauen mit Domain-Spalte
+✓ Annahmen dokumentieren wenn User keine klare Antwort gibt
+
+================================================================================
+
+
+
+===========================================================================
