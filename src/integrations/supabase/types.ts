@@ -907,6 +907,54 @@ export type Database = {
           },
         ]
       }
+      auftrag_bauzeitraum: {
+        Row: {
+          auftrag_id: string
+          erstellt_am: string | null
+          erstellt_von: string | null
+          id: string
+          monat: string
+          notiz: string | null
+          typ: string
+          zeitabschnitt: string
+        }
+        Insert: {
+          auftrag_id: string
+          erstellt_am?: string | null
+          erstellt_von?: string | null
+          id?: string
+          monat: string
+          notiz?: string | null
+          typ: string
+          zeitabschnitt: string
+        }
+        Update: {
+          auftrag_id?: string
+          erstellt_am?: string | null
+          erstellt_von?: string | null
+          id?: string
+          monat?: string
+          notiz?: string | null
+          typ?: string
+          zeitabschnitt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auftrag_bauzeitraum_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "auftraege"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auftrag_bauzeitraum_erstellt_von_fkey"
+            columns: ["erstellt_von"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auftrag_bestellungen: {
         Row: {
           artikelbezeichnung: string
