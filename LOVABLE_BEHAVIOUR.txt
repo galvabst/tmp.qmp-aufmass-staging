@@ -1,0 +1,138 @@
+================================================================================
+LOVABLE AI BEHAVIOUR GUIDELINES - FEINAUFMASS TECHNIKER APP
+================================================================================
+
+PROJEKT-UEBERSICHT
+================================================================================
+- App-Typ: Mobile-First Web-App für selbstständige Feinaufmaß-Techniker
+- Zielgruppe: Techniker die Aufträge von Herstellern/Händlern annehmen
+- Hauptfunktion: Aufträge empfangen, annehmen/ablehnen, als erledigt markieren
+- Sprache: Deutsch (alle UI-Texte)
+
+================================================================================
+DATENMODELL & ENUMS
+================================================================================
+
+ORDER STATUS (Pflicht-ENUM):
+- new       → Neuer Auftrag, noch nicht bearbeitet
+- accepted  → Techniker hat Auftrag angenommen
+- completed → Auftrag wurde erledigt
+- rejected  → Techniker hat Auftrag abgelehnt
+
+PROJECT TYPE (Pflicht-ENUM):
+- Küche
+- Schrank
+- Bad
+- Garderobe
+- Wohnzimmer
+- Sonstiges
+
+REGEL: Status-Felder IMMER als TypeScript Union Types oder Supabase ENUMs.
+       NIEMALS als freier String/varchar.
+
+================================================================================
+BUSINESS-LOGIK REGELN
+================================================================================
+
+AUFTRAGS-WORKFLOW:
+1. Neue Aufträge erscheinen im "Aufträge"-Tab mit Status "new"
+2. Techniker kann Auftrag ANNEHMEN → Status wird "accepted"
+3. Techniker kann Auftrag ABLEHNEN → Status wird "rejected"
+4. Nur angenommene Aufträge können als ERLEDIGT markiert werden → "completed"
+5. Abgelehnte und erledigte Aufträge erscheinen im "Erledigt"-Tab
+
+STATUS-UEBERGAENGE (erlaubt):
+- new → accepted
+- new → rejected
+- accepted → completed
+- VERBOTEN: completed → any, rejected → any
+
+================================================================================
+UI/UX PRINZIPIEN
+================================================================================
+
+MOBILE-FIRST:
+- Optimiert für Smartphone-Nutzung
+- Touch-freundliche Buttons (min. 44px)
+- Bottom Navigation für Haupt-Tabs
+- Keine Hover-States als einzige Interaktion
+
+BOTTOM NAVIGATION (3 Tabs):
+1. Aufträge - Neue und angenommene Aufträge
+2. Erledigt - Abgeschlossene und abgelehnte Aufträge
+3. Profil - Techniker-Einstellungen
+
+STATUS-FARBEN (einheitlich):
+- Neu (new):        Blau    → bg-blue-100, text-blue-700
+- Angenommen:       Orange  → bg-orange-100, text-orange-700
+- Erledigt:         Grün    → bg-green-100, text-green-700
+- Abgelehnt:        Rot     → bg-red-100, text-red-700
+
+================================================================================
+ANTI-VIBE-CODING REGELN
+================================================================================
+
+BEI JEDEM REQUEST:
+1. VERSTEHEN - Was will der User WIRKLICH?
+2. PRUEFEN - Schema, bestehender Code analysieren
+3. HINTERFRAGEN - Fehlt Info? → NACHFRAGEN statt annehmen
+4. PLANEN - Wie passt das in die bestehende Architektur?
+5. IMPLEMENTIEREN - Modular, fokussiert
+6. VERIFIZIEREN - Funktioniert es?
+
+VERBOTEN:
+- Annahmen bei unklaren Requirements treffen
+- Komplette Features ohne Plan implementieren
+- Business-Logik in UI-Komponenten
+- Hardcoded Status-Werte statt ENUMs/Types
+- Code ohne Error Handling
+- Änderungen an Funktionalität die nicht angefragt wurde
+
+IMMER:
+- Plan vor Implementation
+- Nachfragen bei Unklarheit
+- Modular und fokussiert entwickeln
+- Bestehende Patterns respektieren
+- Deutsche UI-Texte verwenden
+
+================================================================================
+GEPLANTE ERWEITERUNGEN (KONTEXT)
+================================================================================
+
+Phase 1 - MVP (aktuell):
+- Mock-Daten für Aufträge
+- Basis-UI mit 3 Tabs
+- Status-Änderungen lokal
+
+Phase 2 - Backend:
+- Supabase/Lovable Cloud Anbindung
+- Echte Auftragsdaten aus Datenbank
+- Techniker-Authentifizierung (Email/Passwort)
+
+Phase 3 - Features:
+- Push-Benachrichtigungen für neue Aufträge
+- Foto-Upload für Aufmaße
+- Kalender-Integration
+- Routen-Planung/Navigation
+
+================================================================================
+TECHNISCHER KONTEXT
+================================================================================
+
+TECH-STACK:
+- React 18 + TypeScript
+- Vite als Build-Tool
+- Tailwind CSS für Styling
+- shadcn/ui Komponenten
+- React Router für Navigation
+- Sonner für Toast-Notifications
+- date-fns für Datum-Formatierung
+
+DATEI-STRUKTUR:
+- /src/types/         → TypeScript Interfaces & Types
+- /src/components/    → React Komponenten
+- /src/pages/         → Seiten-Komponenten
+- /src/data/          → Mock-Daten
+- /src/hooks/         → Custom Hooks
+
+================================================================================
