@@ -1,6 +1,9 @@
-import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export function ProfileView() {
+  const navigate = useNavigate();
+  
   const menuItems = [
     { icon: User, label: 'Persönliche Daten', href: '#' },
     { icon: Settings, label: 'Einstellungen', href: '#' },
@@ -83,8 +86,19 @@ export function ProfileView() {
         </div>
       </section>
 
-      {/* Logout */}
+      {/* Admin Link */}
       <section className="p-4">
+        <button 
+          onClick={() => navigate('/admin')}
+          className="w-full flex items-center justify-center gap-2 p-4 bg-primary rounded-lg shadow-card text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+        >
+          <Shield className="w-5 h-5" />
+          Admin-Bereich
+        </button>
+      </section>
+
+      {/* Logout */}
+      <section className="p-4 pt-0">
         <button className="w-full flex items-center justify-center gap-2 p-4 bg-card rounded-lg shadow-card text-destructive font-medium hover:bg-destructive/5 transition-colors">
           <LogOut className="w-5 h-5" />
           Abmelden
