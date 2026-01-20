@@ -1,14 +1,22 @@
-import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { ObjectOrderStatusEnum, AuftragstypEnum, OBJECT_ORDER_STATUS_LABELS, AUFTRAGSTYP_LABELS } from '@/lib/enums';
+import {
+  AUFTRAGSTYP_LABELS,
+  OBJECT_ORDER_STATUS_LABELS,
+  ObjectOrderStatusEnum,
+  AuftragstypEnum,
+} from '@/lib/enums';
 
 // Fix for default marker icons in Leaflet with bundlers
+// (needs to run once at module load)
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconRetinaUrl:
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl:
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl:
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
 export interface OrderMapItem {
@@ -29,7 +37,6 @@ interface OrderMapProps {
   className?: string;
 }
 
-// Status to marker color mapping
 const statusColors: Record<ObjectOrderStatusEnum, string> = {
   draft: '#6b7280',
   published: '#3b82f6',
@@ -46,100 +53,111 @@ const statusColors: Record<ObjectOrderStatusEnum, string> = {
 function createColoredIcon(color: string) {
   return L.divIcon({
     className: 'custom-marker',
-    html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+    html: `
+      <div style="
+        background-color: ${color};
+        width: 24px;
+        height: 24px;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      "></div>
+    `,
     iconSize: [24, 24],
     iconAnchor: [12, 24],
     popupAnchor: [0, -24],
   });
 }
 
-// Simple popup content component to avoid React context issues
-function OrderPopupContent({ order, onOrderClick }: { order: OrderMapItem; onOrderClick?: (id: string) => void }) {
-  return (
-    <div style={{ minWidth: '180px', padding: '4px' }}>
-      <div style={{ fontWeight: 600, marginBottom: '4px' }}>{order.address}</div>
-      <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-        {order.postalCode} {order.city}
-      </div>
-      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
-        <span style={{ 
-          fontSize: '11px', 
-          padding: '2px 6px', 
-          borderRadius: '4px', 
-          backgroundColor: statusColors[order.status] || '#6b7280',
-          color: 'white'
-        }}>
-          {OBJECT_ORDER_STATUS_LABELS[order.status]}
+function buildPopupHtml(order: OrderMapItem) {
+  const statusColor = statusColors[order.status] || '#6b7280';
+
+  return `
+    <div style="min-width: 180px; padding: 4px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;">
+      <div style="font-weight: 600; margin-bottom: 4px; color: #111;">${order.address}</div>
+      <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${order.postalCode} ${order.city}</div>
+
+      <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
+        <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: ${statusColor}; color: white;">
+          ${OBJECT_ORDER_STATUS_LABELS[order.status]}
         </span>
-        <span style={{ 
-          fontSize: '11px', 
-          padding: '2px 6px', 
-          borderRadius: '4px', 
-          border: '1px solid #ddd',
-          backgroundColor: 'white'
-        }}>
-          {AUFTRAGSTYP_LABELS[order.type]}
+        <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #ddd; background: white; color: #111;">
+          ${AUFTRAGSTYP_LABELS[order.type]}
         </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee', paddingTop: '8px' }}>
-        <span style={{ fontWeight: 500 }}>€{order.amount.toFixed(2)}</span>
-        {onOrderClick && (
-          <button 
-            onClick={() => onOrderClick(order.id)}
-            style={{ 
-              fontSize: '12px', 
-              color: '#3b82f6', 
-              background: 'none', 
-              border: 'none', 
-              cursor: 'pointer',
-              textDecoration: 'underline'
-            }}
-          >
-            Details →
-          </button>
-        )}
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; padding-top: 8px;">
+        <span style="font-weight: 600; color: #111;">€${order.amount.toFixed(2)}</span>
+        <span style="font-size: 12px; color: #3b82f6; text-decoration: underline;">Marker klicken → Details</span>
       </div>
     </div>
-  );
+  `;
 }
 
 export function OrderMap({ orders, onOrderClick, className }: OrderMapProps) {
-  // Germany center coordinates
-  const germanyCenter: [number, number] = [51.1657, 10.4515];
-  const defaultZoom = 6;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.LayerGroup | null>(null);
 
-  if (orders.length === 0) {
-    return (
-      <div className={className} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
-        <p style={{ color: '#666' }}>Keine Aufträge auf der Karte</p>
-      </div>
-    );
-  }
+  // Init map once
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (mapRef.current) return; // React StrictMode guard
+
+    const germanyCenter: L.LatLngExpression = [51.1657, 10.4515];
+
+    const map = L.map(containerRef.current, {
+      center: germanyCenter,
+      zoom: 6,
+      zoomControl: true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    const markers = L.layerGroup().addTo(map);
+
+    mapRef.current = map;
+    markersRef.current = markers;
+
+    return () => {
+      markers.clearLayers();
+      map.remove();
+      mapRef.current = null;
+      markersRef.current = null;
+    };
+  }, []);
+
+  // Update markers when orders change
+  useEffect(() => {
+    const map = mapRef.current;
+    const markers = markersRef.current;
+    if (!map || !markers) return;
+
+    markers.clearLayers();
+
+    orders.forEach((order) => {
+      const marker = L.marker([order.lat, order.lng], {
+        icon: createColoredIcon(statusColors[order.status] || '#6b7280'),
+      });
+
+      marker.bindPopup(buildPopupHtml(order));
+
+      if (onOrderClick) {
+        marker.on('click', () => onOrderClick(order.id));
+      }
+
+      marker.addTo(markers);
+    });
+  }, [orders, onOrderClick]);
 
   return (
     <div className={className}>
-      <MapContainer
-        center={germanyCenter}
-        zoom={defaultZoom}
-        style={{ height: '100%', width: '100%', borderRadius: '8px' }}
-        scrollWheelZoom={true}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {orders.map((order) => (
-          <Marker
-            key={order.id}
-            position={[order.lat, order.lng]}
-            icon={createColoredIcon(statusColors[order.status] || '#6b7280')}
-          >
-            <Popup>
-              <OrderPopupContent order={order} onOrderClick={onOrderClick} />
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+      <div ref={containerRef} className="h-full w-full rounded-lg" />
     </div>
   );
 }
+
