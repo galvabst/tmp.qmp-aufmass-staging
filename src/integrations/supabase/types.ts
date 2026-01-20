@@ -616,6 +616,8 @@ export type Database = {
             | Database["public"]["Enums"]["retention_substatus_enum"]
             | null
           retention_wiedervorlage: string | null
+          schlussrechnung_bezahlt_datum: string | null
+          schlussrechnung_gestellt_datum: string | null
           status: Database["public"]["Enums"]["auftrag_status"]
           storno_datum: string | null
           subunternehmer_id: string | null
@@ -677,6 +679,8 @@ export type Database = {
             | Database["public"]["Enums"]["retention_substatus_enum"]
             | null
           retention_wiedervorlage?: string | null
+          schlussrechnung_bezahlt_datum?: string | null
+          schlussrechnung_gestellt_datum?: string | null
           status?: Database["public"]["Enums"]["auftrag_status"]
           storno_datum?: string | null
           subunternehmer_id?: string | null
@@ -738,6 +742,8 @@ export type Database = {
             | Database["public"]["Enums"]["retention_substatus_enum"]
             | null
           retention_wiedervorlage?: string | null
+          schlussrechnung_bezahlt_datum?: string | null
+          schlussrechnung_gestellt_datum?: string | null
           status?: Database["public"]["Enums"]["auftrag_status"]
           storno_datum?: string | null
           subunternehmer_id?: string | null
@@ -2211,6 +2217,53 @@ export type Database = {
             columns: ["original_lead_id"]
             isOneToOne: false
             referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kpi_schwellwerte: {
+        Row: {
+          beschreibung: string | null
+          created_at: string | null
+          einheit: string | null
+          gelb_bis: number | null
+          gruen_bis: number | null
+          id: string
+          kpi_code: string
+          name: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          created_at?: string | null
+          einheit?: string | null
+          gelb_bis?: number | null
+          gruen_bis?: number | null
+          id?: string
+          kpi_code: string
+          name: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          created_at?: string | null
+          einheit?: string | null
+          gelb_bis?: number | null
+          gruen_bis?: number | null
+          id?: string
+          kpi_code?: string
+          name?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_schwellwerte_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
