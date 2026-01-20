@@ -9793,6 +9793,7 @@ export type Database = {
         | "date_range"
         | "month"
         | "calculated"
+        | "credentials"
       storno_status_enum:
         | "Zu Stornieren"
         | "Stornierung beantragt"
@@ -10270,6 +10271,7 @@ export const Constants = {
         "date_range",
         "month",
         "calculated",
+        "credentials",
       ],
       storno_status_enum: [
         "Zu Stornieren",
