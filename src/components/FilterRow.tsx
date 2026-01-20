@@ -86,14 +86,14 @@ export function FilterRow({
         {/* Status Select */}
         {statusOptions && onStatusChange && (
           <Select
-            value={statusValue || ''}
-            onValueChange={(v) => onStatusChange(v || undefined)}
+            value={statusValue || '__all__'}
+            onValueChange={(v) => onStatusChange(v === '__all__' ? undefined : v)}
           >
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder={statusPlaceholder} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Alle</SelectItem>
+              <SelectItem value="__all__">Alle</SelectItem>
               {statusOptions.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
@@ -106,14 +106,14 @@ export function FilterRow({
         {/* Type Select */}
         {typeOptions && onTypeChange && (
           <Select
-            value={typeValue || ''}
-            onValueChange={(v) => onTypeChange(v || undefined)}
+            value={typeValue || '__all__'}
+            onValueChange={(v) => onTypeChange(v === '__all__' ? undefined : v)}
           >
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder={typePlaceholder} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Alle</SelectItem>
+              <SelectItem value="__all__">Alle</SelectItem>
               {typeOptions.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
