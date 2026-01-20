@@ -1,11 +1,7 @@
-import { useEffect } from 'react';
+import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { MapPin, Euro, ExternalLink } from 'lucide-react';
-import { OBJECT_ORDER_STATUS_CONFIG } from '@/lib/status-config';
-import { OBJECT_ORDER_STATUS_LABELS, AUFTRAGSTYP_LABELS, ObjectOrderStatusEnum, AuftragstypEnum } from '@/lib/enums';
+import { ObjectOrderStatusEnum, AuftragstypEnum, OBJECT_ORDER_STATUS_LABELS, AUFTRAGSTYP_LABELS } from '@/lib/enums';
 
 // Fix for default marker icons in Leaflet with bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -35,36 +31,76 @@ interface OrderMapProps {
 
 // Status to marker color mapping
 const statusColors: Record<ObjectOrderStatusEnum, string> = {
-  draft: '#6b7280',        // gray
-  published: '#3b82f6',    // blue (primary)
-  booked: '#6366f1',       // indigo
-  in_progress: '#f59e0b',  // amber
-  submitted: '#a855f7',    // purple
-  in_review: '#06b6d4',    // cyan
-  rework_required: '#f97316', // orange
-  approved: '#22c55e',     // green
-  rejected_ko: '#ef4444',  // red
-  cancelled: '#9ca3af',    // gray
+  draft: '#6b7280',
+  published: '#3b82f6',
+  booked: '#6366f1',
+  in_progress: '#f59e0b',
+  submitted: '#a855f7',
+  in_review: '#06b6d4',
+  rework_required: '#f97316',
+  approved: '#22c55e',
+  rejected_ko: '#ef4444',
+  cancelled: '#9ca3af',
 };
 
 function createColoredIcon(color: string) {
   return L.divIcon({
     className: 'custom-marker',
-    html: `
-      <div style="
-        background-color: ${color};
-        width: 24px;
-        height: 24px;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        border: 2px solid white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      "></div>
-    `,
+    html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
     iconSize: [24, 24],
     iconAnchor: [12, 24],
     popupAnchor: [0, -24],
   });
+}
+
+// Simple popup content component to avoid React context issues
+function OrderPopupContent({ order, onOrderClick }: { order: OrderMapItem; onOrderClick?: (id: string) => void }) {
+  return (
+    <div style={{ minWidth: '180px', padding: '4px' }}>
+      <div style={{ fontWeight: 600, marginBottom: '4px' }}>{order.address}</div>
+      <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+        {order.postalCode} {order.city}
+      </div>
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
+        <span style={{ 
+          fontSize: '11px', 
+          padding: '2px 6px', 
+          borderRadius: '4px', 
+          backgroundColor: statusColors[order.status] || '#6b7280',
+          color: 'white'
+        }}>
+          {OBJECT_ORDER_STATUS_LABELS[order.status]}
+        </span>
+        <span style={{ 
+          fontSize: '11px', 
+          padding: '2px 6px', 
+          borderRadius: '4px', 
+          border: '1px solid #ddd',
+          backgroundColor: 'white'
+        }}>
+          {AUFTRAGSTYP_LABELS[order.type]}
+        </span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee', paddingTop: '8px' }}>
+        <span style={{ fontWeight: 500 }}>€{order.amount.toFixed(2)}</span>
+        {onOrderClick && (
+          <button 
+            onClick={() => onOrderClick(order.id)}
+            style={{ 
+              fontSize: '12px', 
+              color: '#3b82f6', 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer',
+              textDecoration: 'underline'
+            }}
+          >
+            Details →
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function OrderMap({ orders, onOrderClick, className }: OrderMapProps) {
@@ -72,12 +108,20 @@ export function OrderMap({ orders, onOrderClick, className }: OrderMapProps) {
   const germanyCenter: [number, number] = [51.1657, 10.4515];
   const defaultZoom = 6;
 
+  if (orders.length === 0) {
+    return (
+      <div className={className} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
+        <p style={{ color: '#666' }}>Keine Aufträge auf der Karte</p>
+      </div>
+    );
+  }
+
   return (
     <div className={className}>
       <MapContainer
         center={germanyCenter}
         zoom={defaultZoom}
-        className="h-full w-full rounded-lg"
+        style={{ height: '100%', width: '100%', borderRadius: '8px' }}
         scrollWheelZoom={true}
       >
         <TileLayer
@@ -91,46 +135,7 @@ export function OrderMap({ orders, onOrderClick, className }: OrderMapProps) {
             icon={createColoredIcon(statusColors[order.status] || '#6b7280')}
           >
             <Popup>
-              <div className="min-w-[200px] p-1">
-                <div className="flex items-start gap-2 mb-2">
-                  <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-medium text-foreground">{order.address}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {order.postalCode} {order.city}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  <Badge 
-                    variant={OBJECT_ORDER_STATUS_CONFIG[order.status]?.variant || 'secondary'}
-                  >
-                    {OBJECT_ORDER_STATUS_LABELS[order.status]}
-                  </Badge>
-                  <Badge variant="outline">
-                    {AUFTRAGSTYP_LABELS[order.type]}
-                  </Badge>
-                </div>
-                
-                <div className="flex items-center justify-between pt-2 border-t border-border">
-                  <div className="flex items-center gap-1 text-sm font-medium">
-                    <Euro className="w-3.5 h-3.5" />
-                    {order.amount.toFixed(2)}
-                  </div>
-                  {onOrderClick && (
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => onOrderClick(order.id)}
-                    >
-                      Details
-                      <ExternalLink className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <OrderPopupContent order={order} onOrderClick={onOrderClick} />
             </Popup>
           </Marker>
         ))}
