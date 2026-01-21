@@ -1,16 +1,28 @@
-import { TechnicianOrder, TechnicianProfile, OnboardingProgress } from '@/types/technician';
+import { TechnicianOrder, TechnicianProfile, OnboardingProgress, QuartalKontingent, Certificate } from '@/types/technician';
 
 export const mockOnboardingProgress: OnboardingProgress = {
   isCompleted: false,
-  currentStep: 'picea_schulung',
-  progressPercent: 50,
+  currentStep: 'pflichtutensilien',
+  progressPercent: 40,
   steps: [
-    { id: 'dokumente', label: 'Dokumente hochladen', status: 'completed', completedAt: '2026-01-10' },
-    { id: 'picea_schulung', label: 'Picea-Schulung', status: 'in_progress' },
-    { id: 'sma_schulung', label: 'SMA-Schulung', status: 'pending' },
-    { id: 'zertifizierung', label: 'Zertifizierung', status: 'pending' },
+    { id: 'gewerbeschein', label: 'Gewerbeschein hochladen', status: 'completed', completedAt: '2026-01-10' },
+    { id: 'pflichtutensilien', label: 'Pflichtutensilien-Nachweise', status: 'in_progress' },
+    { id: 'drohne', label: 'Drohnen-Nachweis', status: 'pending' },
+    { id: 'kleidung', label: 'Arbeitskleidung bestellt', status: 'pending' },
+    { id: 'akademie_zertifikat', label: 'Akademie-Schulungszertifikat', status: 'pending' },
   ],
 };
+
+export const mockKontingent: QuartalKontingent = {
+  quartal: 'Q1/2026',
+  abgenommen: 12,
+  minimum: 24,
+};
+
+export const mockCertificates: Certificate[] = [
+  { type: 'thermocheck', name: 'Thermocheck-Zertifikat', completedAt: '2025-06-15' },
+  { type: 'pv', name: 'PV-Zertifikat', completedAt: '2025-07-20' },
+];
 
 export const mockTechnicianProfile: TechnicianProfile = {
   id: '1',
@@ -24,15 +36,13 @@ export const mockTechnicianProfile: TechnicianProfile = {
     acceptanceRate: 98,
     rating: 4.9,
   },
-  certificates: [
-    { name: 'Picea-Zertifikat', completedAt: '2024-01-15' },
-    { name: 'SMA-Zertifikat', completedAt: '2024-01-20' },
-  ],
+  certificates: mockCertificates,
   onboarding: mockOnboardingProgress,
+  kontingent: mockKontingent,
 };
 
 export const mockTechnicianOrders: TechnicianOrder[] = [
-  // Pool orders (published)
+  // Pool orders (published) - nur PLZ + Stadt sichtbar
   {
     id: '1',
     customerName: 'Familie Müller',
@@ -46,6 +56,7 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     auftragstyp: 'thermocheck',
     createdAt: '2026-01-20T08:30:00Z',
     contactPhone: '+49 151 12345678',
+    contactEmail: 'familie.mueller@email.de',
     lat: 48.1351,
     lng: 11.5820,
     billableAmount: 150,
@@ -63,6 +74,7 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     auftragstyp: 'pv',
     createdAt: '2026-01-19T14:20:00Z',
     contactPhone: '+49 172 98765432',
+    contactEmail: 'h.schmidt@email.de',
     lat: 48.1957,
     lng: 11.5543,
     billableAmount: 200,
@@ -80,11 +92,12 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     auftragstyp: 'einweisung',
     createdAt: '2026-01-18T10:00:00Z',
     contactPhone: '+49 160 11223344',
+    contactEmail: 'weber.m@email.de',
     lat: 48.4028,
     lng: 11.7489,
     billableAmount: 100,
   },
-  // Booked orders
+  // Booked orders - volle Details sichtbar
   {
     id: '4',
     customerName: 'Familie Bauer',
@@ -98,6 +111,7 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     auftragstyp: 'thermocheck',
     createdAt: '2026-01-17T09:15:00Z',
     contactPhone: '+49 176 55667788',
+    contactEmail: 'bauer.familie@email.de',
     lat: 48.2497,
     lng: 11.6510,
     billableAmount: 150,
@@ -115,6 +129,7 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     auftragstyp: 'pv',
     createdAt: '2026-01-15T11:45:00Z',
     contactPhone: '+49 152 44556677',
+    contactEmail: 'fischer.h@email.de',
     lat: 48.2603,
     lng: 11.4342,
     billableAmount: 200,
@@ -133,6 +148,7 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     auftragstyp: 'thermocheck',
     createdAt: '2026-01-18T09:00:00Z',
     contactPhone: '+49 171 22334455',
+    contactEmail: 'schneider@email.de',
     lat: 48.3668,
     lng: 10.8986,
     billableAmount: 175,
@@ -153,6 +169,7 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     auftragstyp: 'pv',
     createdAt: '2026-01-17T10:30:00Z',
     contactPhone: '+49 173 99887766',
+    contactEmail: 'huber.familie@email.de',
     lat: 48.7665,
     lng: 11.4258,
     billableAmount: 200,
@@ -174,6 +191,7 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     status: 'submitted',
     auftragstyp: 'thermocheck',
     createdAt: '2026-01-15T08:00:00Z',
+    contactEmail: 'braun.h@email.de',
     billableAmount: 150,
     vorOrtCheckinAt: '2026-01-18T09:55:00Z',
     vorOrtCheckoutAt: '2026-01-18T12:00:00Z',
@@ -193,6 +211,7 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     status: 'in_review',
     auftragstyp: 'einweisung',
     createdAt: '2026-01-14T10:00:00Z',
+    contactEmail: 'klein.f@email.de',
     billableAmount: 100,
     submittedAt: '2026-01-17T15:00:00Z',
   },
@@ -209,6 +228,7 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     status: 'approved',
     auftragstyp: 'pv',
     createdAt: '2026-01-10T09:00:00Z',
+    contactEmail: 'wagner@email.de',
     billableAmount: 200,
     submittedAt: '2026-01-15T16:00:00Z',
     approvedAt: '2026-01-16T10:00:00Z',

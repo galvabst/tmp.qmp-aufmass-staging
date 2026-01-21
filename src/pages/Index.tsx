@@ -7,7 +7,7 @@ import { ReviewView } from '@/components/ReviewView';
 import { ProfileView } from '@/components/ProfileView';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { TechnicianOrderDetail } from '@/components/TechnicianOrderDetail';
-import { mockTechnicianOrders, mockTechnicianProfile, mockOnboardingProgress } from '@/data/mockTechnicianData';
+import { mockTechnicianOrders, mockTechnicianProfile, mockOnboardingProgress, mockKontingent } from '@/data/mockTechnicianData';
 import { TechnicianOrder, CheckinPhase } from '@/types/technician';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
@@ -151,6 +151,8 @@ const Index = () => {
   // Show order detail if selected
   if (selectedOrder) {
     const currentOrder = orders.find(o => o.id === selectedOrder.id) || selectedOrder;
+    // Pool-Auftraege zeigen keine vollen Details
+    const showFullDetails = currentOrder.status !== 'published';
     return (
       <TechnicianOrderDetail
         order={currentOrder}
@@ -160,6 +162,7 @@ const Index = () => {
         onStartCheckin={(phase) => handleCheckin(currentOrder.id, phase)}
         onCheckout={(phase) => handleCheckout(currentOrder.id, phase)}
         onStartRework={() => handleStartRework(currentOrder.id)}
+        showFullDetails={showFullDetails}
       />
     );
   }

@@ -11,8 +11,24 @@ export const CHECKIN_PHASE_LABELS: Record<CheckinPhase, string> = {
 // Onboarding Step Status
 export type OnboardingStepStatus = 'pending' | 'in_progress' | 'completed';
 
+// Onboarding Step IDs - korrigierte Werte
+export type OnboardingStepId = 
+  | 'gewerbeschein'
+  | 'pflichtutensilien'
+  | 'drohne'
+  | 'kleidung'
+  | 'akademie_zertifikat';
+
+export const ONBOARDING_STEP_LABELS: Record<OnboardingStepId, string> = {
+  gewerbeschein: 'Gewerbeschein hochladen',
+  pflichtutensilien: 'Pflichtutensilien-Nachweise',
+  drohne: 'Drohnen-Nachweis',
+  kleidung: 'Arbeitskleidung bestellt',
+  akademie_zertifikat: 'Akademie-Schulungszertifikat',
+};
+
 export interface OnboardingStep {
-  id: string;
+  id: OnboardingStepId;
   label: string;
   status: OnboardingStepStatus;
   completedAt?: string;
@@ -20,9 +36,34 @@ export interface OnboardingStep {
 
 export interface OnboardingProgress {
   isCompleted: boolean;
-  currentStep: string;
+  currentStep: OnboardingStepId;
   steps: OnboardingStep[];
   progressPercent: number;
+}
+
+// Zertifikate - korrigierte Werte
+export type CertificateType = 
+  | 'thermocheck'
+  | 'pv'
+  | 'abnahmeprotokoll';
+
+export const CERTIFICATE_LABELS: Record<CertificateType, string> = {
+  thermocheck: 'Thermocheck-Zertifikat',
+  pv: 'PV-Zertifikat',
+  abnahmeprotokoll: 'Abnahmeprotokoll-Zertifikat',
+};
+
+export interface Certificate {
+  type: CertificateType;
+  name: string;
+  completedAt: string;
+}
+
+// Quartal-Kontingent
+export interface QuartalKontingent {
+  quartal: string;          // "Q1/2026"
+  abgenommen: number;       // aktuell abgenommene Auftraege
+  minimum: number;          // 24
 }
 
 // Extended Order for Technician View
@@ -40,6 +81,7 @@ export interface TechnicianOrder {
   createdAt: string;
   notes?: string;
   contactPhone?: string;
+  contactEmail?: string;
   lat?: number;
   lng?: number;
   // Check-in/out tracking
@@ -68,9 +110,7 @@ export interface TechnicianProfile {
     acceptanceRate: number;
     rating: number;
   };
-  certificates: {
-    name: string;
-    completedAt: string;
-  }[];
+  certificates: Certificate[];
   onboarding: OnboardingProgress;
+  kontingent: QuartalKontingent;
 }
