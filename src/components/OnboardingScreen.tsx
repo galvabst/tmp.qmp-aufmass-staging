@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Loader2, FileText, GraduationCap, Award } from 'lucide-react';
+import { CheckCircle2, Circle, Loader2, FileText, GraduationCap, Wrench, Plane, Shirt } from 'lucide-react';
 import { OnboardingProgress, OnboardingStepStatus } from '@/types/technician';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,11 @@ interface OnboardingScreenProps {
 }
 
 const stepIcons: Record<string, React.ElementType> = {
-  dokumente: FileText,
-  picea_schulung: GraduationCap,
-  sma_schulung: GraduationCap,
-  zertifizierung: Award,
+  gewerbeschein: FileText,
+  pflichtutensilien: Wrench,
+  drohne: Plane,
+  kleidung: Shirt,
+  akademie_zertifikat: GraduationCap,
 };
 
 function StepIcon({ status }: { status: OnboardingStepStatus }) {
