@@ -155,10 +155,10 @@ export function CoachingStep({
                           {' · '}{slot.uhrzeitVon} - {slot.uhrzeitBis} Uhr
                         </span>
                       </div>
-                      {slot.objektAdresse && (
+                      {(slot.objektPlz || slot.objektOrt) && (
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 flex-shrink-0" />
-                          <span className="truncate">{slot.objektAdresse}</span>
+                          <span className="truncate">{slot.objektPlz} {slot.objektOrt}</span>
                         </div>
                       )}
                       {slot.objektTyp && (

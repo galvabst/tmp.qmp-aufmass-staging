@@ -93,7 +93,9 @@ export interface CoachingSlot {
   datum: string;
   uhrzeitVon: string;
   uhrzeitBis: string;
-  objektAdresse?: string; // Adresse des Thermochecks
+  objektAdresse?: string; // Vollständige Adresse (nur nach Buchung sichtbar!)
+  objektPlz?: string; // PLZ (vor Buchung sichtbar)
+  objektOrt?: string; // Stadt (vor Buchung sichtbar)
   objektTyp?: string; // z.B. "Einfamilienhaus"
   ort: string;
   region: string;
