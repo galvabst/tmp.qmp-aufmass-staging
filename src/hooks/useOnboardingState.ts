@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { 
   OnboardingState, 
   OnboardingStepId, 
@@ -14,10 +14,33 @@ import {
   MOCK_AKADEMIE_MODULE,
 } from '@/lib/onboarding-config';
 
+const STORAGE_KEY = 'thermocheck_onboarding_state';
+
+const loadPersistedState = (initialProfile: ApplicantProfile): OnboardingState => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved) as OnboardingState;
+    }
+  } catch (e) {
+    console.warn('Failed to load onboarding state from localStorage', e);
+  }
+  return createInitialOnboardingState(initialProfile);
+};
+
 export function useOnboardingState(initialProfile: ApplicantProfile) {
   const [state, setState] = useState<OnboardingState>(() => 
-    createInitialOnboardingState(initialProfile)
+    loadPersistedState(initialProfile)
   );
+
+  // Persist state to localStorage on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn('Failed to save onboarding state to localStorage', e);
+    }
+  }, [state]);
 
   // Navigation
   const goToNextStep = useCallback(() => {

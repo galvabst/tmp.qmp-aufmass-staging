@@ -8499,6 +8499,28 @@ export type Database = {
           rechnung_status: string
         }[]
       }
+      get_netzanmeldung_projekte: {
+        Args: never
+        Returns: {
+          anmeldung_datum: string
+          auftrag_id: string
+          created_at: string
+          id: string
+          kunde_name: string
+          kunde_ort: string
+          kunde_plz: string
+          netzanmelder_name: string
+          netzbetreiber: string
+          notizen: string
+          phase: string
+          substatus: string
+          ueberfaellig: boolean
+          ueberfaellig_seit: string
+          updated_at: string
+          verantwortlicher: string
+          zieltermin: string
+        }[]
+      }
       get_next_action: { Args: { p_substatus: string }; Returns: string }
       get_next_version_number: {
         Args: {
