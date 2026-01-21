@@ -19,7 +19,7 @@ const Index = () => {
   const [profile] = useState(mockTechnicianProfile);
   
   // For demo: toggle onboarding completion
-  const [onboardingComplete, setOnboardingComplete] = useState(true);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [onboardingProgress, setOnboardingProgress] = useState(mockOnboardingProgress);
 
   // Count orders per tab
