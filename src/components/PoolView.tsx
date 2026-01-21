@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { List, Map } from 'lucide-react';
 import { TechnicianOrder } from '@/types/technician';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PoolMap } from './PoolMap';
 import { TechnicianOrderCard } from './TechnicianOrderCard';
+import { FilterRow } from './FilterRow';
+import { AUFTRAGSTYP_VALUES, AUFTRAGSTYP_LABELS, enumToOptions } from '@/lib/enums';
 
 interface PoolViewProps {
   orders: TechnicianOrder[];
@@ -12,8 +14,39 @@ interface PoolViewProps {
 
 export function PoolView({ orders, onOrderClick }: PoolViewProps) {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [searchValue, setSearchValue] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string | undefined>();
   
-  const poolOrders = orders.filter(order => order.status === 'published');
+  const allPoolOrders = orders.filter(order => order.status === 'published');
+  
+  // Apply filters
+  const poolOrders = useMemo(() => {
+    return allPoolOrders.filter(order => {
+      // Search filter
+      if (searchValue) {
+        const searchLower = searchValue.toLowerCase();
+        const matchesSearch = 
+          order.customerName.toLowerCase().includes(searchLower) ||
+          order.city.toLowerCase().includes(searchLower) ||
+          order.postalCode.includes(searchValue);
+        if (!matchesSearch) return false;
+      }
+      
+      // Type filter
+      if (typeFilter && order.auftragstyp !== typeFilter) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [allPoolOrders, searchValue, typeFilter]);
+  
+  const typeOptions = enumToOptions(AUFTRAGSTYP_VALUES, AUFTRAGSTYP_LABELS);
+  
+  const handleReset = () => {
+    setSearchValue('');
+    setTypeFilter(undefined);
+  };
 
   // Convert to format PoolMap expects
   const mapOrders = poolOrders.map(o => ({
@@ -64,9 +97,23 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
         </div>
       </header>
 
+      {/* Filter */}
+      <div className="px-4 pt-4">
+        <FilterRow
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          searchPlaceholder="Kunde, Stadt, PLZ..."
+          typeOptions={typeOptions}
+          typeValue={typeFilter}
+          onTypeChange={setTypeFilter}
+          typePlaceholder="Auftragstyp"
+          onReset={handleReset}
+        />
+      </div>
+
       {/* Content */}
       {viewMode === 'list' ? (
-        <div className="p-4 space-y-3">
+        <div className="p-4 pt-3 space-y-3">
           {poolOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-center mt-8">
               <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">

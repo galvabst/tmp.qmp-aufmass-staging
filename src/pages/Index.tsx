@@ -131,6 +131,23 @@ const Index = () => {
     );
   }
 
+  const handleStartRework = (orderId: string) => {
+    setOrders(prev => 
+      prev.map(order => 
+        order.id === orderId 
+          ? { 
+              ...order, 
+              status: 'in_progress' as ObjectOrderStatusEnum,
+              checkinPhase: 'nachbearbeitung' as CheckinPhase,
+              nachbearbeitungCheckinAt: new Date().toISOString(),
+              nachbearbeitungCheckoutAt: undefined,
+            }
+          : order
+      )
+    );
+    toast.info('Nacharbeit gestartet');
+  };
+
   // Show order detail if selected
   if (selectedOrder) {
     const currentOrder = orders.find(o => o.id === selectedOrder.id) || selectedOrder;
@@ -141,6 +158,8 @@ const Index = () => {
         onAccept={() => handleStatusChange(currentOrder.id, 'booked')}
         onReject={() => handleStatusChange(currentOrder.id, 'cancelled')}
         onStartCheckin={(phase) => handleCheckin(currentOrder.id, phase)}
+        onCheckout={(phase) => handleCheckout(currentOrder.id, phase)}
+        onStartRework={() => handleStartRework(currentOrder.id)}
       />
     );
   }

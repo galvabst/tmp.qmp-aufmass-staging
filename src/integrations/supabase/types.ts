@@ -7900,6 +7900,10 @@ export type Database = {
             }
             Returns: Json
           }
+      complete_contractor_arbeitspaket: {
+        Args: { p_contractor_arbeitspaket_id: string }
+        Returns: boolean
+      }
       compute_display_name: {
         Args: {
           p_fallback_email?: string
@@ -8225,6 +8229,63 @@ export type Database = {
         Returns: {
           label: string
           ord: number
+        }[]
+      }
+      get_contractor_arbeitspaket_fortschritt: {
+        Args: { p_contractor_arbeitspaket_id: string }
+        Returns: {
+          abgeschlossen: boolean
+          datei_url: string
+          id: string
+          pflichtfeld: boolean
+          reihenfolge: number
+          schritt_code: string
+          schritt_id: string
+          schritt_label: string
+          schritt_typ: string
+          wert: string
+        }[]
+      }
+      get_contractor_arbeitspaket_schritte: {
+        Args: { p_arbeitspaket_id: string }
+        Returns: {
+          arbeitspaket_id: string
+          beschreibung: string
+          code: string
+          id: string
+          label: string
+          optionen: Json
+          pflichtfeld: boolean
+          reihenfolge: number
+          schritt_typ: string
+        }[]
+      }
+      get_contractor_arbeitspaket_templates: {
+        Args: never
+        Returns: {
+          beschreibung: string
+          code: string
+          emoji: string
+          id: string
+          ist_aktiv: boolean
+          name: string
+          reihenfolge: number
+          trigger_status: string
+          ziel_status: string
+        }[]
+      }
+      get_contractor_arbeitspakete: {
+        Args: { p_contractor_id: string }
+        Returns: {
+          abgeschlossen_am: string
+          arbeitspaket_id: string
+          contractor_id: string
+          gestartet_am: string
+          id: string
+          status: string
+          template_code: string
+          template_emoji: string
+          template_name: string
         }[]
       }
       get_enum_values: { Args: { enum_name: string }; Returns: string[] }
@@ -9432,6 +9493,10 @@ export type Database = {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
       }
+      start_contractor_arbeitspaket: {
+        Args: { p_arbeitspaket_code: string; p_contractor_id: string }
+        Returns: string
+      }
       suggest_appointment_slots_v2: {
         Args: {
           p_days_ahead?: number
@@ -9563,6 +9628,16 @@ export type Database = {
           new_srid_in: number
           schema_name: string
           table_name: string
+        }
+        Returns: string
+      }
+      upsert_contractor_arbeitspaket_fortschritt: {
+        Args: {
+          p_abgeschlossen: boolean
+          p_contractor_arbeitspaket_id: string
+          p_datei_url?: string
+          p_schritt_id: string
+          p_wert?: string
         }
         Returns: string
       }
