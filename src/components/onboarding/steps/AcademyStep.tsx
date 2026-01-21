@@ -1,9 +1,10 @@
-import { Play, CheckCircle2, Clock, GraduationCap, Award } from 'lucide-react';
+import { Play, CheckCircle2, Clock, GraduationCap, Award, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { AkademieModul } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 interface AcademyStepProps {
   module: AkademieModul[];
@@ -20,10 +21,16 @@ export function AcademyStep({
   testBestanden,
   onStartTest,
 }: AcademyStepProps) {
+  const navigate = useNavigate();
   const completedCount = module.filter(m => m.abgeschlossen).length;
   const totalCount = module.length;
   const allModulesComplete = completedCount === totalCount;
   const progressPercent = Math.round((completedCount / totalCount) * 100);
+
+  const handleStartModule = (modul: AkademieModul) => {
+    // Navigiere zur Mediaplayer-Seite
+    navigate(`/akademie/modul/${modul.id}`);
+  };
 
   return (
     <div className="space-y-4">
@@ -96,7 +103,7 @@ export function AcademyStep({
                   <Button
                     size="sm"
                     variant={isCompleted ? 'outline' : 'default'}
-                    onClick={() => isCompleted ? onStartModule(modul.id) : onStartModule(modul.id)}
+                    onClick={() => handleStartModule(modul)}
                     disabled={isLocked}
                   >
                     {isCompleted ? (
@@ -106,8 +113,8 @@ export function AcademyStep({
                       </>
                     ) : (
                       <>
-                        <Play className="w-4 h-4 mr-1" />
-                        Starten
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Zur Schulung
                       </>
                     )}
                   </Button>

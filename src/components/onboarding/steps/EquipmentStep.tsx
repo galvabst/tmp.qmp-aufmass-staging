@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plane, Smartphone, Upload, ExternalLink, CheckCircle2, X } from 'lucide-react';
+import { Plane, Smartphone, Upload, ExternalLink, CheckCircle2, X, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -16,7 +16,9 @@ interface EquipmentStepProps {
   onDrohneChange: (status: EquipmentStatus) => void;
   onIphoneChange: (status: EquipmentStatus) => void;
   drohneMietLink?: string;
-  iphoneKaufLink?: string;
+  drohneKaufLink?: string;
+  iPhoneMietLink?: string;
+  iPhoneKaufLink?: string;
 }
 
 export function EquipmentStep({
@@ -25,7 +27,9 @@ export function EquipmentStep({
   onDrohneChange,
   onIphoneChange,
   drohneMietLink = 'https://drohnen-mieten.de',
-  iphoneKaufLink = 'https://apple.com/de/shop/buy-iphone',
+  drohneKaufLink = 'https://drohnen-kaufen.de',
+  iPhoneMietLink = 'https://iphone-mieten.de',
+  iPhoneKaufLink = 'https://apple.com/de/shop/buy-iphone',
 }: EquipmentStepProps) {
   const [drohneDragActive, setDrohneDragActive] = useState(false);
 
@@ -40,6 +44,10 @@ export function EquipmentStep({
     setDrohneDragActive(false);
     const file = e.dataTransfer.files?.[0];
     if (file) handleDrohneFileUpload(file);
+  };
+
+  const openExternalLink = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -129,17 +137,30 @@ export function EquipmentStep({
           </div>
         )}
 
-        {/* Miet-Link wenn keine Drohne */}
+        {/* Miet- und Kauf-Links wenn keine Drohne */}
         {!drohneStatus.hatEigenes && (
           <div className="mt-4 pt-4 border-t">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => window.open(drohneMietLink, '_blank')}
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Drohne mieten
-            </Button>
+            <p className="text-sm text-muted-foreground mb-3">
+              Du benötigst eine Drohne mit Kamera für Dachaufnahmen.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => openExternalLink(drohneMietLink)}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Drohne mieten
+              </Button>
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={() => openExternalLink(drohneKaufLink)}
+              >
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                Drohne kaufen
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -182,20 +203,30 @@ export function EquipmentStep({
           </div>
         </RadioGroup>
 
-        {/* Kauf-Link wenn kein iPhone */}
+        {/* Miet- und Kauf-Links wenn kein iPhone */}
         {!iphoneStatus.hatEigenes && (
           <div className="mt-4 pt-4 border-t">
             <p className="text-sm text-muted-foreground mb-3">
               Du benötigst mindestens ein iPhone 12 Pro mit LiDAR-Scanner.
             </p>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => window.open(iphoneKaufLink, '_blank')}
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              iPhone kaufen
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => openExternalLink(iPhoneMietLink)}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                iPhone mieten
+              </Button>
+              <Button
+                variant="default"
+                className="flex-1"
+                onClick={() => openExternalLink(iPhoneKaufLink)}
+              >
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                iPhone kaufen
+              </Button>
+            </div>
           </div>
         )}
 
@@ -207,6 +238,13 @@ export function EquipmentStep({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Info */}
+      <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
+        <p className="text-sm text-foreground">
+          <strong>💡 Tipp:</strong> Die Drohne und das iPhone kannst du auch steuerlich absetzen!
+        </p>
       </div>
     </div>
   );
