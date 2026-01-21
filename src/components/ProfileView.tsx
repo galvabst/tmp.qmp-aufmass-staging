@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock } from 'lucide-react';
-import { TechnicianProfile, OnboardingProgress } from '@/types/technician';
+import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target } from 'lucide-react';
+import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -44,15 +43,18 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
   const getStepIcon = (status: 'completed' | 'in_progress' | 'pending') => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-5 h-5 text-status-accepted" />;
+        return <CheckCircle className="w-5 h-5 text-green-600" />;
       case 'in_progress':
-        return <Clock className="w-5 h-5 text-status-pending" />;
+        return <Clock className="w-5 h-5 text-primary" />;
       default:
         return <Circle className="w-5 h-5 text-muted-foreground" />;
     }
   };
 
   const onboarding = profile.onboarding;
+  const kontingent = profile.kontingent;
+  const kontingentPercent = Math.min((kontingent.abgenommen / kontingent.minimum) * 100, 100);
+  const kontingentRemaining = Math.max(kontingent.minimum - kontingent.abgenommen, 0);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -121,7 +123,7 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
               <p className="text-xs text-muted-foreground">Aufträge</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-status-accepted">{profile.stats.acceptanceRate}%</p>
+              <p className="text-2xl font-bold text-green-600">{profile.stats.acceptanceRate}%</p>
               <p className="text-xs text-muted-foreground">Annahmerate</p>
             </div>
             <div>
@@ -132,8 +134,38 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
         </div>
       </div>
 
+      {/* Quartals-Kontingent */}
+      <section className="p-4 pt-4">
+        <h2 className="text-sm font-medium text-muted-foreground mb-3">Kontingent {kontingent.quartal}</h2>
+        <div className="bg-card rounded-lg shadow-card p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Target className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-foreground">Abgenommene Aufträge</span>
+                <span className="text-sm font-bold text-foreground">
+                  {kontingent.abgenommen} / {kontingent.minimum}
+                </span>
+              </div>
+              <Progress value={kontingentPercent} className="h-2" />
+            </div>
+          </div>
+          {kontingentRemaining > 0 ? (
+            <p className="text-sm text-muted-foreground text-center">
+              Noch {kontingentRemaining} Aufträge bis Quartalsziel
+            </p>
+          ) : (
+            <p className="text-sm text-green-600 text-center font-medium">
+              ✓ Quartalsziel erreicht!
+            </p>
+          )}
+        </div>
+      </section>
+
       {/* Contact Info */}
-      <section className="p-4 mt-4">
+      <section className="p-4 pt-0">
         <h2 className="text-sm font-medium text-muted-foreground mb-3">Kontaktdaten</h2>
         <div className="bg-card rounded-lg shadow-card divide-y divide-border">
           <div className="flex items-center gap-3 p-4">
@@ -187,7 +219,7 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
                       {step.label}
                     </span>
                     {step.status === 'in_progress' && (
-                      <span className="ml-2 text-xs text-status-pending">(Aktiv)</span>
+                      <span className="ml-2 text-xs text-primary">(Aktiv)</span>
                     )}
                   </div>
                 </div>
@@ -213,7 +245,7 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
           <div className="bg-card rounded-lg shadow-card divide-y divide-border">
             {profile.certificates.map((cert, index) => (
               <div key={index} className="flex items-center gap-3 p-4">
-                <Award className="w-5 h-5 text-status-accepted" />
+                <Award className="w-5 h-5 text-green-600" />
                 <div className="flex-1">
                   <span className="text-foreground">{cert.name}</span>
                   <p className="text-xs text-muted-foreground">

@@ -1,4 +1,4 @@
-import { ArrowLeft, MapPin, Clock, Phone, FileText, Euro, Navigation, Calendar } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar } from 'lucide-react';
 import { TechnicianOrder, CheckinPhase, CHECKIN_PHASE_LABELS } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ interface TechnicianOrderDetailProps {
   onStartCheckin?: (phase: CheckinPhase) => void;
   onCheckout?: (phase: CheckinPhase) => void;
   onStartRework?: () => void;
+  showFullDetails?: boolean; // false = Pool (nur PLZ+Stadt), true = nach Annahme
 }
 
 export function TechnicianOrderDetail({ 
@@ -24,9 +25,13 @@ export function TechnicianOrderDetail({
   onStartCheckin,
   onCheckout,
   onStartRework,
+  showFullDetails = true,
 }: TechnicianOrderDetailProps) {
   const formattedDate = format(parseISO(order.scheduledDate), 'EEEE, d. MMMM yyyy', { locale: de });
-  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${order.address}, ${order.postalCode} ${order.city}`)}`;
+  
+  // Navigation URL - nur wenn volle Details sichtbar
+  const fullAddress = `${order.address}, ${order.postalCode} ${order.city}`;
+  const mapsUrl = `https://maps.google.com/maps?daddr=${encodeURIComponent(fullAddress)}`;
 
   // Status flags
   const isPoolOrder = order.status === 'published';
@@ -35,6 +40,9 @@ export function TechnicianOrderDetail({
   const isReworkRequired = order.status === 'rework_required';
   const isSubmitted = order.status === 'submitted' || order.status === 'in_review';
   const isApproved = order.status === 'approved';
+  
+  // Datenschutz: Pool-Auftraege zeigen nur PLZ + Stadt
+  const canShowFullDetails = showFullDetails && !isPoolOrder;
   
   // Phase tracking
   const vorOrtStarted = !!order.vorOrtCheckinAt;
@@ -101,30 +109,41 @@ export function TechnicianOrderDetail({
           </div>
         </div>
 
-        {/* Address with Maps */}
+        {/* Address - Datenschutz beachten */}
         <div className="bg-card rounded-xl p-4 shadow-card">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
               <MapPin className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1">
-              <p className="font-medium text-foreground">{order.address}</p>
-              <p className="text-muted-foreground">{order.postalCode} {order.city}</p>
+              {canShowFullDetails ? (
+                <>
+                  <p className="font-medium text-foreground">{order.address}</p>
+                  <p className="text-muted-foreground">{order.postalCode} {order.city}</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium text-foreground">{order.postalCode} {order.city}</p>
+                  <p className="text-sm text-muted-foreground italic">Genaue Adresse nach Annahme sichtbar</p>
+                </>
+              )}
             </div>
           </div>
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 flex items-center justify-center gap-2 p-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Navigation className="w-4 h-4" />
-            Navigation starten
-          </a>
+          {canShowFullDetails && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center justify-center gap-2 p-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Navigation className="w-4 h-4" />
+              Navigation starten
+            </a>
+          )}
         </div>
 
-        {/* Contact */}
-        {order.contactPhone && (
+        {/* Contact - nur nach Annahme */}
+        {canShowFullDetails && order.contactPhone && (
           <div className="bg-card rounded-xl p-4 shadow-card">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/10 rounded-lg">
@@ -132,6 +151,20 @@ export function TechnicianOrderDetail({
               </div>
               <a href={`tel:${order.contactPhone}`} className="font-medium text-primary hover:underline">
                 {order.contactPhone}
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* E-Mail - nur nach Annahme */}
+        {canShowFullDetails && order.contactEmail && (
+          <div className="bg-card rounded-xl p-4 shadow-card">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Mail className="w-5 h-5 text-primary" />
+              </div>
+              <a href={`mailto:${order.contactEmail}`} className="font-medium text-primary hover:underline">
+                {order.contactEmail}
               </a>
             </div>
           </div>

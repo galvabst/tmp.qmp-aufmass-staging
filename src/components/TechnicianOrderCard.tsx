@@ -9,10 +9,21 @@ interface TechnicianOrderCardProps {
   order: TechnicianOrder;
   onClick: () => void;
   showBilling?: boolean;
+  showFullDetails?: boolean; // false = nur PLZ + Stadt (Pool), true = volle Adresse
 }
 
-export function TechnicianOrderCard({ order, onClick, showBilling = true }: TechnicianOrderCardProps) {
+export function TechnicianOrderCard({ 
+  order, 
+  onClick, 
+  showBilling = true,
+  showFullDetails = false,
+}: TechnicianOrderCardProps) {
   const formattedDate = format(parseISO(order.scheduledDate), 'EEE, d. MMM', { locale: de });
+
+  // Datenschutz: Im Pool nur PLZ + Stadt anzeigen
+  const locationDisplay = showFullDetails 
+    ? `${order.address}, ${order.city}`
+    : `${order.postalCode} ${order.city}`;
 
   return (
     <button
@@ -29,7 +40,7 @@ export function TechnicianOrderCard({ order, onClick, showBilling = true }: Tech
           <h3 className="font-semibold text-foreground">{order.customerName}</h3>
           <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
             <MapPin className="w-3 h-3" />
-            {order.address}, {order.city}
+            {locationDisplay}
           </p>
           <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
             <Clock className="w-3 h-3" />
