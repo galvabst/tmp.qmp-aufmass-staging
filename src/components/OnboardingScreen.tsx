@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { OnboardingStepWrapper } from './onboarding/OnboardingStepWrapper';
 import { ProfileStep } from './onboarding/steps/ProfileStep';
@@ -24,6 +26,9 @@ interface OnboardingScreenProps {
 }
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  
   const {
     state,
     progress,
@@ -31,6 +36,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     isComplete,
     goToNextStep,
     goToPreviousStep,
+    goToStep,
     updateProfile,
     setAvatarUrl,
     setGewerbescheinUrl,
@@ -46,6 +52,19 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
   const [coachingSlots, setCoachingSlots] = useState<CoachingSlot[]>(MOCK_COACHING_SLOTS);
+
+  // Handle completed module from AkademieModul page navigation
+  useEffect(() => {
+    const navState = location.state as { completedModuleId?: string } | null;
+    if (navState?.completedModuleId) {
+      completeAkademieModul(navState.completedModuleId);
+      toast.success('Modul abgeschlossen!');
+      // Stay on akademie step
+      goToStep('akademie');
+      // Clear the navigation state to prevent re-processing
+      navigate('/', { replace: true, state: {} });
+    }
+  }, [location.state, completeAkademieModul, goToStep, navigate]);
 
   // Wenn abgeschlossen, zeige Complete-Screen
   if (isComplete) {
