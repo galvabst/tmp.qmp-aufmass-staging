@@ -1,25 +1,35 @@
-import { MapPin, ClipboardList, CheckCircle2, User } from 'lucide-react';
+import { MapPin, Calendar, Clock, CheckCircle2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type Tab = 'pool' | 'orders' | 'completed' | 'profile';
+export type Tab = 'pool' | 'bookings' | 'active' | 'review' | 'profile';
 
 interface BottomNavProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
   poolCount?: number;
-  ordersCount?: number;
+  bookingsCount?: number;
+  activeCount?: number;
+  reviewCount?: number;
 }
 
-export function BottomNav({ activeTab, onTabChange, poolCount = 0, ordersCount = 0 }: BottomNavProps) {
+export function BottomNav({ 
+  activeTab, 
+  onTabChange, 
+  poolCount = 0, 
+  bookingsCount = 0,
+  activeCount = 0,
+  reviewCount = 0,
+}: BottomNavProps) {
   const tabs = [
     { id: 'pool' as Tab, label: 'Pool', icon: MapPin, badge: poolCount },
-    { id: 'orders' as Tab, label: 'Aufträge', icon: ClipboardList, badge: ordersCount },
-    { id: 'completed' as Tab, label: 'Erledigt', icon: CheckCircle2 },
+    { id: 'bookings' as Tab, label: 'Buchungen', icon: Calendar, badge: bookingsCount },
+    { id: 'active' as Tab, label: 'Aktiv', icon: Clock, badge: activeCount },
+    { id: 'review' as Tab, label: 'Prüfung', icon: CheckCircle2, badge: reviewCount },
     { id: 'profile' as Tab, label: 'Profil', icon: User },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-area-bottom z-50">
       <div className="flex items-center justify-around h-16">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -35,14 +45,14 @@ export function BottomNav({ activeTab, onTabChange, poolCount = 0, ordersCount =
               )}
             >
               <div className="relative">
-                <Icon className={cn('w-6 h-6', isActive && 'stroke-[2.5px]')} />
-                {tab.badge && tab.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-accent text-accent-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                <Icon className={cn('w-5 h-5', isActive && 'stroke-[2.5px]')} />
+                {tab.badge !== undefined && tab.badge > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-accent text-accent-foreground text-[10px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1">
                     {tab.badge}
                   </span>
                 )}
               </div>
-              <span className={cn('text-xs mt-1', isActive && 'font-semibold')}>
+              <span className={cn('text-[10px] mt-1', isActive && 'font-semibold')}>
                 {tab.label}
               </span>
             </button>
