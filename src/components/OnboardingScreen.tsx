@@ -13,6 +13,7 @@ import {
   MOCK_PRODUCTS, 
   MOCK_COACHING_SLOTS,
   MOCK_APPLICANT_PROFILE,
+  MOCK_EQUIPMENT,
   ONBOARDING_STEPS,
 } from '@/lib/onboarding-config';
 import { useState } from 'react';
@@ -167,15 +168,22 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           />
         );
 
-      case 'equipment':
+      case 'equipment': {
+        const drohneItem = MOCK_EQUIPMENT.find(e => e.id === 'drohne');
+        const iPhoneItem = MOCK_EQUIPMENT.find(e => e.id === 'iphone-lidar');
         return (
           <EquipmentStep
             drohneStatus={state.equipmentStatus['drohne'] || { hatEigenes: false }}
             iphoneStatus={state.equipmentStatus['iphone-lidar'] || { hatEigenes: false }}
             onDrohneChange={(status) => updateEquipmentStatus('drohne', status)}
             onIphoneChange={(status) => updateEquipmentStatus('iphone-lidar', status)}
+            drohneMietLink={drohneItem?.mietLink}
+            drohneKaufLink={drohneItem?.kaufLink}
+            iPhoneMietLink={iPhoneItem?.mietLink}
+            iPhoneKaufLink={iPhoneItem?.kaufLink}
           />
         );
+      }
 
       case 'akademie':
         return (

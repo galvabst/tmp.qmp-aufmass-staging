@@ -54,7 +54,7 @@ export interface OnboardingProduct {
   preisTyp: PricingType;
   produktTyp: ProductType;
   bildUrl?: string;
-  externLink?: string;
+  externLink: string; // Buchungslink zum Shop (Pflicht!)
   pflicht: boolean;
   reihenfolge: number;
 }
@@ -83,14 +83,18 @@ export interface AkademieModul {
   abgeschlossenAt?: string;
 }
 
-// Coaching-Slot
+// Coaching-Slot (basiert auf echten Thermochecks von berechtigten Coaches)
 export interface CoachingSlot {
   id: string;
+  thermocheckId?: string; // ID des echten Thermochecks (optional für Mock)
+  coachId?: string;
   coachName: string;
   coachAvatarUrl?: string;
   datum: string;
   uhrzeitVon: string;
   uhrzeitBis: string;
+  objektAdresse?: string; // Adresse des Thermochecks
+  objektTyp?: string; // z.B. "Einfamilienhaus"
   ort: string;
   region: string;
   gebucht: boolean;

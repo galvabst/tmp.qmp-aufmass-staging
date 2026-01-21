@@ -55,7 +55,7 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
   },
 ];
 
-// Mock-Produkte (später aus DB)
+// Mock-Produkte (später aus DB: thermocheck.onboarding_products)
 export const MOCK_PRODUCTS: OnboardingProduct[] = [
   {
     id: 'raumscanner-lizenz',
@@ -66,6 +66,7 @@ export const MOCK_PRODUCTS: OnboardingProduct[] = [
     preisTyp: 'monatlich',
     produktTyp: 'lizenz',
     bildUrl: '/placeholder.svg',
+    externLink: 'https://thermocheck.de/shop/raumscanner', // Placeholder
     pflicht: true,
     reihenfolge: 1,
   },
@@ -78,6 +79,7 @@ export const MOCK_PRODUCTS: OnboardingProduct[] = [
     preisTyp: 'monatlich',
     produktTyp: 'lizenz',
     bildUrl: '/placeholder.svg',
+    externLink: 'https://thermocheck.de/shop/workspace', // Placeholder
     pflicht: true,
     reihenfolge: 2,
   },
@@ -85,11 +87,12 @@ export const MOCK_PRODUCTS: OnboardingProduct[] = [
     id: 'kleidung-paket',
     name: 'Kleidung-Paket',
     beschreibung: 'Zipper, Hausschuhe, Ausweiskarte',
-    preisNetto: 84.03,
-    preisBrutto: 99.99,
+    preisNetto: 0,
+    preisBrutto: 0, // Preis wird später dynamisch aus DB geladen
     preisTyp: 'einmalig',
     produktTyp: 'kleidung',
     bildUrl: '/placeholder.svg',
+    externLink: 'https://thermocheck.de/shop/kleidung', // Placeholder
     pflicht: true,
     reihenfolge: 3,
   },
@@ -103,7 +106,8 @@ export const MOCK_EQUIPMENT: EquipmentItem[] = [
     beschreibung: 'Für Dachaufnahmen und Luftbilder',
     hatEigenes: false,
     nachweisPflicht: true,
-    mietLink: 'https://drohnen-mieten.de',
+    mietLink: 'https://drohnen-mieten.de', // Placeholder - später anpassen
+    kaufLink: 'https://drohnen-kaufen.de', // Placeholder - später anpassen
   },
   {
     id: 'iphone-lidar',
@@ -111,7 +115,8 @@ export const MOCK_EQUIPMENT: EquipmentItem[] = [
     beschreibung: 'iPhone 12 Pro oder neuer für 3D-Scans',
     hatEigenes: false,
     nachweisPflicht: false, // Nur Bestätigung
-    kaufLink: 'https://apple.com/de/shop/buy-iphone',
+    mietLink: 'https://iphone-mieten.de', // Placeholder - später anpassen
+    kaufLink: 'https://apple.com/de/shop/buy-iphone', // Placeholder - später anpassen
   },
 ];
 
@@ -155,14 +160,19 @@ export const MOCK_AKADEMIE_MODULE: AkademieModul[] = [
   },
 ];
 
-// Mock-Coaching Slots
+// Mock-Coaching Slots (basiert auf echten Thermochecks von berechtigten Coaches)
 export const MOCK_COACHING_SLOTS: CoachingSlot[] = [
   {
     id: 'slot-1',
+    thermocheckId: 'tc-001',
+    coachId: 'coach-1',
     coachName: 'Thomas Müller',
+    coachAvatarUrl: '/placeholder.svg',
     datum: '2026-01-28',
     uhrzeitVon: '09:00',
-    uhrzeitBis: '13:00',
+    uhrzeitBis: '11:00',
+    objektAdresse: 'Musterstraße 12, 80331 München',
+    objektTyp: 'Einfamilienhaus',
     ort: 'München',
     region: 'Bayern',
     gebucht: false,
@@ -170,10 +180,15 @@ export const MOCK_COACHING_SLOTS: CoachingSlot[] = [
   },
   {
     id: 'slot-2',
+    thermocheckId: 'tc-002',
+    coachId: 'coach-1',
     coachName: 'Thomas Müller',
+    coachAvatarUrl: '/placeholder.svg',
     datum: '2026-01-29',
     uhrzeitVon: '14:00',
-    uhrzeitBis: '18:00',
+    uhrzeitBis: '16:00',
+    objektAdresse: 'Hauptstraße 45, 80333 München',
+    objektTyp: 'Mehrfamilienhaus',
     ort: 'München',
     region: 'Bayern',
     gebucht: false,
@@ -181,10 +196,15 @@ export const MOCK_COACHING_SLOTS: CoachingSlot[] = [
   },
   {
     id: 'slot-3',
+    thermocheckId: 'tc-003',
+    coachId: 'coach-2',
     coachName: 'Stefan Weber',
+    coachAvatarUrl: '/placeholder.svg',
     datum: '2026-01-30',
     uhrzeitVon: '09:00',
-    uhrzeitBis: '13:00',
+    uhrzeitBis: '11:30',
+    objektAdresse: 'Bahnhofstraße 8, 86150 Augsburg',
+    objektTyp: 'Einfamilienhaus',
     ort: 'Augsburg',
     region: 'Bayern',
     gebucht: false,

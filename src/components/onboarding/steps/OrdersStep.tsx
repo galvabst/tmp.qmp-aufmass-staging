@@ -1,8 +1,19 @@
 import { ExternalLink, Check, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { OnboardingProduct } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface OrdersStepProps {
   products: OnboardingProduct[];
@@ -11,9 +22,21 @@ interface OrdersStepProps {
 }
 
 export function OrdersStep({ products, orderedProducts, onProductOrder }: OrdersStepProps) {
-  const allRequiredOrdered = products
-    .filter(p => p.pflicht)
-    .every(p => orderedProducts.includes(p.id));
+  const [confirmingProduct, setConfirmingProduct] = useState<OnboardingProduct | null>(null);
+
+  const handleOrderClick = (product: OnboardingProduct) => {
+    // Öffne externen Link in neuem Tab
+    window.open(product.externLink, '_blank', 'noopener,noreferrer');
+    // Zeige Bestätigungs-Dialog
+    setConfirmingProduct(product);
+  };
+
+  const handleConfirmOrder = () => {
+    if (confirmingProduct) {
+      onProductOrder(confirmingProduct.id);
+      setConfirmingProduct(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -25,6 +48,7 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
             <h3 className="font-semibold text-foreground">Pflichtbestellungen</h3>
             <p className="text-sm text-muted-foreground mt-1">
               Diese Produkte sind für deine Arbeit als Thermocheck-Techniker erforderlich.
+              Klicke auf "Jetzt bestellen", um zum Shop weitergeleitet zu werden.
             </p>
           </div>
         </div>
@@ -71,12 +95,18 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
 
                   {/* Preis */}
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-lg font-bold text-foreground">
-                      {product.preisBrutto.toLocaleString('de-DE', { 
-                        style: 'currency', 
-                        currency: 'EUR' 
-                      })}
-                    </span>
+                    {product.preisBrutto > 0 ? (
+                      <span className="text-lg font-bold text-foreground">
+                        {product.preisBrutto.toLocaleString('de-DE', { 
+                          style: 'currency', 
+                          currency: 'EUR' 
+                        })}
+                      </span>
+                    ) : (
+                      <span className="text-lg font-bold text-foreground">
+                        Preis im Shop
+                      </span>
+                    )}
                     <Badge variant="secondary" className="text-xs">
                       {product.preisTyp === 'monatlich' ? '/Monat' : 'einmalig'}
                     </Badge>
@@ -89,7 +119,7 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
                   <Button
                     size="sm"
                     variant={isOrdered ? 'outline' : 'default'}
-                    onClick={() => onProductOrder(product.id)}
+                    onClick={() => !isOrdered && handleOrderClick(product)}
                     className="mt-3 w-full"
                     disabled={isOrdered}
                   >
@@ -119,6 +149,24 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
           kannst du bereits mit der Akademie-Schulung beginnen!
         </p>
       </div>
+
+      {/* Bestätigungs-Dialog */}
+      <AlertDialog open={!!confirmingProduct} onOpenChange={() => setConfirmingProduct(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bestellung abgeschlossen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hast du die Bestellung für <strong>{confirmingProduct?.name}</strong> im Shop abgeschlossen?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Nein, noch nicht</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmOrder}>
+              Ja, bestellt
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
