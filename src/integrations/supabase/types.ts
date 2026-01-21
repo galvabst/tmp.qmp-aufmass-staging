@@ -7923,6 +7923,29 @@ export type Database = {
         Returns: string
       }
       count_superadmins: { Args: never; Returns: number }
+      create_contractor: {
+        Args: {
+          p_ag_domain_email?: string
+          p_anschrift_land?: string
+          p_anschrift_ort?: string
+          p_anschrift_plz?: string
+          p_anschrift_strasse?: string
+          p_erstellt_von?: string
+          p_nachname: string
+          p_notizen_intern?: string
+          p_private_email?: string
+          p_telefon?: string
+          p_vertragsbeginn?: string
+          p_vorname: string
+        }
+        Returns: unknown
+        SetofOptions: {
+          from: "*"
+          to: "contractor_onboarding"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_produkt_recht_dokument: {
         Args: {
           p_beschreibung?: string
@@ -7978,6 +8001,7 @@ export type Database = {
         }
         Returns: string
       }
+      delete_contractor: { Args: { p_id: string }; Returns: undefined }
       delete_produkt_recht_dokument: { Args: { p_id: string }; Returns: string }
       delete_thermocheck_idee: { Args: { p_id: string }; Returns: undefined }
       delete_user_app_role: {
@@ -8287,6 +8311,26 @@ export type Database = {
           template_emoji: string
           template_name: string
         }[]
+      }
+      get_contractor_by_id: {
+        Args: { p_id: string }
+        Returns: unknown[]
+        SetofOptions: {
+          from: "*"
+          to: "contractor_onboarding"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_contractors: {
+        Args: never
+        Returns: unknown[]
+        SetofOptions: {
+          from: "*"
+          to: "contractor_onboarding"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_enum_values: { Args: { enum_name: string }; Returns: string[] }
       get_group_permissions: { Args: { _group_id: string }; Returns: Json }
@@ -9601,6 +9645,16 @@ export type Database = {
         Returns: boolean
       }
       unlockrows: { Args: { "": string }; Returns: number }
+      update_contractor: {
+        Args: { p_id: string; p_updates: Json }
+        Returns: unknown
+        SetofOptions: {
+          from: "*"
+          to: "contractor_onboarding"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       update_kpi_nachweis_validation: {
         Args: { p_ai_result: Json; p_nachweis_id: string; p_status: string }
         Returns: undefined
