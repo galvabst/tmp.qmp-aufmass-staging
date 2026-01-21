@@ -1,128 +1,232 @@
-import { CheckCircle2, Circle, Loader2, FileText, GraduationCap, Wrench, Plane, Shirt } from 'lucide-react';
-import { OnboardingProgress, OnboardingStepStatus } from '@/types/technician';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { OnboardingStepWrapper } from './onboarding/OnboardingStepWrapper';
+import { ProfileStep } from './onboarding/steps/ProfileStep';
+import { DocumentsStep } from './onboarding/steps/DocumentsStep';
+import { OrdersStep } from './onboarding/steps/OrdersStep';
+import { EquipmentStep } from './onboarding/steps/EquipmentStep';
+import { AcademyStep } from './onboarding/steps/AcademyStep';
+import { ProofStep } from './onboarding/steps/ProofStep';
+import { CoachingStep } from './onboarding/steps/CoachingStep';
+import { OnboardingComplete } from './onboarding/OnboardingComplete';
+import { useOnboardingState } from '@/hooks/useOnboardingState';
+import { 
+  MOCK_PRODUCTS, 
+  MOCK_COACHING_SLOTS,
+  MOCK_APPLICANT_PROFILE,
+  ONBOARDING_STEPS,
+} from '@/lib/onboarding-config';
+import { useState } from 'react';
+import { CoachingSlot } from '@/types/onboarding';
 
 interface OnboardingScreenProps {
-  progress: OnboardingProgress;
-  onBookTraining?: (stepId: string) => void;
+  onComplete: () => void;
 }
 
-const stepIcons: Record<string, React.ElementType> = {
-  gewerbeschein: FileText,
-  pflichtutensilien: Wrench,
-  drohne: Plane,
-  kleidung: Shirt,
-  akademie_zertifikat: GraduationCap,
-};
+export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+  const {
+    state,
+    progress,
+    canProceed,
+    isComplete,
+    goToNextStep,
+    goToPreviousStep,
+    updateProfile,
+    setAvatarUrl,
+    setGewerbescheinUrl,
+    toggleProductOrdered,
+    updateEquipmentStatus,
+    completeAkademieModul,
+    setAkademieTestBestanden,
+    updateCheckliste,
+    setGesamtfotoUrl,
+    setGebuchterCoachingSlot,
+    setCoachingAbgeschlossen,
+  } = useOnboardingState(MOCK_APPLICANT_PROFILE);
 
-function StepIcon({ status }: { status: OnboardingStepStatus }) {
-  if (status === 'completed') {
-    return <CheckCircle2 className="w-6 h-6 text-status-accepted" />;
-  }
-  if (status === 'in_progress') {
-    return <Loader2 className="w-6 h-6 text-primary animate-spin" />;
-  }
-  return <Circle className="w-6 h-6 text-muted-foreground" />;
-}
+  const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
+  const [coachingSlots, setCoachingSlots] = useState<CoachingSlot[]>(MOCK_COACHING_SLOTS);
 
-export function OnboardingScreen({ progress, onBookTraining }: OnboardingScreenProps) {
+  // Wenn abgeschlossen, zeige Complete-Screen
+  if (isComplete) {
+    return <OnboardingComplete onContinue={onComplete} />;
+  }
+
+  const currentStepConfig = ONBOARDING_STEPS.find(s => s.id === state.currentStep);
+
+  // Handler für File-Uploads (Mock)
+  const handleAvatarUpload = (file: File) => {
+    const url = URL.createObjectURL(file);
+    setAvatarUrl(url);
+    toast.success('Profilbild hochgeladen');
+  };
+
+  const handleGewerbescheinUpload = (file: File) => {
+    const url = URL.createObjectURL(file);
+    setGewerbescheinUrl(url);
+    toast.success('Gewerbeschein hochgeladen');
+  };
+
+  const handleGesamtfotoUpload = (file: File) => {
+    const url = URL.createObjectURL(file);
+    setGesamtfotoUrl(url);
+    toast.success('Foto hochgeladen');
+  };
+
+  const handleProductOrder = (productId: string) => {
+    toggleProductOrdered(productId);
+    toast.success('Produkt als bestellt markiert');
+  };
+
+  const handleStartModule = (moduleId: string) => {
+    // In Production würde hier ein Video-Player geöffnet
+    toast.info('Video wird gestartet...');
+    // Simuliere Abschluss nach 2 Sekunden
+    setTimeout(() => {
+      completeAkademieModul(moduleId);
+      toast.success('Modul abgeschlossen!');
+    }, 2000);
+  };
+
+  const handleStartTest = () => {
+    toast.info('Abschlusstest wird gestartet...');
+    // Simuliere bestandenen Test
+    setTimeout(() => {
+      setAkademieTestBestanden(true);
+      toast.success('Test bestanden! 🎉');
+    }, 2000);
+  };
+
+  const handleBookCoaching = () => {
+    if (!selectedCoachingSlot) return;
+    
+    setCoachingSlots(prev => prev.map(s => 
+      s.id === selectedCoachingSlot 
+        ? { ...s, gebucht: true }
+        : s
+    ));
+    setGebuchterCoachingSlot(selectedCoachingSlot);
+    setCoachingAbgeschlossen(true);
+    toast.success('Coaching-Termin gebucht!');
+  };
+
+  const handleNext = () => {
+    if (state.currentStep === 'coaching' && state.coachingAbgeschlossen) {
+      // Onboarding abgeschlossen
+      return;
+    }
+    goToNextStep();
+  };
+
+  const getNextLabel = () => {
+    switch (state.currentStep) {
+      case 'profil':
+        return 'Weiter zu Dokumente';
+      case 'dokumente':
+        return 'Weiter zu Bestellungen';
+      case 'bestellungen':
+        return 'Weiter zu Equipment';
+      case 'equipment':
+        return 'Jetzt zur Akademie';
+      case 'akademie':
+        return 'Weiter zu Nachweise';
+      case 'nachweise':
+        return 'Weiter zu Coaching';
+      case 'coaching':
+        return 'Onboarding abschließen';
+      default:
+        return 'Weiter';
+    }
+  };
+
+  const renderStep = () => {
+    switch (state.currentStep) {
+      case 'profil':
+        return (
+          <ProfileStep
+            profile={state.profil}
+            onProfileChange={updateProfile}
+            onAvatarUpload={handleAvatarUpload}
+          />
+        );
+
+      case 'dokumente':
+        return (
+          <DocumentsStep
+            gewerbescheinUrl={state.gewerbescheinUrl}
+            onGewerbescheinUpload={handleGewerbescheinUpload}
+            onRemoveGewerbeschein={() => setGewerbescheinUrl(undefined)}
+          />
+        );
+
+      case 'bestellungen':
+        return (
+          <OrdersStep
+            products={MOCK_PRODUCTS}
+            orderedProducts={state.bestellungenBestaetigt}
+            onProductOrder={handleProductOrder}
+          />
+        );
+
+      case 'equipment':
+        return (
+          <EquipmentStep
+            drohneStatus={state.equipmentStatus['drohne'] || { hatEigenes: false }}
+            iphoneStatus={state.equipmentStatus['iphone-lidar'] || { hatEigenes: false }}
+            onDrohneChange={(status) => updateEquipmentStatus('drohne', status)}
+            onIphoneChange={(status) => updateEquipmentStatus('iphone-lidar', status)}
+          />
+        );
+
+      case 'akademie':
+        return (
+          <AcademyStep
+            module={state.akademieModule}
+            onModuleComplete={completeAkademieModul}
+            onStartModule={handleStartModule}
+            testBestanden={state.akademieTestBestanden}
+            onStartTest={handleStartTest}
+          />
+        );
+
+      case 'nachweise':
+        return (
+          <ProofStep
+            checkliste={state.ausstattungCheckliste}
+            onChecklistChange={updateCheckliste}
+            gesamtfotoUrl={state.gesamtfotoUrl}
+            onGesamtfotoUpload={handleGesamtfotoUpload}
+            onRemoveGesamtfoto={() => setGesamtfotoUrl(undefined)}
+          />
+        );
+
+      case 'coaching':
+        return (
+          <CoachingStep
+            slots={coachingSlots}
+            selectedSlotId={selectedCoachingSlot}
+            onSelectSlot={setSelectedCoachingSlot}
+            onBookSlot={handleBookCoaching}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground safe-area-top">
-        <div className="p-6 pt-8 text-center">
-          <h1 className="text-2xl font-bold">Willkommen bei Thermocheck</h1>
-          <p className="text-primary-foreground/80 mt-2">
-            Schließe dein Onboarding ab, um Aufträge anzunehmen
-          </p>
-        </div>
-      </header>
-
-      {/* Progress */}
-      <div className="p-6">
-        <div className="bg-card rounded-xl shadow-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-muted-foreground">Fortschritt</span>
-            <span className="text-sm font-bold text-foreground">{progress.progressPercent}%</span>
-          </div>
-          <Progress value={progress.progressPercent} className="h-3" />
-        </div>
-      </div>
-
-      {/* Steps */}
-      <div className="flex-1 p-6 pt-0">
-        <h2 className="text-sm font-medium text-muted-foreground mb-4">Deine Schritte</h2>
-        <div className="space-y-3">
-          {progress.steps.map((step, index) => {
-            const StepTypeIcon = stepIcons[step.id] || Circle;
-            const isCurrentStep = step.status === 'in_progress';
-            
-            return (
-              <div
-                key={step.id}
-                className={cn(
-                  'bg-card rounded-xl p-4 shadow-card transition-all',
-                  isCurrentStep && 'ring-2 ring-primary'
-                )}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={cn(
-                    'w-12 h-12 rounded-full flex items-center justify-center',
-                    step.status === 'completed' ? 'bg-status-accepted/10' :
-                    step.status === 'in_progress' ? 'bg-primary/10' :
-                    'bg-muted'
-                  )}>
-                    <StepTypeIcon className={cn(
-                      'w-6 h-6',
-                      step.status === 'completed' ? 'text-status-accepted' :
-                      step.status === 'in_progress' ? 'text-primary' :
-                      'text-muted-foreground'
-                    )} />
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Schritt {index + 1}</span>
-                      <StepIcon status={step.status} />
-                    </div>
-                    <p className={cn(
-                      'font-medium',
-                      step.status === 'pending' && 'text-muted-foreground'
-                    )}>
-                      {step.label}
-                    </p>
-                    {step.completedAt && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Abgeschlossen am {new Date(step.completedAt).toLocaleDateString('de-DE')}
-                      </p>
-                    )}
-                  </div>
-
-                  {step.status === 'in_progress' && onBookTraining && (
-                    <Button 
-                      size="sm" 
-                      onClick={() => onBookTraining(step.id)}
-                    >
-                      Termin buchen
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Info Footer */}
-      <div className="p-6 pt-0">
-        <div className="bg-muted/50 rounded-xl p-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            Nach Abschluss des Onboardings kannst du sofort Aufträge aus dem Pool annehmen.
-          </p>
-        </div>
-      </div>
-    </div>
+    <OnboardingStepWrapper
+      currentStep={state.currentStep}
+      completedSteps={state.completedSteps}
+      title={currentStepConfig?.label || ''}
+      description={currentStepConfig?.description}
+      onBack={goToPreviousStep}
+      onNext={handleNext}
+      nextLabel={getNextLabel()}
+      nextDisabled={!canProceed}
+      progress={progress}
+    >
+      {renderStep()}
+    </OnboardingStepWrapper>
   );
 }

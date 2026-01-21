@@ -7,7 +7,7 @@ import { ReviewView } from '@/components/ReviewView';
 import { ProfileView } from '@/components/ProfileView';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { TechnicianOrderDetail } from '@/components/TechnicianOrderDetail';
-import { mockTechnicianOrders, mockTechnicianProfile, mockOnboardingProgress, mockKontingent } from '@/data/mockTechnicianData';
+import { mockTechnicianOrders, mockTechnicianProfile } from '@/data/mockTechnicianData';
 import { TechnicianOrder, CheckinPhase } from '@/types/technician';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
@@ -18,9 +18,8 @@ const Index = () => {
   const [orders, setOrders] = useState<TechnicianOrder[]>(mockTechnicianOrders);
   const [profile] = useState(mockTechnicianProfile);
   
-  // For demo: toggle onboarding completion
+  // Onboarding state
   const [onboardingComplete, setOnboardingComplete] = useState(false);
-  const [onboardingProgress, setOnboardingProgress] = useState(mockOnboardingProgress);
 
   // Count orders per tab
   const poolCount = orders.filter(o => o.status === 'published').length;
@@ -117,22 +116,20 @@ const Index = () => {
     }
   };
 
-  const handleBookTraining = (stepId: string) => {
-    toast.info(`Termin für ${stepId} buchen...`);
-  };
-
   // Show onboarding screen if not complete
   if (!onboardingComplete) {
     return (
       <OnboardingScreen 
-        progress={onboardingProgress}
-        onBookTraining={handleBookTraining}
+        onComplete={() => {
+          setOnboardingComplete(true);
+          toast.success('Willkommen bei Thermocheck! 🎉');
+        }}
       />
     );
   }
 
   const handleStartRework = (orderId: string) => {
-    setOrders(prev => 
+    setOrders(prev =>
       prev.map(order => 
         order.id === orderId 
           ? { 
