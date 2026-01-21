@@ -129,8 +129,8 @@ export function OrderDetail({ order, onBack, onStatusChange }: OrderDetailProps)
         </section>
       </div>
 
-      {/* Action Buttons */}
-      {order.status === 'new' && (
+      {/* Action Buttons - Context dependent */}
+      {order.status === 'published' && (
         <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
           <div className="flex gap-3">
             <Button

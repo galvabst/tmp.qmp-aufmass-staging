@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { BottomNav } from '@/components/BottomNav';
+import { BottomNav, Tab } from '@/components/BottomNav';
+import { PoolView } from '@/components/PoolView';
 import { OrderList } from '@/components/OrderList';
 import { OrderDetail } from '@/components/OrderDetail';
 import { ProfileView } from '@/components/ProfileView';
@@ -7,14 +8,13 @@ import { mockOrders } from '@/data/mockOrders';
 import { Order, OrderStatus } from '@/types/order';
 import { toast } from 'sonner';
 
-type Tab = 'orders' | 'completed' | 'profile';
-
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('orders');
+  const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orders, setOrders] = useState<Order[]>(mockOrders);
 
-  const newOrdersCount = orders.filter(o => o.status === 'new').length;
+  const poolCount = orders.filter(o => o.status === 'published').length;
+  const ordersCount = orders.filter(o => o.status === 'accepted').length;
 
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order);
@@ -34,19 +34,23 @@ const Index = () => {
     );
 
     const statusMessages: Record<OrderStatus, string> = {
-      accepted: 'Auftrag angenommen',
+      accepted: 'Auftrag angenommen! 🎉',
       rejected: 'Auftrag abgelehnt',
-      completed: 'Auftrag als erledigt markiert',
-      new: '',
+      completed: 'Auftrag als erledigt markiert ✓',
+      published: '',
     };
 
     toast.success(statusMessages[newStatus]);
     setSelectedOrder(null);
+    
+    // Navigate to orders tab when accepting
+    if (newStatus === 'accepted') {
+      setActiveTab('orders');
+    }
   };
 
   // Show order detail if selected
   if (selectedOrder) {
-    // Get the latest version of the order from state
     const currentOrder = orders.find(o => o.id === selectedOrder.id) || selectedOrder;
     return (
       <OrderDetail
@@ -59,6 +63,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {activeTab === 'pool' && (
+        <PoolView 
+          orders={orders} 
+          onOrderClick={handleOrderClick}
+        />
+      )}
+      
       {activeTab === 'orders' && (
         <OrderList 
           orders={orders} 
@@ -82,7 +93,8 @@ const Index = () => {
       <BottomNav 
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        newOrdersCount={newOrdersCount}
+        poolCount={poolCount}
+        ordersCount={ordersCount}
       />
     </div>
   );

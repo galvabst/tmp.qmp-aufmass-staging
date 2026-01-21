@@ -1,4 +1,4 @@
-export type OrderStatus = 'new' | 'accepted' | 'completed' | 'rejected';
+export type OrderStatus = 'published' | 'accepted' | 'completed' | 'rejected';
 
 export interface Order {
   id: string;
@@ -14,4 +14,6 @@ export interface Order {
   notes?: string;
   contactPhone?: string;
   projectType: string;
+  lat?: number;
+  lng?: number;
 }

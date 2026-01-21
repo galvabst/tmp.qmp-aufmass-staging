@@ -1,17 +1,19 @@
-import { ClipboardList, CheckCircle2, User } from 'lucide-react';
+import { MapPin, ClipboardList, CheckCircle2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type Tab = 'orders' | 'completed' | 'profile';
+export type Tab = 'pool' | 'orders' | 'completed' | 'profile';
 
 interface BottomNavProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
-  newOrdersCount?: number;
+  poolCount?: number;
+  ordersCount?: number;
 }
 
-export function BottomNav({ activeTab, onTabChange, newOrdersCount = 0 }: BottomNavProps) {
+export function BottomNav({ activeTab, onTabChange, poolCount = 0, ordersCount = 0 }: BottomNavProps) {
   const tabs = [
-    { id: 'orders' as Tab, label: 'Aufträge', icon: ClipboardList, badge: newOrdersCount },
+    { id: 'pool' as Tab, label: 'Pool', icon: MapPin, badge: poolCount },
+    { id: 'orders' as Tab, label: 'Aufträge', icon: ClipboardList, badge: ordersCount },
     { id: 'completed' as Tab, label: 'Erledigt', icon: CheckCircle2 },
     { id: 'profile' as Tab, label: 'Profil', icon: User },
   ];

@@ -7,8 +7,8 @@ interface StatusBadgeProps {
 }
 
 const statusConfig: Record<OrderStatus, { label: string; className: string }> = {
-  new: {
-    label: 'Neu',
+  published: {
+    label: 'Verfügbar',
     className: 'bg-status-new-bg text-status-new',
   },
   accepted: {
