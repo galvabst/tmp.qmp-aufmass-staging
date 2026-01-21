@@ -197,7 +197,15 @@ const Index = () => {
       )}
       
       {activeTab === 'profile' && (
-        <ProfileView profile={profile} />
+        <ProfileView 
+          profile={profile} 
+          onSave={(updatedData) => {
+            // For now, just show a toast - later this would persist to Supabase
+            toast.success('Profil aktualisiert');
+            console.log('Profile update:', updatedData);
+          }}
+          onStartOnboarding={() => setOnboardingComplete(false)}
+        />
       )}
 
       <BottomNav 

@@ -1,23 +1,58 @@
-import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Shield, Award, Edit2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { TechnicianProfile } from '@/types/technician';
+import { useState } from 'react';
+import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock } from 'lucide-react';
+import { TechnicianProfile, OnboardingProgress } from '@/types/technician';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
-  onEdit?: () => void;
-  showAdminLink?: boolean;
+  onSave?: (updatedProfile: Partial<TechnicianProfile>) => void;
+  onStartOnboarding?: () => void;
 }
 
-export function ProfileView({ profile, onEdit, showAdminLink = true }: ProfileViewProps) {
-  const navigate = useNavigate();
-  
+export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    name: profile.name,
+    phone: profile.phone,
+    region: profile.region,
+  });
+
   const menuItems = [
     { icon: User, label: 'Persönliche Daten', href: '#' },
     { icon: Settings, label: 'Einstellungen', href: '#' },
   ];
+
+  const handleSave = () => {
+    onSave?.(editData);
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditData({
+      name: profile.name,
+      phone: profile.phone,
+      region: profile.region,
+    });
+    setIsEditing(false);
+  };
+
+  const getStepIcon = (status: 'completed' | 'in_progress' | 'pending') => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle className="w-5 h-5 text-status-accepted" />;
+      case 'in_progress':
+        return <Clock className="w-5 h-5 text-status-pending" />;
+      default:
+        return <Circle className="w-5 h-5 text-muted-foreground" />;
+    }
+  };
+
+  const onboarding = profile.onboarding;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -29,17 +64,46 @@ export function ProfileView({ profile, onEdit, showAdminLink = true }: ProfileVi
               <User className="w-8 h-8" />
             </div>
             <div className="flex-1">
-              <h1 className="text-xl font-bold">{profile.name}</h1>
-              <p className="text-primary-foreground/80 text-sm">
-                Techniker seit {profile.memberSince}
-              </p>
+              {isEditing ? (
+                <Input
+                  value={editData.name}
+                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  className="bg-primary-foreground/10 border-primary-foreground/30 text-primary-foreground text-xl font-bold"
+                />
+              ) : (
+                <>
+                  <h1 className="text-xl font-bold">{profile.name}</h1>
+                  <p className="text-primary-foreground/80 text-sm">
+                    Techniker seit {profile.memberSince}
+                  </p>
+                </>
+              )}
             </div>
-            {onEdit && (
+            {isEditing ? (
+              <div className="flex gap-2">
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="text-primary-foreground hover:bg-primary-foreground/10"
+                  onClick={handleCancel}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="text-primary-foreground hover:bg-primary-foreground/10"
+                  onClick={handleSave}
+                >
+                  <Save className="w-5 h-5" />
+                </Button>
+              </div>
+            ) : (
               <Button 
                 size="icon" 
                 variant="ghost" 
                 className="text-primary-foreground hover:bg-primary-foreground/10"
-                onClick={onEdit}
+                onClick={() => setIsEditing(true)}
               >
                 <Edit2 className="w-5 h-5" />
               </Button>
@@ -78,14 +142,69 @@ export function ProfileView({ profile, onEdit, showAdminLink = true }: ProfileVi
           </div>
           <div className="flex items-center gap-3 p-4">
             <Phone className="w-5 h-5 text-muted-foreground" />
-            <span className="text-foreground">{profile.phone}</span>
+            {isEditing ? (
+              <Input
+                value={editData.phone}
+                onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                className="flex-1"
+              />
+            ) : (
+              <span className="text-foreground">{profile.phone}</span>
+            )}
           </div>
           <div className="flex items-center gap-3 p-4">
             <MapPin className="w-5 h-5 text-muted-foreground" />
-            <span className="text-foreground">{profile.region}</span>
+            {isEditing ? (
+              <Input
+                value={editData.region}
+                onChange={(e) => setEditData({ ...editData, region: e.target.value })}
+                className="flex-1"
+              />
+            ) : (
+              <span className="text-foreground">{profile.region}</span>
+            )}
           </div>
         </div>
       </section>
+
+      {/* Onboarding Progress */}
+      {onboarding && (
+        <section className="p-4 pt-0">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Onboarding</h2>
+          <div className="bg-card rounded-lg shadow-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-foreground">Fortschritt</span>
+              <span className="text-sm text-muted-foreground">{onboarding.progressPercent}%</span>
+            </div>
+            <Progress value={onboarding.progressPercent} className="h-2 mb-4" />
+            
+            <div className="space-y-3">
+              {onboarding.steps.map((step) => (
+                <div key={step.id} className="flex items-center gap-3">
+                  {getStepIcon(step.status)}
+                  <div className="flex-1">
+                    <span className={`text-sm ${step.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                      {step.label}
+                    </span>
+                    {step.status === 'in_progress' && (
+                      <span className="ml-2 text-xs text-status-pending">(Aktiv)</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {!onboarding.isCompleted && onStartOnboarding && (
+              <Button 
+                className="w-full mt-4" 
+                onClick={onStartOnboarding}
+              >
+                Onboarding fortsetzen
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Certificates */}
       {profile.certificates.length > 0 && (
@@ -127,19 +246,6 @@ export function ProfileView({ profile, onEdit, showAdminLink = true }: ProfileVi
           })}
         </div>
       </section>
-
-      {/* Admin Link */}
-      {showAdminLink && (
-        <section className="p-4 pt-0">
-          <button 
-            onClick={() => navigate('/admin')}
-            className="w-full flex items-center justify-center gap-2 p-4 bg-primary rounded-lg shadow-card text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Shield className="w-5 h-5" />
-            Admin-Bereich
-          </button>
-        </section>
-      )}
 
       {/* Logout */}
       <section className="p-4 pt-0">
