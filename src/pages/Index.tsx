@@ -12,11 +12,38 @@ import { TechnicianOrder, CheckinPhase } from '@/types/technician';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
 
+// Load profile data from onboarding state (localStorage)
+const loadOnboardingProfile = () => {
+  try {
+    const saved = localStorage.getItem('thermocheck_onboarding_state');
+    if (saved) {
+      const state = JSON.parse(saved);
+      return state.profil;
+    }
+  } catch (e) {
+    console.warn('Failed to load onboarding profile', e);
+  }
+  return null;
+};
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
   const [orders, setOrders] = useState<TechnicianOrder[]>(mockTechnicianOrders);
-  const [profile] = useState(mockTechnicianProfile);
+  
+  // Merge onboarding profile with mock data
+  const [profile, setProfile] = useState(() => {
+    const onboardingProfile = loadOnboardingProfile();
+    return {
+      ...mockTechnicianProfile,
+      name: onboardingProfile 
+        ? `${onboardingProfile.vorname} ${onboardingProfile.nachname}` 
+        : mockTechnicianProfile.name,
+      avatarUrl: onboardingProfile?.avatarUrl || mockTechnicianProfile.avatarUrl,
+      email: onboardingProfile?.email || mockTechnicianProfile.email,
+      phone: onboardingProfile?.telefon || mockTechnicianProfile.phone,
+    };
+  });
   
   // Onboarding state
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -122,6 +149,19 @@ const Index = () => {
       <OnboardingScreen 
         onComplete={() => {
           setOnboardingComplete(true);
+          
+          // Sync profile with onboarding data
+          const onboardingProfile = loadOnboardingProfile();
+          if (onboardingProfile) {
+            setProfile(prev => ({
+              ...prev,
+              name: `${onboardingProfile.vorname} ${onboardingProfile.nachname}`,
+              avatarUrl: onboardingProfile.avatarUrl,
+              email: onboardingProfile.email,
+              phone: onboardingProfile.telefon,
+            }));
+          }
+          
           toast.success('Willkommen bei Thermocheck! 🎉');
         }}
       />
