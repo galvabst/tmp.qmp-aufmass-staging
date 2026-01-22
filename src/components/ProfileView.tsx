@@ -62,8 +62,16 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
       <header className="bg-primary text-primary-foreground safe-area-top">
         <div className="p-6 pt-8">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-              <User className="w-8 h-8" />
+            <div className="w-16 h-16 bg-primary-foreground/20 rounded-full flex items-center justify-center overflow-hidden">
+              {profile.avatarUrl ? (
+                <img 
+                  src={profile.avatarUrl} 
+                  alt={profile.name} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-8 h-8" />
+              )}
             </div>
             <div className="flex-1">
               {isEditing ? (
