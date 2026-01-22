@@ -1,7 +1,4 @@
 ================================================================================
-LOVABLE AI BEHAVIOUR GUIDELINES
-================================================================================
-================================================================================
 LOVAable Coding Verhaltensregeln du MUSST DICH SO VERHALTEN!! - SALES OS (Galvanek Bau GmbH)
 ================================================================================
 
@@ -245,13 +242,20 @@ Vor JEDER Implementation diese Checkliste durchgehen:
 - Max. 200-300 Zeilen pro Datei
 - Neue Dateien erstellen statt bestehende aufblaehem
 
-9.4 QUALITY OVER SPEED
------------------------
+9.4 QUALITY OVER SPEED (TECHNICAL DEBT AWARENESS)
+--------------------------------------------------
 - Error Handling ist Pflicht, nicht optional
 - Security-Checks bei jeder DB-Operation
 - Edge Cases IMMER bedenken
 - Integration pruefen, nicht nur isolierte Funktion
 - Erste Loesung ist Draft, nicht Final
+
+TECHNICAL DEBT VERMEIDEN:
+- "Quick Fix" ist SELTEN wirklich quick → Debt-Zinsen bedenken!
+- Bei Zeitdruck: Explizit dokumentieren was Debt ist
+- Lieber kleines Feature sauber als grosses Feature unsauber
+- Jetzt 30 Min sparen = spaeter 3 Stunden debuggen
+- "Spaeter sauber machen" = NIEMALS! Debt zahlt sich nicht aus
 
 9.5 DOCUMENTATION-FIRST BEI KOMPLEXEN FEATURES
 -----------------------------------------------
@@ -342,6 +346,16 @@ NIEMALS:
 ✗ EMAIL-JOINs im Frontend (mitarbeiter per Email suchen)
 ✗ has_role() in neuen RLS Policies
 ✗ Edge Functions ohne serverseitigen Admin-Check
+
+TECHNICAL DEBT PATTERNS (VERBOTEN):
+------------------------------------
+✗ "Schneller Workaround, spaeter sauber machen" → Debt akkumuliert exponentiell!
+✗ Gleicher Code an mehreren Stellen (DRY-Verletzung)
+✗ Funktionen mit >5 Parametern → Object-Parameter oder Split!
+✗ Magic Numbers ohne Konstanten-Definition
+✗ if-else Kette mit >3 Branches ohne Switch/Map/Strategy
+✗ Komponente die "zu viel" macht → Single Responsibility verletzt
+✗ Aenderung an einer Stelle bricht andere → Modularisierung fehlt!
 
 IMMER:
 ------
@@ -965,6 +979,140 @@ SZENARIO 5: "Ich brauche ein Termin-Booking-System"
 NIEMALS / IMMER CHECKLISTE
 ================================================================================
 
+================================================================================
+REGEL 18: CLEAN CODE & TECHNICAL DEBT AWARENESS
+================================================================================
+
+Quelle: refactoring.guru (Ward Cunningham's Technical Debt Metaphor)
+
+Diese Regel integriert Clean-Code-Prinzipien und Technical-Debt-Awareness
+in den gesamten Entwicklungsprozess.
+
+18.1 CLEAN CODE DEFINITION
+---------------------------
+Code ist CLEAN wenn:
+
+✓ Offensichtlich fuer andere Entwickler
+  → Keine kryptischen Variablennamen
+  → Keine Magic Numbers (immer Konstanten/ENUMs!)
+  → Keine aufgeblaehten Klassen (>300 Zeilen = Split!)
+  → Keine "cleveren" Loesungen die keiner versteht
+
+✓ Keine Duplikation
+  → DRY-Prinzip konsequent anwenden
+  → Bei 2x Copy-Paste → Refactor zu wiederverwendbarer Funktion
+  → Generische Komponenten mit Type-Parameter (Memory: code-reuse-principle)
+
+✓ Minimale Komplexitaet
+  → Weniger Code = weniger Bugs = weniger Wartung
+  → "Code is liability, keep it short and simple"
+  → Single Responsibility pro Funktion/Komponente
+
+✓ Testbar/Verifizierbar
+  → Klare Inputs/Outputs
+  → Keine versteckten Seiteneffekte
+  → Console-Logs fuer Debugging einbauen
+
+18.2 TECHNICAL DEBT ERKENNEN
+-----------------------------
+Technical Debt = "Kredit auf Code-Qualitaet"
+→ Beschleunigt kurzfristig, verlangsamt langfristig EXPONENTIELL!
+
+WARNZEICHEN fuer Technical Debt:
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ⚠ BUSINESS PRESSURE                                                          │
+│   "Schnell einbauen, spaeter sauber machen" → NIEMALS! Debt zahlt sich nicht │
+│   aus. Jetzt 30 Min sparen = spaeter 3 Stunden debuggen.                     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ⚠ MONOLITH-STRUKTUR                                                          │
+│   Aenderung an einer Stelle bricht andere → Modularisierung fehlt!           │
+│   → Siehe Regel 5 (Layered Architecture) + Regel 9.3 (Anti-Monolith)         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ⚠ FEHLENDE DOKUMENTATION                                                     │
+│   "Weiss nur der Original-Entwickler" → Single Point of Failure              │
+│   → Kommentare bei komplexer Logik PFLICHT                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ⚠ VERZOEGERTES REFACTORING                                                   │
+│   "Funktioniert ja noch" → Je laenger warten, desto mehr abhaengiger Code    │
+│   → Refactoring-Bedarf SOFORT ansprechen, nicht ignorieren!                  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ⚠ FEHLENDE STANDARDS                                                         │
+│   "Jeder codet wie er will" → Inkonsistenz, Verwirrung                       │
+│   → Diese BEHAVIOUR.txt existiert genau dafuer!                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+18.3 TECHNICAL DEBT VERMEIDEN (PROAKTIV)
+-----------------------------------------
+
+BEIM CODEN - VOR JEDER ZEILE FRAGEN:
+□ Habe ich diesen Code schon mal woanders geschrieben? → Refactor!
+□ Versteht ein anderer Entwickler das in 6 Monaten? → Kommentar/Rename!
+□ Gibt es Magic Numbers? → Konstante/ENUM erstellen!
+□ Ist die Funktion >50 Zeilen? → Split in kleinere Funktionen!
+□ Gibt es hartcodierte Werte? → Config/DB-Tabelle auslagern!
+
+BEIM PLANEN - VOR JEDER IMPLEMENTATION:
+□ Ist "quick fix" wirklich schneller? → Meist NEIN langfristig!
+□ Wie viel Code haengt davon ab? → Je mehr, desto sauberer implementieren!
+□ Wird das Feature erweitert werden? → Generisch bauen von Anfang an!
+
+18.4 REFACTORING-TRIGGER (SOFORT HANDELN!)
+-------------------------------------------
+
+SOFORT refactoren wenn:
+- Gleicher Code an 3+ Stellen → Extract Function/Component
+- Funktion hat >3 Parameter → Object-Parameter oder Split
+- if-else Kette mit >3 Branches → Switch/Map/Strategy Pattern
+- Komponente macht "zu viel" → Single Responsibility verletzt
+- Datei >400 Zeilen → Split in Module
+- Aenderung bricht anderen Code → Coupling zu hoch
+
+18.5 WARNUNG BEI ERKANNTEM DEBT
+--------------------------------
+
+Wenn ich potentiellen Technical Debt erkenne, gebe ich diese Warnung aus:
+
+"⚠ TECHNICAL DEBT WARNUNG:
+Ich erkenne hier potentiellen Technical Debt:
+- [X] ist dupliziert / zu komplex / nicht modular
+- Langfristige Kosten: [geschaetzte Auswirkung]
+
+Optionen:
+1. JETZT sauber machen (empfohlen)
+2. Bewusst als Debt akzeptieren (dokumentieren!)
+
+Wie soll ich vorgehen?"
+
+18.6 VERBINDUNG ZU BESTEHENDEN REGELN
+--------------------------------------
+
+Diese Regel verstaerkt und verbindet:
+┌────────────────────────────────────────────────────────────────────────────┐
+│ REGEL 5 (Architektur)      → Layered = weniger Kohaerenz-Probleme         │
+│ REGEL 9.3 (Anti-Monolith)  → Modularitaet verhindert Debt                 │
+│ REGEL 9.4 (Quality/Speed)  → Debt entsteht durch Speed-Fokus              │
+│ REGEL 11 (Verboten)        → Patterns die Debt erzeugen                   │
+│ REGEL 15 (Checklisten)     → Proaktive Debt-Vermeidung                    │
+│ REGEL 16 (Multi-Agent)     → Debt durch Deliberation erkennen             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+18.7 SELBST-CHECK: CLEAN CODE CHECKLISTE
+-----------------------------------------
+
+Nach JEDER Implementation durchgehen:
+
+□ Versteht ein Junior-Entwickler diesen Code sofort?
+□ Gibt es duplizierte Logik die ich extrahieren kann?
+□ Sind alle Namen selbsterklaerend (keine Kommentare noetig)?
+□ Ist jede Funktion unter 50 Zeilen?
+□ Ist jede Datei unter 300 Zeilen?
+□ Gibt es versteckte Abhaengigkeiten?
+□ Kann ich diesen Code in 6 Monaten noch verstehen?
+
+Wenn NEIN bei irgendeiner Frage → VOR Commit refactoren!
+
+================================================================================
+
 NIEMALS:
 ---------
 ✗ Schema/Tabelle erstellen ohne mindestens 2-3 Rueckfragen
@@ -983,7 +1131,3 @@ IMMER:
 ✓ Annahmen dokumentieren wenn User keine klare Antwort gibt
 
 ================================================================================
-
-
-
-===========================================================================
