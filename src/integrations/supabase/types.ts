@@ -572,6 +572,9 @@ export type Database = {
           abrechnung_datum: string | null
           abrechnungsmonat: string | null
           anzahlung_eingang_datum: string | null
+          anzahlung_faellig_am: string | null
+          anzahlung_netto: number | null
+          anzahlung_prozent: number | null
           auftragsbestaetigung_netto_summe: number
           auszahlung_blockiert_grund: string[] | null
           auszahlungsmonat: string | null
@@ -584,12 +587,17 @@ export type Database = {
           baustellenstatus_substatus:
             | Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
             | null
+          bza_id: string | null
           created_at: string
           eingefrorener_provisionssatz: number | null
           final_signing_date: string | null
+          finanzierung_nachweis_url: string | null
+          finanzierung_partner_id: string | null
+          finanzierung_portal_url: string | null
           foerderung_beantragt_datum: string | null
           gesamtverantwortlicher_id: string | null
           gewaehrter_rabatt_prozent: number | null
+          gewuenschtes_baustart_datum: string | null
           id: string
           im_bau_notizen: string | null
           ist_kombipaket: boolean
@@ -623,6 +631,9 @@ export type Database = {
           subunternehmer_id: string | null
           updated_at: string
           verkaufsmonat: string | null
+          vormontage_abgeschlossen: boolean
+          vormontage_datum: string | null
+          vormontage_subunternehmer_id: string | null
           wichtige_baustelleninfos: string | null
           widerruf_bis_datum: string | null
           widerruf_status:
@@ -635,6 +646,9 @@ export type Database = {
           abrechnung_datum?: string | null
           abrechnungsmonat?: string | null
           anzahlung_eingang_datum?: string | null
+          anzahlung_faellig_am?: string | null
+          anzahlung_netto?: number | null
+          anzahlung_prozent?: number | null
           auftragsbestaetigung_netto_summe: number
           auszahlung_blockiert_grund?: string[] | null
           auszahlungsmonat?: string | null
@@ -647,12 +661,17 @@ export type Database = {
           baustellenstatus_substatus?:
             | Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
             | null
+          bza_id?: string | null
           created_at?: string
           eingefrorener_provisionssatz?: number | null
           final_signing_date?: string | null
+          finanzierung_nachweis_url?: string | null
+          finanzierung_partner_id?: string | null
+          finanzierung_portal_url?: string | null
           foerderung_beantragt_datum?: string | null
           gesamtverantwortlicher_id?: string | null
           gewaehrter_rabatt_prozent?: number | null
+          gewuenschtes_baustart_datum?: string | null
           id?: string
           im_bau_notizen?: string | null
           ist_kombipaket?: boolean
@@ -686,6 +705,9 @@ export type Database = {
           subunternehmer_id?: string | null
           updated_at?: string
           verkaufsmonat?: string | null
+          vormontage_abgeschlossen?: boolean
+          vormontage_datum?: string | null
+          vormontage_subunternehmer_id?: string | null
           wichtige_baustelleninfos?: string | null
           widerruf_bis_datum?: string | null
           widerruf_status?:
@@ -698,6 +720,9 @@ export type Database = {
           abrechnung_datum?: string | null
           abrechnungsmonat?: string | null
           anzahlung_eingang_datum?: string | null
+          anzahlung_faellig_am?: string | null
+          anzahlung_netto?: number | null
+          anzahlung_prozent?: number | null
           auftragsbestaetigung_netto_summe?: number
           auszahlung_blockiert_grund?: string[] | null
           auszahlungsmonat?: string | null
@@ -710,12 +735,17 @@ export type Database = {
           baustellenstatus_substatus?:
             | Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
             | null
+          bza_id?: string | null
           created_at?: string
           eingefrorener_provisionssatz?: number | null
           final_signing_date?: string | null
+          finanzierung_nachweis_url?: string | null
+          finanzierung_partner_id?: string | null
+          finanzierung_portal_url?: string | null
           foerderung_beantragt_datum?: string | null
           gesamtverantwortlicher_id?: string | null
           gewaehrter_rabatt_prozent?: number | null
+          gewuenschtes_baustart_datum?: string | null
           id?: string
           im_bau_notizen?: string | null
           ist_kombipaket?: boolean
@@ -749,6 +779,9 @@ export type Database = {
           subunternehmer_id?: string | null
           updated_at?: string
           verkaufsmonat?: string | null
+          vormontage_abgeschlossen?: boolean
+          vormontage_datum?: string | null
+          vormontage_subunternehmer_id?: string | null
           wichtige_baustelleninfos?: string | null
           widerruf_bis_datum?: string | null
           widerruf_status?:
@@ -758,6 +791,13 @@ export type Database = {
           zusatzkosten?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "auftraege_finanzierung_partner_id_fkey"
+            columns: ["finanzierung_partner_id"]
+            isOneToOne: false
+            referencedRelation: "finanzierungspartner"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "auftraege_gesamtverantwortlicher_id_fkey"
             columns: ["gesamtverantwortlicher_id"]
@@ -807,6 +847,13 @@ export type Database = {
             referencedRelation: "subunternehmer"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "auftraege_vormontage_subunternehmer_id_fkey"
+            columns: ["vormontage_subunternehmer_id"]
+            isOneToOne: false
+            referencedRelation: "subunternehmer"
+            referencedColumns: ["id"]
+          },
         ]
       }
       auftraege_substatus_backup: {
@@ -829,6 +876,57 @@ export type Database = {
           old_substatus?: string | null
         }
         Relationships: []
+      }
+      auftrag_anhaenge: {
+        Row: {
+          auftrag_id: string
+          created_at: string | null
+          datei_url: string
+          dateiname: string
+          hochgeladen_am: string | null
+          hochgeladen_von: string | null
+          id: string
+          kategorie: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auftrag_id: string
+          created_at?: string | null
+          datei_url: string
+          dateiname: string
+          hochgeladen_am?: string | null
+          hochgeladen_von?: string | null
+          id?: string
+          kategorie?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auftrag_id?: string
+          created_at?: string | null
+          datei_url?: string
+          dateiname?: string
+          hochgeladen_am?: string | null
+          hochgeladen_von?: string | null
+          id?: string
+          kategorie?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auftrag_anhaenge_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "auftraege"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auftrag_anhaenge_hochgeladen_von_fkey"
+            columns: ["hochgeladen_von"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       auftrag_arbeitspakete: {
         Row: {
@@ -5761,6 +5859,133 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_auftrag_dokumente: {
+        Row: {
+          auftrag_id: string | null
+          created_at: string
+          dokument_typ: Database["public"]["Enums"]["sales_auftrag_dokument_typ_enum"]
+          error_code: string | null
+          error_message: string | null
+          file_hash: string
+          id: string
+          lead_id: string | null
+          original_filename: string
+          page_count: number | null
+          retry_count: number
+          status: Database["public"]["Enums"]["sales_auftrag_dokument_status_enum"]
+          storage_bucket: string
+          storage_path: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          auftrag_id?: string | null
+          created_at?: string
+          dokument_typ: Database["public"]["Enums"]["sales_auftrag_dokument_typ_enum"]
+          error_code?: string | null
+          error_message?: string | null
+          file_hash: string
+          id?: string
+          lead_id?: string | null
+          original_filename: string
+          page_count?: number | null
+          retry_count?: number
+          status?: Database["public"]["Enums"]["sales_auftrag_dokument_status_enum"]
+          storage_bucket: string
+          storage_path: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          auftrag_id?: string | null
+          created_at?: string
+          dokument_typ?: Database["public"]["Enums"]["sales_auftrag_dokument_typ_enum"]
+          error_code?: string | null
+          error_message?: string | null
+          file_hash?: string
+          id?: string
+          lead_id?: string | null
+          original_filename?: string
+          page_count?: number | null
+          retry_count?: number
+          status?: Database["public"]["Enums"]["sales_auftrag_dokument_status_enum"]
+          storage_bucket?: string
+          storage_path?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_auftrag_dokumente_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "auftraege"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_auftrag_dokumente_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_auftrag_dokumente_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_auftrag_dokumente_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_dokument_analysen: {
+        Row: {
+          analyse_typ: Database["public"]["Enums"]["sales_dokument_analyse_typ_enum"]
+          confidence_score: number | null
+          created_at: string
+          dokument_id: string
+          ergebnis: Json
+          id: string
+          model_used: string | null
+          tokens_used: number | null
+        }
+        Insert: {
+          analyse_typ: Database["public"]["Enums"]["sales_dokument_analyse_typ_enum"]
+          confidence_score?: number | null
+          created_at?: string
+          dokument_id: string
+          ergebnis?: Json
+          id?: string
+          model_used?: string | null
+          tokens_used?: number | null
+        }
+        Update: {
+          analyse_typ?: Database["public"]["Enums"]["sales_dokument_analyse_typ_enum"]
+          confidence_score?: number | null
+          created_at?: string
+          dokument_id?: string
+          ergebnis?: Json
+          id?: string
+          model_used?: string | null
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_dokument_analysen_dokument_id_fkey"
+            columns: ["dokument_id"]
+            isOneToOne: false
+            referencedRelation: "sales_auftrag_dokumente"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shop_produkte: {
         Row: {
           abo_intervall: string | null
@@ -5926,6 +6151,7 @@ export type Database = {
       subunternehmer: {
         Row: {
           adresse: string | null
+          arbeitstage: number[] | null
           created_at: string
           email: string | null
           firma: string | null
@@ -5935,11 +6161,13 @@ export type Database = {
           name: string
           notizen: string | null
           spezialgebiete: string[] | null
+          team_typ: Database["public"]["Enums"]["subunternehmer_team_typ_enum"]
           telefon: string | null
           updated_at: string
         }
         Insert: {
           adresse?: string | null
+          arbeitstage?: number[] | null
           created_at?: string
           email?: string | null
           firma?: string | null
@@ -5949,11 +6177,13 @@ export type Database = {
           name: string
           notizen?: string | null
           spezialgebiete?: string[] | null
+          team_typ?: Database["public"]["Enums"]["subunternehmer_team_typ_enum"]
           telefon?: string | null
           updated_at?: string
         }
         Update: {
           adresse?: string | null
+          arbeitstage?: number[] | null
           created_at?: string
           email?: string | null
           firma?: string | null
@@ -5963,6 +6193,7 @@ export type Database = {
           name?: string
           notizen?: string | null
           spezialgebiete?: string[] | null
+          team_typ?: Database["public"]["Enums"]["subunternehmer_team_typ_enum"]
           telefon?: string | null
           updated_at?: string
         }
@@ -6019,6 +6250,47 @@ export type Database = {
           },
         ]
       }
+      subunternehmer_teams: {
+        Row: {
+          arbeitstage: number[]
+          created_at: string
+          id: string
+          ist_aktiv: boolean
+          notizen: string | null
+          subunternehmer_id: string
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          arbeitstage?: number[]
+          created_at?: string
+          id?: string
+          ist_aktiv?: boolean
+          notizen?: string | null
+          subunternehmer_id: string
+          team_name?: string
+          updated_at?: string
+        }
+        Update: {
+          arbeitstage?: number[]
+          created_at?: string
+          id?: string
+          ist_aktiv?: boolean
+          notizen?: string | null
+          subunternehmer_id?: string
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subunternehmer_teams_subunternehmer_id_fkey"
+            columns: ["subunternehmer_id"]
+            isOneToOne: false
+            referencedRelation: "subunternehmer"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_logs: {
         Row: {
           created_at: string | null
@@ -6046,35 +6318,41 @@ export type Database = {
       team_verfuegbarkeit: {
         Row: {
           auftrag_id: string | null
+          buchung_typ: Database["public"]["Enums"]["team_buchung_typ_enum"]
           created_at: string
           created_by: string | null
           datum: string
           id: string
           notizen: string | null
-          status: string
+          status: Database["public"]["Enums"]["team_verfuegbarkeit_status_enum"]
           subunternehmer_id: string
+          team_id: string | null
           updated_at: string
         }
         Insert: {
           auftrag_id?: string | null
+          buchung_typ?: Database["public"]["Enums"]["team_buchung_typ_enum"]
           created_at?: string
           created_by?: string | null
           datum: string
           id?: string
           notizen?: string | null
-          status?: string
+          status?: Database["public"]["Enums"]["team_verfuegbarkeit_status_enum"]
           subunternehmer_id: string
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
           auftrag_id?: string | null
+          buchung_typ?: Database["public"]["Enums"]["team_buchung_typ_enum"]
           created_at?: string
           created_by?: string | null
           datum?: string
           id?: string
           notizen?: string | null
-          status?: string
+          status?: Database["public"]["Enums"]["team_verfuegbarkeit_status_enum"]
           subunternehmer_id?: string
+          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -6097,6 +6375,13 @@ export type Database = {
             columns: ["subunternehmer_id"]
             isOneToOne: false
             referencedRelation: "subunternehmer"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_verfuegbarkeit_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "subunternehmer_teams"
             referencedColumns: ["id"]
           },
         ]
@@ -9828,6 +10113,7 @@ export type Database = {
         | "Nicht erreicht"
         | "Subsuche"
         | "Vorbereiten der Baustelle"
+        | "Beauftragungsmails verschicken"
         | "Schlussrechnung gestellt"
         | "Schlussrechnung bezahlt"
         | "BnD-ID beantragt"
@@ -9976,6 +10262,26 @@ export type Database = {
         | "RTC1"
         | "RTC2"
         | "RTC3"
+      sales_auftrag_dokument_status_enum:
+        | "uploaded"
+        | "processing"
+        | "completed"
+        | "failed"
+      sales_auftrag_dokument_typ_enum:
+        | "angebot"
+        | "widerruf"
+        | "finanzierung_nachweis"
+      sales_dokument_analyse_typ_enum:
+        | "ocr"
+        | "seitenfilter"
+        | "datenextraktion"
+        | "widerruf_check"
+        | "seitenklassifikation"
+        | "vision_bestellung"
+        | "vision_widerruf"
+        | "vision_angebot"
+        | "vision_unterschrift"
+        | "vision_aggregiert"
       schritt_typ:
         | "checkbox"
         | "input"
@@ -9993,6 +10299,8 @@ export type Database = {
         | "month"
         | "calculated"
         | "credentials"
+        | "vormontage_calendar"
+        | "number"
       storno_status_enum:
         | "Zu Stornieren"
         | "Stornierung beantragt"
@@ -10000,7 +10308,16 @@ export type Database = {
         | "Storno abgelehnt"
       strafabzug_typ: "Danger Loss" | "Follow-Up-Verlust"
       strategy_source_enum: "sales_academy" | "internal_meeting"
+      subunternehmer_team_typ_enum: "vormontage" | "wp_montage" | "beides"
       task_status_enum: "Ausstehend" | "Erledigt" | "Überfällig"
+      team_buchung_typ_enum: "wp_montage" | "vormontage"
+      team_verfuegbarkeit_status_enum:
+        | "verfügbar"
+        | "gebucht"
+        | "urlaub"
+        | "krank"
+        | "wartung"
+        | "vorgemerkt"
       termin_status_enum: "Ausstehend" | "Stattgefunden" | "No Show"
       thc_status_enum:
         | "Neuer Thermo-Check"
@@ -10065,6 +10382,9 @@ export type Database = {
         | "Barzahlung"
         | "Zentren"
         | "Wartezone"
+        | "Cloover"
+        | "Golfstrom"
+        | "Viessmann Waerme"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -10290,6 +10610,7 @@ export const Constants = {
         "Nicht erreicht",
         "Subsuche",
         "Vorbereiten der Baustelle",
+        "Beauftragungsmails verschicken",
         "Schlussrechnung gestellt",
         "Schlussrechnung bezahlt",
         "BnD-ID beantragt",
@@ -10454,6 +10775,29 @@ export const Constants = {
         "RTC2",
         "RTC3",
       ],
+      sales_auftrag_dokument_status_enum: [
+        "uploaded",
+        "processing",
+        "completed",
+        "failed",
+      ],
+      sales_auftrag_dokument_typ_enum: [
+        "angebot",
+        "widerruf",
+        "finanzierung_nachweis",
+      ],
+      sales_dokument_analyse_typ_enum: [
+        "ocr",
+        "seitenfilter",
+        "datenextraktion",
+        "widerruf_check",
+        "seitenklassifikation",
+        "vision_bestellung",
+        "vision_widerruf",
+        "vision_angebot",
+        "vision_unterschrift",
+        "vision_aggregiert",
+      ],
       schritt_typ: [
         "checkbox",
         "input",
@@ -10471,6 +10815,8 @@ export const Constants = {
         "month",
         "calculated",
         "credentials",
+        "vormontage_calendar",
+        "number",
       ],
       storno_status_enum: [
         "Zu Stornieren",
@@ -10480,7 +10826,17 @@ export const Constants = {
       ],
       strafabzug_typ: ["Danger Loss", "Follow-Up-Verlust"],
       strategy_source_enum: ["sales_academy", "internal_meeting"],
+      subunternehmer_team_typ_enum: ["vormontage", "wp_montage", "beides"],
       task_status_enum: ["Ausstehend", "Erledigt", "Überfällig"],
+      team_buchung_typ_enum: ["wp_montage", "vormontage"],
+      team_verfuegbarkeit_status_enum: [
+        "verfügbar",
+        "gebucht",
+        "urlaub",
+        "krank",
+        "wartung",
+        "vorgemerkt",
+      ],
       termin_status_enum: ["Ausstehend", "Stattgefunden", "No Show"],
       thc_status_enum: [
         "Neuer Thermo-Check",
@@ -10552,6 +10908,9 @@ export const Constants = {
         "Barzahlung",
         "Zentren",
         "Wartezone",
+        "Cloover",
+        "Golfstrom",
+        "Viessmann Waerme",
       ],
     },
   },
