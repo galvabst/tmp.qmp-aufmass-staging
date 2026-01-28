@@ -1,237 +1,178 @@
 
-# Plan: T-Shirt & Poloshirt Auswahl mit Slideshow
+# Plan: Jackenbilder hinzufuegen + Lightbox-Zoom-Funktion
 
 ## Zusammenfassung
 
-Das Oberteile-Bestellmodul wird erweitert:
-1. **Produktbilder** - 4 echte Bilder (T-Shirt vorne/hinten, Poloshirt vorne/hinten)
-2. **Slideshow-Ansicht** - Vorder- und Rückseite per Swipe/Klick wechselbar
-3. **Auswahl-Logik** - User kann T-Shirt, Poloshirt oder beides bestellen
+Zwei Erweiterungen werden umgesetzt:
+1. **Jackenbilder** - Pullover/Zipper vorne + hinten zu den Assets hinzufuegen
+2. **Lightbox-Komponente** - Bilder koennen per Klick vergroessert angezeigt werden (fuer Slideshow UND Beispielbilder im ProfileStep)
 
 ## Hochgeladene Bilder
 
 | Bild | Verwendung |
 |------|------------|
-| `image-15.png` | T-Shirt Vorderseite |
-| `image-16.png` | T-Shirt Rückseite |
-| `image-17.png` | Poloshirt Vorderseite |
-| `image-18.png` | Poloshirt Rückseite |
+| `image-19.png` | Jacke/Zipper Vorderseite |
+| `Gemini_Generated_Image_yioadiyioadiyioa_1.png` | Jacke/Zipper Rueckseite |
 
-## UI-Konzept
+## Neue Assets-Struktur
+
+```text
+src/assets/onboarding/kleidung/
+  ├── tshirt-vorne.png        (vorhanden)
+  ├── tshirt-hinten.png       (vorhanden)
+  ├── poloshirt-vorne.png     (vorhanden)
+  ├── poloshirt-hinten.png    (vorhanden)
+  ├── pullover-vorne.png      (NEU)
+  └── pullover-hinten.png     (NEU)
+```
+
+## Lightbox-Konzept
 
 ```text
 ┌──────────────────────────────────────────────────────────┐
-│                    Bestellungen                          │
-│              Bestellung 1 von 5: Oberteil                │
+│ [X]                                                      │
 │                                                          │
-│  Was moechtest du bestellen?                             │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │  [x] T-Shirt        [ ] Poloshirt       [ ] Beides  │ │
-│  └─────────────────────────────────────────────────────┘ │
 │                                                          │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │                                                    │  │
-│  │            < [Produktbild Slideshow] >             │  │
-│  │              Vorderseite / Rueckseite              │  │
-│  │                     ○ ●                            │  │
-│  │                                                    │  │
-│  │         Thermocheck T-Shirt                        │  │
-│  │                                                    │  │
-│  │    Hochwertige Arbeitskleidung mit deinem          │  │
-│  │    Namen und Thermocheck-Branding                  │  │
-│  │                                                    │  │
-│  │              Preis im Shop (einmalig)              │  │
-│  │                                                    │  │
-│  │    ┌────────────────────────────────────────┐     │  │
-│  │    │         Jetzt bestellen                 │     │  │
-│  │    └────────────────────────────────────────┘     │  │
-│  │                                                    │  │
-│  └────────────────────────────────────────────────────┘  │
+│           ┌─────────────────────────────────┐            │
+│           │                                 │            │
+│           │                                 │            │
+│           │      [BILD GROSS ANGEZEIGT]     │            │
+│           │                                 │            │
+│           │                                 │            │
+│           └─────────────────────────────────┘            │
 │                                                          │
-│           ○ ○ ○ ○ ○  (Progress-Dots)                    │
+│                    Vorderseite                           │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
-## Architektur-Aenderungen
+## Architektur
 
-### 1. Neue Asset-Struktur
+### 1. Neue Komponente: ImageLightbox
 
-```text
-src/assets/onboarding/kleidung/
-  ├── tshirt-vorne.png
-  ├── tshirt-hinten.png
-  ├── poloshirt-vorne.png
-  └── poloshirt-hinten.png
-```
-
-### 2. Produkt-Datenmodell erweitern
-
-Aktuell hat `OnboardingProduct` nur ein `bildUrl`. Fuer die Slideshow brauchen wir mehrere Bilder:
-
-```typescript
-// In src/types/onboarding.ts
-export interface OnboardingProduct {
-  id: string;
-  name: string;
-  beschreibung: string;
-  // ... bestehende Felder
-  bildUrl?: string;
-  bildUrls?: string[]; // NEU: Array fuer Slideshow (vorne, hinten)
-}
-```
-
-### 3. Neue Produktstruktur (Oberteil-Auswahl)
-
-Das erste Produkt wird zu einem "Auswahl-Produkt":
-
-```typescript
-// Neuer Produkt-Typ fuer Kleidungsauswahl
-export interface ClothingVariant {
-  id: string;
-  name: string;
-  bildUrls: string[]; // [vorne, hinten]
-}
-
-// Produkt mit Varianten
-{
-  id: 'oberteil',
-  name: 'Thermocheck Oberteil',
-  beschreibung: 'Wähle dein Oberteil: T-Shirt, Poloshirt oder beides',
-  produktTyp: 'kleidung',
-  varianten: [
-    { id: 'tshirt', name: 'T-Shirt', bildUrls: ['...vorne', '...hinten'] },
-    { id: 'poloshirt', name: 'Poloshirt', bildUrls: ['...vorne', '...hinten'] },
-  ],
-  // User kann 'tshirt', 'poloshirt' oder 'beides' waehlen
-}
-```
-
-## Komponenten-Struktur
-
-### Neue Komponente: ProductImageSlideshow
+Eine wiederverwendbare Lightbox-Komponente basierend auf dem vorhandenen Dialog:
 
 ```tsx
-// src/components/onboarding/ProductImageSlideshow.tsx
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+// src/components/ui/image-lightbox.tsx
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from './dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
-interface ProductImageSlideshowProps {
-  images: string[];
+interface ImageLightboxProps {
+  src: string;
   alt: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function ProductImageSlideshow({ images, alt }: ProductImageSlideshowProps) {
+export function ImageLightbox({ src, alt, open, onOpenChange }: ImageLightboxProps) {
   return (
-    <Carousel className="w-full max-w-xs mx-auto">
-      <CarouselContent>
-        {images.map((img, index) => (
-          <CarouselItem key={index}>
-            <div className="aspect-[3/4] rounded-xl overflow-hidden bg-muted">
-              <img 
-                src={img} 
-                alt={`${alt} - ${index === 0 ? 'Vorderseite' : 'Rueckseite'}`}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </CarouselItem>
-        ))}
-      </CarouselContent>
-      <CarouselPrevious />
-      <CarouselNext />
-      {/* Progress-Dots */}
-      <div className="flex justify-center gap-2 mt-3">
-        {images.map((_, index) => (
-          <div 
-            key={index} 
-            className="w-2 h-2 rounded-full bg-muted"
-          />
-        ))}
-      </div>
-    </Carousel>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl p-2 bg-black/95">
+        <VisuallyHidden>
+          <DialogTitle>{alt}</DialogTitle>
+          <DialogDescription>Detailansicht des Bildes</DialogDescription>
+        </VisuallyHidden>
+        <img 
+          src={src} 
+          alt={alt} 
+          className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+        />
+      </DialogContent>
+    </Dialog>
   );
 }
 ```
 
-### OrdersStep.tsx - Oberteil-Auswahl Logik
+### 2. ProductImageSlideshow erweitern
 
 ```tsx
-// Spezielle Behandlung fuer Oberteil-Schritt
-const [oberteilAuswahl, setOberteilAuswahl] = useState<'tshirt' | 'poloshirt' | 'beides' | null>(null);
+// Bilder werden klickbar
+<img
+  src={img}
+  alt={...}
+  className="w-full h-full object-cover cursor-pointer"
+  onClick={() => setLightboxImage(img)}
+/>
 
-// Bei Oberteil-Produkt: Auswahl-UI anzeigen
-{currentProduct.id === 'oberteil' && (
-  <div className="flex gap-2 justify-center mb-4">
-    <Button 
-      variant={oberteilAuswahl === 'tshirt' ? 'default' : 'outline'}
-      onClick={() => setOberteilAuswahl('tshirt')}
-    >
-      T-Shirt
-    </Button>
-    <Button 
-      variant={oberteilAuswahl === 'poloshirt' ? 'default' : 'outline'}
-      onClick={() => setOberteilAuswahl('poloshirt')}
-    >
-      Poloshirt
-    </Button>
-    <Button 
-      variant={oberteilAuswahl === 'beides' ? 'default' : 'outline'}
-      onClick={() => setOberteilAuswahl('beides')}
-    >
-      Beides
-    </Button>
-  </div>
-)}
+// Lightbox am Ende
+<ImageLightbox 
+  src={lightboxImage} 
+  alt={alt} 
+  open={!!lightboxImage}
+  onOpenChange={() => setLightboxImage(null)}
+/>
+```
+
+### 3. ProfileStep erweitern
+
+```tsx
+// Beispielbilder klickbar machen
+const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+<img 
+  src={fotoGut} 
+  alt="Gutes Beispiel" 
+  className="... cursor-pointer hover:scale-105 transition-transform"
+  onClick={() => setLightboxImage(fotoGut)}
+/>
+
+<ImageLightbox 
+  src={lightboxImage || ''} 
+  alt="Beispielbild"
+  open={!!lightboxImage}
+  onOpenChange={() => setLightboxImage(null)}
+/>
+```
+
+### 4. OrdersStep mit Jacken-Slideshow
+
+Das Pullover-Produkt bekommt die neuen Bilder:
+
+```typescript
+// In onboarding-config.ts
+{
+  id: 'pullover',
+  name: 'Thermocheck Pullover',
+  beschreibung: 'Warme Arbeitskleidung fuer kalte Tage',
+  bildUrls: [pulloverVorne, pulloverHinten], // NEU
+  // ...
+}
 ```
 
 ## Dateien die erstellt/geaendert werden
 
 | Datei | Aktion |
 |-------|--------|
-| `src/assets/onboarding/kleidung/tshirt-vorne.png` | Neu (kopiert) |
-| `src/assets/onboarding/kleidung/tshirt-hinten.png` | Neu (kopiert) |
-| `src/assets/onboarding/kleidung/poloshirt-vorne.png` | Neu (kopiert) |
-| `src/assets/onboarding/kleidung/poloshirt-hinten.png` | Neu (kopiert) |
-| `src/types/onboarding.ts` | Erweitert (bildUrls Array, ClothingVariant) |
-| `src/lib/onboarding-config.ts` | Produkte mit echten Bildern und Varianten |
-| `src/components/onboarding/ProductImageSlideshow.tsx` | Neu (Carousel-Wrapper) |
-| `src/components/onboarding/steps/OrdersStep.tsx` | Erweitert (Oberteil-Auswahl, Slideshow) |
+| `src/assets/onboarding/kleidung/pullover-vorne.png` | Neu (kopiert) |
+| `src/assets/onboarding/kleidung/pullover-hinten.png` | Neu (kopiert) |
+| `src/components/ui/image-lightbox.tsx` | Neu (Lightbox-Komponente) |
+| `src/components/onboarding/ProductImageSlideshow.tsx` | Erweitert (Klick -> Lightbox) |
+| `src/components/onboarding/steps/ProfileStep.tsx` | Erweitert (Beispielbilder klickbar) |
+| `src/components/onboarding/steps/OrdersStep.tsx` | Pullover-Bilder importieren |
+| `src/lib/onboarding-config.ts` | Pullover mit bildUrls |
 
 ## Technische Details
 
-### Import der Bilder in OrdersStep
+### ImageLightbox Features
 
-```typescript
-// Dynamischer Import basierend auf Produkt
-import tshirtVorne from '@/assets/onboarding/kleidung/tshirt-vorne.png';
-import tshirtHinten from '@/assets/onboarding/kleidung/tshirt-hinten.png';
-import poloshirtVorne from '@/assets/onboarding/kleidung/poloshirt-vorne.png';
-import poloshirtHinten from '@/assets/onboarding/kleidung/poloshirt-hinten.png';
+- Basiert auf bestehendem Radix Dialog
+- Dunkler Overlay-Hintergrund
+- X-Button zum Schliessen
+- Klick ausserhalb schliesst
+- Responsive: Bild passt sich an Bildschirmgroesse an
+- Touch-freundlich fuer Mobile
 
-const OBERTEIL_BILDER = {
-  tshirt: [tshirtVorne, tshirtHinten],
-  poloshirt: [poloshirtVorne, poloshirtHinten],
-};
-```
+### Accessibility
 
-### Bestell-Flow bei "Beides"
-
-Wenn User "Beides" waehlt:
-1. Beide Produkt-IDs werden zur `bestellungenBestaetigt` Liste hinzugefuegt
-2. Im Admin-Task werden beide Produkte als separate Zeilen erstellt
-3. UI zeigt beide Varianten als bestellt an
-
-### Slideshow-Verhalten
-
-- Embla Carousel (bereits im Projekt vorhanden)
-- Swipe-Unterstuetzung fuer Mobile
-- Dots fuer aktuelle Position
-- Optional: Prev/Next Buttons fuer Desktop
+- VisuallyHidden fuer DialogTitle/Description (Radix erfordert dies)
+- aria-label fuer klickbare Bilder
+- Fokus-Management durch Radix Dialog
 
 ## Reihenfolge der Implementation
 
-1. Bilder in Assets kopieren
-2. Type-Definition erweitern (bildUrls)
-3. ProductImageSlideshow Komponente erstellen
-4. MOCK_PRODUCTS mit echten Bildern aktualisieren
-5. OrdersStep mit Oberteil-Auswahl erweitern
-6. Integration testen
+1. Jackenbilder in Assets kopieren
+2. ImageLightbox Komponente erstellen
+3. ProductImageSlideshow mit Lightbox erweitern
+4. ProfileStep mit Lightbox erweitern
+5. OrdersStep: Pullover-Bilder importieren
+6. onboarding-config: Pullover bildUrls hinzufuegen
