@@ -15,6 +15,7 @@ import {
 import { OnboardingProduct, ClothingVariant } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
 import { ProductImageSlideshow } from '../ProductImageSlideshow';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 // Import Kleidungsbilder
 import tshirtVorne from '@/assets/onboarding/kleidung/tshirt-vorne.png';
@@ -23,6 +24,7 @@ import poloshirtVorne from '@/assets/onboarding/kleidung/poloshirt-vorne.png';
 import poloshirtHinten from '@/assets/onboarding/kleidung/poloshirt-hinten.png';
 import pulloverVorne from '@/assets/onboarding/kleidung/pullover-vorne.png';
 import pulloverHinten from '@/assets/onboarding/kleidung/pullover-hinten.png';
+import schlappen from '@/assets/onboarding/kleidung/schlappen.png';
 
 // Pullover-Bilder für Slideshow
 export const PULLOVER_BILDER = [pulloverVorne, pulloverHinten];
@@ -54,6 +56,7 @@ interface OrdersStepProps {
 export function OrdersStep({ products, orderedProducts, onProductOrder }: OrdersStepProps) {
   const [confirmingProduct, setConfirmingProduct] = useState<OnboardingProduct | null>(null);
   const [confirmingVariant, setConfirmingVariant] = useState<ClothingVariant | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [oberteilAuswahl, setOberteilAuswahl] = useState<OberteilAuswahl | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ClothingVariant | null>(OBERTEIL_VARIANTEN[0]);
 
@@ -326,7 +329,16 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
       {/* Einzelnes Produkt groß darstellen */}
       <div className="bg-card rounded-2xl p-6 shadow-card">
         {/* Produktbild - mit Slideshow falls mehrere Bilder oder Pullover */}
-        {currentProduct.id === 'pullover' ? (
+        {currentProduct.id === 'schlappen' ? (
+          <div className="aspect-square max-w-xs mx-auto rounded-xl bg-muted overflow-hidden mb-6">
+            <img
+              src={schlappen}
+              alt={currentProduct.name}
+              className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => setLightboxImage(schlappen)}
+            />
+          </div>
+        ) : currentProduct.id === 'pullover' ? (
           <ProductImageSlideshow
             images={PULLOVER_BILDER}
             alt={currentProduct.name}
@@ -416,6 +428,14 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Lightbox für Schlappen */}
+      <ImageLightbox
+        src={lightboxImage || ''}
+        alt="Thermocheck Hausschuhe"
+        open={!!lightboxImage}
+        onOpenChange={() => setLightboxImage(null)}
+      />
     </div>
   );
 }
