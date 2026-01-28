@@ -1,199 +1,182 @@
 
-# Plan: Gewerbeschein-Nachreichung + Tester-Modus + ProfileStep Layout
+# Plan: Produkt-Sequenz-Fix - Alle Bestellungen anzeigen
 
-## Zusammenfassung
+## Problem-Analyse
 
-Drei Anpassungen werden umgesetzt:
+Das aktuelle Problem: Nach dem T-Shirt werden die weiteren Produkte (Schlappen, Pullover, Ausweiskarte, Google Workspace) nicht angezeigt.
 
-1. **Gewerbeschein "spaeter nachreichen"** - Option zum Ueberspringen mit Reminder-Task
-2. **Tester-Modus** - Felder nicht mandatory, einfaches Durchklicken moeglich
-3. **ProfileStep Layout** - Reihenfolge aendern: Info-Box oben, dann Foto, dann Daten
+### Ursache identifiziert
 
-## 1. Gewerbeschein spaeter nachreichen
-
-### Konzept
-
-Der User kann "Spaeter nachreichen" waehlen. Der Schritt wird als "uebersprungen" markiert, aber eine Aufgabe bleibt offen. Der User kann trotzdem weiter im Onboarding und spaeter sogar Auftraege annehmen.
-
-### UI-Aenderung in DocumentsStep
+Der `oberteilAuswahl`-State in `OrdersStep.tsx` ist ein lokaler React-State und wird **nicht persistiert**. Das fuehrt zu folgendem Problem:
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ Gewerbeschein erforderlich                                  │
-│ Gemäß § 9 des Vertrags musst du einen gültigen...          │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│ Gewerbeschein hochladen                                     │
-│                                                             │
-│    ┌─────────────────────────────┐                          │
-│    │    [Upload Dropzone]        │                          │
-│    └─────────────────────────────┘                          │
-│                                                             │
-│    ─────────── oder ───────────                             │
-│                                                             │
-│    ┌─────────────────────────────┐                          │
-│    │  📅 Später nachreichen      │  (Ghost-Button)          │
-│    └─────────────────────────────┘                          │
-│    Du kannst den Gewerbeschein später im Profil             │
-│    nachreichen. Aufträge sind trotzdem möglich.             │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+1. User waehlt "T-Shirt" aus (oberteilAuswahl = 'tshirt')
+2. User klickt "Jetzt bestellen" -> Shop oeffnet sich
+3. User bestaetigt Bestellung -> 'tshirt' wird zu orderedProducts hinzugefuegt
+4. Komponente rendert neu...
+5. ABER: oberteilAuswahl ist wieder null! (State nicht persistiert)
+6. getRequiredOberteilIds() gibt [] zurueck
+7. isOberteilComplete() gibt false zurueck (weil oberteilAuswahl === null)
+8. currentProduct bleibt 'oberteil' -> Endlosschleife!
 ```
 
-### State-Aenderungen
+### Loesung
 
-Neues Feld im OnboardingState:
+Der `oberteilAuswahl`-State muss in den globalen OnboardingState verschoben werden, damit er nach Neuladen der Komponente erhalten bleibt.
 
-```typescript
-// In OnboardingState
-gewerbescheinSpaeter: boolean; // Später nachreichen gewaehlt
-```
+## Aenderungen
 
-### Logik-Aenderungen
+### 1. Types erweitern
 
-- `isStepComplete('dokumente')` gibt `true` zurueck wenn:
-  - `gewerbescheinUrl` vorhanden ODER
-  - `gewerbescheinSpaeter === true`
-- Im Profil-Tab wird eine Warnung/Erinnerung angezeigt wenn Gewerbeschein fehlt
-- Auftraege koennen trotzdem angenommen werden
-
-## 2. Tester-Modus (nicht-mandatory Felder)
-
-### Konzept
-
-Der `isStepComplete()`-Check wird angepasst, sodass Schritte auch ohne vollstaendige Daten als "abgeschlossen" gelten. Dies erlaubt schnelles Durchklicken im Preview-Modus.
-
-### Aenderung in useOnboardingState
+In `src/types/onboarding.ts`:
 
 ```typescript
-// Option 1: Preview-Modus ueberspringt Validierung
-const isStepComplete = useCallback((step: OnboardingStepId): boolean => {
-  // In Preview-Mode: Immer true (kann durchklicken)
-  if (isPreview) return true;
+// Neuer Typ
+export type OberteilAuswahl = 'tshirt' | 'poloshirt' | 'beides' | null;
+
+// In OnboardingState hinzufuegen:
+export interface OnboardingState {
+  // ... bestehende Felder
   
-  // Produktions-Logik bleibt bestehen...
-}, [state, isPreview]);
+  // Schritt 3: Bestellungen
+  bestellungenBestaetigt: string[];
+  oberteilAuswahl?: OberteilAuswahl; // NEU: Persistierte Auswahl
+  
+  // ...
+}
 ```
 
-### Alternative: Separate Validierung
+### 2. Initial State anpassen
 
-Statt die Validierung komplett zu entfernen, koennte man:
-- Im Preview-Modus: Validierung nur warnen, aber nicht blockieren
-- Der "Weiter"-Button bleibt immer aktiv im Preview-Modus
+In `src/lib/onboarding-config.ts`:
 
-## 3. ProfileStep Layout umordnen
+```typescript
+export function createInitialOnboardingState(profile: ApplicantProfile): OnboardingState {
+  return {
+    // ...
+    bestellungenBestaetigt: [],
+    oberteilAuswahl: null, // NEU
+    // ...
+  };
+}
+```
 
-### Aktuelle Reihenfolge
+### 3. Hook erweitern
 
-1. Avatar Upload ("Profilfoto fuer Ausweiskarte")
-2. Foto-Anleitung ("So sollte dein Foto aussehen")
-3. Persoenliche Daten
-4. Adresse
+In `src/hooks/useOnboardingState.ts`:
 
-### Neue Reihenfolge
+```typescript
+// Neue Funktion hinzufuegen
+const setOberteilAuswahl = useCallback((auswahl: OberteilAuswahl) => {
+  setState(prev => ({ ...prev, oberteilAuswahl: auswahl }));
+}, []);
 
-1. **Foto-Anleitung ("So sollte dein Foto aussehen")** - NACH OBEN
-2. **Avatar Upload ("Profilfoto fuer Ausweiskarte")** - DARUNTER
-3. Persoenliche Daten
-4. Adresse
+// Im Return-Objekt:
+return {
+  // ...
+  setOberteilAuswahl,
+  // ...
+};
+```
 
-### Visualisierung
+### 4. OrdersStep anpassen
+
+In `src/components/onboarding/steps/OrdersStep.tsx`:
+
+```typescript
+interface OrdersStepProps {
+  products: OnboardingProduct[];
+  orderedProducts: string[];
+  onProductOrder: (productId: string) => void;
+  oberteilAuswahl: OberteilAuswahl;         // NEU
+  onOberteilAuswahl: (a: OberteilAuswahl) => void; // NEU
+}
+
+export function OrdersStep({ 
+  products, 
+  orderedProducts, 
+  onProductOrder,
+  oberteilAuswahl,      // NEU - aus Props statt useState
+  onOberteilAuswahl,    // NEU
+}: OrdersStepProps) {
+  // ENTFERNEN: const [oberteilAuswahl, setOberteilAuswahl] = useState<...>
+  
+  // Buttons aendern von setOberteilAuswahl zu onOberteilAuswahl
+}
+```
+
+### 5. OnboardingScreen anpassen
+
+In `src/components/OnboardingScreen.tsx`:
+
+```typescript
+// Im OrdersStep-Aufruf:
+case 'bestellungen':
+  return (
+    <OrdersStep
+      products={MOCK_PRODUCTS}
+      orderedProducts={state.bestellungenBestaetigt}
+      onProductOrder={handleProductOrder}
+      oberteilAuswahl={state.oberteilAuswahl}           // NEU
+      onOberteilAuswahl={setOberteilAuswahl}            // NEU
+    />
+  );
+```
+
+## Flow nach Fix
 
 ```text
-VORHER:                          NACHHER:
-┌────────────────────┐           ┌────────────────────┐
-│ Profilfoto fuer    │           │ 💡 So sollte dein  │
-│ Ausweiskarte       │           │    Foto aussehen   │
-│ [Avatar Upload]    │           │ - Tipps...         │
-├────────────────────┤           │ [Gut] vs [Schlecht]│
-│ 💡 So sollte dein  │           ├────────────────────┤
-│    Foto aussehen   │           │ Profilfoto fuer    │
-│ - Tipps...         │           │ Ausweiskarte       │
-│ [Gut] vs [Schlecht]│           │ [Avatar Upload]    │
-├────────────────────┤           ├────────────────────┤
-│ Persönliche Daten  │           │ Persönliche Daten  │
-├────────────────────┤           ├────────────────────┤
-│ Adresse            │           │ Adresse            │
-└────────────────────┘           └────────────────────┘
+1. User waehlt "T-Shirt" aus
+   -> onOberteilAuswahl('tshirt')
+   -> state.oberteilAuswahl = 'tshirt' (persistiert)
+   
+2. User bestaetigt Bestellung
+   -> orderedProducts = ['tshirt']
+   
+3. Komponente rendert neu
+   -> oberteilAuswahl = 'tshirt' (aus Props, persistiert!)
+   -> getRequiredOberteilIds() = ['tshirt']
+   -> isOberteilComplete() = true (weil 'tshirt' in orderedProducts)
+   
+4. currentProduct = 'schlappen' (naechstes Produkt!)
+5. User sieht Schlappen-Bestellung
 ```
 
-### Code-Aenderung
+## Produkt-Reihenfolge bestaetigt
 
-Die JSX-Bloecke in ProfileStep.tsx werden einfach in der neuen Reihenfolge angeordnet.
+Die Produkte in `MOCK_PRODUCTS` sind korrekt konfiguriert:
+
+| Reihenfolge | Produkt-ID | Name |
+|-------------|------------|------|
+| 1 | oberteil | T-Shirt oder Poloshirt |
+| 2 | schlappen | Thermocheck Hausschuhe |
+| 3 | pullover | Thermocheck Pullover |
+| 4 | ausweiskarte | Thermocheck Ausweiskarte |
+| 5 | google-workspace | Google Workspace |
 
 ## Dateien die geaendert werden
 
 | Datei | Aenderung |
 |-------|-----------|
-| `src/types/onboarding.ts` | Neues Feld `gewerbescheinSpaeter: boolean` |
-| `src/lib/onboarding-config.ts` | Initial-State anpassen |
-| `src/hooks/useOnboardingState.ts` | Neue Funktion `setGewerbescheinSpaeter`, `isStepComplete` anpassen |
-| `src/components/onboarding/steps/DocumentsStep.tsx` | "Spaeter nachreichen" Button + State |
-| `src/components/onboarding/steps/ProfileStep.tsx` | Layout-Reihenfolge aendern |
-| `src/components/OnboardingScreen.tsx` | Handler fuer "Spaeter nachreichen" |
+| `src/types/onboarding.ts` | Neuer Typ `OberteilAuswahl`, Feld in State |
+| `src/lib/onboarding-config.ts` | Initial State mit `oberteilAuswahl: null` |
+| `src/hooks/useOnboardingState.ts` | Neue Funktion `setOberteilAuswahl` |
+| `src/components/onboarding/steps/OrdersStep.tsx` | Props statt lokaler State |
+| `src/components/OnboardingScreen.tsx` | Props an OrdersStep weitergeben |
 
-## Technische Details
+## Validierung der Bestellungen
 
-### DocumentsStep Props erweitern
-
-```typescript
-interface DocumentsStepProps {
-  gewerbescheinUrl?: string;
-  gewerbescheinSpaeter?: boolean;
-  onGewerbescheinUpload: (file: File) => void;
-  onRemoveGewerbeschein: () => void;
-  onGewerbescheinSpaeter: () => void; // NEU
-}
-```
-
-### "Spaeter nachreichen" UI
-
-```tsx
-{/* Separator */}
-<div className="flex items-center gap-4 my-4">
-  <div className="flex-1 h-px bg-border" />
-  <span className="text-sm text-muted-foreground">oder</span>
-  <div className="flex-1 h-px bg-border" />
-</div>
-
-{/* Später nachreichen */}
-<Button
-  variant="ghost"
-  className="w-full text-muted-foreground"
-  onClick={onGewerbescheinSpaeter}
->
-  <Clock className="w-4 h-4 mr-2" />
-  Später nachreichen
-</Button>
-<p className="text-xs text-muted-foreground text-center mt-2">
-  Du kannst den Gewerbeschein später im Profil nachreichen. 
-  Aufträge sind trotzdem möglich.
-</p>
-```
-
-### Validierungs-Anpassung fuer Preview
+Im `isStepComplete('bestellungen')` Check:
 
 ```typescript
-// In useOnboardingState.ts
-const isStepComplete = useCallback((step: OnboardingStepId): boolean => {
-  // Preview-Modus: Alle Schritte sind "fertig" (durchklickbar)
-  if (isPreview) return true;
-  
-  switch (step) {
-    case 'dokumente':
-      // Entweder hochgeladen ODER "später" gewählt
-      return !!(state.gewerbescheinUrl || state.gewerbescheinSpaeter);
-    // ... rest
-  }
-}, [state, isPreview]);
+case 'bestellungen':
+  // Mindestens 4 Bestellungen (T-Shirt ODER Poloshirt + Schlappen + Pullover + Ausweis + Workspace)
+  // Oder 5 wenn "beides" gewaehlt wurde
+  const requiredCount = state.oberteilAuswahl === 'beides' ? 6 : 5;
+  return state.bestellungenBestaetigt.length >= requiredCount;
 ```
 
-## Reihenfolge der Implementation
-
-1. Types erweitern (`gewerbescheinSpaeter`)
-2. Initial-State und Hook anpassen
-3. ProfileStep Layout umordnen
-4. DocumentsStep mit "Spaeter nachreichen" erweitern
-5. OnboardingScreen Handler hinzufuegen
-6. Testen im Preview-Modus
+Korrektur: Die Anzahl haengt von der Oberteil-Auswahl ab:
+- T-Shirt nur: ['tshirt', 'schlappen', 'pullover', 'ausweiskarte', 'google-workspace'] = 5
+- Poloshirt nur: ['poloshirt', 'schlappen', 'pullover', 'ausweiskarte', 'google-workspace'] = 5
+- Beides: ['tshirt', 'poloshirt', 'schlappen', 'pullover', 'ausweiskarte', 'google-workspace'] = 6
