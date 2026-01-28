@@ -614,6 +614,8 @@ export type Database = {
           lead_id: string | null
           marge_prozent: number | null
           mitarbeiter_id: string
+          nacharbeiten_datum: string | null
+          nacharbeiten_subunternehmer_id: string | null
           projektart: Database["public"]["Enums"]["projektart_enum"] | null
           provisions_status:
             | Database["public"]["Enums"]["provision_status_enum"]
@@ -689,6 +691,8 @@ export type Database = {
           lead_id?: string | null
           marge_prozent?: number | null
           mitarbeiter_id: string
+          nacharbeiten_datum?: string | null
+          nacharbeiten_subunternehmer_id?: string | null
           projektart?: Database["public"]["Enums"]["projektart_enum"] | null
           provisions_status?:
             | Database["public"]["Enums"]["provision_status_enum"]
@@ -764,6 +768,8 @@ export type Database = {
           lead_id?: string | null
           marge_prozent?: number | null
           mitarbeiter_id?: string
+          nacharbeiten_datum?: string | null
+          nacharbeiten_subunternehmer_id?: string | null
           projektart?: Database["public"]["Enums"]["projektart_enum"] | null
           provisions_status?:
             | Database["public"]["Enums"]["provision_status_enum"]
@@ -844,6 +850,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auftraege_nacharbeiten_subunternehmer_id_fkey"
+            columns: ["nacharbeiten_subunternehmer_id"]
+            isOneToOne: false
+            referencedRelation: "subunternehmer"
             referencedColumns: ["id"]
           },
           {
