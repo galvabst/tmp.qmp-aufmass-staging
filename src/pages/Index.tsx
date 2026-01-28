@@ -73,6 +73,7 @@ const Index = () => {
   
   // Onboarding state
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   // Count orders per tab
   const poolCount = orders.filter(o => o.status === 'published').length;
@@ -169,11 +170,21 @@ const Index = () => {
     }
   };
 
-  // Show onboarding screen if not complete
-  if (!onboardingComplete) {
+  // Show onboarding screen if not complete or in preview mode
+  if (!onboardingComplete || isPreviewMode) {
     return (
       <OnboardingScreen 
+        isPreview={isPreviewMode}
+        onExitPreview={() => {
+          setIsPreviewMode(false);
+          toast.info('Vorschau beendet');
+        }}
         onComplete={() => {
+          if (isPreviewMode) {
+            setIsPreviewMode(false);
+            return;
+          }
+          
           setOnboardingComplete(true);
           
           // Sync profile with onboarding data
@@ -271,6 +282,10 @@ const Index = () => {
             console.log('Profile update:', updatedData);
           }}
           onStartOnboarding={() => setOnboardingComplete(false)}
+          onStartOnboardingPreview={() => {
+            setIsPreviewMode(true);
+            toast.info('Vorschau-Modus gestartet');
+          }}
         />
       )}
 

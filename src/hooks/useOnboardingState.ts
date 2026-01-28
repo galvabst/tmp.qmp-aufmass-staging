@@ -28,19 +28,25 @@ const loadPersistedState = (initialProfile: ApplicantProfile): OnboardingState =
   return createInitialOnboardingState(initialProfile);
 };
 
-export function useOnboardingState(initialProfile: ApplicantProfile) {
+export function useOnboardingState(
+  initialProfile: ApplicantProfile,
+  isPreview: boolean = false
+) {
   const [state, setState] = useState<OnboardingState>(() => 
-    loadPersistedState(initialProfile)
+    isPreview 
+      ? createInitialOnboardingState(initialProfile)
+      : loadPersistedState(initialProfile)
   );
 
-  // Persist state to localStorage on every change
+  // Persist state to localStorage on every change (only if not in preview mode)
   useEffect(() => {
+    if (isPreview) return; // Don't persist in preview mode
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       console.warn('Failed to save onboarding state to localStorage', e);
     }
-  }, [state]);
+  }, [state, isPreview]);
 
   // Navigation
   const goToNextStep = useCallback(() => {

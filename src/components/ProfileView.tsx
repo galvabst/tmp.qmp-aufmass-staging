@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target, Eye } from 'lucide-react';
 import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,9 +11,10 @@ interface ProfileViewProps {
   profile: TechnicianProfile;
   onSave?: (updatedProfile: Partial<TechnicianProfile>) => void;
   onStartOnboarding?: () => void;
+  onStartOnboardingPreview?: () => void;
 }
 
-export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewProps) {
+export function ProfileView({ profile, onSave, onStartOnboarding, onStartOnboardingPreview }: ProfileViewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
@@ -281,6 +282,18 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
       <section className="p-4 pt-0">
         <h2 className="text-sm font-medium text-muted-foreground mb-3">Einstellungen</h2>
         <div className="bg-card rounded-lg shadow-card divide-y divide-border">
+          {/* Onboarding Preview Button */}
+          {onStartOnboardingPreview && (
+            <button
+              onClick={onStartOnboardingPreview}
+              className="w-full flex items-center gap-3 p-4 hover:bg-secondary/50 transition-colors"
+            >
+              <Eye className="w-5 h-5 text-muted-foreground" />
+              <span className="flex-1 text-foreground text-left">Onboarding-Vorschau</span>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          )}
+          
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
