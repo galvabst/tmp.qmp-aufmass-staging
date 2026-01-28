@@ -4,6 +4,7 @@ import { AUFTRAGSTYP_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { GalvanekLogo } from '@/components/GalvanekLogo';
 
 interface ActiveOrdersViewProps {
   orders: TechnicianOrder[];
@@ -102,10 +103,15 @@ export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick }
       {/* Header */}
       <header className="bg-primary text-primary-foreground safe-area-top sticky top-0 z-10">
         <div className="p-4">
-          <h1 className="text-xl font-bold">Aktive Aufträge</h1>
-          <p className="text-primary-foreground/80 text-sm">
-            {activeOrders.length} in Bearbeitung
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold">Aktive Aufträge</h1>
+              <p className="text-primary-foreground/80 text-sm">
+                {activeOrders.length} in Bearbeitung
+              </p>
+            </div>
+            <GalvanekLogo size="sm" />
+          </div>
         </div>
       </header>
 

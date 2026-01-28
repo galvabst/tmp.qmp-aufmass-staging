@@ -1,5 +1,6 @@
 import { CheckCircle2, Rocket, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GalvanekLogo } from '@/components/GalvanekLogo';
 
 interface OnboardingCompleteProps {
   onContinue: () => void;
@@ -8,6 +9,9 @@ interface OnboardingCompleteProps {
 export function OnboardingComplete({ onContinue }: OnboardingCompleteProps) {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      {/* Galvanek Logo */}
+      <GalvanekLogo size="lg" className="mb-6" />
+
       {/* Success Animation */}
       <div className="relative mb-8">
         <div className="w-32 h-32 rounded-full bg-status-accepted/20 flex items-center justify-center animate-pulse">

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
-
+import { GalvanekLogo } from '@/components/GalvanekLogo';
 interface ProfileViewProps {
   profile: TechnicianProfile;
   onSave?: (updatedProfile: Partial<TechnicianProfile>) => void;
@@ -62,63 +62,68 @@ export function ProfileView({ profile, onSave, onStartOnboarding, onStartOnboard
       {/* Header */}
       <header className="bg-primary text-primary-foreground safe-area-top">
         <div className="p-6 pt-8">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-primary-foreground/20 rounded-full flex items-center justify-center overflow-hidden">
-              {profile.avatarUrl ? (
-                <img 
-                  src={profile.avatarUrl} 
-                  alt={profile.name} 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <User className="w-8 h-8" />
-              )}
-            </div>
-            <div className="flex-1">
-              {isEditing ? (
-                <Input
-                  value={editData.name}
-                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                  className="bg-primary-foreground/10 border-primary-foreground/30 text-primary-foreground text-xl font-bold"
-                />
-              ) : (
-                <>
-                  <h1 className="text-xl font-bold">{profile.name}</h1>
-                  <p className="text-primary-foreground/80 text-sm">
-                    Techniker seit {profile.memberSince}
-                  </p>
-                </>
-              )}
-            </div>
-            {isEditing ? (
-              <div className="flex gap-2">
-                <Button 
-                  size="icon" 
-                  variant="ghost" 
-                  className="text-primary-foreground hover:bg-primary-foreground/10"
-                  onClick={handleCancel}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-                <Button 
-                  size="icon" 
-                  variant="ghost" 
-                  className="text-primary-foreground hover:bg-primary-foreground/10"
-                  onClick={handleSave}
-                >
-                  <Save className="w-5 h-5" />
-                </Button>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="w-16 h-16 bg-primary-foreground/20 rounded-full flex items-center justify-center overflow-hidden">
+                {profile.avatarUrl ? (
+                  <img 
+                    src={profile.avatarUrl} 
+                    alt={profile.name} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-8 h-8" />
+                )}
               </div>
-            ) : (
-              <Button 
-                size="icon" 
-                variant="ghost" 
-                className="text-primary-foreground hover:bg-primary-foreground/10"
-                onClick={() => setIsEditing(true)}
-              >
-                <Edit2 className="w-5 h-5" />
-              </Button>
-            )}
+              <div className="flex-1">
+                {isEditing ? (
+                  <Input
+                    value={editData.name}
+                    onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                    className="bg-primary-foreground/10 border-primary-foreground/30 text-primary-foreground text-xl font-bold"
+                  />
+                ) : (
+                  <>
+                    <h1 className="text-xl font-bold">{profile.name}</h1>
+                    <p className="text-primary-foreground/80 text-sm">
+                      Techniker seit {profile.memberSince}
+                    </p>
+                  </>
+                )}
+              </div>
+              {isEditing ? (
+                <div className="flex gap-2">
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="text-primary-foreground hover:bg-primary-foreground/10"
+                    onClick={handleCancel}
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="text-primary-foreground hover:bg-primary-foreground/10"
+                    onClick={handleSave}
+                  >
+                    <Save className="w-5 h-5" />
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="text-primary-foreground hover:bg-primary-foreground/10"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Edit2 className="w-5 h-5" />
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <GalvanekLogo size="md" className="opacity-90" />
           </div>
         </div>
       </header>
