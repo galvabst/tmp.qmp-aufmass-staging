@@ -30,6 +30,7 @@ import ausweiskarteHinten from '@/assets/onboarding/kleidung/ausweiskarte-hinten
 
 // Import Lizenz-Bilder
 import scannerLizenz from '@/assets/onboarding/lizenzen/scanner-lizenz.png';
+import googleWorkspace from '@/assets/onboarding/lizenzen/google-workspace.png';
 
 // Bilder für Slideshows
 export const PULLOVER_BILDER = [pulloverVorne, pulloverHinten];
@@ -159,13 +160,6 @@ export function OrdersStep({
 
     return (
       <div className="space-y-6">
-        {/* Schritt-Anzeige */}
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">
-            Bestellung {currentIndex + 1} von {sortedProducts.length}: Oberteil
-          </p>
-        </div>
-
         {/* Auswahl-Buttons */}
         {!oberteilAuswahl && (
           <>
@@ -283,29 +277,6 @@ export function OrdersStep({
           </div>
         )}
 
-        {/* Progress-Dots */}
-        <div className="flex justify-center gap-2">
-          {sortedProducts.map((product, index) => (
-            <div
-              key={product.id}
-              className={cn(
-                'w-2.5 h-2.5 rounded-full transition-colors',
-                product.id === 'oberteil'
-                  ? isOberteilComplete()
-                    ? 'bg-status-accepted'
-                    : index === currentIndex
-                      ? 'bg-primary'
-                      : 'bg-muted'
-                  : orderedProducts.includes(product.id)
-                    ? 'bg-status-accepted'
-                    : index === currentIndex
-                      ? 'bg-primary'
-                      : 'bg-muted'
-              )}
-            />
-          ))}
-        </div>
-
         {/* Bestätigungs-Dialog für Variante */}
         <AlertDialog open={!!confirmingVariant} onOpenChange={() => setConfirmingVariant(null)}>
           <AlertDialogContent>
@@ -330,13 +301,6 @@ export function OrdersStep({
   // Standard-Produkt-Ansicht
   return (
     <div className="space-y-6">
-      {/* Schritt-Anzeige */}
-      <div className="text-center">
-        <p className="text-sm text-muted-foreground">
-          Bestellung {currentIndex + 1} von {sortedProducts.length}
-        </p>
-      </div>
-
       {/* Einzelnes Produkt groß darstellen */}
       <div className="bg-card rounded-2xl p-6 shadow-card">
         {/* Produktbild - mit Slideshow falls mehrere Bilder oder Pullover */}
@@ -370,6 +334,22 @@ export function OrdersStep({
           >
             <img 
               src={scannerLizenz}
+              alt={currentProduct.name}
+              className="w-full rounded-lg shadow-lg"
+            />
+            <p className="text-center text-sm text-muted-foreground mt-2">
+              Tippen zum Vergrößern
+            </p>
+          </div>
+        ) : currentProduct.id === 'google-workspace' ? (
+          <div 
+            className="relative w-full max-w-md mx-auto mb-6 cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => setLightboxImage(googleWorkspace)}
+            role="button"
+            aria-label={`${currentProduct.name} vergrößern`}
+          >
+            <img 
+              src={googleWorkspace}
               alt={currentProduct.name}
               className="w-full rounded-lg shadow-lg"
             />
@@ -425,23 +405,6 @@ export function OrdersStep({
           <ShoppingCart className="w-5 h-5 mr-2" />
           Jetzt bestellen
         </Button>
-      </div>
-
-      {/* Progress-Dots */}
-      <div className="flex justify-center gap-2">
-        {sortedProducts.map((product, index) => (
-          <div
-            key={product.id}
-            className={cn(
-              'w-2.5 h-2.5 rounded-full transition-colors',
-              orderedProducts.includes(product.id)
-                ? 'bg-status-accepted'
-                : index === currentIndex
-                  ? 'bg-primary'
-                  : 'bg-muted'
-            )}
-          />
-        ))}
       </div>
 
       {/* Bestätigungs-Dialog */}
