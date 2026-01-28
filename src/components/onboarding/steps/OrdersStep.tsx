@@ -28,6 +28,9 @@ import schlappen from '@/assets/onboarding/kleidung/schlappen.png';
 import ausweiskarteVorne from '@/assets/onboarding/kleidung/ausweiskarte-vorne.png';
 import ausweiskarteHinten from '@/assets/onboarding/kleidung/ausweiskarte-hinten.png';
 
+// Import Lizenz-Bilder
+import scannerLizenz from '@/assets/onboarding/lizenzen/scanner-lizenz.png';
+
 // Bilder für Slideshows
 export const PULLOVER_BILDER = [pulloverVorne, pulloverHinten];
 export const AUSWEISKARTE_BILDER = [ausweiskarteVorne, ausweiskarteHinten];
@@ -358,6 +361,22 @@ export function OrdersStep({
             alt={currentProduct.name}
             className="mb-6"
           />
+        ) : currentProduct.id === 'scanner-lizenz' ? (
+          <div 
+            className="relative w-full max-w-md mx-auto mb-6 cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => setLightboxImage(scannerLizenz)}
+            role="button"
+            aria-label={`${currentProduct.name} vergrößern`}
+          >
+            <img 
+              src={scannerLizenz}
+              alt={currentProduct.name}
+              className="w-full rounded-lg shadow-lg"
+            />
+            <p className="text-center text-sm text-muted-foreground mt-2">
+              Tippen zum Vergrößern
+            </p>
+          </div>
         ) : currentProduct.bildUrls && currentProduct.bildUrls.length > 1 ? (
           <ProductImageSlideshow
             images={currentProduct.bildUrls}
