@@ -25,9 +25,12 @@ import poloshirtHinten from '@/assets/onboarding/kleidung/poloshirt-hinten.png';
 import pulloverVorne from '@/assets/onboarding/kleidung/pullover-vorne.png';
 import pulloverHinten from '@/assets/onboarding/kleidung/pullover-hinten.png';
 import schlappen from '@/assets/onboarding/kleidung/schlappen.png';
+import ausweiskarteVorne from '@/assets/onboarding/kleidung/ausweiskarte-vorne.png';
+import ausweiskarteHinten from '@/assets/onboarding/kleidung/ausweiskarte-hinten.png';
 
-// Pullover-Bilder für Slideshow
+// Bilder für Slideshows
 export const PULLOVER_BILDER = [pulloverVorne, pulloverHinten];
+export const AUSWEISKARTE_BILDER = [ausweiskarteVorne, ausweiskarteHinten];
 
 // Oberteil-Varianten mit Bildern
 const OBERTEIL_VARIANTEN: ClothingVariant[] = [
@@ -346,6 +349,12 @@ export function OrdersStep({
         ) : currentProduct.id === 'pullover' ? (
           <ProductImageSlideshow
             images={PULLOVER_BILDER}
+            alt={currentProduct.name}
+            className="mb-6"
+          />
+        ) : currentProduct.id === 'ausweiskarte' ? (
+          <ProductImageSlideshow
+            images={AUSWEISKARTE_BILDER}
             alt={currentProduct.name}
             className="mb-6"
           />
