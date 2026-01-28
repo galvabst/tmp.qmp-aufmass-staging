@@ -1,72 +1,58 @@
 
-# Plan: Ausweiskarte-Bilder hinzufuegen
+
+# Plan: Room Scanner Lizenz Bild hinzufuegen
 
 ## Zusammenfassung
 
-Die beiden hochgeladenen Bilder (Vorderseite und Rueckseite der Thermocheck-Ausweiskarte) werden in das Projekt kopiert und in der Produkt-Slideshow angezeigt - genau wie bei T-Shirt, Poloshirt und Pullover.
+Das hochgeladene Bild zeigt die "Advanced Spatial & Thermal Analytics Suite" - die Room Scanner Software-Lizenz. Es wird als Produktbild im Bestellungs-Flow angezeigt.
 
-## Bilder
+## Bild-Details
 
-| Bild | Beschreibung |
-|------|--------------|
-| Vorderseite | Profilfoto, Name, "Thermocheck 3D", Telefon, DUMMY-ID |
-| Rueckseite | Galvanek Logo, www.galvanek-bau.de |
+| Element | Beschreibung |
+|---------|--------------|
+| Logo | Galvanek Energiesysteme |
+| Titel | Advanced Spatial & Thermal Analytics Suite |
+| Untertitel | Professional License // Tier: Enterprise |
+| Module | Precision 3D Geometry Scan, Dynamic Heat Load Calculation |
+| Status | Validated & Secure |
 
 ## Aenderungen
 
-### 1. Bilder in Projekt kopieren
-
-Die beiden Bilder werden nach `src/assets/onboarding/kleidung/` kopiert:
+### 1. Bild in Projekt kopieren
 
 ```text
-src/assets/onboarding/kleidung/
-  ├── ausweiskarte-vorne.png  (NEU - Vorderseite)
-  ├── ausweiskarte-hinten.png (NEU - Rueckseite)
-  ├── tshirt-vorne.png
-  ├── tshirt-hinten.png
-  ├── poloshirt-vorne.png
-  ├── poloshirt-hinten.png
-  ├── pullover-vorne.png
-  ├── pullover-hinten.png
-  └── schlappen.png
+src/assets/onboarding/lizenzen/
+  └── scanner-lizenz.png (NEU)
 ```
 
-### 2. Imports in OrdersStep.tsx hinzufuegen
+Neuer Ordner `lizenzen/` fuer Software-Produkte (Trennung von Kleidung).
+
+### 2. Import in OrdersStep.tsx
 
 ```typescript
-// Bestehende Imports
-import tshirtVorne from '@/assets/onboarding/kleidung/tshirt-vorne.png';
-// ...
-
-// NEU: Ausweiskarte-Bilder
-import ausweiskarteVorne from '@/assets/onboarding/kleidung/ausweiskarte-vorne.png';
-import ausweiskarteHinten from '@/assets/onboarding/kleidung/ausweiskarte-hinten.png';
-
-// NEU: Konstante fuer Slideshow
-export const AUSWEISKARTE_BILDER = [ausweiskarteVorne, ausweiskarteHinten];
+// NEU: Lizenz-Bilder
+import scannerLizenz from '@/assets/onboarding/lizenzen/scanner-lizenz.png';
 ```
 
 ### 3. Rendering-Logik erweitern
 
-Im Standard-Produkt-Bereich (ab Zeile 336) wird eine neue Bedingung fuer die Ausweiskarte hinzugefuegt:
+Im Standard-Produkt-Bereich eine Bedingung fuer die Scanner-Lizenz hinzufuegen:
 
 ```typescript
-{/* Produktbild - mit Slideshow falls mehrere Bilder */}
-{currentProduct.id === 'schlappen' ? (
-  // Einzelbild fuer Schlappen
-) : currentProduct.id === 'pullover' ? (
-  <ProductImageSlideshow images={PULLOVER_BILDER} ... />
+{currentProduct.id === 'scanner-lizenz' ? (
+  // Einzelbild fuer Scanner-Lizenz (kein Slideshow noetig)
+  <div 
+    className="relative w-full max-w-md mx-auto mb-6 cursor-pointer"
+    onClick={() => setLightboxImage(scannerLizenz)}
+  >
+    <img 
+      src={scannerLizenz}
+      alt={currentProduct.name}
+      className="w-full rounded-lg shadow-lg"
+    />
+  </div>
 ) : currentProduct.id === 'ausweiskarte' ? (
-  // NEU: Slideshow fuer Ausweiskarte
-  <ProductImageSlideshow
-    images={AUSWEISKARTE_BILDER}
-    alt={currentProduct.name}
-    className="mb-6"
-  />
-) : currentProduct.bildUrls && currentProduct.bildUrls.length > 1 ? (
-  // Dynamische bildUrls
-) : (
-  // Fallback einzelnes Bild
+  // ... bestehender Code
 )}
 ```
 
@@ -74,13 +60,13 @@ Im Standard-Produkt-Bereich (ab Zeile 336) wird eine neue Bedingung fuer die Aus
 
 | Datei | Aenderung |
 |-------|-----------|
-| `src/assets/onboarding/kleidung/ausweiskarte-vorne.png` | NEU - Kopie von Upload |
-| `src/assets/onboarding/kleidung/ausweiskarte-hinten.png` | NEU - Kopie von Upload |
-| `src/components/onboarding/steps/OrdersStep.tsx` | Imports + Rendering-Logik |
+| `src/assets/onboarding/lizenzen/scanner-lizenz.png` | NEU - Kopie von Upload |
+| `src/components/onboarding/steps/OrdersStep.tsx` | Import + Rendering fuer scanner-lizenz |
 
 ## Erwartetes Ergebnis
 
-Wenn der User zur Ausweiskarte-Bestellung kommt, sieht er:
-- Eine Slideshow mit Vorder- und Rueckseite
-- Slide-Indicator (Punkte) wie bei T-Shirt/Poloshirt/Pullover
-- Klickbare Bilder fuer Lightbox-Vergroesserung
+Wenn der User zur Scanner-Lizenz-Bestellung kommt (nach Ausweiskarte, vor Google Workspace), sieht er:
+- Das professionelle Lizenzbild mit Galvanek-Branding
+- Klickbar fuer Lightbox-Vergroesserung
+- Produktinfos: 199 Euro/Monat, monatliche Lizenz
+
