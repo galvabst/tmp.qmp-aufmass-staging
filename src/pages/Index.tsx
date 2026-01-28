@@ -26,6 +26,24 @@ const loadOnboardingProfile = () => {
   return null;
 };
 
+// Load onboarding completion status from localStorage
+const loadOnboardingStatus = () => {
+  try {
+    const saved = localStorage.getItem('thermocheck_onboarding_state');
+    if (saved) {
+      const state = JSON.parse(saved);
+      return {
+        isCompleted: state.coachingAbgeschlossen || false,
+        completedSteps: state.completedSteps || [],
+        currentStep: state.currentStep,
+      };
+    }
+  } catch (e) {
+    console.warn('Failed to load onboarding status', e);
+  }
+  return null;
+};
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
@@ -34,6 +52,13 @@ const Index = () => {
   // Merge onboarding profile with mock data
   const [profile, setProfile] = useState(() => {
     const onboardingProfile = loadOnboardingProfile();
+    const onboardingStatus = loadOnboardingStatus();
+    
+    // If onboarding is completed, mark it as such
+    const onboarding = onboardingStatus?.isCompleted 
+      ? { ...mockTechnicianProfile.onboarding, isCompleted: true, progressPercent: 100 }
+      : mockTechnicianProfile.onboarding;
+    
     return {
       ...mockTechnicianProfile,
       name: onboardingProfile 
@@ -42,6 +67,7 @@ const Index = () => {
       avatarUrl: onboardingProfile?.avatarUrl || mockTechnicianProfile.avatarUrl,
       email: onboardingProfile?.email || mockTechnicianProfile.email,
       phone: onboardingProfile?.telefon || mockTechnicianProfile.phone,
+      onboarding,
     };
   });
   

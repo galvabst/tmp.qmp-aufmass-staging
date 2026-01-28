@@ -207,8 +207,8 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
         </div>
       </section>
 
-      {/* Onboarding Progress */}
-      {onboarding && (
+      {/* Onboarding Progress - only show if not completed */}
+      {onboarding && !onboarding.isCompleted && (
         <section className="p-4 pt-0">
           <h2 className="text-sm font-medium text-muted-foreground mb-3">Onboarding</h2>
           <div className="bg-card rounded-lg shadow-card p-4">
@@ -234,7 +234,7 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
               ))}
             </div>
 
-            {!onboarding.isCompleted && onStartOnboarding && (
+            {onStartOnboarding && (
               <Button 
                 className="w-full mt-4" 
                 onClick={onStartOnboarding}
@@ -242,6 +242,17 @@ export function ProfileView({ profile, onSave, onStartOnboarding }: ProfileViewP
                 Onboarding fortsetzen
               </Button>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* Onboarding Completed Badge */}
+      {onboarding?.isCompleted && (
+        <section className="p-4 pt-0">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Onboarding</h2>
+          <div className="bg-card rounded-lg shadow-card p-4 flex items-center gap-3">
+            <CheckCircle className="w-6 h-6 text-green-600" />
+            <span className="text-foreground font-medium">Onboarding abgeschlossen</span>
           </div>
         </section>
       )}

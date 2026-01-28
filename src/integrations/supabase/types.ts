@@ -507,6 +507,7 @@ export type Database = {
           video_url: string | null
           wiedervorlage_tage: number | null
           zeige_baukalender: boolean | null
+          zeige_bestellungen: boolean | null
           ziel_substatus:
             | Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
             | null
@@ -530,6 +531,7 @@ export type Database = {
           video_url?: string | null
           wiedervorlage_tage?: number | null
           zeige_baukalender?: boolean | null
+          zeige_bestellungen?: boolean | null
           ziel_substatus?:
             | Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
             | null
@@ -553,6 +555,7 @@ export type Database = {
           video_url?: string | null
           wiedervorlage_tage?: number | null
           zeige_baukalender?: boolean | null
+          zeige_bestellungen?: boolean | null
           ziel_substatus?:
             | Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
             | null
@@ -571,6 +574,7 @@ export type Database = {
         Row: {
           abrechnung_datum: string | null
           abrechnungsmonat: string | null
+          anzahl_wohneinheiten: number | null
           anzahlung_eingang_datum: string | null
           anzahlung_faellig_am: string | null
           anzahlung_netto: number | null
@@ -645,6 +649,7 @@ export type Database = {
         Insert: {
           abrechnung_datum?: string | null
           abrechnungsmonat?: string | null
+          anzahl_wohneinheiten?: number | null
           anzahlung_eingang_datum?: string | null
           anzahlung_faellig_am?: string | null
           anzahlung_netto?: number | null
@@ -719,6 +724,7 @@ export type Database = {
         Update: {
           abrechnung_datum?: string | null
           abrechnungsmonat?: string | null
+          anzahl_wohneinheiten?: number | null
           anzahlung_eingang_datum?: string | null
           anzahlung_faellig_am?: string | null
           anzahlung_netto?: number | null
@@ -1066,7 +1072,16 @@ export type Database = {
           geaendert_von: string | null
           id: string
           kategorie: string
+          kategorie_abc:
+            | Database["public"]["Enums"]["bestellung_kategorie_abc_enum"]
+            | null
+          komponententyp:
+            | Database["public"]["Enums"]["bestellung_komponententyp_enum"]
+            | null
           lieferant: string | null
+          lieferant_typ:
+            | Database["public"]["Enums"]["bestellung_lieferant_enum"]
+            | null
           liefertermin_geplant: string | null
           liefertermin_tatsaechlich: string | null
           menge: number
@@ -1087,7 +1102,16 @@ export type Database = {
           geaendert_von?: string | null
           id?: string
           kategorie?: string
+          kategorie_abc?:
+            | Database["public"]["Enums"]["bestellung_kategorie_abc_enum"]
+            | null
+          komponententyp?:
+            | Database["public"]["Enums"]["bestellung_komponententyp_enum"]
+            | null
           lieferant?: string | null
+          lieferant_typ?:
+            | Database["public"]["Enums"]["bestellung_lieferant_enum"]
+            | null
           liefertermin_geplant?: string | null
           liefertermin_tatsaechlich?: string | null
           menge?: number
@@ -1108,7 +1132,16 @@ export type Database = {
           geaendert_von?: string | null
           id?: string
           kategorie?: string
+          kategorie_abc?:
+            | Database["public"]["Enums"]["bestellung_kategorie_abc_enum"]
+            | null
+          komponententyp?:
+            | Database["public"]["Enums"]["bestellung_komponententyp_enum"]
+            | null
           lieferant?: string | null
+          lieferant_typ?:
+            | Database["public"]["Enums"]["bestellung_lieferant_enum"]
+            | null
           liefertermin_geplant?: string | null
           liefertermin_tatsaechlich?: string | null
           menge?: number
@@ -1424,6 +1457,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cron_run_cache: {
+        Row: {
+          cached_at: string
+          end_time: string | null
+          id: number
+          jobid: number
+          jobname: string
+          return_message: string | null
+          runid: number
+          start_time: string
+          status: string | null
+        }
+        Insert: {
+          cached_at?: string
+          end_time?: string | null
+          id?: number
+          jobid: number
+          jobname: string
+          return_message?: string | null
+          runid: number
+          start_time: string
+          status?: string | null
+        }
+        Update: {
+          cached_at?: string
+          end_time?: string | null
+          id?: number
+          jobid?: number
+          jobname?: string
+          return_message?: string | null
+          runid?: number
+          start_time?: string
+          status?: string | null
+        }
+        Relationships: []
       }
       cross_selling_aktivitaeten: {
         Row: {
@@ -3677,6 +3746,7 @@ export type Database = {
           bestellung_id: string | null
           campaign_id: string | null
           created_at: string
+          empfohlen_von_mb_id: string | null
           erstelldatum_crm: string
           feinaufmass_status:
             | Database["public"]["Enums"]["feinaufmass_status_enum"]
@@ -3738,6 +3808,7 @@ export type Database = {
           bestellung_id?: string | null
           campaign_id?: string | null
           created_at?: string
+          empfohlen_von_mb_id?: string | null
           erstelldatum_crm?: string
           feinaufmass_status?:
             | Database["public"]["Enums"]["feinaufmass_status_enum"]
@@ -3799,6 +3870,7 @@ export type Database = {
           bestellung_id?: string | null
           campaign_id?: string | null
           created_at?: string
+          empfohlen_von_mb_id?: string | null
           erstelldatum_crm?: string
           feinaufmass_status?:
             | Database["public"]["Enums"]["feinaufmass_status_enum"]
@@ -3858,6 +3930,13 @@ export type Database = {
             columns: ["bestellung_id"]
             isOneToOne: false
             referencedRelation: "lead_bestellungen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_empfohlen_von_mb_id_fkey"
+            columns: ["empfohlen_von_mb_id"]
+            isOneToOne: false
+            referencedRelation: "markenbotschafter_affiliates"
             referencedColumns: ["id"]
           },
           {
@@ -4169,6 +4248,235 @@ export type Database = {
           zahlungsbedingungen?: string | null
         }
         Relationships: []
+      }
+      markenbotschafter_affiliates: {
+        Row: {
+          anrede: string | null
+          autargy_kunde_id: string | null
+          beitritt_datum: string
+          betreuer_mitarbeiter_id: string | null
+          created_at: string
+          email: string | null
+          empfehlungen_count: number
+          empfehlungen_ziel: number
+          eskaliert_an_admin: boolean
+          geworben_von_mb_id: string | null
+          hausnummer: string | null
+          id: string
+          kuendigungs_datum: string | null
+          kunde_id: string | null
+          letzter_kontakt: string | null
+          mitarbeiter_id: string | null
+          nachname: string | null
+          naechste_wiedervorlage: string
+          nicht_erreicht_streak: number
+          notizen: string | null
+          original_verkaeufer_id: string | null
+          ort: string | null
+          plz: string | null
+          status: Database["public"]["Enums"]["mb_affiliate_status_enum"]
+          strasse: string | null
+          telefon: string | null
+          typ: Database["public"]["Enums"]["mb_affiliate_typ_enum"]
+          updated_at: string
+          vertrag_datei_url: string
+          vertrag_hochgeladen_von: string | null
+          vorname: string | null
+          ziel_erreicht: boolean
+        }
+        Insert: {
+          anrede?: string | null
+          autargy_kunde_id?: string | null
+          beitritt_datum?: string
+          betreuer_mitarbeiter_id?: string | null
+          created_at?: string
+          email?: string | null
+          empfehlungen_count?: number
+          empfehlungen_ziel?: number
+          eskaliert_an_admin?: boolean
+          geworben_von_mb_id?: string | null
+          hausnummer?: string | null
+          id?: string
+          kuendigungs_datum?: string | null
+          kunde_id?: string | null
+          letzter_kontakt?: string | null
+          mitarbeiter_id?: string | null
+          nachname?: string | null
+          naechste_wiedervorlage: string
+          nicht_erreicht_streak?: number
+          notizen?: string | null
+          original_verkaeufer_id?: string | null
+          ort?: string | null
+          plz?: string | null
+          status?: Database["public"]["Enums"]["mb_affiliate_status_enum"]
+          strasse?: string | null
+          telefon?: string | null
+          typ: Database["public"]["Enums"]["mb_affiliate_typ_enum"]
+          updated_at?: string
+          vertrag_datei_url: string
+          vertrag_hochgeladen_von?: string | null
+          vorname?: string | null
+          ziel_erreicht?: boolean
+        }
+        Update: {
+          anrede?: string | null
+          autargy_kunde_id?: string | null
+          beitritt_datum?: string
+          betreuer_mitarbeiter_id?: string | null
+          created_at?: string
+          email?: string | null
+          empfehlungen_count?: number
+          empfehlungen_ziel?: number
+          eskaliert_an_admin?: boolean
+          geworben_von_mb_id?: string | null
+          hausnummer?: string | null
+          id?: string
+          kuendigungs_datum?: string | null
+          kunde_id?: string | null
+          letzter_kontakt?: string | null
+          mitarbeiter_id?: string | null
+          nachname?: string | null
+          naechste_wiedervorlage?: string
+          nicht_erreicht_streak?: number
+          notizen?: string | null
+          original_verkaeufer_id?: string | null
+          ort?: string | null
+          plz?: string | null
+          status?: Database["public"]["Enums"]["mb_affiliate_status_enum"]
+          strasse?: string | null
+          telefon?: string | null
+          typ?: Database["public"]["Enums"]["mb_affiliate_typ_enum"]
+          updated_at?: string
+          vertrag_datei_url?: string
+          vertrag_hochgeladen_von?: string | null
+          vorname?: string | null
+          ziel_erreicht?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "markenbotschafter_affiliates_autargy_kunde_id_fkey"
+            columns: ["autargy_kunde_id"]
+            isOneToOne: false
+            referencedRelation: "b2c_autargy_kunden"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_affiliates_betreuer_mitarbeiter_id_fkey"
+            columns: ["betreuer_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_affiliates_geworben_von_mb_id_fkey"
+            columns: ["geworben_von_mb_id"]
+            isOneToOne: false
+            referencedRelation: "markenbotschafter_affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_affiliates_kunde_id_fkey"
+            columns: ["kunde_id"]
+            isOneToOne: false
+            referencedRelation: "kunden"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_affiliates_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_affiliates_original_verkaeufer_id_fkey"
+            columns: ["original_verkaeufer_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_affiliates_vertrag_hochgeladen_von_fkey"
+            columns: ["vertrag_hochgeladen_von"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      markenbotschafter_kontakte: {
+        Row: {
+          alte_wiedervorlage: string | null
+          begruendung: string | null
+          created_at: string
+          empfehlung_lead_id: string | null
+          ergebnis: Database["public"]["Enums"]["mb_kontakt_ergebnis_enum"]
+          id: string
+          kontakt_datum: string
+          kontaktiert_von: string | null
+          mb_id: string
+          neue_wiedervorlage: string | null
+          notizen: string | null
+          verschiebungs_grund: string | null
+        }
+        Insert: {
+          alte_wiedervorlage?: string | null
+          begruendung?: string | null
+          created_at?: string
+          empfehlung_lead_id?: string | null
+          ergebnis: Database["public"]["Enums"]["mb_kontakt_ergebnis_enum"]
+          id?: string
+          kontakt_datum?: string
+          kontaktiert_von?: string | null
+          mb_id: string
+          neue_wiedervorlage?: string | null
+          notizen?: string | null
+          verschiebungs_grund?: string | null
+        }
+        Update: {
+          alte_wiedervorlage?: string | null
+          begruendung?: string | null
+          created_at?: string
+          empfehlung_lead_id?: string | null
+          ergebnis?: Database["public"]["Enums"]["mb_kontakt_ergebnis_enum"]
+          id?: string
+          kontakt_datum?: string
+          kontaktiert_von?: string | null
+          mb_id?: string
+          neue_wiedervorlage?: string | null
+          notizen?: string | null
+          verschiebungs_grund?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "markenbotschafter_kontakte_empfehlung_lead_id_fkey"
+            columns: ["empfehlung_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_kontakte_empfehlung_lead_id_fkey"
+            columns: ["empfehlung_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_kontakte_kontaktiert_von_fkey"
+            columns: ["kontaktiert_von"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_kontakte_mb_id_fkey"
+            columns: ["mb_id"]
+            isOneToOne: false
+            referencedRelation: "markenbotschafter_affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mitarbeiter: {
         Row: {
@@ -5864,6 +6172,9 @@ export type Database = {
           auftrag_id: string | null
           created_at: string
           dokument_typ: Database["public"]["Enums"]["sales_auftrag_dokument_typ_enum"]
+          eingabe_baustart: string | null
+          eingabe_netto_summe: number | null
+          eingabe_rabatt_prozent: number | null
           error_code: string | null
           error_message: string | null
           file_hash: string
@@ -5882,6 +6193,9 @@ export type Database = {
           auftrag_id?: string | null
           created_at?: string
           dokument_typ: Database["public"]["Enums"]["sales_auftrag_dokument_typ_enum"]
+          eingabe_baustart?: string | null
+          eingabe_netto_summe?: number | null
+          eingabe_rabatt_prozent?: number | null
           error_code?: string | null
           error_message?: string | null
           file_hash: string
@@ -5900,6 +6214,9 @@ export type Database = {
           auftrag_id?: string | null
           created_at?: string
           dokument_typ?: Database["public"]["Enums"]["sales_auftrag_dokument_typ_enum"]
+          eingabe_baustart?: string | null
+          eingabe_netto_summe?: number | null
+          eingabe_rabatt_prozent?: number | null
           error_code?: string | null
           error_message?: string | null
           file_hash?: string
@@ -6287,6 +6604,106 @@ export type Database = {
             columns: ["subunternehmer_id"]
             isOneToOne: false
             referencedRelation: "subunternehmer"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_email_logs: {
+        Row: {
+          bcc_emails: string[] | null
+          betreff: string | null
+          cc_emails: string[] | null
+          created_at: string
+          email_typ: string | null
+          empfaenger_email: string
+          empfaenger_mitarbeiter_id: string | null
+          empfaenger_name: string | null
+          empfaenger_user_id: string | null
+          entity_id: string | null
+          entity_type: string | null
+          error_code: string | null
+          error_message: string | null
+          from_address: string | null
+          gesendet_von: string | null
+          html_body: string | null
+          id: string
+          resend_id: string | null
+          resend_payload: Json | null
+          resend_response: Json | null
+          status: string
+          updated_at: string
+          webhook_payload: Json | null
+        }
+        Insert: {
+          bcc_emails?: string[] | null
+          betreff?: string | null
+          cc_emails?: string[] | null
+          created_at?: string
+          email_typ?: string | null
+          empfaenger_email: string
+          empfaenger_mitarbeiter_id?: string | null
+          empfaenger_name?: string | null
+          empfaenger_user_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          from_address?: string | null
+          gesendet_von?: string | null
+          html_body?: string | null
+          id?: string
+          resend_id?: string | null
+          resend_payload?: Json | null
+          resend_response?: Json | null
+          status?: string
+          updated_at?: string
+          webhook_payload?: Json | null
+        }
+        Update: {
+          bcc_emails?: string[] | null
+          betreff?: string | null
+          cc_emails?: string[] | null
+          created_at?: string
+          email_typ?: string | null
+          empfaenger_email?: string
+          empfaenger_mitarbeiter_id?: string | null
+          empfaenger_name?: string | null
+          empfaenger_user_id?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          from_address?: string | null
+          gesendet_von?: string | null
+          html_body?: string | null
+          id?: string
+          resend_id?: string | null
+          resend_payload?: Json | null
+          resend_response?: Json | null
+          status?: string
+          updated_at?: string
+          webhook_payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_email_logs_empfaenger_mitarbeiter_id_fkey"
+            columns: ["empfaenger_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_email_logs_empfaenger_user_id_fkey"
+            columns: ["empfaenger_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_email_logs_gesendet_von_fkey"
+            columns: ["gesendet_von"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -7831,6 +8248,17 @@ export type Database = {
             }
             Returns: Json
           }
+        | {
+            Args: {
+              _app_code?: string
+              _application_id?: string
+              _default_app_role_id?: string
+              _description?: string
+              _name: string
+              _system_role?: string
+            }
+            Returns: Json
+          }
       admin_deactivate_user: {
         Args: { _deactivate?: boolean; _target_user_id: string }
         Returns: Json
@@ -7879,9 +8307,22 @@ export type Database = {
         Args: { _app_id: string }
         Returns: Json
       }
+      admin_get_cron_run_details: {
+        Args: { _job_name: string; _limit?: number }
+        Returns: {
+          command: string
+          end_time: string
+          jobid: number
+          jobname: string
+          return_message: string
+          runid: number
+          start_time: string
+          status: string
+        }[]
+      }
       admin_get_group_details: { Args: { _group_id: string }; Returns: Json }
       admin_get_group_permissions: {
-        Args: { p_group_id: string }
+        Args: { _group_id: string }
         Returns: Json
       }
       admin_get_user_direct_modules: {
@@ -7914,6 +8355,18 @@ export type Database = {
         }[]
       }
       admin_list_applications: { Args: never; Returns: Json }
+      admin_list_cron_jobs: {
+        Args: never
+        Returns: {
+          active: boolean
+          command: string
+          jobid: number
+          jobname: string
+          last_run_at: string
+          last_status: string
+          schedule: string
+        }[]
+      }
       admin_list_directory_users: {
         Args: { _app_code: string }
         Returns: {
@@ -8004,41 +8457,17 @@ export type Database = {
         Args: { _role: string; _target_user_id: string }
         Returns: undefined
       }
-      admin_update_access_group:
-        | {
-            Args: {
-              _application_id?: string
-              _clear_app_role?: boolean
-              _default_app_role_id?: string
-              _description?: string
-              _group_id: string
-              _name?: string
-              _system_role?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              _app_code?: string
-              _clear_app_role?: boolean
-              _default_app_role_id?: string
-              _description?: string
-              _group_id: string
-              _is_default?: boolean
-              _name?: string
-              _system_role?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              _description?: string
-              _group_id: string
-              _name: string
-              _system_role?: string
-            }
-            Returns: Json
-          }
+      admin_update_access_group: {
+        Args: {
+          _application_id?: string
+          _default_app_role_id?: string
+          _description?: string
+          _group_id: string
+          _name?: string
+          _system_role?: string
+        }
+        Returns: Json
+      }
       assign_lead_to_bestellung: {
         Args: { p_lead_id: string }
         Returns: string
@@ -8177,7 +8606,13 @@ export type Database = {
       cleanup_old_audio_files: { Args: never; Returns: undefined }
       cleanup_orphan_transcripts: { Args: never; Returns: number }
       complete_arbeitspaket_and_advance:
-        | { Args: { p_auftrag_arbeitspaket_id: string }; Returns: Json }
+        | {
+            Args: {
+              p_arbeitspaket_id: string
+              p_override_substatus?: Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
+            }
+            Returns: Json
+          }
         | {
             Args: {
               p_auftrag_arbeitspaket_id: string
@@ -8619,6 +9054,21 @@ export type Database = {
       }
       get_enum_values: { Args: { enum_name: string }; Returns: string[] }
       get_group_permissions: { Args: { _group_id: string }; Returns: Json }
+      get_hauptstatus_for_substatus:
+        | {
+            Args: {
+              p_substatus: Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
+            }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_hauptstatus_for_substatus(p_substatus => text), public.get_hauptstatus_for_substatus(p_substatus => baustellenstatus_substatus_enum). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: { p_substatus: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.get_hauptstatus_for_substatus(p_substatus => text), public.get_hauptstatus_for_substatus(p_substatus => baustellenstatus_substatus_enum). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
       get_kpi_metrik_typen: {
         Args: { p_domain?: string }
         Returns: {
@@ -9156,6 +9606,16 @@ export type Database = {
       register_anrufversuch: {
         Args: { p_arbeitspaket_id: string }
         Returns: Json
+      }
+      resolve_next_active_substatus: {
+        Args: {
+          p_start_substatus: Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
+        }
+        Returns: {
+          final_hauptstatus: Database["public"]["Enums"]["baustellenstatus"]
+          final_substatus: Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
+          skipped_count: number
+        }[]
       }
       resubmit_kpi_nachweis: {
         Args: {
@@ -9864,6 +10324,7 @@ export type Database = {
           target_date: string
         }[]
       }
+      sync_cron_run_cache: { Args: never; Returns: Json }
       sync_mitarbeiter_termination_to_user: {
         Args: { _austrittsdatum: string; _mitarbeiter_id: string }
         Returns: Json
@@ -10135,6 +10596,30 @@ export type Database = {
         | "Sonderkomponenten"
         | "Hersteller-Abhängigkeit"
         | "Klärung Material abgeschlossen"
+        | "Vormontage vollständig geprüft"
+        | "Vormontage Dokumentation hochgeladen"
+        | "Vormontage Nacharbeiten erforderlich"
+        | "Vormontage Abnahme"
+        | "Nacharbeiten terminiert"
+      bestellung_kategorie_abc_enum:
+        | "a_komponente"
+        | "b_komponente"
+        | "sonstige"
+      bestellung_komponententyp_enum:
+        | "waermepumpe"
+        | "speicher"
+        | "hydraulikmodul"
+        | "regelung"
+        | "aussenaggregat"
+        | "innengeraet"
+        | "puffer"
+        | "friwa"
+        | "zubehoer"
+      bestellung_lieferant_enum:
+        | "viessmann"
+        | "wagner"
+        | "gc_gruppe"
+        | "sonstige"
       email_status_enum:
         | "Keine Einladung"
         | "Einladung versendet"
@@ -10209,6 +10694,13 @@ export type Database = {
         | "In Bearbeitung"
         | "Erledigt"
         | "Abgelehnt"
+      mb_affiliate_status_enum: "aktiv" | "inaktiv" | "gekuendigt"
+      mb_affiliate_typ_enum: "kunde" | "affiliate" | "mitarbeiter"
+      mb_kontakt_ergebnis_enum:
+        | "empfehlung_erhalten"
+        | "keine_empfehlung"
+        | "nicht_erreicht"
+        | "spaeter"
       meeting_location_enum: "onsite" | "online" | "phone"
       meeting_type_enum: "weekly" | "one_on_one"
       mitarbeiter_source: "lovable" | "API" | "manual"
@@ -10301,6 +10793,7 @@ export type Database = {
         | "credentials"
         | "vormontage_calendar"
         | "number"
+        | "bestellung_email_list"
       storno_status_enum:
         | "Zu Stornieren"
         | "Stornierung beantragt"
@@ -10309,8 +10802,20 @@ export type Database = {
       strafabzug_typ: "Danger Loss" | "Follow-Up-Verlust"
       strategy_source_enum: "sales_academy" | "internal_meeting"
       subunternehmer_team_typ_enum: "vormontage" | "wp_montage" | "beides"
+      system_email_status_enum:
+        | "sent"
+        | "delivered"
+        | "bounced"
+        | "complained"
+        | "failed"
+      system_email_typ_enum:
+        | "invite"
+        | "resend_invite"
+        | "password_reset"
+        | "mb_reminder"
+        | "notification"
       task_status_enum: "Ausstehend" | "Erledigt" | "Überfällig"
-      team_buchung_typ_enum: "wp_montage" | "vormontage"
+      team_buchung_typ_enum: "wp_montage" | "vormontage" | "nacharbeiten"
       team_verfuegbarkeit_status_enum:
         | "verfügbar"
         | "gebucht"
@@ -10632,6 +11137,33 @@ export const Constants = {
         "Sonderkomponenten",
         "Hersteller-Abhängigkeit",
         "Klärung Material abgeschlossen",
+        "Vormontage vollständig geprüft",
+        "Vormontage Dokumentation hochgeladen",
+        "Vormontage Nacharbeiten erforderlich",
+        "Vormontage Abnahme",
+        "Nacharbeiten terminiert",
+      ],
+      bestellung_kategorie_abc_enum: [
+        "a_komponente",
+        "b_komponente",
+        "sonstige",
+      ],
+      bestellung_komponententyp_enum: [
+        "waermepumpe",
+        "speicher",
+        "hydraulikmodul",
+        "regelung",
+        "aussenaggregat",
+        "innengeraet",
+        "puffer",
+        "friwa",
+        "zubehoer",
+      ],
+      bestellung_lieferant_enum: [
+        "viessmann",
+        "wagner",
+        "gc_gruppe",
+        "sonstige",
       ],
       email_status_enum: [
         "Keine Einladung",
@@ -10714,6 +11246,14 @@ export const Constants = {
         "In Bearbeitung",
         "Erledigt",
         "Abgelehnt",
+      ],
+      mb_affiliate_status_enum: ["aktiv", "inaktiv", "gekuendigt"],
+      mb_affiliate_typ_enum: ["kunde", "affiliate", "mitarbeiter"],
+      mb_kontakt_ergebnis_enum: [
+        "empfehlung_erhalten",
+        "keine_empfehlung",
+        "nicht_erreicht",
+        "spaeter",
       ],
       meeting_location_enum: ["onsite", "online", "phone"],
       meeting_type_enum: ["weekly", "one_on_one"],
@@ -10817,6 +11357,7 @@ export const Constants = {
         "credentials",
         "vormontage_calendar",
         "number",
+        "bestellung_email_list",
       ],
       storno_status_enum: [
         "Zu Stornieren",
@@ -10827,8 +11368,22 @@ export const Constants = {
       strafabzug_typ: ["Danger Loss", "Follow-Up-Verlust"],
       strategy_source_enum: ["sales_academy", "internal_meeting"],
       subunternehmer_team_typ_enum: ["vormontage", "wp_montage", "beides"],
+      system_email_status_enum: [
+        "sent",
+        "delivered",
+        "bounced",
+        "complained",
+        "failed",
+      ],
+      system_email_typ_enum: [
+        "invite",
+        "resend_invite",
+        "password_reset",
+        "mb_reminder",
+        "notification",
+      ],
       task_status_enum: ["Ausstehend", "Erledigt", "Überfällig"],
-      team_buchung_typ_enum: ["wp_montage", "vormontage"],
+      team_buchung_typ_enum: ["wp_montage", "vormontage", "nacharbeiten"],
       team_verfuegbarkeit_status_enum: [
         "verfügbar",
         "gebucht",
