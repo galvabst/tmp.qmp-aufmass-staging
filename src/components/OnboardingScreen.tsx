@@ -43,6 +43,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview 
     updateProfile,
     setAvatarUrl,
     setGewerbescheinUrl,
+    setGewerbescheinSpaeter,
     toggleProductOrdered,
     updateEquipmentStatus,
     completeAkademieModul,
@@ -181,8 +182,13 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview 
         return (
           <DocumentsStep
             gewerbescheinUrl={state.gewerbescheinUrl}
+            gewerbescheinSpaeter={state.gewerbescheinSpaeter}
             onGewerbescheinUpload={handleGewerbescheinUpload}
-            onRemoveGewerbeschein={() => setGewerbescheinUrl(undefined)}
+            onRemoveGewerbeschein={() => {
+              setGewerbescheinUrl(undefined);
+              setGewerbescheinSpaeter(false);
+            }}
+            onGewerbescheinSpaeter={() => setGewerbescheinSpaeter(true)}
           />
         );
 

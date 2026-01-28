@@ -124,6 +124,7 @@ export interface OnboardingState {
   
   // Schritt 2: Dokumente
   gewerbescheinUrl?: string;
+  gewerbescheinSpaeter?: boolean; // User wählt "später nachreichen"
   versicherungUrl?: string;
   
   // Schritt 3: Bestellungen

@@ -43,42 +43,7 @@ export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: Profil
 
   return (
     <div className="space-y-6">
-      {/* Avatar Upload */}
-      <div className="flex flex-col items-center">
-        <div className="text-center mb-4">
-          <h3 className="font-semibold text-foreground">Profilfoto für Ausweiskarte</h3>
-          <p className="text-sm text-muted-foreground">Wird auf deiner Thermocheck-Ausweiskarte gedruckt</p>
-        </div>
-        
-        <div
-          className={`relative cursor-pointer transition-all ${dragActive ? 'scale-105' : ''}`}
-          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={handleDrop}
-        >
-          <Avatar className="w-32 h-32 border-4 border-dashed border-muted-foreground/30">
-            {profile.avatarUrl ? (
-              <AvatarImage src={profile.avatarUrl} alt="Profilbild" />
-            ) : (
-              <AvatarFallback className="bg-muted">
-                <User className="w-12 h-12 text-muted-foreground" />
-              </AvatarFallback>
-            )}
-          </Avatar>
-          
-          <label className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors">
-            <Camera className="w-5 h-5" />
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
-        </div>
-      </div>
-
-      {/* Foto-Anleitung mit Beispielbildern */}
+      {/* Foto-Anleitung mit Beispielbildern - JETZT OBEN */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-4">
         <div className="flex items-center gap-2 text-amber-800">
           <Lightbulb className="w-5 h-5" />
@@ -172,6 +137,41 @@ export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: Profil
           onOpenChange={() => setLightboxImage(null)}
           label={lightboxImage === fotoGut ? 'So sollte dein Foto aussehen' : 'So nicht – zu weit entfernt'}
         />
+      </div>
+
+      {/* Avatar Upload - JETZT UNTER DEN TIPPS */}
+      <div className="flex flex-col items-center">
+        <div className="text-center mb-4">
+          <h3 className="font-semibold text-foreground">Profilfoto für Ausweiskarte</h3>
+          <p className="text-sm text-muted-foreground">Wird auf deiner Thermocheck-Ausweiskarte gedruckt</p>
+        </div>
+        
+        <div
+          className={`relative cursor-pointer transition-all ${dragActive ? 'scale-105' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={handleDrop}
+        >
+          <Avatar className="w-32 h-32 border-4 border-dashed border-muted-foreground/30">
+            {profile.avatarUrl ? (
+              <AvatarImage src={profile.avatarUrl} alt="Profilbild" />
+            ) : (
+              <AvatarFallback className="bg-muted">
+                <User className="w-12 h-12 text-muted-foreground" />
+              </AvatarFallback>
+            )}
+          </Avatar>
+          
+          <label className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors">
+            <Camera className="w-5 h-5" />
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </label>
+        </div>
       </div>
 
       {/* Persönliche Daten */}
