@@ -1,117 +1,148 @@
 
+# Plan: Onboarding-Vorschau Button im Profil
 
-## Plan: Onboarding-Status im Profil korrekt synchronisieren
+## Zusammenfassung
+Ein "Onboarding-Vorschau" Button wird im Profil hinzugefügt, der es ermöglicht, das Onboarding jederzeit anzuschauen, ohne den echten Fortschritt zu verlieren.
 
-### Problem-Analyse
+## Aktuelle Architektur
 
-Es existieren zwei getrennte Onboarding-Datenquellen:
+Das System funktioniert so:
+- **Index.tsx** hat einen State `onboardingComplete` (startet mit `false`)
+- Wenn `onboardingComplete === false`, wird `OnboardingScreen` angezeigt
+- Der echte Onboarding-Status wird in **localStorage** gespeichert (`thermocheck_onboarding_state`)
+- ProfileView hat bereits einen `onStartOnboarding` Callback, der aber aktuell den echten State zurücksetzt
 
-1. **Echter State** (`localStorage: thermocheck_onboarding_state`)
-   - Wird vom `useOnboardingState`-Hook verwaltet
-   - Speichert `coachingAbgeschlossen: true` nach Abschluss
-   - Ist die Single Source of Truth
+## Lösung: Preview-Modus
 
-2. **Mock-Daten** (`mockTechnicianData.ts`)
-   - Statische Werte: `isCompleted: false`, `progressPercent: 40`
-   - Wird direkt in `ProfileView` verwendet
-   - Ignoriert den echten Onboarding-Fortschritt
+Anstatt den echten State zu löschen, führen wir einen **Preview-Modus** ein:
 
-**Ergebnis:** Der "Onboarding fortsetzen"-Button erscheint immer, obwohl das Onboarding laengst abgeschlossen ist.
-
----
-
-### Loesung
-
-Die Onboarding-Anzeige im Profil muss den **echten State aus localStorage** lesen und verwenden.
-
----
-
-### Aenderungen
-
-#### 1. Index.tsx - Onboarding-Status aus localStorage lesen
-
-Neue Funktion hinzufuegen die den echten Onboarding-Status laedt:
-
-```typescript
-const loadOnboardingStatus = () => {
-  try {
-    const saved = localStorage.getItem('thermocheck_onboarding_state');
-    if (saved) {
-      const state = JSON.parse(saved);
-      return {
-        isCompleted: state.coachingAbgeschlossen || false,
-        completedSteps: state.completedSteps || [],
-        currentStep: state.currentStep,
-      };
-    }
-  } catch (e) {
-    console.warn('Failed to load onboarding status', e);
-  }
-  return null;
-};
+```text
+┌─────────────────────────────────────────────────────────┐
+│                    Index.tsx                            │
+├─────────────────────────────────────────────────────────┤
+│  onboardingComplete: boolean                            │
+│  isPreviewMode: boolean (NEU)                           │
+│                                                         │
+│  if (!onboardingComplete || isPreviewMode)              │
+│    → OnboardingScreen (mit previewMode prop)            │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Beim Erstellen des Profils die Onboarding-Daten dynamisch berechnen:
+## Änderungen
 
-```typescript
-const [profile, setProfile] = useState(() => {
-  const onboardingProfile = loadOnboardingProfile();
-  const onboardingStatus = loadOnboardingStatus();
-  
-  // Wenn Onboarding abgeschlossen -> keine Onboarding-Sektion anzeigen
-  const onboarding = onboardingStatus?.isCompleted 
-    ? { ...mockOnboardingProgress, isCompleted: true, progressPercent: 100 }
-    : mockTechnicianProfile.onboarding;
-  
-  return {
-    ...mockTechnicianProfile,
-    name: onboardingProfile 
-      ? `${onboardingProfile.vorname} ${onboardingProfile.nachname}` 
-      : mockTechnicianProfile.name,
-    avatarUrl: onboardingProfile?.avatarUrl || mockTechnicianProfile.avatarUrl,
-    onboarding,
-  };
-});
+### 1. ProfileView.tsx
+Einen neuen Button "Onboarding-Vorschau" im Einstellungen-Bereich hinzufügen:
+- Icon: `Eye` (Lucide)
+- Text: "Onboarding-Vorschau"
+- Erscheint **immer** (auch wenn Onboarding abgeschlossen)
+- Ruft `onStartOnboardingPreview()` Callback auf
+
+### 2. Index.tsx
+- Neuer State: `isPreviewMode: boolean`
+- Neuer Handler: `handleStartOnboardingPreview()` 
+  - Setzt `isPreviewMode = true`
+  - Zeigt Toast: "Vorschau-Modus aktiv"
+- OnboardingScreen erhält neues Prop: `isPreview?: boolean`
+- Wenn Preview-Modus, wird localStorage **nicht** überschrieben
+
+### 3. OnboardingScreen.tsx
+- Neues Prop: `isPreview?: boolean`
+- Neues Prop: `onExitPreview?: () => void`
+- Im Preview-Modus:
+  - Zeigt Banner oben: "Vorschau-Modus - Änderungen werden nicht gespeichert"
+  - "X" Button zum Beenden der Vorschau
+  - Verwendet **temporären State** statt localStorage
+  - Bei Abschluss: Toast + Exit (kein echtes onComplete)
+
+### 4. useOnboardingState.ts
+- Neuer Parameter: `isPreview?: boolean`
+- Wenn Preview-Modus:
+  - Lädt Initial-State (nicht aus localStorage)
+  - Speichert **nicht** in localStorage
+  - Alle Änderungen nur im Memory
+
+## UI-Design
+
+### Button im Profil (Einstellungen-Bereich)
+```text
+┌──────────────────────────────────────────┐
+│ 👁  Onboarding-Vorschau              >   │
+├──────────────────────────────────────────┤
+│ 👤 Persönliche Daten                 >   │
+├──────────────────────────────────────────┤
+│ ⚙  Einstellungen                     >   │
+└──────────────────────────────────────────┘
 ```
 
-#### 2. ProfileView.tsx - Onboarding-Sektion ausblenden wenn abgeschlossen
+### Preview-Banner im OnboardingScreen
+```text
+┌──────────────────────────────────────────┐
+│ ⚠ Vorschau-Modus                    [X]  │
+│   Änderungen werden nicht gespeichert    │
+└──────────────────────────────────────────┘
+│                                          │
+│        (normales Onboarding UI)          │
+│                                          │
+```
 
-Aktuell wird die Sektion immer angezeigt wenn `onboarding` existiert.
+## Dateien die geändert werden
 
-Besser: Wenn `isCompleted: true`, die Sektion komplett ausblenden oder einen "Abgeschlossen"-Status anzeigen:
+| Datei | Änderung |
+|-------|----------|
+| `src/components/ProfileView.tsx` | Neuer Button + Callback |
+| `src/pages/Index.tsx` | Preview-State + Handler |
+| `src/components/OnboardingScreen.tsx` | Preview-Props + Banner |
+| `src/hooks/useOnboardingState.ts` | Preview-Modus Support |
 
+## Technische Details
+
+### useOnboardingState.ts - Preview-Modus
 ```typescript
-{onboarding && !onboarding.isCompleted && (
-  <section className="p-4 pt-0">
-    {/* Onboarding-Fortschritt anzeigen */}
-  </section>
-)}
+export function useOnboardingState(
+  initialProfile: ApplicantProfile,
+  isPreview: boolean = false  // NEU
+) {
+  const [state, setState] = useState<OnboardingState>(() => 
+    isPreview 
+      ? createInitialOnboardingState(initialProfile)  // Frischer State
+      : loadPersistedState(initialProfile)            // Aus localStorage
+  );
 
-{onboarding?.isCompleted && (
-  <section className="p-4 pt-0">
-    <div className="bg-card rounded-lg shadow-card p-4 flex items-center gap-3">
-      <CheckCircle className="w-6 h-6 text-green-600" />
-      <span className="text-foreground font-medium">Onboarding abgeschlossen</span>
+  // Persist nur wenn NICHT Preview
+  useEffect(() => {
+    if (isPreview) return;  // NEU: Keine Persistierung
+    // ... existing localStorage code
+  }, [state, isPreview]);
+  
+  // ... rest
+}
+```
+
+### OnboardingScreen.tsx - Preview-Banner
+```tsx
+{isPreview && (
+  <div className="bg-amber-100 border-b border-amber-200 px-4 py-2 flex items-center justify-between">
+    <div className="flex items-center gap-2 text-amber-800">
+      <AlertTriangle className="w-4 h-4" />
+      <span className="text-sm font-medium">
+        Vorschau-Modus - Änderungen werden nicht gespeichert
+      </span>
     </div>
-  </section>
+    <Button 
+      variant="ghost" 
+      size="sm" 
+      onClick={onExitPreview}
+    >
+      <X className="w-4 h-4" />
+    </Button>
+  </div>
 )}
 ```
 
----
+## Vorteile dieser Lösung
 
-### Zusammenfassung der Dateiaenderungen
-
-| Datei | Aenderung |
-|-------|-----------|
-| `src/pages/Index.tsx` | `loadOnboardingStatus()` Funktion + dynamische `isCompleted`/`progressPercent` Berechnung |
-| `src/components/ProfileView.tsx` | Onboarding-Sektion nur bei `!isCompleted` anzeigen, sonst "Abgeschlossen"-Badge |
-
----
-
-### Technischer Hintergrund
-
-Diese Aenderung folgt dem Prinzip **Single Source of Truth**:
-- Der localStorage-State (`thermocheck_onboarding_state`) ist die einzige Wahrheit
-- Mock-Daten werden nur als Fallback verwendet wenn kein echter State existiert
-- Spaeter kann dies auf Supabase umgestellt werden ohne UI-Aenderungen
-
+1. **Echter Fortschritt bleibt erhalten** - localStorage wird nicht berührt
+2. **Vollständige Vorschau** - User kann alle Steps durchklicken
+3. **Klar erkennbar** - Gelber Banner zeigt Preview-Modus
+4. **Einfacher Exit** - X-Button oder Abschluss beendet Vorschau
+5. **Minimal Invasiv** - Bestehender Code bleibt größtenteils unverändert
