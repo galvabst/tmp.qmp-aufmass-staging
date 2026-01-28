@@ -101,7 +101,11 @@ export function useOnboardingState(
 
   // Schritt 2: Dokumente
   const setGewerbescheinUrl = useCallback((url: string | undefined) => {
-    setState(prev => ({ ...prev, gewerbescheinUrl: url }));
+    setState(prev => ({ ...prev, gewerbescheinUrl: url, gewerbescheinSpaeter: false }));
+  }, []);
+
+  const setGewerbescheinSpaeter = useCallback((value: boolean) => {
+    setState(prev => ({ ...prev, gewerbescheinSpaeter: value }));
   }, []);
 
   // Schritt 3: Bestellungen
@@ -179,6 +183,9 @@ export function useOnboardingState(
   const progress = calculateOnboardingProgress(state);
   
   const isStepComplete = useCallback((step: OnboardingStepId): boolean => {
+    // Preview-Modus: Alle Schritte sind durchklickbar (Tester-Modus)
+    if (isPreview) return true;
+    
     switch (step) {
       case 'profil':
         return !!(
@@ -188,7 +195,8 @@ export function useOnboardingState(
           state.profil.avatarUrl
         );
       case 'dokumente':
-        return !!state.gewerbescheinUrl;
+        // Entweder hochgeladen ODER "später nachreichen" gewählt
+        return !!(state.gewerbescheinUrl || state.gewerbescheinSpaeter);
       case 'bestellungen':
         // Alle 5 Pflichtprodukte müssen bestellt sein
         return state.bestellungenBestaetigt.length >= 5;
@@ -210,7 +218,7 @@ export function useOnboardingState(
       default:
         return false;
     }
-  }, [state]);
+  }, [state, isPreview]);
 
   const canProceed = isStepComplete(state.currentStep);
   const isComplete = state.completedSteps.length === STEP_ORDER.length || state.coachingAbgeschlossen;
@@ -233,6 +241,7 @@ export function useOnboardingState(
     
     // Schritt 2
     setGewerbescheinUrl,
+    setGewerbescheinSpaeter,
     
     // Schritt 3
     toggleProductOrdered,

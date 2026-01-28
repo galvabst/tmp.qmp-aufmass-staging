@@ -267,6 +267,8 @@ export function createInitialOnboardingState(profile: ApplicantProfile): Onboard
     profil: profile,
     profilBestaetigt: false,
     
+    gewerbescheinSpaeter: false,
+    
     bestellungenBestaetigt: [],
     
     equipmentStatus: {},

@@ -1,18 +1,22 @@
 import { useState } from 'react';
-import { FileText, Upload, CheckCircle2, X } from 'lucide-react';
+import { FileText, Upload, CheckCircle2, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface DocumentsStepProps {
   gewerbescheinUrl?: string;
+  gewerbescheinSpaeter?: boolean;
   onGewerbescheinUpload: (file: File) => void;
   onRemoveGewerbeschein: () => void;
+  onGewerbescheinSpaeter: () => void;
 }
 
 export function DocumentsStep({ 
   gewerbescheinUrl, 
+  gewerbescheinSpaeter,
   onGewerbescheinUpload,
   onRemoveGewerbeschein,
+  onGewerbescheinSpaeter,
 }: DocumentsStepProps) {
   const [dragActive, setDragActive] = useState(false);
 
@@ -73,33 +77,77 @@ export function DocumentsStep({
               </Button>
             </div>
           </div>
-        ) : (
-          // Upload dropzone
-          <label
-            className={cn(
-              'flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all',
-              dragActive 
-                ? 'border-primary bg-primary/5' 
-                : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50'
-            )}
-            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={handleDrop}
-          >
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Upload className="w-8 h-8 text-muted-foreground" />
+        ) : gewerbescheinSpaeter ? (
+          // "Später nachreichen" selected state
+          <div className="border-2 border-amber-300 rounded-xl p-4 bg-amber-50">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center">
+                <Clock className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-foreground">Wird später nachgereicht</p>
+                <p className="text-sm text-muted-foreground">Du kannst den Gewerbeschein jederzeit im Profil hochladen</p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={onRemoveGewerbeschein}
+                className="text-muted-foreground hover:text-amber-600"
+              >
+                <X className="w-5 h-5" />
+              </Button>
             </div>
-            <p className="font-medium text-foreground">Datei hochladen</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              PDF, JPG oder PNG (max. 10 MB)
+          </div>
+        ) : (
+          // Upload dropzone + Später Option
+          <>
+            <label
+              className={cn(
+                'flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all',
+                dragActive 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50'
+              )}
+              onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={handleDrop}
+            >
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Upload className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <p className="font-medium text-foreground">Datei hochladen</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                PDF, JPG oder PNG (max. 10 MB)
+              </p>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </label>
+
+            {/* Separator */}
+            <div className="flex items-center gap-4 my-4">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-sm text-muted-foreground">oder</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            {/* Später nachreichen */}
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground hover:text-foreground"
+              onClick={onGewerbescheinSpaeter}
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Später nachreichen
+            </Button>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Du kannst den Gewerbeschein später im Profil nachreichen. 
+              Aufträge sind trotzdem möglich.
             </p>
-            <input
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
+          </>
         )}
       </div>
 
