@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { Camera, User } from 'lucide-react';
+import { Camera, User, Lightbulb, Check, X } from 'lucide-react';
+
+// Beispielbilder für Foto-Anleitung
+import fotoGut from '@/assets/onboarding/foto-beispiel-gut.png';
+import fotoSchlecht from '@/assets/onboarding/foto-beispiel-schlecht.png';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -69,6 +73,79 @@ export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: Profil
               onChange={handleFileChange}
             />
           </label>
+        </div>
+      </div>
+
+      {/* Foto-Anleitung mit Beispielbildern */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-4">
+        <div className="flex items-center gap-2 text-amber-800">
+          <Lightbulb className="w-5 h-5" />
+          <h4 className="font-semibold">So sollte dein Foto aussehen</h4>
+        </div>
+        
+        <p className="text-sm text-amber-900">
+          Dein Foto erscheint auf deiner offiziellen Thermocheck-Ausweiskarte. 
+          Ein professionelles Foto macht einen guten ersten Eindruck beim Kunden.
+        </p>
+        
+        {/* Tipps-Liste */}
+        <div className="space-y-2 text-sm text-amber-900">
+          <p className="font-medium">Tipps für ein gutes Foto:</p>
+          <ul className="space-y-1.5">
+            <li className="flex items-start gap-2">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+              <span>Neutraler, einfarbiger Hintergrund</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+              <span>Gute Beleuchtung, Gesicht klar erkennbar</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+              <span>Nahaufnahme (Kopf und Schultern)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+              <span>Freundlicher, professioneller Ausdruck</span>
+            </li>
+          </ul>
+        </div>
+        
+        {/* Gut vs. Schlecht Vergleich */}
+        <div className="grid grid-cols-2 gap-4 pt-2">
+          <div className="text-center space-y-2">
+            <div className="relative inline-block">
+              <img 
+                src={fotoGut} 
+                alt="Gutes Beispiel" 
+                className="w-32 h-40 object-cover object-top rounded-lg shadow-md"
+              />
+              <div className="absolute -top-2 -right-2 bg-green-500 rounded-full p-1 shadow">
+                <Check className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <p className="text-sm font-medium text-green-700">So geht's</p>
+            <p className="text-xs text-muted-foreground">
+              Nahaufnahme, gute Beleuchtung
+            </p>
+          </div>
+          
+          <div className="text-center space-y-2">
+            <div className="relative inline-block">
+              <img 
+                src={fotoSchlecht} 
+                alt="Schlechtes Beispiel" 
+                className="w-32 h-40 object-cover object-top rounded-lg shadow-md opacity-80"
+              />
+              <div className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1 shadow">
+                <X className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <p className="text-sm font-medium text-red-700">So nicht</p>
+            <p className="text-xs text-muted-foreground">
+              Ganzkörper, zu weit entfernt
+            </p>
+          </div>
         </div>
       </div>
 
