@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ApplicantProfile } from '@/types/onboarding';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 interface ProfileStepProps {
   profile: ApplicantProfile;
@@ -18,6 +19,7 @@ interface ProfileStepProps {
 
 export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: ProfileStepProps) {
   const [dragActive, setDragActive] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const handleChange = (field: keyof ApplicantProfile, value: string) => {
     onProfileChange({ ...profile, [field]: value });
@@ -114,7 +116,12 @@ export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: Profil
         {/* Gut vs. Schlecht Vergleich */}
         <div className="grid grid-cols-2 gap-4 pt-2">
           <div className="text-center space-y-2">
-            <div className="relative inline-block">
+            <div 
+              className="relative inline-block cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => setLightboxImage(fotoGut)}
+              role="button"
+              aria-label="Gutes Beispiel vergrößern"
+            >
               <img 
                 src={fotoGut} 
                 alt="Gutes Beispiel" 
@@ -131,7 +138,12 @@ export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: Profil
           </div>
           
           <div className="text-center space-y-2">
-            <div className="relative inline-block">
+            <div 
+              className="relative inline-block cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => setLightboxImage(fotoSchlecht)}
+              role="button"
+              aria-label="Schlechtes Beispiel vergrößern"
+            >
               <img 
                 src={fotoSchlecht} 
                 alt="Schlechtes Beispiel" 
@@ -147,6 +159,19 @@ export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: Profil
             </p>
           </div>
         </div>
+        
+        <p className="text-xs text-amber-700 text-center">
+          Tippe auf ein Bild, um es zu vergrößern
+        </p>
+
+        {/* Lightbox für Beispielbilder */}
+        <ImageLightbox
+          src={lightboxImage || ''}
+          alt={lightboxImage === fotoGut ? 'Gutes Beispiel' : 'Schlechtes Beispiel'}
+          open={!!lightboxImage}
+          onOpenChange={() => setLightboxImage(null)}
+          label={lightboxImage === fotoGut ? 'So sollte dein Foto aussehen' : 'So nicht – zu weit entfernt'}
+        />
       </div>
 
       {/* Persönliche Daten */}

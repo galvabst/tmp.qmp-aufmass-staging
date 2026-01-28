@@ -21,6 +21,11 @@ import tshirtVorne from '@/assets/onboarding/kleidung/tshirt-vorne.png';
 import tshirtHinten from '@/assets/onboarding/kleidung/tshirt-hinten.png';
 import poloshirtVorne from '@/assets/onboarding/kleidung/poloshirt-vorne.png';
 import poloshirtHinten from '@/assets/onboarding/kleidung/poloshirt-hinten.png';
+import pulloverVorne from '@/assets/onboarding/kleidung/pullover-vorne.png';
+import pulloverHinten from '@/assets/onboarding/kleidung/pullover-hinten.png';
+
+// Pullover-Bilder für Slideshow
+export const PULLOVER_BILDER = [pulloverVorne, pulloverHinten];
 
 // Oberteil-Varianten mit Bildern
 const OBERTEIL_VARIANTEN: ClothingVariant[] = [
@@ -320,8 +325,14 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
 
       {/* Einzelnes Produkt groß darstellen */}
       <div className="bg-card rounded-2xl p-6 shadow-card">
-        {/* Produktbild - mit Slideshow falls mehrere Bilder */}
-        {currentProduct.bildUrls && currentProduct.bildUrls.length > 1 ? (
+        {/* Produktbild - mit Slideshow falls mehrere Bilder oder Pullover */}
+        {currentProduct.id === 'pullover' ? (
+          <ProductImageSlideshow
+            images={PULLOVER_BILDER}
+            alt={currentProduct.name}
+            className="mb-6"
+          />
+        ) : currentProduct.bildUrls && currentProduct.bildUrls.length > 1 ? (
           <ProductImageSlideshow
             images={currentProduct.bildUrls}
             alt={currentProduct.name}
