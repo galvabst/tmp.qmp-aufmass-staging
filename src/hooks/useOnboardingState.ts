@@ -190,8 +190,8 @@ export function useOnboardingState(
       case 'dokumente':
         return !!state.gewerbescheinUrl;
       case 'bestellungen':
-        // Alle Pflichtprodukte müssen bestellt sein
-        return state.bestellungenBestaetigt.length >= 3; // Anpassen basierend auf Pflichtprodukten
+        // Alle 5 Pflichtprodukte müssen bestellt sein
+        return state.bestellungenBestaetigt.length >= 5;
       case 'equipment':
         const drohne = state.equipmentStatus['drohne'];
         const iphone = state.equipmentStatus['iphone-lidar'];
