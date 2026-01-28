@@ -48,6 +48,13 @@ export function useOnboardingState(
     }
   }, [state, isPreview]);
 
+  // Reset state when entering preview mode
+  useEffect(() => {
+    if (isPreview) {
+      setState(createInitialOnboardingState(initialProfile));
+    }
+  }, [isPreview, initialProfile]);
+
   // Navigation
   const goToNextStep = useCallback(() => {
     setState(prev => {
