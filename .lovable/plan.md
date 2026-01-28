@@ -1,65 +1,199 @@
 
-# Plan: Schlappen-Bild hinzufuegen
+# Plan: Gewerbeschein-Nachreichung + Tester-Modus + ProfileStep Layout
 
 ## Zusammenfassung
 
-Das hochgeladene Bild der Thermocheck-Hausschuhe wird in die Assets integriert und im Bestellungs-Flow angezeigt.
+Drei Anpassungen werden umgesetzt:
 
-## Hochgeladenes Bild
+1. **Gewerbeschein "spaeter nachreichen"** - Option zum Ueberspringen mit Reminder-Task
+2. **Tester-Modus** - Felder nicht mandatory, einfaches Durchklicken moeglich
+3. **ProfileStep Layout** - Reihenfolge aendern: Info-Box oben, dann Foto, dann Daten
 
-| Bild | Verwendung |
-|------|------------|
-| `image-20.png` | Thermocheck Hausschuhe (Schlappen) |
+## 1. Gewerbeschein spaeter nachreichen
 
-## Neue Asset-Struktur
+### Konzept
+
+Der User kann "Spaeter nachreichen" waehlen. Der Schritt wird als "uebersprungen" markiert, aber eine Aufgabe bleibt offen. Der User kann trotzdem weiter im Onboarding und spaeter sogar Auftraege annehmen.
+
+### UI-Aenderung in DocumentsStep
 
 ```text
-src/assets/onboarding/kleidung/
-  ├── tshirt-vorne.png        (vorhanden)
-  ├── tshirt-hinten.png       (vorhanden)
-  ├── poloshirt-vorne.png     (vorhanden)
-  ├── poloshirt-hinten.png    (vorhanden)
-  ├── pullover-vorne.png      (vorhanden)
-  ├── pullover-hinten.png     (vorhanden)
-  └── schlappen.png           (NEU)
+┌─────────────────────────────────────────────────────────────┐
+│ Gewerbeschein erforderlich                                  │
+│ Gemäß § 9 des Vertrags musst du einen gültigen...          │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Gewerbeschein hochladen                                     │
+│                                                             │
+│    ┌─────────────────────────────┐                          │
+│    │    [Upload Dropzone]        │                          │
+│    └─────────────────────────────┘                          │
+│                                                             │
+│    ─────────── oder ───────────                             │
+│                                                             │
+│    ┌─────────────────────────────┐                          │
+│    │  📅 Später nachreichen      │  (Ghost-Button)          │
+│    └─────────────────────────────┘                          │
+│    Du kannst den Gewerbeschein später im Profil             │
+│    nachreichen. Aufträge sind trotzdem möglich.             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Aenderungen
+### State-Aenderungen
 
-### 1. Bild in Assets kopieren
-
-Das Schlappen-Bild wird nach `src/assets/onboarding/kleidung/schlappen.png` kopiert.
-
-### 2. OrdersStep.tsx erweitern
+Neues Feld im OnboardingState:
 
 ```typescript
-// Neuer Import
-import schlappen from '@/assets/onboarding/kleidung/schlappen.png';
-
-// Bei der Standard-Produkt-Ansicht fuer 'schlappen'
-{currentProduct.id === 'schlappen' ? (
-  <div className="aspect-square max-w-xs mx-auto rounded-xl bg-muted overflow-hidden mb-6">
-    <img
-      src={schlappen}
-      alt={currentProduct.name}
-      className="w-full h-full object-contain cursor-pointer"
-      onClick={() => setLightboxImage(schlappen)}
-    />
-  </div>
-) : ...}
+// In OnboardingState
+gewerbescheinSpaeter: boolean; // Später nachreichen gewaehlt
 ```
 
-### 3. Lightbox-Funktion integrieren
+### Logik-Aenderungen
 
-Das Schlappen-Bild wird klickbar gemacht, um es in der Lightbox vergroessert anzuzeigen (wie bereits bei den anderen Produktbildern).
+- `isStepComplete('dokumente')` gibt `true` zurueck wenn:
+  - `gewerbescheinUrl` vorhanden ODER
+  - `gewerbescheinSpaeter === true`
+- Im Profil-Tab wird eine Warnung/Erinnerung angezeigt wenn Gewerbeschein fehlt
+- Auftraege koennen trotzdem angenommen werden
+
+## 2. Tester-Modus (nicht-mandatory Felder)
+
+### Konzept
+
+Der `isStepComplete()`-Check wird angepasst, sodass Schritte auch ohne vollstaendige Daten als "abgeschlossen" gelten. Dies erlaubt schnelles Durchklicken im Preview-Modus.
+
+### Aenderung in useOnboardingState
+
+```typescript
+// Option 1: Preview-Modus ueberspringt Validierung
+const isStepComplete = useCallback((step: OnboardingStepId): boolean => {
+  // In Preview-Mode: Immer true (kann durchklicken)
+  if (isPreview) return true;
+  
+  // Produktions-Logik bleibt bestehen...
+}, [state, isPreview]);
+```
+
+### Alternative: Separate Validierung
+
+Statt die Validierung komplett zu entfernen, koennte man:
+- Im Preview-Modus: Validierung nur warnen, aber nicht blockieren
+- Der "Weiter"-Button bleibt immer aktiv im Preview-Modus
+
+## 3. ProfileStep Layout umordnen
+
+### Aktuelle Reihenfolge
+
+1. Avatar Upload ("Profilfoto fuer Ausweiskarte")
+2. Foto-Anleitung ("So sollte dein Foto aussehen")
+3. Persoenliche Daten
+4. Adresse
+
+### Neue Reihenfolge
+
+1. **Foto-Anleitung ("So sollte dein Foto aussehen")** - NACH OBEN
+2. **Avatar Upload ("Profilfoto fuer Ausweiskarte")** - DARUNTER
+3. Persoenliche Daten
+4. Adresse
+
+### Visualisierung
+
+```text
+VORHER:                          NACHHER:
+┌────────────────────┐           ┌────────────────────┐
+│ Profilfoto fuer    │           │ 💡 So sollte dein  │
+│ Ausweiskarte       │           │    Foto aussehen   │
+│ [Avatar Upload]    │           │ - Tipps...         │
+├────────────────────┤           │ [Gut] vs [Schlecht]│
+│ 💡 So sollte dein  │           ├────────────────────┤
+│    Foto aussehen   │           │ Profilfoto fuer    │
+│ - Tipps...         │           │ Ausweiskarte       │
+│ [Gut] vs [Schlecht]│           │ [Avatar Upload]    │
+├────────────────────┤           ├────────────────────┤
+│ Persönliche Daten  │           │ Persönliche Daten  │
+├────────────────────┤           ├────────────────────┤
+│ Adresse            │           │ Adresse            │
+└────────────────────┘           └────────────────────┘
+```
+
+### Code-Aenderung
+
+Die JSX-Bloecke in ProfileStep.tsx werden einfach in der neuen Reihenfolge angeordnet.
 
 ## Dateien die geaendert werden
 
-| Datei | Aktion |
-|-------|--------|
-| `src/assets/onboarding/kleidung/schlappen.png` | Neu (kopiert) |
-| `src/components/onboarding/steps/OrdersStep.tsx` | Import + Spezialfall fuer Schlappen mit Lightbox |
+| Datei | Aenderung |
+|-------|-----------|
+| `src/types/onboarding.ts` | Neues Feld `gewerbescheinSpaeter: boolean` |
+| `src/lib/onboarding-config.ts` | Initial-State anpassen |
+| `src/hooks/useOnboardingState.ts` | Neue Funktion `setGewerbescheinSpaeter`, `isStepComplete` anpassen |
+| `src/components/onboarding/steps/DocumentsStep.tsx` | "Spaeter nachreichen" Button + State |
+| `src/components/onboarding/steps/ProfileStep.tsx` | Layout-Reihenfolge aendern |
+| `src/components/OnboardingScreen.tsx` | Handler fuer "Spaeter nachreichen" |
 
-## Hinweis
+## Technische Details
 
-Da nur ein Bild vorhanden ist, wird keine Slideshow benoetigt. Das Bild wird aber trotzdem klickbar sein, damit man es in der Lightbox im Detail betrachten kann.
+### DocumentsStep Props erweitern
+
+```typescript
+interface DocumentsStepProps {
+  gewerbescheinUrl?: string;
+  gewerbescheinSpaeter?: boolean;
+  onGewerbescheinUpload: (file: File) => void;
+  onRemoveGewerbeschein: () => void;
+  onGewerbescheinSpaeter: () => void; // NEU
+}
+```
+
+### "Spaeter nachreichen" UI
+
+```tsx
+{/* Separator */}
+<div className="flex items-center gap-4 my-4">
+  <div className="flex-1 h-px bg-border" />
+  <span className="text-sm text-muted-foreground">oder</span>
+  <div className="flex-1 h-px bg-border" />
+</div>
+
+{/* Später nachreichen */}
+<Button
+  variant="ghost"
+  className="w-full text-muted-foreground"
+  onClick={onGewerbescheinSpaeter}
+>
+  <Clock className="w-4 h-4 mr-2" />
+  Später nachreichen
+</Button>
+<p className="text-xs text-muted-foreground text-center mt-2">
+  Du kannst den Gewerbeschein später im Profil nachreichen. 
+  Aufträge sind trotzdem möglich.
+</p>
+```
+
+### Validierungs-Anpassung fuer Preview
+
+```typescript
+// In useOnboardingState.ts
+const isStepComplete = useCallback((step: OnboardingStepId): boolean => {
+  // Preview-Modus: Alle Schritte sind "fertig" (durchklickbar)
+  if (isPreview) return true;
+  
+  switch (step) {
+    case 'dokumente':
+      // Entweder hochgeladen ODER "später" gewählt
+      return !!(state.gewerbescheinUrl || state.gewerbescheinSpaeter);
+    // ... rest
+  }
+}, [state, isPreview]);
+```
+
+## Reihenfolge der Implementation
+
+1. Types erweitern (`gewerbescheinSpaeter`)
+2. Initial-State und Hook anpassen
+3. ProfileStep Layout umordnen
+4. DocumentsStep mit "Spaeter nachreichen" erweitern
+5. OnboardingScreen Handler hinzufuegen
+6. Testen im Preview-Modus
