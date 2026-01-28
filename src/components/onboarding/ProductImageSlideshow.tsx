@@ -8,6 +8,7 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from '@/components/ui/carousel';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 interface ProductImageSlideshowProps {
   images: string[];
@@ -18,6 +19,7 @@ interface ProductImageSlideshowProps {
 export function ProductImageSlideshow({ images, alt, className }: ProductImageSlideshowProps) {
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
+  const [lightboxImage, setLightboxImage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!api) return;
@@ -36,7 +38,12 @@ export function ProductImageSlideshow({ images, alt, className }: ProductImageSl
         <CarouselContent>
           {images.map((img, index) => (
             <CarouselItem key={index}>
-              <div className="aspect-[3/4] rounded-xl overflow-hidden bg-muted">
+              <div 
+                className="aspect-[3/4] rounded-xl overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setLightboxImage(img)}
+                role="button"
+                aria-label={`${alt} - ${labels[index] || `Bild ${index + 1}`} vergrößern`}
+              >
                 <img
                   src={img}
                   alt={`${alt} - ${labels[index] || `Bild ${index + 1}`}`}
@@ -52,7 +59,7 @@ export function ProductImageSlideshow({ images, alt, className }: ProductImageSl
 
       {/* Label für aktuelle Ansicht */}
       <p className="text-center text-sm text-muted-foreground mt-2">
-        {labels[current] || `Bild ${current + 1}`}
+        {labels[current] || `Bild ${current + 1}`} • Tippen zum Vergrößern
       </p>
 
       {/* Progress-Dots */}
@@ -69,6 +76,15 @@ export function ProductImageSlideshow({ images, alt, className }: ProductImageSl
           />
         ))}
       </div>
+
+      {/* Lightbox */}
+      <ImageLightbox
+        src={lightboxImage || ''}
+        alt={alt}
+        open={!!lightboxImage}
+        onOpenChange={() => setLightboxImage(null)}
+        label={labels[images.indexOf(lightboxImage || '')] || undefined}
+      />
     </div>
   );
 }

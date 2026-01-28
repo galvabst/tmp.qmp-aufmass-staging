@@ -92,6 +92,7 @@ export const MOCK_PRODUCTS: OnboardingProduct[] = [
     preisTyp: 'einmalig',
     produktTyp: 'kleidung',
     bildUrl: '/placeholder.svg',
+    // bildUrls werden dynamisch in OrdersStep gesetzt (wegen ES6 Import)
     externLink: 'https://shop.thermocheck.de/pullover',
     pflicht: true,
     reihenfolge: 3,
