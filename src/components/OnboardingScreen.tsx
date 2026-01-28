@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { AlertTriangle, X } from 'lucide-react';
 import { OnboardingStepWrapper } from './onboarding/OnboardingStepWrapper';
 import { ProfileStep } from './onboarding/steps/ProfileStep';
 import { DocumentsStep } from './onboarding/steps/DocumentsStep';
@@ -18,14 +19,16 @@ import {
   MOCK_EQUIPMENT,
   ONBOARDING_STEPS,
 } from '@/lib/onboarding-config';
-import { useState } from 'react';
 import { CoachingSlot } from '@/types/onboarding';
+import { Button } from '@/components/ui/button';
 
 interface OnboardingScreenProps {
   onComplete: () => void;
+  isPreview?: boolean;
+  onExitPreview?: () => void;
 }
 
-export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview }: OnboardingScreenProps) {
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -48,7 +51,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     setGesamtfotoUrl,
     setGebuchterCoachingSlot,
     setCoachingAbgeschlossen,
-  } = useOnboardingState(MOCK_APPLICANT_PROFILE);
+  } = useOnboardingState(MOCK_APPLICANT_PROFILE, isPreview);
 
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
   const [coachingSlots, setCoachingSlots] = useState<CoachingSlot[]>(MOCK_COACHING_SLOTS);
@@ -68,6 +71,11 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   // Wenn abgeschlossen, zeige Complete-Screen
   if (isComplete) {
+    if (isPreview) {
+      toast.success('Vorschau beendet');
+      onExitPreview?.();
+      return null;
+    }
     return <OnboardingComplete onContinue={onComplete} />;
   }
 
@@ -242,18 +250,40 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   };
 
   return (
-    <OnboardingStepWrapper
-      currentStep={state.currentStep}
-      completedSteps={state.completedSteps}
-      title={currentStepConfig?.label || ''}
-      description={currentStepConfig?.description}
-      onBack={goToPreviousStep}
-      onNext={handleNext}
-      nextLabel={getNextLabel()}
-      nextDisabled={!canProceed}
-      progress={progress}
-    >
-      {renderStep()}
-    </OnboardingStepWrapper>
+    <div className="flex flex-col min-h-screen">
+      {/* Preview Banner */}
+      {isPreview && (
+        <div className="bg-amber-100 border-b border-amber-200 px-4 py-2 flex items-center justify-between safe-area-top">
+          <div className="flex items-center gap-2 text-amber-800">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              Vorschau-Modus – Änderungen werden nicht gespeichert
+            </span>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onExitPreview}
+            className="text-amber-800 hover:bg-amber-200/50 h-7 px-2"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+      
+      <OnboardingStepWrapper
+        currentStep={state.currentStep}
+        completedSteps={state.completedSteps}
+        title={currentStepConfig?.label || ''}
+        description={currentStepConfig?.description}
+        onBack={isPreview ? onExitPreview : goToPreviousStep}
+        onNext={handleNext}
+        nextLabel={getNextLabel()}
+        nextDisabled={!canProceed}
+        progress={progress}
+      >
+        {renderStep()}
+      </OnboardingStepWrapper>
+    </div>
   );
 }
