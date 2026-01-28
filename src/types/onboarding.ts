@@ -45,6 +45,14 @@ export interface ApplicantProfile {
 export type PricingType = 'einmalig' | 'monatlich';
 export type ProductType = 'lizenz' | 'kleidung' | 'equipment';
 
+// Kleidungsvariante für Auswahl-Produkte (T-Shirt/Poloshirt)
+export interface ClothingVariant {
+  id: string;
+  name: string;
+  bildUrls: string[]; // [vorne, hinten]
+  externLink: string;
+}
+
 export interface OnboardingProduct {
   id: string;
   name: string;
@@ -54,9 +62,11 @@ export interface OnboardingProduct {
   preisTyp: PricingType;
   produktTyp: ProductType;
   bildUrl?: string;
+  bildUrls?: string[]; // Array für Slideshow (vorne, hinten)
   externLink: string; // Buchungslink zum Shop (Pflicht!)
   pflicht: boolean;
   reihenfolge: number;
+  varianten?: ClothingVariant[]; // Für Auswahl-Produkte wie Oberteil
 }
 
 // Equipment-Status

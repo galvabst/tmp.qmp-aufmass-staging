@@ -58,15 +58,15 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
 // Mock-Produkte (später aus DB: thermocheck.onboarding_products)
 export const MOCK_PRODUCTS: OnboardingProduct[] = [
   {
-    id: 'tshirt',
-    name: 'Thermocheck T-Shirt',
-    beschreibung: 'Hochwertige Arbeitskleidung mit deinem Namen',
+    id: 'oberteil',
+    name: 'Thermocheck Oberteil',
+    beschreibung: 'Wähle dein Oberteil: T-Shirt, Poloshirt oder beides',
     preisNetto: 0,
     preisBrutto: 0, // Preis aus DB
     preisTyp: 'einmalig',
     produktTyp: 'kleidung',
     bildUrl: '/placeholder.svg',
-    externLink: 'https://shop.thermocheck.de/tshirt',
+    externLink: 'https://shop.thermocheck.de/oberteil',
     pflicht: true,
     reihenfolge: 1,
   },
