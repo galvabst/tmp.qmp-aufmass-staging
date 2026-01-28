@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { OnboardingProduct, ClothingVariant } from '@/types/onboarding';
+import { OnboardingProduct, ClothingVariant, OberteilAuswahl } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
 import { ProductImageSlideshow } from '../ProductImageSlideshow';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
@@ -45,19 +45,24 @@ const OBERTEIL_VARIANTEN: ClothingVariant[] = [
   },
 ];
 
-type OberteilAuswahl = 'tshirt' | 'poloshirt' | 'beides';
-
 interface OrdersStepProps {
   products: OnboardingProduct[];
   orderedProducts: string[];
   onProductOrder: (productId: string) => void;
+  oberteilAuswahl: OberteilAuswahl;
+  onOberteilAuswahl: (auswahl: OberteilAuswahl) => void;
 }
 
-export function OrdersStep({ products, orderedProducts, onProductOrder }: OrdersStepProps) {
+export function OrdersStep({ 
+  products, 
+  orderedProducts, 
+  onProductOrder,
+  oberteilAuswahl,
+  onOberteilAuswahl,
+}: OrdersStepProps) {
   const [confirmingProduct, setConfirmingProduct] = useState<OnboardingProduct | null>(null);
   const [confirmingVariant, setConfirmingVariant] = useState<ClothingVariant | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  const [oberteilAuswahl, setOberteilAuswahl] = useState<OberteilAuswahl | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ClothingVariant | null>(OBERTEIL_VARIANTEN[0]);
 
   // Sortiere Produkte nach Reihenfolge
@@ -167,7 +172,7 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
               <Button
                 variant="outline"
                 onClick={() => {
-                  setOberteilAuswahl('tshirt');
+                  onOberteilAuswahl('tshirt');
                   setSelectedVariant(OBERTEIL_VARIANTEN[0]);
                 }}
                 className="min-w-[100px]"
@@ -177,7 +182,7 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
               <Button
                 variant="outline"
                 onClick={() => {
-                  setOberteilAuswahl('poloshirt');
+                  onOberteilAuswahl('poloshirt');
                   setSelectedVariant(OBERTEIL_VARIANTEN[1]);
                 }}
                 className="min-w-[100px]"
@@ -187,7 +192,7 @@ export function OrdersStep({ products, orderedProducts, onProductOrder }: Orders
               <Button
                 variant="outline"
                 onClick={() => {
-                  setOberteilAuswahl('beides');
+                  onOberteilAuswahl('beides');
                   setSelectedVariant(OBERTEIL_VARIANTEN[0]);
                 }}
                 className="min-w-[100px]"

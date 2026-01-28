@@ -45,6 +45,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview 
     setGewerbescheinUrl,
     setGewerbescheinSpaeter,
     toggleProductOrdered,
+    setOberteilAuswahl,
     updateEquipmentStatus,
     completeAkademieModul,
     setAkademieTestBestanden,
@@ -198,6 +199,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview 
             products={MOCK_PRODUCTS}
             orderedProducts={state.bestellungenBestaetigt}
             onProductOrder={handleProductOrder}
+            oberteilAuswahl={state.oberteilAuswahl}
+            onOberteilAuswahl={setOberteilAuswahl}
           />
         );
 
