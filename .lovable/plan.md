@@ -1,20 +1,17 @@
 
-# Plan: Jackenbilder hinzufuegen + Lightbox-Zoom-Funktion
+# Plan: Schlappen-Bild hinzufuegen
 
 ## Zusammenfassung
 
-Zwei Erweiterungen werden umgesetzt:
-1. **Jackenbilder** - Pullover/Zipper vorne + hinten zu den Assets hinzufuegen
-2. **Lightbox-Komponente** - Bilder koennen per Klick vergroessert angezeigt werden (fuer Slideshow UND Beispielbilder im ProfileStep)
+Das hochgeladene Bild der Thermocheck-Hausschuhe wird in die Assets integriert und im Bestellungs-Flow angezeigt.
 
-## Hochgeladene Bilder
+## Hochgeladenes Bild
 
 | Bild | Verwendung |
 |------|------------|
-| `image-19.png` | Jacke/Zipper Vorderseite |
-| `Gemini_Generated_Image_yioadiyioadiyioa_1.png` | Jacke/Zipper Rueckseite |
+| `image-20.png` | Thermocheck Hausschuhe (Schlappen) |
 
-## Neue Assets-Struktur
+## Neue Asset-Struktur
 
 ```text
 src/assets/onboarding/kleidung/
@@ -22,157 +19,47 @@ src/assets/onboarding/kleidung/
   ├── tshirt-hinten.png       (vorhanden)
   ├── poloshirt-vorne.png     (vorhanden)
   ├── poloshirt-hinten.png    (vorhanden)
-  ├── pullover-vorne.png      (NEU)
-  └── pullover-hinten.png     (NEU)
+  ├── pullover-vorne.png      (vorhanden)
+  ├── pullover-hinten.png     (vorhanden)
+  └── schlappen.png           (NEU)
 ```
 
-## Lightbox-Konzept
+## Aenderungen
 
-```text
-┌──────────────────────────────────────────────────────────┐
-│ [X]                                                      │
-│                                                          │
-│                                                          │
-│           ┌─────────────────────────────────┐            │
-│           │                                 │            │
-│           │                                 │            │
-│           │      [BILD GROSS ANGEZEIGT]     │            │
-│           │                                 │            │
-│           │                                 │            │
-│           └─────────────────────────────────┘            │
-│                                                          │
-│                    Vorderseite                           │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
-```
+### 1. Bild in Assets kopieren
 
-## Architektur
+Das Schlappen-Bild wird nach `src/assets/onboarding/kleidung/schlappen.png` kopiert.
 
-### 1. Neue Komponente: ImageLightbox
-
-Eine wiederverwendbare Lightbox-Komponente basierend auf dem vorhandenen Dialog:
-
-```tsx
-// src/components/ui/image-lightbox.tsx
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from './dialog';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-
-interface ImageLightboxProps {
-  src: string;
-  alt: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export function ImageLightbox({ src, alt, open, onOpenChange }: ImageLightboxProps) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-2 bg-black/95">
-        <VisuallyHidden>
-          <DialogTitle>{alt}</DialogTitle>
-          <DialogDescription>Detailansicht des Bildes</DialogDescription>
-        </VisuallyHidden>
-        <img 
-          src={src} 
-          alt={alt} 
-          className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
-        />
-      </DialogContent>
-    </Dialog>
-  );
-}
-```
-
-### 2. ProductImageSlideshow erweitern
-
-```tsx
-// Bilder werden klickbar
-<img
-  src={img}
-  alt={...}
-  className="w-full h-full object-cover cursor-pointer"
-  onClick={() => setLightboxImage(img)}
-/>
-
-// Lightbox am Ende
-<ImageLightbox 
-  src={lightboxImage} 
-  alt={alt} 
-  open={!!lightboxImage}
-  onOpenChange={() => setLightboxImage(null)}
-/>
-```
-
-### 3. ProfileStep erweitern
-
-```tsx
-// Beispielbilder klickbar machen
-const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-
-<img 
-  src={fotoGut} 
-  alt="Gutes Beispiel" 
-  className="... cursor-pointer hover:scale-105 transition-transform"
-  onClick={() => setLightboxImage(fotoGut)}
-/>
-
-<ImageLightbox 
-  src={lightboxImage || ''} 
-  alt="Beispielbild"
-  open={!!lightboxImage}
-  onOpenChange={() => setLightboxImage(null)}
-/>
-```
-
-### 4. OrdersStep mit Jacken-Slideshow
-
-Das Pullover-Produkt bekommt die neuen Bilder:
+### 2. OrdersStep.tsx erweitern
 
 ```typescript
-// In onboarding-config.ts
-{
-  id: 'pullover',
-  name: 'Thermocheck Pullover',
-  beschreibung: 'Warme Arbeitskleidung fuer kalte Tage',
-  bildUrls: [pulloverVorne, pulloverHinten], // NEU
-  // ...
-}
+// Neuer Import
+import schlappen from '@/assets/onboarding/kleidung/schlappen.png';
+
+// Bei der Standard-Produkt-Ansicht fuer 'schlappen'
+{currentProduct.id === 'schlappen' ? (
+  <div className="aspect-square max-w-xs mx-auto rounded-xl bg-muted overflow-hidden mb-6">
+    <img
+      src={schlappen}
+      alt={currentProduct.name}
+      className="w-full h-full object-contain cursor-pointer"
+      onClick={() => setLightboxImage(schlappen)}
+    />
+  </div>
+) : ...}
 ```
 
-## Dateien die erstellt/geaendert werden
+### 3. Lightbox-Funktion integrieren
+
+Das Schlappen-Bild wird klickbar gemacht, um es in der Lightbox vergroessert anzuzeigen (wie bereits bei den anderen Produktbildern).
+
+## Dateien die geaendert werden
 
 | Datei | Aktion |
 |-------|--------|
-| `src/assets/onboarding/kleidung/pullover-vorne.png` | Neu (kopiert) |
-| `src/assets/onboarding/kleidung/pullover-hinten.png` | Neu (kopiert) |
-| `src/components/ui/image-lightbox.tsx` | Neu (Lightbox-Komponente) |
-| `src/components/onboarding/ProductImageSlideshow.tsx` | Erweitert (Klick -> Lightbox) |
-| `src/components/onboarding/steps/ProfileStep.tsx` | Erweitert (Beispielbilder klickbar) |
-| `src/components/onboarding/steps/OrdersStep.tsx` | Pullover-Bilder importieren |
-| `src/lib/onboarding-config.ts` | Pullover mit bildUrls |
+| `src/assets/onboarding/kleidung/schlappen.png` | Neu (kopiert) |
+| `src/components/onboarding/steps/OrdersStep.tsx` | Import + Spezialfall fuer Schlappen mit Lightbox |
 
-## Technische Details
+## Hinweis
 
-### ImageLightbox Features
-
-- Basiert auf bestehendem Radix Dialog
-- Dunkler Overlay-Hintergrund
-- X-Button zum Schliessen
-- Klick ausserhalb schliesst
-- Responsive: Bild passt sich an Bildschirmgroesse an
-- Touch-freundlich fuer Mobile
-
-### Accessibility
-
-- VisuallyHidden fuer DialogTitle/Description (Radix erfordert dies)
-- aria-label fuer klickbare Bilder
-- Fokus-Management durch Radix Dialog
-
-## Reihenfolge der Implementation
-
-1. Jackenbilder in Assets kopieren
-2. ImageLightbox Komponente erstellen
-3. ProductImageSlideshow mit Lightbox erweitern
-4. ProfileStep mit Lightbox erweitern
-5. OrdersStep: Pullover-Bilder importieren
-6. onboarding-config: Pullover bildUrls hinzufuegen
+Da nur ein Bild vorhanden ist, wird keine Slideshow benoetigt. Das Bild wird aber trotzdem klickbar sein, damit man es in der Lightbox im Detail betrachten kann.
