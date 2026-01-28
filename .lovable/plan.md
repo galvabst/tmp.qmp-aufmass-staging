@@ -1,72 +1,103 @@
 
-
-# Plan: Room Scanner Lizenz Bild hinzufuegen
+# Plan: Bestellungs-Anzeige verstecken + neue Produktbilder
 
 ## Zusammenfassung
 
-Das hochgeladene Bild zeigt die "Advanced Spatial & Thermal Analytics Suite" - die Room Scanner Software-Lizenz. Es wird als Produktbild im Bestellungs-Flow angezeigt.
-
-## Bild-Details
-
-| Element | Beschreibung |
-|---------|--------------|
-| Logo | Galvanek Energiesysteme |
-| Titel | Advanced Spatial & Thermal Analytics Suite |
-| Untertitel | Professional License // Tier: Enterprise |
-| Module | Precision 3D Geometry Scan, Dynamic Heat Load Calculation |
-| Status | Validated & Secure |
+Die "Bestellung X von 6" Anzeige und Progress-Dots werden entfernt, damit User nicht sehen, wie viele Bestellungen noch kommen. Das erzeugt das psychologische "Sunk Cost" Commitment. Zusaetzlich werden die neuen Bilder fuer Scanner-Lizenz und Google Workspace integriert.
 
 ## Aenderungen
 
-### 1. Bild in Projekt kopieren
+### 1. "Bestellung X von Y" Anzeige entfernen
 
-```text
-src/assets/onboarding/lizenzen/
-  └── scanner-lizenz.png (NEU)
+**Oberteil-Ansicht (Zeile 162-167):**
+```typescript
+// ENTFERNEN:
+{/* Schritt-Anzeige */}
+<div className="text-center">
+  <p className="text-sm text-muted-foreground">
+    Bestellung {currentIndex + 1} von {sortedProducts.length}: Oberteil
+  </p>
+</div>
 ```
 
-Neuer Ordner `lizenzen/` fuer Software-Produkte (Trennung von Kleidung).
-
-### 2. Import in OrdersStep.tsx
-
+**Standard-Produkt-Ansicht (Zeile 333-338):**
 ```typescript
-// NEU: Lizenz-Bilder
-import scannerLizenz from '@/assets/onboarding/lizenzen/scanner-lizenz.png';
+// ENTFERNEN:
+{/* Schritt-Anzeige */}
+<div className="text-center">
+  <p className="text-sm text-muted-foreground">
+    Bestellung {currentIndex + 1} von {sortedProducts.length}
+  </p>
+</div>
 ```
 
-### 3. Rendering-Logik erweitern
+### 2. Progress-Dots entfernen
 
-Im Standard-Produkt-Bereich eine Bedingung fuer die Scanner-Lizenz hinzufuegen:
+Die Progress-Dots (kleine Kreise die den Fortschritt zeigen) verraten ebenfalls wie viele Produkte es gibt:
+
+**Oberteil-Ansicht (ca. Zeile 286-307):**
+```typescript
+// ENTFERNEN:
+{/* Progress-Dots */}
+<div className="flex justify-center gap-2">
+  {sortedProducts.map((product, index) => (
+    <div key={product.id} className={cn(...)} />
+  ))}
+</div>
+```
+
+**Standard-Ansicht (am Ende):**
+Gleiche Progress-Dots entfernen.
+
+### 3. Neue Bilder hinzufuegen
+
+| Datei | Beschreibung |
+|-------|--------------|
+| `src/assets/onboarding/lizenzen/scanner-lizenz.png` | ERSETZEN - Neues Bild mit iPhone + Desktop 3D/Thermal Scan |
+| `src/assets/onboarding/lizenzen/google-workspace.png` | NEU - Gmail mit @galvanek-bau.de Domain |
+
+### 4. Google Workspace Rendering hinzufuegen
 
 ```typescript
-{currentProduct.id === 'scanner-lizenz' ? (
-  // Einzelbild fuer Scanner-Lizenz (kein Slideshow noetig)
+// Import
+import googleWorkspace from '@/assets/onboarding/lizenzen/google-workspace.png';
+
+// Rendering
+{currentProduct.id === 'google-workspace' ? (
   <div 
-    className="relative w-full max-w-md mx-auto mb-6 cursor-pointer"
-    onClick={() => setLightboxImage(scannerLizenz)}
+    className="relative w-full max-w-md mx-auto mb-6 cursor-pointer hover:opacity-90 transition-opacity"
+    onClick={() => setLightboxImage(googleWorkspace)}
+    role="button"
+    aria-label={`${currentProduct.name} vergroessern`}
   >
     <img 
-      src={scannerLizenz}
+      src={googleWorkspace}
       alt={currentProduct.name}
       className="w-full rounded-lg shadow-lg"
     />
+    <p className="text-center text-sm text-muted-foreground mt-2">
+      Tippen zum Vergroessern
+    </p>
   </div>
-) : currentProduct.id === 'ausweiskarte' ? (
-  // ... bestehender Code
-)}
+) : ...}
 ```
 
 ## Dateien die geaendert werden
 
 | Datei | Aenderung |
 |-------|-----------|
-| `src/assets/onboarding/lizenzen/scanner-lizenz.png` | NEU - Kopie von Upload |
-| `src/components/onboarding/steps/OrdersStep.tsx` | Import + Rendering fuer scanner-lizenz |
+| `src/assets/onboarding/lizenzen/scanner-lizenz.png` | ERSETZEN mit neuem Bild |
+| `src/assets/onboarding/lizenzen/google-workspace.png` | NEU |
+| `src/components/onboarding/steps/OrdersStep.tsx` | "X von Y" + Progress-Dots entfernen, Google Workspace Rendering |
 
-## Erwartetes Ergebnis
+## Psychologischer Effekt
 
-Wenn der User zur Scanner-Lizenz-Bestellung kommt (nach Ausweiskarte, vor Google Workspace), sieht er:
-- Das professionelle Lizenzbild mit Galvanek-Branding
-- Klickbar fuer Lightbox-Vergroesserung
-- Produktinfos: 199 Euro/Monat, monatliche Lizenz
+**Vorher:** User sieht "Bestellung 1 von 6" und denkt "Oh nein, 6 Bestellungen!"
 
+**Nachher:** User sieht nur das aktuelle Produkt. Nach jedem Kauf denkt er "Jetzt hab ich schon X Euro ausgegeben, das zieh ich jetzt durch" (Sunk Cost Fallacy).
+
+## Erwartetes Verhalten
+
+- Keine Anzeige mehr, wie viele Produkte noch kommen
+- Keine Progress-Dots mehr
+- Neue professionelle Bilder fuer Scanner-Lizenz (3D/Thermal) und Google Workspace (@galvanek-bau.de)
