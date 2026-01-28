@@ -111,6 +111,19 @@ export const MOCK_PRODUCTS: OnboardingProduct[] = [
     reihenfolge: 4,
   },
   {
+    id: 'scanner-lizenz',
+    name: 'Room Scanner Lizenz',
+    beschreibung: 'Professional 3D-Scanning Software für iPhone LiDAR',
+    preisNetto: 167.23,
+    preisBrutto: 199.00,
+    preisTyp: 'monatlich',
+    produktTyp: 'lizenz',
+    bildUrl: '/placeholder.svg',
+    externLink: 'https://shop.thermocheck.de/scanner-lizenz',
+    pflicht: true,
+    reihenfolge: 5,
+  },
+  {
     id: 'google-workspace',
     name: 'Google Workspace',
     beschreibung: 'Deine @galvanic-bau.de E-Mail-Adresse',
@@ -121,7 +134,7 @@ export const MOCK_PRODUCTS: OnboardingProduct[] = [
     bildUrl: '/placeholder.svg',
     externLink: 'https://shop.thermocheck.de/workspace',
     pflicht: true,
-    reihenfolge: 5,
+    reihenfolge: 6,
   },
 ];
 
