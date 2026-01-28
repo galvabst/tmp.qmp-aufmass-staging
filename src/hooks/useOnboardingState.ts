@@ -188,11 +188,10 @@ export function useOnboardingState(
   const progress = calculateOnboardingProgress(state);
   
   const isStepComplete = useCallback((step: OnboardingStepId): boolean => {
-    // Preview-Modus: Alle Schritte sind durchklickbar (Tester-Modus)
-    if (isPreview) return true;
-    
     switch (step) {
       case 'profil':
+        // Preview-Modus: Profil-Validierung überspringen
+        if (isPreview) return true;
         return !!(
           state.profil.vorname &&
           state.profil.nachname &&
@@ -200,26 +199,32 @@ export function useOnboardingState(
           state.profil.avatarUrl
         );
       case 'dokumente':
-        // Entweder hochgeladen ODER "später nachreichen" gewählt
+        // Preview-Modus: Dokumente-Validierung überspringen
+        if (isPreview) return true;
         return !!(state.gewerbescheinUrl || state.gewerbescheinSpaeter);
       case 'bestellungen':
-        // Anzahl hängt von Oberteil-Auswahl ab: 5 für T-Shirt/Poloshirt, 6 für beides
-        const requiredCount = state.oberteilAuswahl === 'beides' ? 6 : 5;
+        // WICHTIG: Kein Preview-Skip hier!
+        // User soll im Vorschau-Modus alle Produkte durchklicken können
+        const requiredCount = state.oberteilAuswahl === 'beides' ? 7 : 6;
         return state.bestellungenBestaetigt.length >= requiredCount;
       case 'equipment':
+        if (isPreview) return true;
         const drohne = state.equipmentStatus['drohne'];
         const iphone = state.equipmentStatus['iphone-lidar'];
         return !!(
           (drohne?.hatEigenes && drohne?.nachweisUrl) || (drohne?.hatEigenes === false)
         ) && !!(iphone?.hatEigenes);
       case 'akademie':
+        if (isPreview) return true;
         return state.akademieTestBestanden;
       case 'nachweise':
+        if (isPreview) return true;
         return !!(
           Object.values(state.ausstattungCheckliste).every(Boolean) &&
           state.gesamtfotoUrl
         );
       case 'coaching':
+        if (isPreview) return true;
         return state.coachingAbgeschlossen;
       default:
         return false;
