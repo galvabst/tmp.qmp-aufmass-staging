@@ -1,103 +1,29 @@
 
-# Plan: Bestellungs-Anzeige verstecken + neue Produktbilder
 
-## Zusammenfassung
+# Plan: Bilder korrigieren (vertauscht)
 
-Die "Bestellung X von 6" Anzeige und Progress-Dots werden entfernt, damit User nicht sehen, wie viele Bestellungen noch kommen. Das erzeugt das psychologische "Sunk Cost" Commitment. Zusaetzlich werden die neuen Bilder fuer Scanner-Lizenz und Google Workspace integriert.
+## Problem
+
+Die beiden Lizenz-Bilder wurden beim letzten Upload vertauscht zugeordnet.
+
+## Korrektur
+
+| Datei | Aktuell (falsch) | Korrekt |
+|-------|------------------|---------|
+| `scanner-lizenz.png` | Gmail/Google Workspace | iPhone + Desktop 3D/Thermal Scan |
+| `google-workspace.png` | iPhone + Desktop 3D/Thermal Scan | Gmail mit @galvanek-bau.de |
 
 ## Aenderungen
 
-### 1. "Bestellung X von Y" Anzeige entfernen
+1. **scanner-lizenz.png** ersetzen mit image-27.png (3D/Thermal Scan Devices)
+2. **google-workspace.png** ersetzen mit image-28.png (Gmail + Galvanek Branding)
 
-**Oberteil-Ansicht (Zeile 162-167):**
-```typescript
-// ENTFERNEN:
-{/* Schritt-Anzeige */}
-<div className="text-center">
-  <p className="text-sm text-muted-foreground">
-    Bestellung {currentIndex + 1} von {sortedProducts.length}: Oberteil
-  </p>
-</div>
-```
-
-**Standard-Produkt-Ansicht (Zeile 333-338):**
-```typescript
-// ENTFERNEN:
-{/* Schritt-Anzeige */}
-<div className="text-center">
-  <p className="text-sm text-muted-foreground">
-    Bestellung {currentIndex + 1} von {sortedProducts.length}
-  </p>
-</div>
-```
-
-### 2. Progress-Dots entfernen
-
-Die Progress-Dots (kleine Kreise die den Fortschritt zeigen) verraten ebenfalls wie viele Produkte es gibt:
-
-**Oberteil-Ansicht (ca. Zeile 286-307):**
-```typescript
-// ENTFERNEN:
-{/* Progress-Dots */}
-<div className="flex justify-center gap-2">
-  {sortedProducts.map((product, index) => (
-    <div key={product.id} className={cn(...)} />
-  ))}
-</div>
-```
-
-**Standard-Ansicht (am Ende):**
-Gleiche Progress-Dots entfernen.
-
-### 3. Neue Bilder hinzufuegen
-
-| Datei | Beschreibung |
-|-------|--------------|
-| `src/assets/onboarding/lizenzen/scanner-lizenz.png` | ERSETZEN - Neues Bild mit iPhone + Desktop 3D/Thermal Scan |
-| `src/assets/onboarding/lizenzen/google-workspace.png` | NEU - Gmail mit @galvanek-bau.de Domain |
-
-### 4. Google Workspace Rendering hinzufuegen
-
-```typescript
-// Import
-import googleWorkspace from '@/assets/onboarding/lizenzen/google-workspace.png';
-
-// Rendering
-{currentProduct.id === 'google-workspace' ? (
-  <div 
-    className="relative w-full max-w-md mx-auto mb-6 cursor-pointer hover:opacity-90 transition-opacity"
-    onClick={() => setLightboxImage(googleWorkspace)}
-    role="button"
-    aria-label={`${currentProduct.name} vergroessern`}
-  >
-    <img 
-      src={googleWorkspace}
-      alt={currentProduct.name}
-      className="w-full rounded-lg shadow-lg"
-    />
-    <p className="text-center text-sm text-muted-foreground mt-2">
-      Tippen zum Vergroessern
-    </p>
-  </div>
-) : ...}
-```
-
-## Dateien die geaendert werden
+## Dateien
 
 | Datei | Aenderung |
 |-------|-----------|
-| `src/assets/onboarding/lizenzen/scanner-lizenz.png` | ERSETZEN mit neuem Bild |
-| `src/assets/onboarding/lizenzen/google-workspace.png` | NEU |
-| `src/components/onboarding/steps/OrdersStep.tsx` | "X von Y" + Progress-Dots entfernen, Google Workspace Rendering |
+| `src/assets/onboarding/lizenzen/scanner-lizenz.png` | Ersetzen mit korrektem Bild |
+| `src/assets/onboarding/lizenzen/google-workspace.png` | Ersetzen mit korrektem Bild |
 
-## Psychologischer Effekt
+Keine Code-Aenderungen noetig - nur die Asset-Dateien werden getauscht.
 
-**Vorher:** User sieht "Bestellung 1 von 6" und denkt "Oh nein, 6 Bestellungen!"
-
-**Nachher:** User sieht nur das aktuelle Produkt. Nach jedem Kauf denkt er "Jetzt hab ich schon X Euro ausgegeben, das zieh ich jetzt durch" (Sunk Cost Fallacy).
-
-## Erwartetes Verhalten
-
-- Keine Anzeige mehr, wie viele Produkte noch kommen
-- Keine Progress-Dots mehr
-- Neue professionelle Bilder fuer Scanner-Lizenz (3D/Thermal) und Google Workspace (@galvanek-bau.de)
