@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { GalvanekLogo } from '@/components/GalvanekLogo';
 
 interface ReviewViewProps {
   orders: TechnicianOrder[];
@@ -36,10 +37,15 @@ export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
       {/* Header */}
       <header className="bg-primary text-primary-foreground safe-area-top sticky top-0 z-10">
         <div className="p-4">
-          <h1 className="text-xl font-bold">In Prüfung</h1>
-          <p className="text-primary-foreground/80 text-sm">
-            {reviewOrders.length} Aufträge
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold">In Prüfung</h1>
+              <p className="text-primary-foreground/80 text-sm">
+                {reviewOrders.length} Aufträge
+              </p>
+            </div>
+            <GalvanekLogo size="sm" />
+          </div>
         </div>
       </header>
 

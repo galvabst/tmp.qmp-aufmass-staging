@@ -4,6 +4,7 @@ import { AUFTRAGSTYP_LABELS } from '@/lib/enums';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { GalvanekLogo } from '@/components/GalvanekLogo';
 
 interface BookingsViewProps {
   orders: TechnicianOrder[];
@@ -35,10 +36,15 @@ export function BookingsView({ orders, onOrderClick }: BookingsViewProps) {
       {/* Header */}
       <header className="bg-primary text-primary-foreground safe-area-top sticky top-0 z-10">
         <div className="p-4">
-          <h1 className="text-xl font-bold">Meine Buchungen</h1>
-          <p className="text-primary-foreground/80 text-sm">
-            {bookedOrders.length} anstehende Termine
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold">Meine Buchungen</h1>
+              <p className="text-primary-foreground/80 text-sm">
+                {bookedOrders.length} anstehende Termine
+              </p>
+            </div>
+            <GalvanekLogo size="sm" />
+          </div>
         </div>
       </header>
 

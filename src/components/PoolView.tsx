@@ -9,6 +9,7 @@ import { AUFTRAGSTYP_VALUES, AUFTRAGSTYP_LABELS, enumToOptions } from '@/lib/enu
 import { format, parseISO, isToday, isTomorrow, isThisWeek, isAfter, startOfDay, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { GalvanekLogo } from '@/components/GalvanekLogo';
 
 interface PoolViewProps {
   orders: TechnicianOrder[];
@@ -150,22 +151,25 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
                 {poolOrders.length} in deiner Region
               </p>
             </div>
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')}>
-              <TabsList className="bg-primary-foreground/10">
-                <TabsTrigger 
-                  value="list" 
-                  className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary"
-                >
-                  <List className="w-4 h-4" />
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="map"
-                  className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary"
-                >
-                  <Map className="w-4 h-4" />
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex items-center gap-3">
+              <GalvanekLogo size="sm" />
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')}>
+                <TabsList className="bg-primary-foreground/10">
+                  <TabsTrigger 
+                    value="list" 
+                    className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary"
+                  >
+                    <List className="w-4 h-4" />
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="map"
+                    className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary"
+                  >
+                    <Map className="w-4 h-4" />
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </div>
       </header>
