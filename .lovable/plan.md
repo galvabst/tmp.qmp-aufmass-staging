@@ -1,129 +1,116 @@
 
-
-# Plan: Formulare-Tab fuer Buchungen hinzufuegen
+# Plan: Galvanek Logo Integration
 
 ## Zusammenfassung
 
-Ein neuer "Formulare"-Tab wird zur Auftragsdetail-Ansicht hinzugefuegt. Dort koennen Links zu externen Formularen (z.B. Google Forms, Checklisten) hinterlegt und aufgerufen werden.
+Das Galvanek-Logo wird an strategisch sinnvollen Stellen in der App platziert, um die Markenidentitaet zu staerken ohne aufdringlich zu wirken.
 
-## Datenmodell-Erweiterung
+## Empfohlene Platzierungen
 
-### TechnicianOrder erweitern (`src/types/technician.ts`)
+### 1. Onboarding Complete Screen (Sehr prominent)
 
-```typescript
-// Neuer Typ fuer Formular-Links
-export interface FormLink {
-  id: string;
-  label: string;      // "Kundenprotokoll", "Checkliste Thermocheck"
-  url: string;        // https://forms.google.com/...
-  createdAt: string;
-}
-
-// In TechnicianOrder hinzufuegen:
-export interface TechnicianOrder {
-  // ... bestehende Felder
-  formLinks?: FormLink[];  // NEU
-}
-```
-
-## UI-Aenderungen
-
-### TechnicianOrderDetail.tsx umbauen
-
-**Vorher:** Lineare Scroll-Ansicht mit allen Informationen
-
-**Nachher:** Zwei Tabs - "Details" und "Formulare"
+Der perfekte Moment fuer das Logo - wenn der User das Onboarding abschliesst und "Teil des Teams" wird:
 
 ```text
-┌─────────────────────────────────────────┐
-│  ← Auftragsdetails           [Gebucht]  │
-├─────────────────────────────────────────┤
-│  [ Details ]  [ Formulare ]             │  ← Tab-Navigation
-├─────────────────────────────────────────┤
-│                                         │
-│  (Tab-Inhalt je nach Auswahl)           │
-│                                         │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│                                     │
+│        [Galvanek Logo]              │  ← Logo ueber dem Erfolgs-Icon
+│                                     │
+│           ✓ (Checkmark)             │
+│                                     │
+│    "Du bist einsatzbereit! 🎉"      │
+│                                     │
+└─────────────────────────────────────┘
 ```
 
-### Details-Tab (bestehender Inhalt)
+**Groesse**: ca. 200px breit, zentriert
 
-Alle aktuellen Inhalte (Kunde, Datum, Adresse, Kontakt, etc.) bleiben im "Details"-Tab.
+### 2. Alle Header mit Brand-Element (Dezent)
 
-### Formulare-Tab (neu)
+Jede Hauptansicht (Pool, Buchungen, Aktiv, Pruefung) bekommt das Logo als kleines Brand-Element rechts oben im Header:
 
 ```text
-┌─────────────────────────────────────────┐
-│  Verknuepfte Formulare                  │
-│                                         │
-│  ┌─────────────────────────────────┐    │
-│  │ 📋 Kundenprotokoll       [→]   │    │  ← Klickbar, oeffnet URL
-│  └─────────────────────────────────┘    │
-│  ┌─────────────────────────────────┐    │
-│  │ ✓ Checkliste Thermocheck [→]   │    │
-│  └─────────────────────────────────┘    │
-│                                         │
-│  ┌─────────────────────────────────┐    │
-│  │  + Formular hinzufuegen        │    │  ← Button zum Hinzufuegen
-│  └─────────────────────────────────┘    │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│  Verfuegbare Auftraege   [🌞 Logo]  │  ← Logo rechts, 32px
+│  12 in deiner Region                │
+└─────────────────────────────────────┘
 ```
 
-### Formular hinzufuegen Dialog
+**Betroffene Views**: PoolView, BookingsView, ActiveOrdersView, ReviewView
 
-Ein einfacher Dialog mit zwei Feldern:
-- **Name/Label**: z.B. "Kundenprotokoll"
-- **URL**: z.B. "https://forms.google.com/..."
+**Groesse**: 32x32px (nur das Sonnen-Symbol ohne Text, oder sehr klein mit Text)
 
-```typescript
-// Input-Validierung mit zod
-const formLinkSchema = z.object({
-  label: z.string().trim().min(1, "Name erforderlich").max(100),
-  url: z.string().trim().url("Gueltige URL erforderlich"),
-});
+### 3. Profil Header (Mittel)
+
+Im Profil-Bereich ist mehr Platz fuer ein groesseres Logo:
+
+```text
+┌─────────────────────────────────────┐
+│  [Avatar]  Max Mustermann           │
+│            Techniker seit 2025      │
+│                                     │
+│         [Galvanek Logo]             │  ← Unter dem Namen, zentriert
+└─────────────────────────────────────┘
 ```
 
-## Mock-Daten erweitern
+**Alternative**: Rechts neben dem Namen/Avatar
+
+### 4. Onboarding Header (Optional)
+
+Im OnboardingStepWrapper koennte das Logo oben erscheinen:
+
+```text
+┌─────────────────────────────────────┐
+│  ← Schritt 3 von 7    [Logo klein]  │
+│                                     │
+│  Bestellungen                       │
+└─────────────────────────────────────┘
+```
+
+## Technische Umsetzung
+
+### Asset speichern
+
+Das Logo wird als Asset importiert:
+
+```
+src/assets/galvanek-logo.png
+```
+
+### Wiederverwendbare Logo-Komponente
+
+Eine kleine Komponente fuer konsistente Verwendung:
 
 ```typescript
-// In mockTechnicianData.ts - bei gebuchten Auftraegen
-formLinks: [
-  {
-    id: 'fl1',
-    label: 'Kundenprotokoll',
-    url: 'https://forms.google.com/example1',
-    createdAt: '2026-01-20T10:00:00Z',
-  },
-  {
-    id: 'fl2',
-    label: 'Checkliste Thermocheck',
-    url: 'https://forms.google.com/example2',
-    createdAt: '2026-01-20T10:05:00Z',
-  },
-],
+// src/components/GalvanekLogo.tsx
+interface GalvanekLogoProps {
+  size?: 'sm' | 'md' | 'lg';  // 24px | 48px | 200px
+  variant?: 'full' | 'icon';   // Mit/ohne Text
+  className?: string;
+}
 ```
 
 ## Dateien die geaendert werden
 
 | Datei | Aenderung |
 |-------|-----------|
-| `src/types/technician.ts` | `FormLink` Interface + `formLinks` Feld |
-| `src/components/TechnicianOrderDetail.tsx` | Tabs-UI, Formulare-Tab, Dialog zum Hinzufuegen |
-| `src/data/mockTechnicianData.ts` | Beispiel-FormLinks bei gebuchten Auftraegen |
+| `src/assets/galvanek-logo.png` | Logo-Asset hinzufuegen |
+| `src/components/GalvanekLogo.tsx` | NEU: Wiederverwendbare Logo-Komponente |
+| `src/components/onboarding/OnboardingComplete.tsx` | Grosses Logo ueber Erfolgs-Icon |
+| `src/components/ProfileView.tsx` | Logo im Header-Bereich |
+| `src/components/PoolView.tsx` | Kleines Logo rechts im Header |
+| `src/components/BookingsView.tsx` | Kleines Logo rechts im Header |
+| `src/components/ActiveOrdersView.tsx` | Kleines Logo rechts im Header |
+| `src/components/ReviewView.tsx` | Kleines Logo rechts im Header |
 
-## Technische Details
+## Empfehlung zur Priorisierung
 
-- **Tabs-Komponente**: Verwendung von `@/components/ui/tabs` (bereits im Projekt)
-- **Dialog**: Verwendung von `@/components/ui/dialog` fuer "Formular hinzufuegen"
-- **URL-Validierung**: zod-Schema zur Eingabevalidierung
-- **Externe Links**: `target="_blank" rel="noopener noreferrer"` fuer Sicherheit
+1. **Muss**: OnboardingComplete Screen - sehr plakativ, emotionaler Moment
+2. **Soll**: ProfileView Header - verstaerkt Zugehoerigkeit
+3. **Kann**: Alle anderen Headers - dezentes Branding
 
-## Sichtbarkeit
+## Erwartetes Ergebnis
 
-Der Formulare-Tab ist nur sichtbar bei:
-- `status === 'booked'` (Gebuchte Auftraege)
-- `status === 'in_progress'` (Aktive Auftraege)
-- `status === 'rework_required'` (Nacharbeit erforderlich)
-
-**Nicht** bei Pool-Auftraegen (`published`) oder abgeschlossenen (`submitted`, `in_review`, `approved`).
-
+- Logo erscheint an strategischen Stellen ohne aufdringlich zu wirken
+- Staerkt Markenidentitaet und Zugehoerigkeit der Techniker
+- Konsistente Groessen durch wiederverwendbare Komponente
