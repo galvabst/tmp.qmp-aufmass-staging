@@ -270,6 +270,7 @@ export function createInitialOnboardingState(profile: ApplicantProfile): Onboard
     gewerbescheinSpaeter: false,
     
     bestellungenBestaetigt: [],
+    oberteilAuswahl: null,
     
     equipmentStatus: {},
     

@@ -4,6 +4,7 @@ import {
   OnboardingStepId, 
   ApplicantProfile,
   AkademieModul,
+  OberteilAuswahl,
   STEP_ORDER,
   getNextStep,
   getPreviousStep,
@@ -121,6 +122,10 @@ export function useOnboardingState(
     });
   }, []);
 
+  const setOberteilAuswahl = useCallback((auswahl: OberteilAuswahl) => {
+    setState(prev => ({ ...prev, oberteilAuswahl: auswahl }));
+  }, []);
+
   // Schritt 4: Equipment
   const updateEquipmentStatus = useCallback((
     equipmentId: string, 
@@ -198,8 +203,9 @@ export function useOnboardingState(
         // Entweder hochgeladen ODER "später nachreichen" gewählt
         return !!(state.gewerbescheinUrl || state.gewerbescheinSpaeter);
       case 'bestellungen':
-        // Alle 5 Pflichtprodukte müssen bestellt sein
-        return state.bestellungenBestaetigt.length >= 5;
+        // Anzahl hängt von Oberteil-Auswahl ab: 5 für T-Shirt/Poloshirt, 6 für beides
+        const requiredCount = state.oberteilAuswahl === 'beides' ? 6 : 5;
+        return state.bestellungenBestaetigt.length >= requiredCount;
       case 'equipment':
         const drohne = state.equipmentStatus['drohne'];
         const iphone = state.equipmentStatus['iphone-lidar'];
@@ -245,6 +251,7 @@ export function useOnboardingState(
     
     // Schritt 3
     toggleProductOrdered,
+    setOberteilAuswahl,
     
     // Schritt 4
     updateEquipmentStatus,

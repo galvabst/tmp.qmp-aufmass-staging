@@ -113,6 +113,9 @@ export interface CoachingSlot {
   preis: number;
 }
 
+// Typ für Oberteil-Auswahl (T-Shirt, Poloshirt oder beides)
+export type OberteilAuswahl = 'tshirt' | 'poloshirt' | 'beides' | null;
+
 // Gesamter Onboarding-State
 export interface OnboardingState {
   currentStep: OnboardingStepId;
@@ -129,6 +132,7 @@ export interface OnboardingState {
   
   // Schritt 3: Bestellungen
   bestellungenBestaetigt: string[]; // Produkt-IDs die bestellt wurden
+  oberteilAuswahl: OberteilAuswahl; // Persistierte Auswahl für Oberteil
   
   // Schritt 4: Equipment
   equipmentStatus: Record<string, { hatEigenes: boolean; nachweisUrl?: string }>;
