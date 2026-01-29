@@ -23,7 +23,23 @@ const loadPersistedState = (initialProfile: ApplicantProfile): OnboardingState =
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved) as OnboardingState;
+      const parsed = JSON.parse(saved) as Partial<OnboardingState>;
+      const initial = createInitialOnboardingState(initialProfile);
+      
+      // Merge mit initialem State um fehlende Felder zu ergänzen
+      // Dies stellt sicher, dass neue Felder (wie akademieHauptmodule) vorhanden sind
+      return {
+        ...initial,
+        ...parsed,
+        // Stelle sicher, dass akademieHauptmodule immer ein gültiges Array ist
+        akademieHauptmodule: parsed.akademieHauptmodule?.length 
+          ? parsed.akademieHauptmodule 
+          : initial.akademieHauptmodule,
+        // Ebenso für akademieModule (Legacy)
+        akademieModule: parsed.akademieModule?.length 
+          ? parsed.akademieModule 
+          : initial.akademieModule,
+      };
     }
   } catch (e) {
     console.warn('Failed to load onboarding state from localStorage', e);
@@ -238,8 +254,9 @@ export function useOnboardingState(
       case 'akademie':
         if (isPreview) return true;
         // Prüfe ob alle Unterpunkte aller Hauptmodule abgeschlossen sind UND Test bestanden
-        const allUnterpunkteComplete = state.akademieHauptmodule.every(hm =>
-          hm.unterpunkte.every(up => up.abgeschlossen)
+        const hauptmodule = state.akademieHauptmodule || [];
+        const allUnterpunkteComplete = hauptmodule.length > 0 && hauptmodule.every(hm =>
+          (hm.unterpunkte || []).every(up => up.abgeschlossen)
         );
         return allUnterpunkteComplete && state.akademieTestBestanden;
       case 'nachweise':
