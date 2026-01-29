@@ -224,8 +224,8 @@ export function useOnboardingState(
         if (isPreview) return true;
         return !!(state.gewerbescheinUrl || state.gewerbescheinSpaeter);
       case 'bestellungen':
-        // WICHTIG: Kein Preview-Skip hier!
-        // User soll im Vorschau-Modus alle Produkte durchklicken können
+        // Preview-Modus: Bestellungen-Validierung überspringen (für Development)
+        if (isPreview) return true;
         const requiredCount = state.oberteilAuswahl === 'beides' ? 7 : 6;
         return state.bestellungenBestaetigt.length >= requiredCount;
       case 'equipment':
