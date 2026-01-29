@@ -1,35 +1,87 @@
-import { Play, CheckCircle2, Clock, GraduationCap, Award, ExternalLink } from 'lucide-react';
+import { Play, CheckCircle2, Clock, GraduationCap, Award, Lock, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { AkademieModul } from '@/types/onboarding';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { AkademieHauptmodul, AkademieUnterpunkt } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 interface AcademyStepProps {
-  module: AkademieModul[];
-  onModuleComplete: (moduleId: string) => void;
-  onStartModule: (moduleId: string) => void;
+  hauptmodule: AkademieHauptmodul[];
+  onUnterpunktComplete: (hauptmodulId: string, unterpunktId: string) => void;
   testBestanden: boolean;
   onStartTest: () => void;
 }
 
+// Helper: Fortschritt eines Hauptmoduls berechnen
+function getHauptmodulProgress(hauptmodul: AkademieHauptmodul): { completed: number; total: number } {
+  const completed = hauptmodul.unterpunkte.filter(u => u.abgeschlossen).length;
+  return { completed, total: hauptmodul.unterpunkte.length };
+}
+
+// Helper: Prüft ob Hauptmodul freigeschaltet ist
+function isHauptmodulUnlocked(index: number, hauptmodule: AkademieHauptmodul[]): boolean {
+  if (index === 0) return true;
+  const prev = hauptmodule[index - 1];
+  return prev.unterpunkte.every(u => u.abgeschlossen);
+}
+
+// Helper: Prüft ob Hauptmodul komplett abgeschlossen ist
+function isHauptmodulComplete(hauptmodul: AkademieHauptmodul): boolean {
+  return hauptmodul.unterpunkte.every(u => u.abgeschlossen);
+}
+
+// Helper: Gesamtfortschritt über alle Module
+function getTotalAkademieProgress(hauptmodule: AkademieHauptmodul[]): { completed: number; total: number; percent: number } {
+  const total = hauptmodule.reduce((acc, m) => acc + m.unterpunkte.length, 0);
+  const completed = hauptmodule.reduce(
+    (acc, m) => acc + m.unterpunkte.filter(u => u.abgeschlossen).length, 0
+  );
+  return { completed, total, percent: Math.round((completed / total) * 100) };
+}
+
+// Helper: Prüft ob ein Unterpunkt freigeschaltet ist
+function isUnterpunktUnlocked(
+  hauptmodulIndex: number, 
+  unterpunktIndex: number, 
+  hauptmodule: AkademieHauptmodul[]
+): boolean {
+  // Hauptmodul muss freigeschaltet sein
+  if (!isHauptmodulUnlocked(hauptmodulIndex, hauptmodule)) return false;
+  
+  // Erster Unterpunkt ist immer freigeschaltet wenn Hauptmodul freigeschaltet
+  if (unterpunktIndex === 0) return true;
+  
+  // Vorheriger Unterpunkt muss abgeschlossen sein
+  const hauptmodul = hauptmodule[hauptmodulIndex];
+  return hauptmodul.unterpunkte[unterpunktIndex - 1].abgeschlossen;
+}
+
 export function AcademyStep({
-  module,
-  onModuleComplete,
-  onStartModule,
+  hauptmodule,
+  onUnterpunktComplete,
   testBestanden,
   onStartTest,
 }: AcademyStepProps) {
   const navigate = useNavigate();
-  const completedCount = module.filter(m => m.abgeschlossen).length;
-  const totalCount = module.length;
-  const allModulesComplete = completedCount === totalCount;
-  const progressPercent = Math.round((completedCount / totalCount) * 100);
+  const totalProgress = getTotalAkademieProgress(hauptmodule);
+  const allModulesComplete = totalProgress.completed === totalProgress.total;
 
-  const handleStartModule = (modul: AkademieModul) => {
-    // Navigiere zur Mediaplayer-Seite
-    navigate(`/akademie/modul/${modul.id}`);
+  const handleStartUnterpunkt = (unterpunkt: AkademieUnterpunkt) => {
+    navigate(`/akademie/modul/${unterpunkt.id}`);
+  };
+
+  // Finde das erste nicht-abgeschlossene, freigeschaltete Hauptmodul für Default-Accordion
+  const getDefaultOpenModul = (): string | undefined => {
+    for (let i = 0; i < hauptmodule.length; i++) {
+      const isUnlocked = isHauptmodulUnlocked(i, hauptmodule);
+      const isComplete = isHauptmodulComplete(hauptmodule[i]);
+      if (isUnlocked && !isComplete) {
+        return hauptmodule[i].id;
+      }
+    }
+    return hauptmodule[0]?.id;
   };
 
   return (
@@ -43,92 +95,154 @@ export function AcademyStep({
           <div className="flex-1">
             <h3 className="font-semibold text-foreground">Akademie-Schulung</h3>
             <p className="text-sm text-muted-foreground">
-              {completedCount} von {totalCount} Modulen abgeschlossen
+              {totalProgress.completed} von {totalProgress.total} Unterpunkten abgeschlossen
             </p>
           </div>
           <Badge variant={allModulesComplete ? 'default' : 'secondary'}>
-            {progressPercent}%
+            {totalProgress.percent}%
           </Badge>
         </div>
-        <Progress value={progressPercent} className="h-2" />
+        <Progress value={totalProgress.percent} className="h-2" />
       </div>
 
-      {/* Module Liste */}
-      <div className="space-y-3">
-        {module.map((modul, index) => {
-          const isCompleted = modul.abgeschlossen;
-          const isPrevCompleted = index === 0 || module[index - 1].abgeschlossen;
-          const isLocked = !isPrevCompleted && !isCompleted;
+      {/* Hauptmodule als Accordion */}
+      <Accordion 
+        type="single" 
+        collapsible 
+        defaultValue={getDefaultOpenModul()}
+        className="space-y-3"
+      >
+        {hauptmodule.map((hauptmodul, hauptmodulIndex) => {
+          const isUnlocked = isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
+          const isComplete = isHauptmodulComplete(hauptmodul);
+          const progress = getHauptmodulProgress(hauptmodul);
           
           return (
-            <div
-              key={modul.id}
+            <AccordionItem 
+              key={hauptmodul.id} 
+              value={hauptmodul.id}
               className={cn(
-                'bg-card rounded-xl p-4 shadow-card transition-all',
-                isCompleted && 'border-2 border-status-accepted',
-                isLocked && 'opacity-60'
+                'bg-card rounded-xl shadow-card border-0 overflow-hidden',
+                isComplete && 'ring-2 ring-status-accepted',
+                !isUnlocked && 'opacity-60'
               )}
+              disabled={!isUnlocked}
             >
-              <div className="flex items-center gap-4">
-                {/* Nummer/Status Icon */}
-                <div className={cn(
-                  'w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold',
-                  isCompleted ? 'bg-status-accepted text-white' :
-                  isLocked ? 'bg-muted text-muted-foreground' :
-                  'bg-primary text-primary-foreground'
-                )}>
-                  {isCompleted ? (
-                    <CheckCircle2 className="w-5 h-5" />
-                  ) : (
-                    index + 1
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-foreground">{modul.titel}</h4>
-                  <p className="text-sm text-muted-foreground line-clamp-1">
-                    {modul.beschreibung}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Clock className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      {modul.dauerMinuten} Min.
-                    </span>
-                  </div>
-                </div>
-
-                {/* Action */}
-                {!isLocked && (
-                  <Button
-                    size="sm"
-                    variant={isCompleted ? 'outline' : 'default'}
-                    onClick={() => handleStartModule(modul)}
-                    disabled={isLocked}
-                  >
-                    {isCompleted ? (
-                      <>
-                        <Play className="w-4 h-4 mr-1" />
-                        Wiederholen
-                      </>
-                    ) : (
-                      <>
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        Zur Schulung
-                      </>
-                    )}
-                  </Button>
+              <AccordionTrigger 
+                className={cn(
+                  'px-4 py-3 hover:no-underline',
+                  !isUnlocked && 'cursor-not-allowed'
                 )}
-              </div>
-            </div>
+                disabled={!isUnlocked}
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  {/* Status Icon */}
+                  <div className={cn(
+                    'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
+                    isComplete ? 'bg-status-accepted text-white' :
+                    !isUnlocked ? 'bg-muted text-muted-foreground' :
+                    'bg-primary text-primary-foreground'
+                  )}>
+                    {isComplete ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : !isUnlocked ? (
+                      <Lock className="w-4 h-4" />
+                    ) : (
+                      hauptmodulIndex + 1
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 text-left min-w-0">
+                    <h4 className="font-medium text-foreground text-sm">
+                      {hauptmodul.titel}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      {hauptmodul.beschreibung}
+                    </p>
+                  </div>
+
+                  {/* Progress Badge */}
+                  <Badge 
+                    variant={isComplete ? 'default' : 'secondary'} 
+                    className={cn(
+                      'shrink-0',
+                      isComplete && 'bg-status-accepted'
+                    )}
+                  >
+                    {progress.completed}/{progress.total}
+                  </Badge>
+                </div>
+              </AccordionTrigger>
+
+              <AccordionContent className="px-4 pb-4">
+                <div className="space-y-2 pt-2">
+                  {hauptmodul.unterpunkte.map((unterpunkt, unterpunktIndex) => {
+                    const isUPUnlocked = isUnterpunktUnlocked(hauptmodulIndex, unterpunktIndex, hauptmodule);
+                    const isUPComplete = unterpunkt.abgeschlossen;
+                    
+                    return (
+                      <div
+                        key={unterpunkt.id}
+                        className={cn(
+                          'flex items-center gap-3 p-3 rounded-lg border transition-colors',
+                          isUPComplete && 'bg-status-accepted/10 border-status-accepted/30',
+                          !isUPUnlocked && 'opacity-50',
+                          isUPUnlocked && !isUPComplete && 'hover:bg-muted/50 cursor-pointer'
+                        )}
+                        onClick={() => isUPUnlocked && handleStartUnterpunkt(unterpunkt)}
+                      >
+                        {/* Status */}
+                        <div className={cn(
+                          'w-6 h-6 rounded-full flex items-center justify-center shrink-0',
+                          isUPComplete ? 'bg-status-accepted text-white' :
+                          !isUPUnlocked ? 'bg-muted text-muted-foreground' :
+                          'bg-primary/20 text-primary'
+                        )}>
+                          {isUPComplete ? (
+                            <CheckCircle2 className="w-4 h-4" />
+                          ) : !isUPUnlocked ? (
+                            <Lock className="w-3 h-3" />
+                          ) : (
+                            <Play className="w-3 h-3 ml-0.5" />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground">
+                            {unterpunkt.titel}
+                          </p>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="w-3 h-3" />
+                            <span>{unterpunkt.dauerMinuten} Min.</span>
+                          </div>
+                        </div>
+
+                        {/* Action */}
+                        {isUPUnlocked && !isUPComplete && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="shrink-0 text-primary"
+                          >
+                            <Play className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           );
         })}
-      </div>
+      </Accordion>
 
       {/* Abschlusstest */}
       <div className={cn(
         'bg-card rounded-xl p-4 shadow-card transition-all',
-        testBestanden && 'border-2 border-status-accepted',
+        testBestanden && 'ring-2 ring-status-accepted',
         !allModulesComplete && 'opacity-60'
       )}>
         <div className="flex items-center gap-4">
@@ -138,7 +252,11 @@ export function AcademyStep({
             allModulesComplete ? 'bg-primary text-primary-foreground' :
             'bg-muted text-muted-foreground'
           )}>
-            <Award className="w-5 h-5" />
+            {!allModulesComplete ? (
+              <Lock className="w-5 h-5" />
+            ) : (
+              <Award className="w-5 h-5" />
+            )}
           </div>
 
           <div className="flex-1">
@@ -146,7 +264,9 @@ export function AcademyStep({
             <p className="text-sm text-muted-foreground">
               {testBestanden 
                 ? 'Herzlichen Glückwunsch! Test bestanden.' 
-                : 'Prüfe dein Wissen nach allen Modulen'}
+                : allModulesComplete
+                  ? 'Alle Module abgeschlossen – starte jetzt den Test!'
+                  : 'Verfügbar nach Abschluss aller Module'}
             </p>
           </div>
 
@@ -168,7 +288,9 @@ export function AcademyStep({
       {!allModulesComplete && (
         <div className="bg-muted/50 rounded-xl p-4">
           <p className="text-sm text-muted-foreground">
-            Schließe alle Module ab, um den Abschlusstest freizuschalten.
+            <strong>📝 Hinweis:</strong> Schließe alle Module der Reihe nach ab, 
+            um den Abschlusstest freizuschalten. Jedes Modul wird nach Abschluss 
+            des vorherigen freigeschaltet.
           </p>
         </div>
       )}

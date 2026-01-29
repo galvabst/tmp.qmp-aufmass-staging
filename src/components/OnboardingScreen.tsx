@@ -48,6 +48,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview 
     setOberteilAuswahl,
     updateEquipmentStatus,
     completeAkademieModul,
+    completeAkademieUnterpunkt,
     setAkademieTestBestanden,
     updateCheckliste,
     setGesamtfotoUrl,
@@ -58,18 +59,29 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview 
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
   const [coachingSlots, setCoachingSlots] = useState<CoachingSlot[]>(MOCK_COACHING_SLOTS);
 
-  // Handle completed module from AkademieModul page navigation
+  // Handle completed unterpunkt from AkademieModul page navigation
   useEffect(() => {
-    const navState = location.state as { completedModuleId?: string } | null;
-    if (navState?.completedModuleId) {
+    const navState = location.state as { 
+      completedHauptmodulId?: string;
+      completedUnterpunktId?: string;
+      // Legacy support
+      completedModuleId?: string;
+    } | null;
+    
+    if (navState?.completedHauptmodulId && navState?.completedUnterpunktId) {
+      // Neue hierarchische Struktur
+      completeAkademieUnterpunkt(navState.completedHauptmodulId, navState.completedUnterpunktId);
+      toast.success('Unterpunkt abgeschlossen!');
+      goToStep('akademie');
+      navigate('/', { replace: true, state: {} });
+    } else if (navState?.completedModuleId) {
+      // Legacy support
       completeAkademieModul(navState.completedModuleId);
       toast.success('Modul abgeschlossen!');
-      // Stay on akademie step
       goToStep('akademie');
-      // Clear the navigation state to prevent re-processing
       navigate('/', { replace: true, state: {} });
     }
-  }, [location.state, completeAkademieModul, goToStep, navigate]);
+  }, [location.state, completeAkademieModul, completeAkademieUnterpunkt, goToStep, navigate]);
 
   // Wenn abgeschlossen, zeige Complete-Screen
   if (isComplete) {
@@ -224,9 +236,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview 
       case 'akademie':
         return (
           <AcademyStep
-            module={state.akademieModule}
-            onModuleComplete={completeAkademieModul}
-            onStartModule={handleStartModule}
+            hauptmodule={state.akademieHauptmodule}
+            onUnterpunktComplete={completeAkademieUnterpunkt}
             testBestanden={state.akademieTestBestanden}
             onStartTest={handleStartTest}
           />
