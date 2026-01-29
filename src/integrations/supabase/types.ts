@@ -5138,6 +5138,98 @@ export type Database = {
           },
         ]
       }
+      onboarding_akademie_hauptmodule: {
+        Row: {
+          beschreibung: string | null
+          code: string
+          created_at: string
+          id: string
+          ist_aktiv: boolean
+          reihenfolge: number
+          titel: string
+          updated_at: string
+        }
+        Insert: {
+          beschreibung?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          ist_aktiv?: boolean
+          reihenfolge?: number
+          titel: string
+          updated_at?: string
+        }
+        Update: {
+          beschreibung?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          ist_aktiv?: boolean
+          reihenfolge?: number
+          titel?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      onboarding_akademie_unterpunkte: {
+        Row: {
+          beschreibung: string | null
+          code: string
+          created_at: string
+          hauptmodul_id: string
+          id: string
+          ist_aktiv: boolean
+          reihenfolge: number
+          text_inhalt: string | null
+          text_zusammenfassung: string | null
+          titel: string
+          updated_at: string
+          video_dauer_minuten: number | null
+          video_url: string | null
+          zusatzmaterial_urls: Json | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          code: string
+          created_at?: string
+          hauptmodul_id: string
+          id?: string
+          ist_aktiv?: boolean
+          reihenfolge?: number
+          text_inhalt?: string | null
+          text_zusammenfassung?: string | null
+          titel: string
+          updated_at?: string
+          video_dauer_minuten?: number | null
+          video_url?: string | null
+          zusatzmaterial_urls?: Json | null
+        }
+        Update: {
+          beschreibung?: string | null
+          code?: string
+          created_at?: string
+          hauptmodul_id?: string
+          id?: string
+          ist_aktiv?: boolean
+          reihenfolge?: number
+          text_inhalt?: string | null
+          text_zusammenfassung?: string | null
+          titel?: string
+          updated_at?: string
+          video_dauer_minuten?: number | null
+          video_url?: string | null
+          zusatzmaterial_urls?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_akademie_unterpunkte_hauptmodul_id_fkey"
+            columns: ["hauptmodul_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_akademie_hauptmodule"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pdf_dokumente: {
         Row: {
           bereich: Database["public"]["Enums"]["pdf_bereich_enum"]
