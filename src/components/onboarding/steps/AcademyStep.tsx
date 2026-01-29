@@ -16,29 +16,33 @@ interface AcademyStepProps {
 
 // Helper: Fortschritt eines Hauptmoduls berechnen
 function getHauptmodulProgress(hauptmodul: AkademieHauptmodul): { completed: number; total: number } {
-  const completed = hauptmodul.unterpunkte.filter(u => u.abgeschlossen).length;
-  return { completed, total: hauptmodul.unterpunkte.length };
+  const unterpunkte = hauptmodul.unterpunkte || [];
+  const completed = unterpunkte.filter(u => u.abgeschlossen).length;
+  return { completed, total: unterpunkte.length };
 }
 
 // Helper: Prüft ob Hauptmodul freigeschaltet ist
 function isHauptmodulUnlocked(index: number, hauptmodule: AkademieHauptmodul[]): boolean {
   if (index === 0) return true;
   const prev = hauptmodule[index - 1];
-  return prev.unterpunkte.every(u => u.abgeschlossen);
+  const prevUnterpunkte = prev?.unterpunkte || [];
+  return prevUnterpunkte.every(u => u.abgeschlossen);
 }
 
 // Helper: Prüft ob Hauptmodul komplett abgeschlossen ist
 function isHauptmodulComplete(hauptmodul: AkademieHauptmodul): boolean {
-  return hauptmodul.unterpunkte.every(u => u.abgeschlossen);
+  const unterpunkte = hauptmodul?.unterpunkte || [];
+  return unterpunkte.length > 0 && unterpunkte.every(u => u.abgeschlossen);
 }
 
 // Helper: Gesamtfortschritt über alle Module
 function getTotalAkademieProgress(hauptmodule: AkademieHauptmodul[]): { completed: number; total: number; percent: number } {
-  const total = hauptmodule.reduce((acc, m) => acc + m.unterpunkte.length, 0);
-  const completed = hauptmodule.reduce(
-    (acc, m) => acc + m.unterpunkte.filter(u => u.abgeschlossen).length, 0
+  const safeModules = hauptmodule || [];
+  const total = safeModules.reduce((acc, m) => acc + (m.unterpunkte || []).length, 0);
+  const completed = safeModules.reduce(
+    (acc, m) => acc + (m.unterpunkte || []).filter(u => u.abgeschlossen).length, 0
   );
-  return { completed, total, percent: Math.round((completed / total) * 100) };
+  return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
 }
 
 // Helper: Prüft ob ein Unterpunkt freigeschaltet ist
@@ -53,9 +57,11 @@ function isUnterpunktUnlocked(
   // Erster Unterpunkt ist immer freigeschaltet wenn Hauptmodul freigeschaltet
   if (unterpunktIndex === 0) return true;
   
-  // Vorheriger Unterpunkt muss abgeschlossen sein
   const hauptmodul = hauptmodule[hauptmodulIndex];
-  return hauptmodul.unterpunkte[unterpunktIndex - 1].abgeschlossen;
+  const unterpunkte = hauptmodul?.unterpunkte || [];
+  
+  // Vorheriger Unterpunkt muss abgeschlossen sein
+  return unterpunkte[unterpunktIndex - 1]?.abgeschlossen ?? false;
 }
 
 export function AcademyStep({
