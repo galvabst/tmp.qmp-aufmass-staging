@@ -81,7 +81,7 @@ export interface EquipmentItem {
   kaufLink?: string;
 }
 
-// Akademie-Modul
+// Akademie-Modul (Legacy - wird durch hierarchische Struktur ersetzt)
 export interface AkademieModul {
   id: string;
   titel: string;
@@ -91,6 +91,26 @@ export interface AkademieModul {
   reihenfolge: number;
   abgeschlossen: boolean;
   abgeschlossenAt?: string;
+}
+
+// NEU: Hierarchische Akademie-Struktur
+export interface AkademieUnterpunkt {
+  id: string;
+  titel: string;
+  beschreibung: string;
+  videoUrl: string;
+  dauerMinuten: number;
+  reihenfolge: number;
+  abgeschlossen: boolean;
+  abgeschlossenAt?: string;
+}
+
+export interface AkademieHauptmodul {
+  id: string;
+  titel: string;
+  beschreibung: string;
+  reihenfolge: number;
+  unterpunkte: AkademieUnterpunkt[];
 }
 
 // Coaching-Slot (basiert auf echten Thermochecks von berechtigten Coaches)
@@ -138,7 +158,8 @@ export interface OnboardingState {
   equipmentStatus: Record<string, { hatEigenes: boolean; nachweisUrl?: string }>;
   
   // Schritt 5: Akademie
-  akademieModule: AkademieModul[];
+  akademieModule: AkademieModul[]; // Legacy
+  akademieHauptmodule: AkademieHauptmodul[]; // NEU: Hierarchische Struktur
   akademieTestBestanden: boolean;
   zertifikatUrl?: string;
   

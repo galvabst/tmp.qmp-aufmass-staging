@@ -4,6 +4,7 @@ import {
   OnboardingStepId, 
   ApplicantProfile,
   AkademieModul,
+  AkademieHauptmodul,
   OberteilAuswahl,
   STEP_ORDER,
   getNextStep,
@@ -13,6 +14,7 @@ import {
   createInitialOnboardingState, 
   calculateOnboardingProgress,
   MOCK_AKADEMIE_MODULE,
+  MOCK_AKADEMIE_HAUPTMODULE,
 } from '@/lib/onboarding-config';
 
 const STORAGE_KEY = 'thermocheck_onboarding_state';
@@ -140,7 +142,7 @@ export function useOnboardingState(
     }));
   }, []);
 
-  // Schritt 5: Akademie
+  // Schritt 5: Akademie (Legacy)
   const completeAkademieModul = useCallback((modulId: string) => {
     setState(prev => ({
       ...prev,
@@ -148,6 +150,25 @@ export function useOnboardingState(
         m.id === modulId
           ? { ...m, abgeschlossen: true, abgeschlossenAt: new Date().toISOString() }
           : m
+      ),
+    }));
+  }, []);
+
+  // Schritt 5: Akademie (NEU: Hierarchische Struktur)
+  const completeAkademieUnterpunkt = useCallback((hauptmodulId: string, unterpunktId: string) => {
+    setState(prev => ({
+      ...prev,
+      akademieHauptmodule: prev.akademieHauptmodule.map(hm =>
+        hm.id === hauptmodulId
+          ? {
+              ...hm,
+              unterpunkte: hm.unterpunkte.map(up =>
+                up.id === unterpunktId
+                  ? { ...up, abgeschlossen: true, abgeschlossenAt: new Date().toISOString() }
+                  : up
+              ),
+            }
+          : hm
       ),
     }));
   }, []);
@@ -216,7 +237,11 @@ export function useOnboardingState(
         ) && !!(iphone?.hatEigenes);
       case 'akademie':
         if (isPreview) return true;
-        return state.akademieTestBestanden;
+        // Prüfe ob alle Unterpunkte aller Hauptmodule abgeschlossen sind UND Test bestanden
+        const allUnterpunkteComplete = state.akademieHauptmodule.every(hm =>
+          hm.unterpunkte.every(up => up.abgeschlossen)
+        );
+        return allUnterpunkteComplete && state.akademieTestBestanden;
       case 'nachweise':
         if (isPreview) return true;
         return !!(
@@ -261,7 +286,8 @@ export function useOnboardingState(
     // Schritt 4
     updateEquipmentStatus,
     
-    // Schritt 5
+    // Schritt 5 (NEU)
+    completeAkademieUnterpunkt,
     completeAkademieModul,
     setAkademieTestBestanden,
     

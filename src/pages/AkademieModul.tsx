@@ -1,15 +1,30 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, Play, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MOCK_AKADEMIE_MODULE } from '@/lib/onboarding-config';
+import { MOCK_AKADEMIE_HAUPTMODULE } from '@/lib/onboarding-config';
+import { AkademieUnterpunkt, AkademieHauptmodul } from '@/types/onboarding';
+
+// Helper: Finde Unterpunkt und zugehöriges Hauptmodul
+function findUnterpunktWithHauptmodul(
+  unterpunktId: string,
+  hauptmodule: AkademieHauptmodul[]
+): { hauptmodul: AkademieHauptmodul; unterpunkt: AkademieUnterpunkt } | null {
+  for (const hauptmodul of hauptmodule) {
+    const unterpunkt = hauptmodul.unterpunkte.find(up => up.id === unterpunktId);
+    if (unterpunkt) {
+      return { hauptmodul, unterpunkt };
+    }
+  }
+  return null;
+}
 
 export default function AkademieModul() {
   const { modulId } = useParams<{ modulId: string }>();
   const navigate = useNavigate();
   
-  const modul = MOCK_AKADEMIE_MODULE.find(m => m.id === modulId);
+  const result = modulId ? findUnterpunktWithHauptmodul(modulId, MOCK_AKADEMIE_HAUPTMODULE) : null;
   
-  if (!modul) {
+  if (!result) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center">
@@ -26,16 +41,22 @@ export default function AkademieModul() {
     );
   }
 
+  const { hauptmodul, unterpunkt } = result;
+
   const handleMarkComplete = () => {
-    // In echter App: Update im State/DB
-    // Für jetzt: Toast und zurück navigieren
-    navigate('/', { state: { completedModuleId: modulId } });
+    // Navigiere zurück mit hauptmodulId und unterpunktId
+    navigate('/', { 
+      state: { 
+        completedHauptmodulId: hauptmodul.id,
+        completedUnterpunktId: unterpunkt.id,
+      } 
+    });
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-card border-b border-border px-4 py-3">
+      <header className="sticky top-0 z-50 bg-card border-b border-border px-4 py-3 safe-area-top">
         <div className="flex items-center gap-3 max-w-3xl mx-auto">
           <Button 
             variant="ghost" 
@@ -45,12 +66,15 @@ export default function AkademieModul() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground truncate">
+              {hauptmodul.titel}
+            </p>
             <h1 className="font-semibold text-foreground truncate">
-              Modul {modul.reihenfolge}: {modul.titel}
+              {unterpunkt.titel}
             </h1>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Clock className="w-3.5 h-3.5" />
-              <span>{modul.dauerMinuten} Minuten</span>
+              <span>{unterpunkt.dauerMinuten} Minuten</span>
             </div>
           </div>
         </div>
@@ -68,13 +92,13 @@ export default function AkademieModul() {
               </div>
               <p className="text-white/80 text-sm">Video wird geladen...</p>
               <p className="text-white/50 text-xs mt-2">
-                {modul.videoUrl || 'Kein Video hinterlegt'}
+                {unterpunkt.videoUrl || 'Kein Video hinterlegt'}
               </p>
             </div>
             
             {/* In echter App: Video Player einbetten */}
             {/* <video 
-              src={modul.videoUrl}
+              src={unterpunkt.videoUrl}
               controls
               className="w-full h-full"
             /> */}
@@ -84,10 +108,10 @@ export default function AkademieModul() {
           <div className="p-4 space-y-4">
             <div>
               <h2 className="text-xl font-semibold text-foreground">
-                {modul.titel}
+                {unterpunkt.titel}
               </h2>
               <p className="text-muted-foreground mt-2">
-                {modul.beschreibung}
+                {unterpunkt.beschreibung}
               </p>
             </div>
 
@@ -104,7 +128,7 @@ export default function AkademieModul() {
       </main>
 
       {/* Footer mit Abschluss-Button */}
-      <footer className="sticky bottom-0 bg-card border-t border-border p-4">
+      <footer className="sticky bottom-0 bg-card border-t border-border p-4 safe-area-bottom">
         <div className="max-w-3xl mx-auto">
           <Button 
             className="w-full h-12 text-base"
