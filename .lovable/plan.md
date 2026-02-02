@@ -1,335 +1,216 @@
 
+# Migration: Akademie-Tabellen ins thermocheck Schema
 
-# Plan: Akademie-Module mit Text + Video & Single Source of Truth
+## Analyse-Ergebnis
 
-## Analyse (NEUTRAL)
-
-### Aktuelle Situation
-- **AkademieModul.tsx** zeigt derzeit: Video-Platzhalter + kurze Beschreibung
-- Content ist **hardcoded** in `onboarding-config.ts`
-- Nur Entwickler können Content ändern (Code-Deployment nötig)
-- Kein Supabase-Schema für Akademie-Content vorhanden
-
-### Anforderung
-1. **Layout**: Jedes Modul braucht Video UND begleitenden Text (nicht nur Video)
-2. **Single Source of Truth**: Content soll ohne Code-Änderungen anpassbar sein
-
-## Kritische Bewertung (KRITIKER)
-
-### Option A: CMS-Integration (Notion, Strapi, Contentful)
-
-| Pro | Contra |
-|-----|--------|
-| Professionelle Editoren | Externe Abhängigkeit |
-| Echtzeit-Vorschau | Zusätzliche Kosten |
-| Versionierung | Webhooks für Sync nötig |
-| | Komplexere Architektur |
-| | Verstößt gegen LOVABLE_BEHAVIOUR.txt (Regel 11: "Komplexität ohne Modularisierung") |
-
-### Option B: Supabase-Tabellen für Content
-
-| Pro | Contra |
-|-----|--------|
-| Bereits integriert | Kein WYSIWYG-Editor |
-| Kein externes System | Admin-UI für Content nötig |
-| RLS für Zugriffskontrolle | Manuelles Markdown |
-| Video-URLs + Text in DB | |
-| Kostenlos | |
-| Volle Kontrolle | |
-
-### Option C: Hybrid (Supabase + Supabase Storage für Videos)
-
-| Pro | Contra |
-|-----|--------|
-| Alles in einem System | Video-Upload via SQL Editor umständlich |
-| Videos sicher gehostet | |
-| Skalierbar | |
-
-## Strategische Lösung (STRATEGE)
-
-**Empfehlung: Option B - Supabase-Tabellen + Video-Hosting extern**
-
-### Begründung (nach LOVABLE_BEHAVIOUR.txt)
-
-1. **Single Source of Truth** (Regel 1): Daten in Supabase
-2. **Kein externes CMS** (Regel 11: minimale Abhängigkeiten)
-3. **Schema-Organisation** (Regel 12): `onboarding_akademie` Schema oder Prefix
-4. **Skalierbar**: Content Manager können direkt in Supabase Table Editor arbeiten
-
-### Vorgeschlagenes DB-Schema
+### Aktuelle Situation (Problem)
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ Tabelle: onboarding_akademie.pflicht_videos (oder public.onboarding_pflicht_videos)
+│ DOPPELTE STRUKTUREN - VERWIRREND                                                │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│ id                  │ uuid           │ PK                                       │
-│ hauptmodul_id       │ text           │ z.B. "grundlagen", "durchfuehrung"       │
-│ hauptmodul_titel    │ text           │ z.B. "Einführung und Grundlagen"         │
-│ hauptmodul_beschreibung │ text       │ Kurzbeschreibung des Moduls              │
-│ hauptmodul_reihenfolge │ int         │ Sortierung                               │
 │                                                                                 │
-│ unterpunkt_id       │ text           │ z.B. "einfuehrung", "kleidung"           │
-│ unterpunkt_titel    │ text           │ z.B. "Einführung und Begrüßung"          │
-│ unterpunkt_beschreibung │ text       │ Kurzbeschreibung                         │
-│ unterpunkt_reihenfolge │ int         │ Sortierung innerhalb Hauptmodul          │
+│ public Schema (FALSCH PLATZIERT - hat echte Daten)                              │
+│ ┌─────────────────────────────────────────────────────────────────────────────┐ │
+│ │ onboarding_akademie_hauptmodule     → 4 Module mit Inhalt                   │ │
+│ │ onboarding_akademie_unterpunkte     → 16 Lektionen mit Inhalt               │ │
+│ └─────────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                 │
-│ video_url           │ text           │ URL zu Vimeo/YouTube/Storage             │
-│ video_dauer_minuten │ int            │ Länge in Minuten                         │
+│ thermocheck Schema (RICHTIG PLATZIERT - aber leer/andere Struktur)              │
+│ ┌─────────────────────────────────────────────────────────────────────────────┐ │
+│ │ academy_module                      → LEER (0 Einträge), flache Struktur    │ │
+│ │ contractor_academy_progress         → Fortschritts-Tracking (behalten!)     │ │
+│ └─────────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                 │
-│ text_inhalt         │ text           │ Begleitender Lerntext (Markdown/HTML)    │
-│ text_zusammenfassung│ text           │ Zusammenfassung/Key Takeaways            │
-│ zusatzmaterial_urls │ jsonb          │ Optional: PDFs, Links etc.               │
-│                                                                                 │
-│ ist_aktiv           │ boolean        │ Default true                             │
-│ created_at          │ timestamptz    │ Standard                                 │
-│ updated_at          │ timestamptz    │ Standard                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Alternative: Normalisierte Struktur (2 Tabellen)
+### Regelverletzung (LOVABLE_BEHAVIOUR.txt Regel 12)
+
+Die Akademie gehört zum **Techniker-Onboarding-Domain** und muss ins `thermocheck` Schema. Der aktuelle Name `onboarding_akademie_*` ist zudem unklar - welches Onboarding? Für wen?
+
+---
+
+## Lösung: Eindeutige Benennung im richtigen Schema
+
+### Neue Tabellenstruktur
+
+| Alt (public) | Neu (thermocheck) | Begründung |
+|--------------|-------------------|------------|
+| `onboarding_akademie_hauptmodule` | `techniker_akademie_module` | Klar: Akademie für Techniker, "Module" statt "Hauptmodule" |
+| `onboarding_akademie_unterpunkte` | `techniker_akademie_lektionen` | Klar: Lektionen innerhalb der Module |
+| `academy_module` (leer) | LÖSCHEN | Legacy, nie befüllt, andere Struktur |
+| `contractor_academy_progress` | BEHALTEN | Fortschritts-Tracking, wird angepasst |
+
+### Namenskonvention
 
 ```text
-┌─────────────────────────────────────────┐
-│ onboarding_akademie.hauptmodule         │
-├─────────────────────────────────────────┤
-│ id                  │ uuid              │
-│ code                │ text UNIQUE       │ ← "grundlagen"
-│ titel               │ text              │
-│ beschreibung        │ text              │
-│ reihenfolge         │ int               │
-│ ist_aktiv           │ boolean           │
-└─────────────────────────────────────────┘
-           │
-           │ 1:N
-           ▼
-┌─────────────────────────────────────────┐
-│ onboarding_akademie.unterpunkte         │
-├─────────────────────────────────────────┤
-│ id                  │ uuid              │
-│ hauptmodul_id       │ uuid FK           │
-│ code                │ text              │
-│ titel               │ text              │
-│ beschreibung        │ text              │
-│ reihenfolge         │ int               │
-│                                         │
-│ video_url           │ text              │
-│ video_dauer_minuten │ int               │
-│                                         │
-│ text_inhalt         │ text              │ ← MARKDOWN
-│ text_zusammenfassung│ text              │ ← Key Points
-│ zusatzmaterial_urls │ jsonb             │
-│                                         │
-│ ist_aktiv           │ boolean           │
-└─────────────────────────────────────────┘
+thermocheck.techniker_akademie_module      → Die 4 Hauptbereiche
+thermocheck.techniker_akademie_lektionen   → Die 16 Lektionen
+thermocheck.techniker_akademie_fortschritt → Fortschritt pro User (Umbenennung von contractor_academy_progress)
 ```
 
-## UI-Layout: Modul-Seite (AkademieModul.tsx)
+**Warum "techniker_akademie_*"?**
+- `techniker_` = Zielgruppe eindeutig (nicht Verkäufer, nicht Admins)
+- `akademie_` = Bereich eindeutig
+- `module/lektionen/fortschritt` = Inhalt eindeutig
 
-### Visuelles Konzept
+---
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│ ← Zurück │ Einführung und Grundlagen                                            │
-│          │ 1. Einführung und Begrüßung                     ⏱ 5 Minuten          │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │                                                                         │   │
-│  │                        VIDEO PLAYER (16:9)                              │   │
-│  │                                                                         │   │
-│  │                           ▶ Play                                        │   │
-│  │                                                                         │   │
-│  └─────────────────────────────────────────────────────────────────────────┘   │
-│                                                                                 │
-│  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │  📖 LERNINHALT                                              [Tabs?]    │   │
-│  ├─────────────────────────────────────────────────────────────────────────┤   │
-│  │                                                                         │   │
-│  │  ## Willkommen bei Thermocheck!                                         │   │
-│  │                                                                         │   │
-│  │  In diesem Modul lernst du:                                             │   │
-│  │  - Die Geschichte und Mission von Thermocheck                           │   │
-│  │  - Deine Rolle als zertifizierter Techniker                             │   │
-│  │  - Den Ablauf des Onboardings                                           │   │
-│  │                                                                         │   │
-│  │  ### Wichtige Punkte                                                    │   │
-│  │                                                                         │   │
-│  │  1. **Qualität steht an erster Stelle**                                 │   │
-│  │     Jeder Thermocheck folgt unserem standardisierten...                 │   │
-│  │                                                                         │   │
-│  │  2. **Der Kunde ist König**                                             │   │
-│  │     Professionelles Auftreten ist Pflicht...                            │   │
-│  │                                                                         │   │
-│  └─────────────────────────────────────────────────────────────────────────┘   │
-│                                                                                 │
-│  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │  📎 ZUSATZMATERIAL (optional)                                           │   │
-│  │  • Thermocheck Leitfaden (PDF)                                          │   │
-│  │  • Sicherheitsdatenblatt                                                │   │
-│  └─────────────────────────────────────────────────────────────────────────┘   │
-│                                                                                 │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│           [ ✓ Als abgeschlossen markieren ]                                     │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
+## Migrations-Schritte
 
-## Workflow für Content-Manager
-
-```text
-1. Content Manager öffnet Supabase Dashboard
-2. Navigiert zu Tabelle "onboarding_akademie.unterpunkte"
-3. Findet das Modul (z.B. "Kleidung und Verhalten")
-4. Bearbeitet:
-   - video_url: Neue Vimeo/YouTube URL
-   - text_inhalt: Markdown-Text aktualisieren
-   - text_zusammenfassung: Key Takeaways anpassen
-5. Speichern → Änderung sofort live!
-```
-
-**Kein Deployment nötig!**
-
-## Technische Umsetzung
-
-### 1. Datenbank-Migration
+### Schritt 1: Neue Tabellen im thermocheck Schema erstellen
 
 ```sql
--- Schema für Onboarding-Akademie
-CREATE TABLE public.onboarding_akademie_hauptmodule (
+-- Modul 1: Hauptbereiche der Akademie
+CREATE TABLE thermocheck.techniker_akademie_module (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code text NOT NULL UNIQUE,
+  code text NOT NULL UNIQUE,           -- z.B. 'grundlagen', 'ausruestung'
   titel text NOT NULL,
   beschreibung text,
-  reihenfolge int NOT NULL DEFAULT 0,
+  reihenfolge integer NOT NULL DEFAULT 0,
   ist_aktiv boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.onboarding_akademie_unterpunkte (
+-- Modul 2: Lektionen innerhalb der Module
+CREATE TABLE thermocheck.techniker_akademie_lektionen (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  hauptmodul_id uuid NOT NULL REFERENCES public.onboarding_akademie_hauptmodule(id) ON DELETE CASCADE,
-  code text NOT NULL,
+  modul_id uuid NOT NULL REFERENCES thermocheck.techniker_akademie_module(id) ON DELETE CASCADE,
+  code text NOT NULL,                  -- z.B. 'was-ist-thermocheck'
   titel text NOT NULL,
   beschreibung text,
-  reihenfolge int NOT NULL DEFAULT 0,
+  reihenfolge integer NOT NULL DEFAULT 0,
   
-  -- Video
+  -- Content
   video_url text,
-  video_dauer_minuten int DEFAULT 5,
-  
-  -- Lerninhalt (Markdown)
-  text_inhalt text,
-  text_zusammenfassung text,
-  zusatzmaterial_urls jsonb DEFAULT '[]',
+  video_dauer_minuten integer,
+  text_inhalt text,                    -- Markdown
+  text_zusammenfassung text,           -- Markdown
+  zusatzmaterial_urls text[],
   
   ist_aktiv boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   
-  UNIQUE(hauptmodul_id, code)
+  UNIQUE(modul_id, code)
 );
-
--- Indexes für Performance
-CREATE INDEX idx_akademie_unterpunkte_hauptmodul ON public.onboarding_akademie_unterpunkte(hauptmodul_id);
-CREATE INDEX idx_akademie_unterpunkte_reihenfolge ON public.onboarding_akademie_unterpunkte(reihenfolge);
-
--- RLS: Jeder eingeloggte User kann lesen (Onboarding-Content)
-ALTER TABLE public.onboarding_akademie_hauptmodule ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.onboarding_akademie_unterpunkte ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Authenticated users can read hauptmodule"
-  ON public.onboarding_akademie_hauptmodule FOR SELECT
-  TO authenticated
-  USING (ist_aktiv = true);
-
-CREATE POLICY "Authenticated users can read unterpunkte"
-  ON public.onboarding_akademie_unterpunkte FOR SELECT
-  TO authenticated
-  USING (ist_aktiv = true);
-
--- Admin kann alles (über is_admin() Helper)
-CREATE POLICY "Admins can manage hauptmodule"
-  ON public.onboarding_akademie_hauptmodule FOR ALL
-  TO authenticated
-  USING (is_admin())
-  WITH CHECK (is_admin());
-
-CREATE POLICY "Admins can manage unterpunkte"
-  ON public.onboarding_akademie_unterpunkte FOR ALL
-  TO authenticated
-  USING (is_admin())
-  WITH CHECK (is_admin());
 ```
 
-### 2. Initial-Daten (Seed)
+### Schritt 2: Daten migrieren
 
-Die 4 Hauptmodule und 16 Unterpunkte werden initial mit Platzhalter-Texten eingefügt.
+```sql
+-- Hauptmodule übertragen
+INSERT INTO thermocheck.techniker_akademie_module 
+  (id, code, titel, beschreibung, reihenfolge, ist_aktiv, created_at, updated_at)
+SELECT 
+  id, code, titel, beschreibung, reihenfolge, ist_aktiv, created_at, updated_at
+FROM public.onboarding_akademie_hauptmodule;
 
-### 3. React-Query Hook
-
-```typescript
-// src/hooks/useAkademieContent.ts
-
-export function useAkademieContent() {
-  return useQuery({
-    queryKey: ['akademie-content'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('onboarding_akademie_hauptmodule')
-        .select(`
-          *,
-          unterpunkte:onboarding_akademie_unterpunkte(*)
-        `)
-        .eq('ist_aktiv', true)
-        .order('reihenfolge')
-        .order('reihenfolge', { referencedTable: 'onboarding_akademie_unterpunkte' });
-      
-      if (error) throw error;
-      return data;
-    },
-  });
-}
+-- Lektionen übertragen
+INSERT INTO thermocheck.techniker_akademie_lektionen
+  (id, modul_id, code, titel, beschreibung, reihenfolge, 
+   video_url, video_dauer_minuten, text_inhalt, text_zusammenfassung, 
+   zusatzmaterial_urls, ist_aktiv, created_at, updated_at)
+SELECT 
+  id, hauptmodul_id, code, titel, beschreibung, reihenfolge,
+  video_url, video_dauer_minuten, text_inhalt, text_zusammenfassung,
+  zusatzmaterial_urls, ist_aktiv, created_at, updated_at
+FROM public.onboarding_akademie_unterpunkte;
 ```
 
-### 4. Markdown-Rendering
+### Schritt 3: Fortschritts-Tabelle anpassen
 
-```typescript
-// Einfache Lösung: react-markdown oder eigene Komponente
-import ReactMarkdown from 'react-markdown';
+```sql
+-- Umbenennen für Konsistenz
+ALTER TABLE thermocheck.contractor_academy_progress 
+RENAME TO techniker_akademie_fortschritt;
 
-<div className="prose prose-sm max-w-none">
-  <ReactMarkdown>{unterpunkt.text_inhalt}</ReactMarkdown>
-</div>
+-- FK auf neue Lektions-Tabelle anpassen
+-- (Falls module_id auf alte Tabelle zeigt)
 ```
 
-Alternativ: Ohne Abhängigkeit mit einfachem HTML-Text.
+### Schritt 4: Alte Tabellen löschen
 
-## Dateien die geändert werden
+```sql
+-- Erst nach erfolgreicher Migration!
+DROP TABLE public.onboarding_akademie_unterpunkte;
+DROP TABLE public.onboarding_akademie_hauptmodule;
+DROP TABLE thermocheck.academy_module;  -- War immer leer
+```
 
-| Datei | Änderung |
-|-------|----------|
-| **Migration** | Neue Tabellen `onboarding_akademie_hauptmodule` + `unterpunkte` |
-| `src/hooks/useAkademieContent.ts` | **NEU**: React-Query Hook für DB-Content |
-| `src/pages/AkademieModul.tsx` | Layout erweitern: Video + Lerntext + Zusatzmaterial |
-| `src/components/onboarding/steps/AcademyStep.tsx` | Daten aus DB statt Mock laden |
-| `src/lib/onboarding-config.ts` | Mock-Daten als Fallback behalten |
-| `package.json` | Optional: `react-markdown` für Textrendering |
+---
 
-## Risiken und Mitigierung
+## Frontend-Anpassungen
 
-| Risiko | Mitigierung |
-|--------|-------------|
-| DB-Ausfall → Akademie nicht ladbar | Fallback auf Mock-Daten |
-| Markdown-Injection | Sanitized Rendering |
-| Content Manager löscht aus Versehen | Soft Delete mit `ist_aktiv` statt hartem DELETE |
-| Videos offline/geändert | URL-Validierung bei Speichern |
+### Datei: `src/hooks/useAkademieContent.ts`
 
-## Erwartetes Ergebnis
+Änderungen:
+- `from('onboarding_akademie_hauptmodule')` → `from('techniker_akademie_module')`
+- `from('onboarding_akademie_unterpunkte')` → `from('techniker_akademie_lektionen')`
+- Anpassung der Join-Namen (`onboarding_akademie_unterpunkte` → `techniker_akademie_lektionen`)
 
-- **Layout**: Video + Lerntext + optionales Zusatzmaterial
-- **Single Source of Truth**: Supabase-Tabellen
-- **Content-Management**: Über Supabase Table Editor (kein Code nötig)
-- **Dynamische Inhalte**: Änderungen sofort live
-- **Skalierbar**: Weitere Module einfach hinzufügbar
-- **Enterprise-Pattern**: Normalisierte DB-Struktur
+### Datei: `src/integrations/supabase/types.ts`
 
+Wird automatisch aktualisiert nach Migration (Supabase generiert neue Types).
+
+---
+
+## Ergebnis nach Migration
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ SAUBERE STRUKTUR IM THERMOCHECK SCHEMA                                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ thermocheck.techniker_akademie_module                                           │
+│ ┌─────────────────────────────────────────────────────────────────────────────┐ │
+│ │ id, code, titel, beschreibung, reihenfolge, ist_aktiv                       │ │
+│ │ → "Einführung und Grundlagen"                                               │ │
+│ │ → "Ausrüstung und Vorbereitung"                                             │ │
+│ │ → "Durchführung Thermocheck"                                                │ │
+│ │ → "Nachbearbeitung und Dokumentation"                                       │ │
+│ └─────────────────────────────────────────────────────────────────────────────┘ │
+│          │                                                                      │
+│          │ 1:n                                                                  │
+│          ▼                                                                      │
+│ thermocheck.techniker_akademie_lektionen                                        │
+│ ┌─────────────────────────────────────────────────────────────────────────────┐ │
+│ │ id, modul_id, code, titel, video_url, text_inhalt, ...                      │ │
+│ │ → 16 Lektionen mit Content                                                  │ │
+│ └─────────────────────────────────────────────────────────────────────────────┘ │
+│          │                                                                      │
+│          │ 1:n                                                                  │
+│          ▼                                                                      │
+│ thermocheck.techniker_akademie_fortschritt                                      │
+│ ┌─────────────────────────────────────────────────────────────────────────────┐ │
+│ │ contractor_id, lektion_id, status, completed_at, quiz_score                 │ │
+│ │ → Tracking pro Techniker                                                    │ │
+│ └─────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Zusammenfassung der Änderungen
+
+| Bereich | Änderung |
+|---------|----------|
+| **DB: Schema** | Von `public` nach `thermocheck` verschieben |
+| **DB: Tabellennamen** | `onboarding_akademie_*` → `techniker_akademie_*` |
+| **DB: Spaltennamen** | `hauptmodul_id` → `modul_id` (konsistenter) |
+| **DB: Legacy** | `thermocheck.academy_module` löschen (leer) |
+| **Frontend** | `useAkademieContent.ts` Tabellennamen anpassen |
+| **Types** | Automatisch nach Supabase-Sync |
+
+---
+
+## Vorteile der neuen Struktur
+
+1. **Eindeutig:** `techniker_akademie_*` sagt sofort wofür es ist
+2. **Korrekt platziert:** Im `thermocheck` Domain-Schema (Regel 12)
+3. **Keine Redundanz:** Leere `academy_module` Tabelle wird gelöscht
+4. **Konsistente Benennung:** Passt zu `contractor_onboarding`, `contractor_coaching`, etc.
+5. **Erweiterbar:** Falls später Verkäufer-Akademie kommt: `verkaeufer_akademie_*`
