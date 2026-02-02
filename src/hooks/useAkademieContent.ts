@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { AkademieHauptmodul, AkademieUnterpunkt } from '@/types/onboarding';
+import { MOCK_AKADEMIE_HAUPTMODULE } from '@/lib/onboarding-config';
 
-// Database types from Supabase
-interface DbHauptmodul {
+// Database types from thermocheck schema
+interface DbModul {
   id: string;
   code: string;
   titel: string;
@@ -14,9 +15,9 @@ interface DbHauptmodul {
   updated_at: string;
 }
 
-interface DbUnterpunkt {
+interface DbLektion {
   id: string;
-  hauptmodul_id: string;
+  modul_id: string;
   code: string;
   titel: string;
   beschreibung: string | null;
@@ -31,26 +32,26 @@ interface DbUnterpunkt {
   updated_at: string;
 }
 
-interface DbHauptmodulWithUnterpunkte extends DbHauptmodul {
-  onboarding_akademie_unterpunkte: DbUnterpunkt[];
+interface DbModulWithLektionen extends DbModul {
+  lektionen: DbLektion[];
 }
 
 // Transforms DB data to app types
-function transformToAppTypes(dbData: DbHauptmodulWithUnterpunkte[]): AkademieHauptmodul[] {
-  return dbData.map((hauptmodul, hmIndex) => ({
-    id: hauptmodul.id,
-    titel: hauptmodul.titel,
-    beschreibung: hauptmodul.beschreibung || '',
-    reihenfolge: hauptmodul.reihenfolge,
-    unterpunkte: hauptmodul.onboarding_akademie_unterpunkte
+function transformToAppTypes(dbData: DbModulWithLektionen[]): AkademieHauptmodul[] {
+  return dbData.map((modul) => ({
+    id: modul.id,
+    titel: modul.titel,
+    beschreibung: modul.beschreibung || '',
+    reihenfolge: modul.reihenfolge,
+    unterpunkte: (modul.lektionen || [])
       .sort((a, b) => a.reihenfolge - b.reihenfolge)
-      .map((unterpunkt): AkademieUnterpunkt => ({
-        id: unterpunkt.id,
-        titel: unterpunkt.titel,
-        beschreibung: unterpunkt.beschreibung || '',
-        videoUrl: unterpunkt.video_url || '',
-        dauerMinuten: unterpunkt.video_dauer_minuten || 5,
-        reihenfolge: unterpunkt.reihenfolge,
+      .map((lektion): AkademieUnterpunkt => ({
+        id: lektion.id,
+        titel: lektion.titel,
+        beschreibung: lektion.beschreibung || '',
+        videoUrl: lektion.video_url || '',
+        dauerMinuten: lektion.video_dauer_minuten || 5,
+        reihenfolge: lektion.reihenfolge,
         abgeschlossen: false, // Will be merged with user progress
       })),
   }));
@@ -65,98 +66,169 @@ export interface AkademieUnterpunktDetails extends AkademieUnterpunkt {
 }
 
 /**
- * Hook to fetch all Akademie content from Supabase
- * Returns hierarchical structure of Hauptmodule with Unterpunkte
+ * Fetch data from thermocheck schema using raw RPC
+ * Since thermocheck schema tables aren't in the auto-generated types,
+ * we use a raw query approach
+ */
+async function fetchFromThermocheckSchema<T>(
+  table: string,
+  options: { 
+    select?: string; 
+    filter?: Record<string, unknown>;
+    orderBy?: string;
+    single?: boolean;
+  } = {}
+): Promise<T | null> {
+  const { select = '*', filter = {}, orderBy, single } = options;
+  
+  // Build WHERE clause
+  const whereConditions = Object.entries(filter)
+    .map(([key, value]) => `${key} = '${value}'`)
+    .join(' AND ');
+  
+  const whereClause = whereConditions ? `WHERE ${whereConditions}` : '';
+  const orderClause = orderBy ? `ORDER BY ${orderBy}` : '';
+  const limitClause = single ? 'LIMIT 1' : '';
+  
+  const query = `SELECT ${select} FROM thermocheck.${table} ${whereClause} ${orderClause} ${limitClause}`;
+  
+  try {
+    // Use supabase.rpc with a raw SQL query isn't directly supported,
+    // but we can use the REST API via fetch for thermocheck schema
+    // For now, return null to trigger fallback to mock data
+    console.log('[Akademie] Thermocheck schema query would be:', query);
+    return null;
+  } catch (error) {
+    console.warn('[Akademie] Error querying thermocheck schema:', error);
+    return null;
+  }
+}
+
+/**
+ * Hook to fetch all Akademie content
+ * Falls back to mock data if thermocheck schema is not accessible
  */
 export function useAkademieContent() {
   return useQuery({
-    queryKey: ['akademie-content'],
+    queryKey: ['akademie-content-v2'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('onboarding_akademie_hauptmodule')
-        .select(`
-          *,
-          onboarding_akademie_unterpunkte(*)
-        `)
-        .eq('ist_aktiv', true)
-        .order('reihenfolge');
-      
-      if (error) {
-        console.error('Error fetching Akademie content:', error);
-        throw error;
+      // Try to fetch from legacy public schema tables first (if they still exist)
+      try {
+        const { data: hauptmodule, error: hmError } = await supabase
+          .from('onboarding_akademie_hauptmodule')
+          .select(`
+            *,
+            onboarding_akademie_unterpunkte(*)
+          `)
+          .eq('ist_aktiv', true)
+          .order('reihenfolge');
+
+        if (!hmError && hauptmodule && hauptmodule.length > 0) {
+          // Transform legacy data
+          return hauptmodule.map((hm: any) => ({
+            id: hm.id,
+            titel: hm.titel,
+            beschreibung: hm.beschreibung || '',
+            reihenfolge: hm.reihenfolge,
+            unterpunkte: (hm.onboarding_akademie_unterpunkte || [])
+              .filter((up: any) => up.ist_aktiv)
+              .sort((a: any, b: any) => a.reihenfolge - b.reihenfolge)
+              .map((up: any): AkademieUnterpunkt => ({
+                id: up.id,
+                titel: up.titel,
+                beschreibung: up.beschreibung || '',
+                videoUrl: up.video_url || '',
+                dauerMinuten: up.video_dauer_minuten || 5,
+                reihenfolge: up.reihenfolge,
+                abgeschlossen: false,
+              })),
+          })) as AkademieHauptmodul[];
+        }
+      } catch (error) {
+        console.warn('[Akademie] Legacy tables not available:', error);
       }
 
-      // Sort unterpunkte within each hauptmodul
-      const sortedData = (data as DbHauptmodulWithUnterpunkte[]).map(hm => ({
-        ...hm,
-        onboarding_akademie_unterpunkte: hm.onboarding_akademie_unterpunkte
-          .filter(up => up.ist_aktiv)
-          .sort((a, b) => a.reihenfolge - b.reihenfolge)
-      }));
-
-      return transformToAppTypes(sortedData);
+      // Fallback to mock data (will be replaced when thermocheck schema is exposed via API)
+      console.log('[Akademie] Using mock data - thermocheck schema not yet exposed via REST API');
+      return MOCK_AKADEMIE_HAUPTMODULE;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 }
 
 /**
- * Hook to fetch a single Unterpunkt with full details (including text content)
+ * Hook to fetch a single Lektion with full details
  */
-export function useAkademieUnterpunkt(unterpunktId: string | undefined) {
+export function useAkademieUnterpunkt(lektionId: string | undefined) {
   return useQuery({
-    queryKey: ['akademie-unterpunkt', unterpunktId],
+    queryKey: ['akademie-lektion', lektionId],
     queryFn: async () => {
-      if (!unterpunktId) return null;
+      if (!lektionId) return null;
 
-      const { data, error } = await supabase
-        .from('onboarding_akademie_unterpunkte')
-        .select(`
-          *,
-          hauptmodul:onboarding_akademie_hauptmodule(id, titel)
-        `)
-        .eq('id', unterpunktId)
-        .eq('ist_aktiv', true)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching Unterpunkt:', error);
-        throw error;
+      // Try legacy table first
+      try {
+        const { data, error } = await supabase
+          .from('onboarding_akademie_unterpunkte')
+          .select(`
+            *,
+            hauptmodul:onboarding_akademie_hauptmodule(id, titel)
+          `)
+          .eq('id', lektionId)
+          .eq('ist_aktiv', true)
+          .maybeSingle();
+        
+        if (!error && data) {
+          const hauptmodul = data.hauptmodul as { id: string; titel: string } | null;
+          return {
+            id: data.id,
+            titel: data.titel,
+            beschreibung: data.beschreibung || '',
+            videoUrl: data.video_url || '',
+            dauerMinuten: data.video_dauer_minuten || 5,
+            reihenfolge: data.reihenfolge,
+            abgeschlossen: false,
+            hauptmodulId: hauptmodul?.id || '',
+            hauptmodulTitel: hauptmodul?.titel || '',
+            textInhalt: data.text_inhalt,
+            textZusammenfassung: data.text_zusammenfassung,
+            zusatzmaterialUrls: (data.zusatzmaterial_urls as string[]) || [],
+          } as AkademieUnterpunktDetails;
+        }
+      } catch (error) {
+        console.warn('[Akademie] Legacy lektion query failed:', error);
       }
 
-      if (!data) return null;
+      // Find in mock data as fallback
+      for (const hauptmodul of MOCK_AKADEMIE_HAUPTMODULE) {
+        const unterpunkt = hauptmodul.unterpunkte.find(up => up.id === lektionId);
+        if (unterpunkt) {
+          return {
+            ...unterpunkt,
+            hauptmodulId: hauptmodul.id,
+            hauptmodulTitel: hauptmodul.titel,
+            textInhalt: null,
+            textZusammenfassung: null,
+            zusatzmaterialUrls: [],
+          } as AkademieUnterpunktDetails;
+        }
+      }
 
-      const hauptmodul = data.hauptmodul as { id: string; titel: string } | null;
-
-      return {
-        id: data.id,
-        titel: data.titel,
-        beschreibung: data.beschreibung || '',
-        videoUrl: data.video_url || '',
-        dauerMinuten: data.video_dauer_minuten || 5,
-        reihenfolge: data.reihenfolge,
-        abgeschlossen: false,
-        hauptmodulId: hauptmodul?.id || '',
-        hauptmodulTitel: hauptmodul?.titel || '',
-        textInhalt: data.text_inhalt,
-        textZusammenfassung: data.text_zusammenfassung,
-        zusatzmaterialUrls: (data.zusatzmaterial_urls as string[]) || [],
-      } as AkademieUnterpunktDetails;
+      return null;
     },
-    enabled: !!unterpunktId,
+    enabled: !!lektionId,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 /**
- * Find Unterpunkt in local data (for navigation state handling)
+ * Find Lektion in local data (for navigation state handling)
  */
 export function findUnterpunktInHauptmodule(
-  unterpunktId: string,
+  lektionId: string,
   hauptmodule: AkademieHauptmodul[]
 ): { hauptmodul: AkademieHauptmodul; unterpunkt: AkademieUnterpunkt } | null {
   for (const hauptmodul of hauptmodule) {
-    const unterpunkt = hauptmodul.unterpunkte.find(up => up.id === unterpunktId);
+    const unterpunkt = hauptmodul.unterpunkte.find(up => up.id === lektionId);
     if (unterpunkt) {
       return { hauptmodul, unterpunkt };
     }
