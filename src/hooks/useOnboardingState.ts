@@ -17,7 +17,7 @@ import {
   MOCK_AKADEMIE_HAUPTMODULE,
 } from '@/lib/onboarding-config';
 
-const STORAGE_KEY = 'thermocheck_onboarding_state';
+const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
 
 const loadPersistedState = (initialProfile: ApplicantProfile): OnboardingState => {
   try {
