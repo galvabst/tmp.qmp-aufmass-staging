@@ -1,47 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useRef } from 'react';
-import { ArrowLeft, Check, Play, Clock, BookOpen, FileText, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Clock, BookOpen, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAkademieUnterpunkt } from '@/hooks/useAkademieContent';
-import { useSignedVideoUrl } from '@/hooks/useSignedVideoUrl';
+import { MultiSourceVideoPlayer } from '@/components/akademie/MultiSourceVideoPlayer';
 import ReactMarkdown from 'react-markdown';
-
-// Extracted VideoPlayer component for signed URLs
-function VideoPlayer({ videoPath }: { videoPath: string | null | undefined }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const { signedUrl, isLoading: urlLoading, error: urlError } = useSignedVideoUrl(videoPath);
-
-  return (
-    <div className="relative w-full aspect-video bg-black">
-      {urlLoading ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-          <Loader2 className="w-10 h-10 animate-spin mb-2" />
-          <p className="text-white/80 text-sm">Video wird geladen...</p>
-        </div>
-      ) : signedUrl ? (
-        <video
-          ref={videoRef}
-          src={signedUrl}
-          controls
-          className="w-full h-full"
-          controlsList="nodownload"
-          playsInline
-        >
-          Dein Browser unterstützt keine Videos.
-        </video>
-      ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
-          <Play className="w-12 h-12 mb-2" />
-          <p className="text-sm">
-            {urlError ? 'Video konnte nicht geladen werden' : 'Kein Video verfügbar'}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function AkademieModul() {
   const { modulId } = useParams<{ modulId: string }>();
@@ -138,7 +102,7 @@ export default function AkademieModul() {
       <main className="flex-1 flex flex-col">
         <div className="w-full max-w-3xl mx-auto">
           {/* Video Container */}
-          <VideoPlayer videoPath={unterpunkt.videoUrl} />
+          <MultiSourceVideoPlayer videoUrl={unterpunkt.videoUrl} />
 
           {/* Tabs: Lerninhalt / Zusammenfassung / Material */}
           <div className="p-4">
