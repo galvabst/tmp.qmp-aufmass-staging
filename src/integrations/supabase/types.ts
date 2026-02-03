@@ -9640,6 +9640,20 @@ export type Database = {
           rechnung_status: string
         }[]
       }
+      get_my_kpi_eligible_leads: {
+        Args: { p_mitarbeiter_id: string }
+        Returns: {
+          id: string
+          kunde_nachname: string
+          kunde_ort: string
+          kunde_plz: string
+          kunde_telefon: string
+          kunde_vorname: string
+          lead_name: string
+          status: string
+          thc_status: string
+        }[]
+      }
       get_netzanmeldung_projekte: {
         Args: never
         Returns: {
@@ -10058,6 +10072,23 @@ export type Database = {
       save_dev_todo: {
         Args: { p_content: string; p_todo_id?: string; p_user_id: string }
         Returns: string
+      }
+      search_leads_minimal: {
+        Args: { p_search_term: string }
+        Returns: {
+          id: string
+          is_shared_with_me: boolean
+          kunde_nachname: string
+          kunde_ort: string
+          kunde_plz: string
+          kunde_vorname: string
+          lead_name: string
+          mitarbeiter_id: string
+          mitarbeiter_name: string
+          referenz_nummer: string
+          status: string
+          thc_status: string
+        }[]
       }
       service_role_add_user_to_group: {
         Args: {
