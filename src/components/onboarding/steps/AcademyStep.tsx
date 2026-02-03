@@ -23,10 +23,14 @@ function getHauptmodulProgress(hauptmodul: AkademieHauptmodul): { completed: num
 
 // Helper: Prüft ob Hauptmodul freigeschaltet ist
 function isHauptmodulUnlocked(index: number, hauptmodule: AkademieHauptmodul[]): boolean {
-  if (index === 0) return true;
-  const prev = hauptmodule[index - 1];
-  const prevUnterpunkte = prev?.unterpunkte || [];
-  return prevUnterpunkte.every(u => u.abgeschlossen);
+  // TEMP: Alle Module freigeschaltet während Aufbauphase
+  return true;
+  
+  // Original-Logik (später reaktivieren):
+  // if (index === 0) return true;
+  // const prev = hauptmodule[index - 1];
+  // const prevUnterpunkte = prev?.unterpunkte || [];
+  // return prevUnterpunkte.every(u => u.abgeschlossen);
 }
 
 // Helper: Prüft ob Hauptmodul komplett abgeschlossen ist
@@ -51,17 +55,15 @@ function isUnterpunktUnlocked(
   unterpunktIndex: number, 
   hauptmodule: AkademieHauptmodul[]
 ): boolean {
-  // Hauptmodul muss freigeschaltet sein
-  if (!isHauptmodulUnlocked(hauptmodulIndex, hauptmodule)) return false;
+  // TEMP: Alle Unterpunkte freigeschaltet während Aufbauphase
+  return true;
   
-  // Erster Unterpunkt ist immer freigeschaltet wenn Hauptmodul freigeschaltet
-  if (unterpunktIndex === 0) return true;
-  
-  const hauptmodul = hauptmodule[hauptmodulIndex];
-  const unterpunkte = hauptmodul?.unterpunkte || [];
-  
-  // Vorheriger Unterpunkt muss abgeschlossen sein
-  return unterpunkte[unterpunktIndex - 1]?.abgeschlossen ?? false;
+  // Original-Logik (später reaktivieren):
+  // if (!isHauptmodulUnlocked(hauptmodulIndex, hauptmodule)) return false;
+  // if (unterpunktIndex === 0) return true;
+  // const hauptmodul = hauptmodule[hauptmodulIndex];
+  // const unterpunkte = hauptmodul?.unterpunkte || [];
+  // return unterpunkte[unterpunktIndex - 1]?.abgeschlossen ?? false;
 }
 
 export function AcademyStep({
