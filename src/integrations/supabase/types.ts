@@ -9654,6 +9654,21 @@ export type Database = {
           thc_status: string
         }[]
       }
+      get_my_pflicht_videos: {
+        Args: { p_application_id: string }
+        Returns: {
+          beschreibung: string
+          content_typ: string
+          externe_url: string
+          id: string
+          is_mandatory: boolean
+          kategorie: string
+          reihenfolge: number
+          storage_pfad: string
+          titel: string
+          zielgruppe: string
+        }[]
+      }
       get_netzanmeldung_projekte: {
         Args: never
         Returns: {

@@ -1,9 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 import { AkademieHauptmodul, AkademieUnterpunkt } from '@/types/onboarding';
 import { MOCK_AKADEMIE_HAUPTMODULE } from '@/lib/onboarding-config';
 
-// Database types from thermocheck schema
+// Create a separate client for thermocheck schema access
+const thermocheckClient = createClient(
+  'https://keplsvhudmfaagixttql.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlcGxzdmh1ZG1mYWFnaXh0dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0OTQ4MzIsImV4cCI6MjA3MjA3MDgzMn0.pfrd37wSwqnofDinrv60YOtCqnYTc9BXq08m_TSVTNY',
+  { db: { schema: 'thermocheck' } }
+);
 interface DbModul {
   id: string;
   code: string;
@@ -110,9 +116,66 @@ async function fetchFromThermocheckSchema<T>(
  */
 export function useAkademieContent() {
   return useQuery({
-    queryKey: ['akademie-content-v2'],
+    queryKey: ['akademie-content-v3'],
     queryFn: async () => {
-      // Try to fetch from legacy public schema tables first (if they still exist)
+      // Primary: Fetch from thermocheck schema (Module + Lektionen)
+      try {
+        // Fetch modules from thermocheck schema
+        const { data: module, error: modError } = await thermocheckClient
+          .from('techniker_akademie_module')
+          .select('*')
+          .eq('ist_aktiv', true)
+          .order('reihenfolge');
+
+        if (modError) {
+          console.warn('[Akademie] Error fetching thermocheck modules:', modError);
+          throw modError;
+        }
+
+        if (!module || module.length === 0) {
+          console.log('[Akademie] No modules found in thermocheck schema');
+          throw new Error('No modules found');
+        }
+
+        // Fetch all lektionen from thermocheck schema
+        const { data: lektionen, error: lekError } = await thermocheckClient
+          .from('techniker_akademie_lektionen')
+          .select('*')
+          .eq('ist_aktiv', true)
+          .order('reihenfolge');
+
+        if (lekError) {
+          console.warn('[Akademie] Error fetching thermocheck lektionen:', lekError);
+          throw lekError;
+        }
+
+        // Transform to app types
+        const result: AkademieHauptmodul[] = module.map((mod: any) => ({
+          id: mod.id,
+          titel: mod.titel,
+          beschreibung: mod.beschreibung || '',
+          reihenfolge: mod.reihenfolge,
+          unterpunkte: (lektionen || [])
+            .filter((lek: any) => lek.modul_id === mod.id)
+            .sort((a: any, b: any) => a.reihenfolge - b.reihenfolge)
+            .map((lek: any): AkademieUnterpunkt => ({
+              id: lek.id,
+              titel: lek.titel,
+              beschreibung: lek.beschreibung || '',
+              videoUrl: lek.video_url || '',
+              dauerMinuten: lek.video_dauer_minuten || 5,
+              reihenfolge: lek.reihenfolge,
+              abgeschlossen: false,
+            })),
+        }));
+
+        console.log(`[Akademie] Loaded ${result.length} modules from thermocheck schema`);
+        return result;
+      } catch (error) {
+        console.warn('[Akademie] Thermocheck schema query failed, trying legacy tables:', error);
+      }
+
+      // Fallback: Try legacy public schema tables
       try {
         const { data: hauptmodule, error: hmError } = await supabase
           .from('onboarding_akademie_hauptmodule')
@@ -124,7 +187,6 @@ export function useAkademieContent() {
           .order('reihenfolge');
 
         if (!hmError && hauptmodule && hauptmodule.length > 0) {
-          // Transform legacy data
           return hauptmodule.map((hm: any) => ({
             id: hm.id,
             titel: hm.titel,
@@ -145,14 +207,14 @@ export function useAkademieContent() {
           })) as AkademieHauptmodul[];
         }
       } catch (error) {
-        console.warn('[Akademie] Legacy tables not available:', error);
+        console.warn('[Akademie] Legacy tables also failed:', error);
       }
 
-      // Fallback to mock data (will be replaced when thermocheck schema is exposed via API)
-      console.log('[Akademie] Using mock data - thermocheck schema not yet exposed via REST API');
+      // Final fallback to mock data
+      console.log('[Akademie] Using mock data as final fallback');
       return MOCK_AKADEMIE_HAUPTMODULE;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -161,11 +223,47 @@ export function useAkademieContent() {
  */
 export function useAkademieUnterpunkt(lektionId: string | undefined) {
   return useQuery({
-    queryKey: ['akademie-lektion', lektionId],
+    queryKey: ['akademie-lektion-v2', lektionId],
     queryFn: async () => {
       if (!lektionId) return null;
 
-      // Try legacy table first
+      // Primary: Try thermocheck schema
+      try {
+        const { data: lektion, error: lekError } = await thermocheckClient
+          .from('techniker_akademie_lektionen')
+          .select('*')
+          .eq('id', lektionId)
+          .eq('ist_aktiv', true)
+          .maybeSingle();
+
+        if (!lekError && lektion) {
+          // Fetch the parent module
+          const { data: modul } = await thermocheckClient
+            .from('techniker_akademie_module')
+            .select('id, titel')
+            .eq('id', lektion.modul_id)
+            .maybeSingle();
+
+          return {
+            id: lektion.id,
+            titel: lektion.titel,
+            beschreibung: lektion.beschreibung || '',
+            videoUrl: lektion.video_url || '',
+            dauerMinuten: lektion.video_dauer_minuten || 5,
+            reihenfolge: lektion.reihenfolge,
+            abgeschlossen: false,
+            hauptmodulId: modul?.id || '',
+            hauptmodulTitel: modul?.titel || '',
+            textInhalt: lektion.text_inhalt,
+            textZusammenfassung: lektion.text_zusammenfassung,
+            zusatzmaterialUrls: (lektion.zusatzmaterial_urls as string[]) || [],
+          } as AkademieUnterpunktDetails;
+        }
+      } catch (error) {
+        console.warn('[Akademie] Thermocheck lektion query failed:', error);
+      }
+
+      // Fallback: Try legacy table
       try {
         const { data, error } = await supabase
           .from('onboarding_akademie_unterpunkte')
