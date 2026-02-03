@@ -1,67 +1,91 @@
 
 
-# Plan: Akademie-Videos Storage & Player einrichten
+# Plan: Akademie freischalten mit Bunny Stream Integration
 
-## Aktueller Stand
+## Zusammenfassung
 
-Der Bucket `akademie-videos` existiert bereits mit korrekten Sicherheitseinstellungen:
-- Nicht public (nur authentifizierte Nutzer)
-- RLS: Lesen für alle Auth-User, Schreiben nur für Admins
-- Limit: **200MB** (zu klein)
+Die Akademie zeigt aktuell **keine Videos**, weil:
+1. Der `VideoPlayer` nur Supabase Storage signierte URLs kann (nicht Bunny iframe)
+2. Alle `video_url` in der DB sind `NULL`
+3. RLS erlaubt nur `authenticated` User, aber es gibt noch keinen Login
+
+Dieser Plan macht **alle Module sofort betrachtbar** mit Bunny Stream Videos.
 
 ---
 
-## Änderungen
+## Technische Änderungen
 
-### 1. Dateilimit auf 1GB erhöhen
-
-Das aktuelle 200MB-Limit muss auf 1GB erhöht werden:
-
-```sql
-UPDATE storage.buckets 
-SET file_size_limit = 1073741824  -- 1GB
-WHERE id = 'akademie-videos';
-```
-
-### 2. INSERT Policy hinzufügen
-
-Es fehlt eine INSERT Policy für Admins zum Hochladen:
-
-```sql
-CREATE POLICY "akademie_videos_insert"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (
-  bucket_id = 'akademie-videos' 
-  AND iam.is_admin_or_manager()
-);
-```
-
-### 3. Video-Player im Frontend anpassen
-
-Da der Bucket nicht public ist, muss der Video-Player eine signierte URL verwenden:
+### 1. Multi-Source Video Player
 
 **Datei:** `src/pages/AkademieModul.tsx`
 
-```typescript
-// Signierte URL für private Videos generieren
-const { data } = await supabase.storage
-  .from('akademie-videos')
-  .createSignedUrl('pfad/zum/video.mp4', 3600); // 1 Stunde gültig
+Der aktuelle `VideoPlayer` erkennt nur Supabase Storage Pfade. Neuer Flow:
 
-<video src={data.signedUrl} controls className="w-full h-full" />
+```text
+videoUrl prüfen:
+├─ leer/null → "Kein Video verfügbar"
+├─ iframe.mediadelivery.net → <iframe> (Bunny Stream)
+├─ youtube.com / youtu.be → <iframe> (YouTube Embed)
+├─ endet auf .mp4/.webm → <video> (Direktlink)
+└─ sonstiger Pfad → useSignedVideoUrl (Supabase Storage)
 ```
 
----
+**Bunny Stream Embed:**
+```jsx
+<iframe
+  src="https://iframe.mediadelivery.net/play/591760/5950ea70-de80-4a18-8e04-f516cd78fcf6"
+  allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+  className="w-full aspect-video"
+/>
+```
 
-## Upload-Anleitung für dich
+### 2. Akademie-Daten aus thermocheck-Schema laden
 
-Nach Genehmigung dieses Plans:
+**Datei:** `src/hooks/useAkademieContent.ts`
 
-1. Öffne das Supabase Dashboard → Storage → `akademie-videos`
-2. Klicke "Upload files" und wähle dein 600MB Video
-3. Notiere dir den Dateinamen (z.B. `was-ist-thermocheck.mp4`)
-4. Teile mir den Dateinamen mit - ich trage die URL dann in die Lektion ein
+Aktuell lädt der Hook primär aus Mock-Daten (`MOCK_AKADEMIE_HAUPTMODULE`). 
+
+**Änderung:**
+- Primär aus `thermocheck.techniker_akademie_module` + `techniker_akademie_lektionen` laden
+- Mock-Daten nur als Fallback wenn Query fehlschlägt
+- Mapping von DB-Feldern auf App-Typen:
+  - `modul.titel` → `hauptmodul.titel`
+  - `lektion.video_url` → `unterpunkt.videoUrl`
+
+### 3. RLS für anonymen Lesezugriff (temporär)
+
+**Datenbankänderung (Migration):**
+
+Aktuelle Policies erlauben nur `authenticated`. Für die Aufbauphase:
+
+```sql
+-- Temporär: Anon-Zugriff auf aktive Module/Lektionen
+CREATE POLICY "Public read active modules"
+ON thermocheck.techniker_akademie_module
+FOR SELECT TO anon
+USING (ist_aktiv = true);
+
+CREATE POLICY "Public read active lektionen"
+ON thermocheck.techniker_akademie_lektionen
+FOR SELECT TO anon
+USING (ist_aktiv = true);
+```
+
+**Hinweis:** Später (wenn Auth implementiert) werden diese auf `authenticated` umgestellt.
+
+### 4. Video-URL in Datenbank eintragen
+
+**Datenänderung:**
+
+Für die erste Lektion "Was ist der Thermocheck?" die Bunny URL setzen:
+
+```sql
+UPDATE thermocheck.techniker_akademie_lektionen
+SET video_url = 'https://iframe.mediadelivery.net/play/591760/5950ea70-de80-4a18-8e04-f516cd78fcf6'
+WHERE titel = 'Was ist der Thermocheck?'
+  AND ist_aktiv = true;
+```
 
 ---
 
@@ -69,15 +93,30 @@ Nach Genehmigung dieses Plans:
 
 | Datei | Änderung |
 |-------|----------|
-| **Migration (SQL)** | Bucket-Limit erhöhen, INSERT Policy |
-| `src/pages/AkademieModul.tsx` | Video-Player mit signierter URL |
-| `src/hooks/useAkademieContent.ts` | Optional: Helper für signierte URLs |
+| `src/pages/AkademieModul.tsx` | Multi-Source VideoPlayer (iframe/video/signed) |
+| `src/hooks/useAkademieContent.ts` | Primär aus thermocheck-Schema laden |
+| **Migration (SQL)** | RLS Policies für anon-Zugriff |
+| **Daten-Update (SQL)** | video_url für erste Lektion setzen |
 
 ---
 
-## Ergebnis
+## Spätere Erweiterungen (nicht Teil dieses Plans)
 
-- Bucket akzeptiert Videos bis 1GB
-- Nur authentifizierte App-Nutzer können Videos sehen
-- Video-Player lädt Videos über sichere, zeitlich begrenzte URLs
+- **Locking wieder aktivieren:** Wenn Auth implementiert, Policies auf `authenticated` + Fortschritts-Logik
+- **Admin-Oberfläche:** Video-URLs ohne SQL pflegen
+- **Infos/Zusammenfassungen:** Markdown-Editor für `text_inhalt` und `text_zusammenfassung`
+
+---
+
+## Ergebnis nach Umsetzung
+
+1. Alle Akademie-Module sind sichtbar (kein Lock)
+2. Videos werden als Bunny Stream iframe eingebettet
+3. Daten kommen aus der echten Datenbank (nicht Mock)
+4. Du kannst weitere Videos per SQL-Update zuordnen:
+   ```sql
+   UPDATE thermocheck.techniker_akademie_lektionen
+   SET video_url = 'https://iframe.mediadelivery.net/play/591760/[VIDEO-ID]'
+   WHERE titel = '[LEKTIONSTITEL]';
+   ```
 
