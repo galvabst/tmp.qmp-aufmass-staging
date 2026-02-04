@@ -3,6 +3,8 @@ import { Play } from 'lucide-react';
 
 interface MultiSourceVideoPlayerProps {
   videoUrl: string | null | undefined;
+  /** Height mode: 'hero' fills available space, 'contained' uses aspect ratio */
+  heightMode?: 'hero' | 'contained';
 }
 
 /**
@@ -22,6 +24,46 @@ function detectVideoSource(url: string): 'bunny-stream' | 'youtube' | 'direct-mp
   
   // Default: Direct video file
   return 'direct-mp4';
+}
+
+/**
+ * Normalizes Bunny Stream URLs for optimal iframe embedding:
+ * - Converts /play/ to /embed/ (better responsive behavior)
+ * - Adds responsive=true parameter
+ * - Preserves existing query parameters
+ */
+function normalizeBunnyUrl(url: string): string {
+  try {
+    // Convert /play/ to /embed/
+    let normalizedUrl = url.replace('/play/', '/embed/');
+    
+    const urlObj = new URL(normalizedUrl);
+    
+    // Add responsive=true if not present
+    if (!urlObj.searchParams.has('responsive')) {
+      urlObj.searchParams.set('responsive', 'true');
+    }
+    
+    // Ensure autoplay is off by default for better UX
+    if (!urlObj.searchParams.has('autoplay')) {
+      urlObj.searchParams.set('autoplay', 'false');
+    }
+    
+    // Ensure preload is set for faster loading
+    if (!urlObj.searchParams.has('preload')) {
+      urlObj.searchParams.set('preload', 'true');
+    }
+    
+    return urlObj.toString();
+  } catch (e) {
+    // If URL parsing fails, return original with simple replacement
+    console.warn('Failed to parse Bunny URL, using fallback:', e);
+    let fallback = url.replace('/play/', '/embed/');
+    if (!fallback.includes('responsive=')) {
+      fallback += (fallback.includes('?') ? '&' : '?') + 'responsive=true';
+    }
+    return fallback;
+  }
 }
 
 /**
@@ -49,19 +91,20 @@ function getYouTubeEmbedUrl(url: string): string {
   return url;
 }
 
-// Bunny Stream iframe player
+// Bunny Stream iframe player with normalized URL
 function BunnyStreamPlayer({ url }: { url: string }) {
+  const normalizedUrl = normalizeBunnyUrl(url);
+  
   return (
-    <div className="relative w-full h-[50vh] sm:h-[60vh] max-h-[600px] bg-black">
-      <iframe
-        src={url}
-        loading="lazy"
-        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-        allowFullScreen
-        className="absolute inset-0 w-full h-full border-0"
-        title="Video Player"
-      />
-    </div>
+    <iframe
+      src={normalizedUrl}
+      loading="lazy"
+      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+      allowFullScreen
+      className="absolute inset-0 w-full h-full border-0 block"
+      style={{ backgroundColor: 'black' }}
+      title="Video Player"
+    />
   );
 }
 
@@ -70,16 +113,15 @@ function YouTubePlayer({ url }: { url: string }) {
   const embedUrl = getYouTubeEmbedUrl(url);
   
   return (
-    <div className="relative w-full h-[50vh] sm:h-[60vh] max-h-[600px] bg-black">
-      <iframe
-        src={embedUrl}
-        loading="lazy"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-        allowFullScreen
-        className="absolute inset-0 w-full h-full border-0"
-        title="YouTube Video Player"
-      />
-    </div>
+    <iframe
+      src={embedUrl}
+      loading="lazy"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+      allowFullScreen
+      className="absolute inset-0 w-full h-full border-0 block"
+      style={{ backgroundColor: 'black' }}
+      title="YouTube Video Player"
+    />
   );
 }
 
@@ -88,25 +130,24 @@ function DirectVideoPlayer({ url }: { url: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   
   return (
-    <div className="relative w-full h-[50vh] sm:h-[60vh] max-h-[600px] bg-black">
-      <video
-        ref={videoRef}
-        src={url}
-        controls
-        className="w-full h-full object-contain"
-        controlsList="nodownload"
-        playsInline
-      >
-        Dein Browser unterstützt keine Videos.
-      </video>
-    </div>
+    <video
+      ref={videoRef}
+      src={url}
+      controls
+      className="absolute inset-0 w-full h-full object-contain"
+      style={{ backgroundColor: 'black' }}
+      controlsList="nodownload"
+      playsInline
+    >
+      Dein Browser unterstützt keine Videos.
+    </video>
   );
 }
 
 // No video placeholder
 function NoVideoPlaceholder() {
   return (
-    <div className="relative w-full aspect-video bg-black flex flex-col items-center justify-center text-white/60">
+    <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60 bg-black">
       <Play className="w-12 h-12 mb-2" />
       <p className="text-sm">Kein Video verfügbar</p>
     </div>
@@ -115,12 +156,24 @@ function NoVideoPlaceholder() {
 
 /**
  * Multi-source video player that automatically detects and renders
- * the appropriate player based on the video URL type
+ * the appropriate player based on the video URL type.
+ * 
+ * Uses CSS variable --akademie-header-h set by parent for hero mode sizing.
  */
-export function MultiSourceVideoPlayer({ videoUrl }: MultiSourceVideoPlayerProps) {
+export function MultiSourceVideoPlayer({ videoUrl, heightMode = 'hero' }: MultiSourceVideoPlayerProps) {
   // No video URL provided
   if (!videoUrl || videoUrl.trim() === '') {
-    return <NoVideoPlaceholder />;
+    return (
+      <div className="relative w-full bg-black overflow-hidden" style={{ 
+        height: heightMode === 'hero' 
+          ? 'calc(100svh - var(--akademie-header-h, 60px) - var(--akademie-footer-h, 72px))' 
+          : undefined,
+        aspectRatio: heightMode === 'contained' ? '16/9' : undefined,
+        maxHeight: heightMode === 'hero' ? '75vh' : undefined,
+      }}>
+        <NoVideoPlaceholder />
+      </div>
+    );
   }
   
   const sourceType = detectVideoSource(videoUrl);
@@ -139,12 +192,21 @@ export function MultiSourceVideoPlayer({ videoUrl }: MultiSourceVideoPlayerProps
   };
   
   return (
-    <div className="w-full">
-      {renderPlayer()}
-      {/* Mobile fullscreen hint */}
-      <p className="text-xs text-center text-muted-foreground py-1.5 sm:hidden">
-        Tippe auf das Video für Vollbild
-      </p>
+    <div className="w-full bg-black overflow-hidden">
+      {/* Video container with dynamic height based on mode */}
+      <div 
+        className="relative w-full bg-black"
+        style={{ 
+          height: heightMode === 'hero' 
+            ? 'calc(100svh - var(--akademie-header-h, 60px) - var(--akademie-footer-h, 72px))' 
+            : undefined,
+          aspectRatio: heightMode === 'contained' ? '16/9' : undefined,
+          maxHeight: heightMode === 'hero' ? '75vh' : undefined,
+          minHeight: heightMode === 'hero' ? '280px' : undefined,
+        }}
+      >
+        {renderPlayer()}
+      </div>
     </div>
   );
 }
