@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useRef, useLayoutEffect, useState } from 'react';
-import { ArrowLeft, Check, Clock, BookOpen, FileText, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Check, Clock, BookOpen, FileText, ExternalLink, AlertTriangle, RefreshCw, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,6 +9,8 @@ import { useAkademieUnterpunkt } from '@/hooks/useAkademieContent';
 import { MultiSourceVideoPlayer } from '@/components/akademie/MultiSourceVideoPlayer';
 import { isUuid } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
+import { useIframeLessonProgress } from '@/hooks/useVideoProgress';
+import { Progress } from '@/components/ui/progress';
 
 const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
 
@@ -155,6 +157,13 @@ export default function AkademieModul() {
     );
   }
 
+  // Progress hook for unskippable video gating
+  const { 
+    canComplete: canCompleteVideo, 
+    percentComplete, 
+    timeRemainingFormatted 
+  } = useIframeLessonProgress(unterpunkt.dauerMinuten);
+
   const handleMarkComplete = () => {
     navigate('/', { 
       state: { 
@@ -162,6 +171,7 @@ export default function AkademieModul() {
         completedUnterpunktId: unterpunkt.id,
       } 
     });
+  };
   };
 
   const hasTextContent = unterpunkt.textInhalt && unterpunkt.textInhalt.trim().length > 0;
@@ -211,13 +221,15 @@ export default function AkademieModul() {
           <div className="p-4">
             <Tabs defaultValue="inhalt" className="w-full">
               <TabsList className="w-full grid grid-cols-3 mb-4">
-                <TabsTrigger value="inhalt" className="gap-1.5">
+                <TabsTrigger value="inhalt" className="gap-1.5" disabled={!canCompleteVideo}>
                   <BookOpen className="w-4 h-4" />
                   <span className="hidden sm:inline">Lerninhalt</span>
+                  {!canCompleteVideo && <Lock className="w-3 h-3 ml-1 opacity-50" />}
                 </TabsTrigger>
-                <TabsTrigger value="zusammenfassung" className="gap-1.5">
+                <TabsTrigger value="zusammenfassung" className="gap-1.5" disabled={!canCompleteVideo}>
                   <FileText className="w-4 h-4" />
                   <span className="hidden sm:inline">Zusammenfassung</span>
+                  {!canCompleteVideo && <Lock className="w-3 h-3 ml-1 opacity-50" />}
                 </TabsTrigger>
                 <TabsTrigger value="material" className="gap-1.5" disabled={!hasZusatzmaterial}>
                   <ExternalLink className="w-4 h-4" />
@@ -295,13 +307,30 @@ export default function AkademieModul() {
         className="sticky bottom-0 bg-card border-t border-border p-4 safe-area-bottom"
       >
         <div className="max-w-3xl mx-auto">
-          <Button 
-            className="w-full h-12 text-base"
-            onClick={handleMarkComplete}
-          >
-            <Check className="w-5 h-5 mr-2" />
-            Als abgeschlossen markieren
-          </Button>
+          {!canCompleteVideo ? (
+            <div className="space-y-2">
+              {/* Progress Bar */}
+              <Progress value={percentComplete} className="h-2" />
+              
+              {/* Disabled Button with remaining time */}
+              <Button className="w-full h-12 text-base" disabled>
+                <Clock className="w-5 h-5 mr-2 animate-pulse" />
+                {timeRemainingFormatted}
+              </Button>
+              
+              <p className="text-xs text-center text-muted-foreground">
+                Schaue das Video zu Ende, um fortzufahren
+              </p>
+            </div>
+          ) : (
+            <Button 
+              className="w-full h-12 text-base"
+              onClick={handleMarkComplete}
+            >
+              <Check className="w-5 h-5 mr-2" />
+              Als abgeschlossen markieren
+            </Button>
+          )}
         </div>
       </footer>
     </div>
