@@ -52,7 +52,7 @@ function getYouTubeEmbedUrl(url: string): string {
 // Bunny Stream iframe player
 function BunnyStreamPlayer({ url }: { url: string }) {
   return (
-    <div className="relative w-full aspect-video bg-black">
+    <div className="relative w-full aspect-video bg-black min-h-[200px] sm:min-h-[300px]">
       <iframe
         src={url}
         loading="lazy"
@@ -70,7 +70,7 @@ function YouTubePlayer({ url }: { url: string }) {
   const embedUrl = getYouTubeEmbedUrl(url);
   
   return (
-    <div className="relative w-full aspect-video bg-black">
+    <div className="relative w-full aspect-video bg-black min-h-[200px] sm:min-h-[300px]">
       <iframe
         src={embedUrl}
         loading="lazy"
@@ -88,7 +88,7 @@ function DirectVideoPlayer({ url }: { url: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   
   return (
-    <div className="relative w-full aspect-video bg-black">
+    <div className="relative w-full aspect-video bg-black min-h-[200px] sm:min-h-[300px]">
       <video
         ref={videoRef}
         src={url}
@@ -125,14 +125,26 @@ export function MultiSourceVideoPlayer({ videoUrl }: MultiSourceVideoPlayerProps
   
   const sourceType = detectVideoSource(videoUrl);
   
-  switch (sourceType) {
-    case 'bunny-stream':
-      return <BunnyStreamPlayer url={videoUrl} />;
-    case 'youtube':
-      return <YouTubePlayer url={videoUrl} />;
-    case 'direct-mp4':
-      return <DirectVideoPlayer url={videoUrl} />;
-    default:
-      return <NoVideoPlaceholder />;
-  }
+  const renderPlayer = () => {
+    switch (sourceType) {
+      case 'bunny-stream':
+        return <BunnyStreamPlayer url={videoUrl} />;
+      case 'youtube':
+        return <YouTubePlayer url={videoUrl} />;
+      case 'direct-mp4':
+        return <DirectVideoPlayer url={videoUrl} />;
+      default:
+        return <NoVideoPlaceholder />;
+    }
+  };
+  
+  return (
+    <div className="w-full">
+      {renderPlayer()}
+      {/* Mobile fullscreen hint */}
+      <p className="text-xs text-center text-muted-foreground py-1.5 sm:hidden">
+        Tippe auf das Video für Vollbild
+      </p>
+    </div>
+  );
 }
