@@ -51,12 +51,43 @@ export default function AkademieModul() {
   const videoSource = unterpunkt?.videoUrl ? detectVideoSource(unterpunkt.videoUrl) : null;
   const isBunnyStream = videoSource === 'bunny-stream';
   
-  // Get iframe ref when player mounts
+  // Get iframe ref when player mounts - with polling retry
+  // Fix: iFrame may not be immediately available after cssVarsReady
   useEffect(() => {
-    if (videoPlayerRef.current) {
-      const iframe = videoPlayerRef.current.getIframeRef();
-      setIframeRef(iframe);
-    }
+    if (!cssVarsReady || !unterpunkt?.videoUrl) return;
+    
+    const checkForIframe = () => {
+      if (videoPlayerRef.current) {
+        const iframe = videoPlayerRef.current.getIframeRef();
+        if (iframe) {
+          console.log('[AkademieModul] iFrame ref captured successfully');
+          setIframeRef(iframe);
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    // Check immediately
+    if (checkForIframe()) return;
+    
+    // Retry every 100ms for up to 5 seconds
+    console.log('[AkademieModul] iFrame not ready, starting polling...');
+    const interval = setInterval(() => {
+      if (checkForIframe()) {
+        clearInterval(interval);
+      }
+    }, 100);
+    
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      console.warn('[AkademieModul] iFrame polling timed out after 5s');
+    }, 5000);
+    
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, [cssVarsReady, unterpunkt?.videoUrl]);
   
   // Measure header and footer heights, set CSS variables

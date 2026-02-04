@@ -127,6 +127,9 @@ export function useVideoProgress(
 /**
  * Hook for Bunny Stream videos using Player.js API.
  * Tracks actual playback time and prevents skipping ahead.
+ * 
+ * FIX: Now accepts iframe as state (HTMLIFrameElement | null) instead of RefObject
+ * so the hook re-initializes when the iframe becomes available.
  */
 export function useBunnyPlayerProgress(
   videoDurationMinutes: number,
@@ -145,6 +148,7 @@ export function useBunnyPlayerProgress(
   const [watchedSeconds, setWatchedSeconds] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [initAttempt, setInitAttempt] = useState(0);
   
   // Refs for tracking state without triggering re-renders
   const maxReachedTimeRef = useRef(0);
@@ -163,43 +167,66 @@ export function useBunnyPlayerProgress(
   const secs = remaining % 60;
   const timeRemainingFormatted = `${mins}:${secs.toString().padStart(2, '0')} verbleibend`;
   
+  // Trigger re-init when iframe ref changes
+  useEffect(() => {
+    if (iframeRef.current) {
+      setInitAttempt(prev => prev + 1);
+    }
+  }, [iframeRef.current]);
+  
+  // Main initialization effect - depends on initAttempt to re-run
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) {
-      console.log('[BunnyPlayer] No iframe ref yet');
+      console.log('[BunnyPlayer] No iframe ref yet, waiting...');
       return;
     }
     
     // Check if playerjs is available
     if (typeof playerjs === 'undefined') {
-      console.warn('[BunnyPlayer] Player.js not loaded, falling back to timer');
+      console.warn('[BunnyPlayer] Player.js SDK not loaded');
       return;
     }
     
-    console.log('[BunnyPlayer] Initializing Player.js');
+    console.log('[BunnyPlayer] Initializing Player.js with iframe:', iframe.id);
     
     const initPlayer = () => {
+      // Cleanup previous player if exists
+      if (playerRef.current) {
+        try {
+          playerRef.current.off('ready');
+          playerRef.current.off('play');
+          playerRef.current.off('pause');
+          playerRef.current.off('ended');
+          playerRef.current.off('timeupdate');
+          playerRef.current.off('error');
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        playerRef.current = null;
+      }
+      
       try {
         const player = new playerjs.Player(iframe);
         playerRef.current = player;
         
         player.on('ready', () => {
-          console.log('[BunnyPlayer] Player ready');
+          console.log('[BunnyPlayer] ✅ Player ready - events will now fire correctly');
           setIsPlayerReady(true);
         });
         
         player.on('play', () => {
-          console.log('[BunnyPlayer] Playing');
+          console.log('[BunnyPlayer] ▶ Playing');
           setIsPlaying(true);
         });
         
         player.on('pause', () => {
-          console.log('[BunnyPlayer] Paused');
+          console.log('[BunnyPlayer] ⏸ Paused');
           setIsPlaying(false);
         });
         
         player.on('ended', () => {
-          console.log('[BunnyPlayer] Ended');
+          console.log('[BunnyPlayer] ⏹ Ended');
           setIsPlaying(false);
           // Mark as fully watched when video ends naturally
           setWatchedSeconds(requiredSeconds);
@@ -218,7 +245,7 @@ export function useBunnyPlayerProgress(
           }
           // Skip detected: user jumped ahead of max reached position
           else if (currentTime > maxReached + 2) {
-            console.log('[BunnyPlayer] Skip detected! Resetting to:', maxReached);
+            console.log('[BunnyPlayer] 🚫 Skip detected! Resetting to:', maxReached);
             player.setCurrentTime(maxReached);
           }
           // Backward seek is allowed (rewinding)
@@ -238,16 +265,18 @@ export function useBunnyPlayerProgress(
       }
     };
     
-    // Wait for iframe to be ready
+    // Wait for iframe to be fully loaded
     if (iframe.contentWindow) {
-      initPlayer();
+      // Small delay to ensure Bunny player is ready
+      setTimeout(initPlayer, 200);
     } else {
+      console.log('[BunnyPlayer] Waiting for iframe load event...');
       iframe.addEventListener('load', initPlayer);
       return () => iframe.removeEventListener('load', initPlayer);
     }
     
     return () => {
-      // Cleanup player listeners
+      // Cleanup player listeners on unmount
       if (playerRef.current) {
         try {
           playerRef.current.off('ready');
@@ -262,17 +291,17 @@ export function useBunnyPlayerProgress(
         playerRef.current = null;
       }
     };
-  }, [iframeRef, requiredSeconds]);
+  }, [initAttempt, requiredSeconds]);
   
-  // Fallback timer if Player.js fails to initialize after 5 seconds
+  // Fallback timer if Player.js fails to initialize after 8 seconds
   useEffect(() => {
     if (isPlayerReady) return; // Player.js is working
     
     const fallbackTimer = setTimeout(() => {
       if (!isPlayerReady) {
-        console.warn('[BunnyPlayer] Player.js not ready after 5s, using fallback timer');
+        console.warn('[BunnyPlayer] Player.js not ready after 8s - video tracking may not work');
       }
-    }, 5000);
+    }, 8000);
     
     return () => clearTimeout(fallbackTimer);
   }, [isPlayerReady]);
