@@ -1,8 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { createClient } from '@supabase/supabase-js';
 import { AkademieHauptmodul, AkademieUnterpunkt } from '@/types/onboarding';
-import { MOCK_AKADEMIE_HAUPTMODULE } from '@/lib/onboarding-config';
 
 // Create a separate client for thermocheck schema access
 const thermocheckClient = createClient(
@@ -172,47 +170,11 @@ export function useAkademieContent() {
         console.log(`[Akademie] Loaded ${result.length} modules from thermocheck schema`);
         return result;
       } catch (error) {
-        console.warn('[Akademie] Thermocheck schema query failed, trying legacy tables:', error);
+        console.warn('[Akademie] Thermocheck schema query failed:', error);
+        // No legacy fallback - thermocheck is SSOT
+        console.warn('[Akademie] No data found in thermocheck schema');
+        return [];
       }
-
-      // Fallback: Try legacy public schema tables
-      try {
-        const { data: hauptmodule, error: hmError } = await supabase
-          .from('onboarding_akademie_hauptmodule')
-          .select(`
-            *,
-            onboarding_akademie_unterpunkte(*)
-          `)
-          .eq('ist_aktiv', true)
-          .order('reihenfolge');
-
-        if (!hmError && hauptmodule && hauptmodule.length > 0) {
-          return hauptmodule.map((hm: any) => ({
-            id: hm.id,
-            titel: hm.titel,
-            beschreibung: hm.beschreibung || '',
-            reihenfolge: hm.reihenfolge,
-            unterpunkte: (hm.onboarding_akademie_unterpunkte || [])
-              .filter((up: any) => up.ist_aktiv)
-              .sort((a: any, b: any) => a.reihenfolge - b.reihenfolge)
-              .map((up: any): AkademieUnterpunkt => ({
-                id: up.id,
-                titel: up.titel,
-                beschreibung: up.beschreibung || '',
-                videoUrl: up.video_url || '',
-                dauerMinuten: up.video_dauer_minuten || 5,
-                reihenfolge: up.reihenfolge,
-                abgeschlossen: false,
-              })),
-          })) as AkademieHauptmodul[];
-        }
-      } catch (error) {
-        console.warn('[Akademie] Legacy tables also failed:', error);
-      }
-
-      // Final fallback to mock data
-      console.log('[Akademie] Using mock data as final fallback');
-      return MOCK_AKADEMIE_HAUPTMODULE;
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -263,54 +225,7 @@ export function useAkademieUnterpunkt(lektionId: string | undefined) {
         console.warn('[Akademie] Thermocheck lektion query failed:', error);
       }
 
-      // Fallback: Try legacy table
-      try {
-        const { data, error } = await supabase
-          .from('onboarding_akademie_unterpunkte')
-          .select(`
-            *,
-            hauptmodul:onboarding_akademie_hauptmodule(id, titel)
-          `)
-          .eq('id', lektionId)
-          .eq('ist_aktiv', true)
-          .maybeSingle();
-        
-        if (!error && data) {
-          const hauptmodul = data.hauptmodul as { id: string; titel: string } | null;
-          return {
-            id: data.id,
-            titel: data.titel,
-            beschreibung: data.beschreibung || '',
-            videoUrl: data.video_url || '',
-            dauerMinuten: data.video_dauer_minuten || 5,
-            reihenfolge: data.reihenfolge,
-            abgeschlossen: false,
-            hauptmodulId: hauptmodul?.id || '',
-            hauptmodulTitel: hauptmodul?.titel || '',
-            textInhalt: data.text_inhalt,
-            textZusammenfassung: data.text_zusammenfassung,
-            zusatzmaterialUrls: (data.zusatzmaterial_urls as string[]) || [],
-          } as AkademieUnterpunktDetails;
-        }
-      } catch (error) {
-        console.warn('[Akademie] Legacy lektion query failed:', error);
-      }
-
-      // Find in mock data as fallback
-      for (const hauptmodul of MOCK_AKADEMIE_HAUPTMODULE) {
-        const unterpunkt = hauptmodul.unterpunkte.find(up => up.id === lektionId);
-        if (unterpunkt) {
-          return {
-            ...unterpunkt,
-            hauptmodulId: hauptmodul.id,
-            hauptmodulTitel: hauptmodul.titel,
-            textInhalt: null,
-            textZusammenfassung: null,
-            zusatzmaterialUrls: [],
-          } as AkademieUnterpunktDetails;
-        }
-      }
-
+      // No legacy fallback - thermocheck is SSOT
       return null;
     },
     enabled: !!lektionId,
