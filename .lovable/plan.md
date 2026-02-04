@@ -1,157 +1,234 @@
 
-## Echtes Unskippable Video mit Player.js API
+# Fix: Player.js funktioniert nicht - iFrame Ref Kette gebrochen
 
-### Problem-Analyse
+## Zusammenfassung der Probleme
 
-Du hast zwei Probleme gemeldet:
-1. **Video kann uebersprungen werden** - Der User kann vorspulen
-2. **Timer laeuft auch bei Pause** - Die Uhr zaehlt weiter, auch wenn das Video pausiert ist
-
-**Ursache:** Die aktuelle Implementierung nutzt einen simplen `setInterval`-Timer, der jede Sekunde hochzaehlt - unabhaengig davon, ob das Video spielt oder pausiert ist.
-
-### Loesung: Bunny Stream Player.js API
-
-Bunny Stream unterstuetzt die **Player.js API**, die es erlaubt:
-- `play` / `pause` Events zu empfangen
-- `timeupdate` Events mit aktueller Position zu erhalten
-- `setCurrentTime()` aufzurufen um Skipping zu verhindern
+Du hast drei Probleme gemeldet:
+1. **Video zeigt "pausiert" obwohl es laeuft** - Player.js Events werden nicht empfangen
+2. **Skippen ist moeglich** - Anti-Skip Logik greift nicht
+3. **Kein Lerninhalt** - DB-Spalte `text_inhalt` ist NULL (separates Daten-Problem)
 
 ---
 
-## Technische Umsetzung
+## Root Cause Analyse (aus Console Logs)
 
-### 1) Player.js SDK einbinden
-
-**Datei:** `index.html`
-
-```html
-<script src="//assets.mediadelivery.net/playerjs/playerjs-latest.min.js"></script>
+```
+[BunnyPlayer] No iframe ref yet
+[BunnyPlayer] Player.js not ready after 5s, using fallback timer
 ```
 
-### 2) Neuer Hook: `useBunnyPlayerProgress`
+**Warum passiert das?**
 
-**Datei:** `src/hooks/useVideoProgress.ts`
+Die Ref-Weitergabe von `BunnyStreamPlayer` → `MultiSourceVideoPlayer` → `AkademieModul` ist **gebrochen**.
 
-Dieser Hook ersetzt `useIframeLessonProgress` und macht folgendes:
-- Hoert auf `play`/`pause` Events vom Bunny Player
-- Zaehlt nur hoch wenn Video **tatsaechlich spielt**
-- Trackt die maximale erreichte Position
-- Verhindert Vorspulen ueber die maximal erreichte Position
+### Problem 1: Ref wird nie gesetzt
+
+In `MultiSourceVideoPlayer.tsx`:
+```typescript
+const bunnyIframeRef = useRef<HTMLIFrameElement>(null);  // Zeile 178
+
+// Expose iframe ref to parent
+useImperativeHandle(ref, () => ({
+  getIframeRef: () => bunnyIframeRef.current  // Zeile 182 - liest bunnyIframeRef
+}), []);
+
+// ABER: BunnyStreamPlayer schreibt in seinen EIGENEN internalRef!
+<BunnyStreamPlayer ref={bunnyIframeRef} url={videoUrl} />  // Zeile 205
+```
+
+Das Problem: `BunnyStreamPlayer` verwendet `forwardRef` und `useImperativeHandle`, aber es **ueberschreibt** den Ref mit seinem eigenen Wert (`internalRef.current!`), statt den echten DOM-Node zu exponieren.
+
+### Problem 2: Timing Race Condition
+
+In `AkademieModul.tsx`:
+```typescript
+useEffect(() => {
+  if (videoPlayerRef.current) {
+    const iframe = videoPlayerRef.current.getIframeRef();  // Zeile 57
+    setIframeRef(iframe);  // Wird aufgerufen, aber iframe ist null!
+  }
+}, [cssVarsReady, unterpunkt?.videoUrl]);  // Zeile 60
+```
+
+Dieser Effect wird ausgefuehrt **bevor** der iFrame tatsaechlich gerendert wird, weil:
+1. `cssVarsReady` wird `true`
+2. Effect laeuft
+3. `getIframeRef()` gibt `null` zurueck (iFrame existiert noch nicht)
+4. Spaeter wird iFrame gerendert, aber Effect laeuft nicht nochmal
+
+---
+
+## Loesung
+
+### Fix 1: Korrektur der Ref-Kette in MultiSourceVideoPlayer
+
+**Aktueller Code (fehlerhaft):**
+```typescript
+const bunnyIframeRef = useRef<HTMLIFrameElement>(null);
+
+useImperativeHandle(ref, () => ({
+  getIframeRef: () => bunnyIframeRef.current
+}), []);
+
+<BunnyStreamPlayer ref={bunnyIframeRef} url={videoUrl} />
+```
+
+**Problem:** `BunnyStreamPlayer` ist ein `forwardRef` Component der `useImperativeHandle` nutzt und `internalRef.current!` zurueckgibt. Aber `bunnyIframeRef` erwartet ein `HTMLIFrameElement`, nicht das was `useImperativeHandle` zurueckgibt.
+
+**Fix:** Die Ref-Logik in `BunnyStreamPlayer` vereinfachen - direkt den DOM-Node exponieren statt `useImperativeHandle`:
 
 ```typescript
-interface UseBunnyPlayerProgressOptions {
-  requiredWatchPercent?: number;
-  iframeRef: RefObject<HTMLIFrameElement>;
-}
-
-export function useBunnyPlayerProgress(
-  videoDurationMinutes: number,
-  options: UseBunnyPlayerProgressOptions
-): {
-  canComplete: boolean;
-  watchedSeconds: number;
-  requiredSeconds: number;
-  percentComplete: number;
-  timeRemainingFormatted: string;
-  isPlaying: boolean;
-}
+// BunnyStreamPlayer - vereinfacht
+const BunnyStreamPlayer = forwardRef<HTMLIFrameElement, { url: string }>(
+  function BunnyStreamPlayer({ url }, ref) {
+    const normalizedUrl = normalizeBunnyUrl(url);
+    
+    return (
+      <iframe
+        ref={ref}  // Direkt den forwarded ref nutzen
+        id="bunny-player-iframe"
+        src={normalizedUrl}
+        // ...
+      />
+    );
+  }
+);
 ```
 
-**Logik:**
-1. `playerjs.Player(iframe)` initialisieren wenn iFrame geladen
-2. `player.on('timeupdate', callback)` - empfaengt `{seconds, duration}`
-3. Nur die tatsaechlich abgespielten Sekunden zaehlen (keine Spruenge)
-4. Bei Vorwaerts-Seek: `player.setCurrentTime(maxReachedTime)` zuruecksetzen
+### Fix 2: Polling in AkademieModul fuer iFrame Ref
 
-### 3) BunnyStreamPlayer anpassen
+**Aktueller Code:**
+```typescript
+useEffect(() => {
+  if (videoPlayerRef.current) {
+    const iframe = videoPlayerRef.current.getIframeRef();
+    setIframeRef(iframe);
+  }
+}, [cssVarsReady, unterpunkt?.videoUrl]);
+```
 
-**Datei:** `src/components/akademie/MultiSourceVideoPlayer.tsx`
+**Fix:** Polling mit Retry bis iFrame verfuegbar:
+```typescript
+useEffect(() => {
+  if (!cssVarsReady || !unterpunkt?.videoUrl) return;
+  
+  // Poll for iframe availability
+  const checkForIframe = () => {
+    if (videoPlayerRef.current) {
+      const iframe = videoPlayerRef.current.getIframeRef();
+      if (iframe) {
+        setIframeRef(iframe);
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  // Check immediately
+  if (checkForIframe()) return;
+  
+  // Retry every 100ms
+  const interval = setInterval(() => {
+    if (checkForIframe()) {
+      clearInterval(interval);
+    }
+  }, 100);
+  
+  // Give up after 5 seconds
+  const timeout = setTimeout(() => clearInterval(interval), 5000);
+  
+  return () => {
+    clearInterval(interval);
+    clearTimeout(timeout);
+  };
+}, [cssVarsReady, unterpunkt?.videoUrl]);
+```
 
-- iFrame bekommt eine `id` oder `ref`
-- Progress-Hook bekommt Zugriff auf die iFrame-Referenz
-- Kommunikation nach oben via Callback/Context
+### Fix 3: Player.js Hook mit iFrame-Change Detection
 
-### 4) AkademieModul.tsx anpassen
+**Problem:** Der `useBunnyPlayerProgress` Hook initialisiert nur einmal und prueft `iframeRef.current` - wenn dieser `null` ist beim ersten Render, wird Player.js nie initialisiert.
 
-- Neuen Hook statt `useIframeLessonProgress` nutzen
-- iFrame-Ref von MultiSourceVideoPlayer durchreichen
+**Fix:** Hook so aendern dass er auf Aenderungen von `iframeRef.current` reagiert:
+```typescript
+useEffect(() => {
+  const iframe = iframeRef.current;
+  if (!iframe) {
+    console.log('[BunnyPlayer] No iframe ref yet');
+    return;
+  }
+  
+  // ... Player initialization
+}, [iframeRef.current]);  // Re-run wenn sich der Ref aendert
+```
+
+**ABER:** `iframeRef.current` in Dependencies funktioniert nicht da es kein reaktiver Wert ist!
+
+**Besserer Fix:** Das Polling in AkademieModul triggert ein State-Update (`setIframeRef`), und dieses wird via Props an `AkademieModulContent` weitergegeben. Dort wird es in einen Ref verpackt:
+```typescript
+const iframeRefObject = useRef<HTMLIFrameElement | null>(null);
+iframeRefObject.current = iframeRef;  // Sync bei jedem Render
+```
+
+Das Problem ist: Der Hook `useBunnyPlayerProgress` laeuft vor diesem Sync. Wir muessen den Hook **neu triggern** wenn `iframeRef` sich aendert.
+
+**Loesung:** Statt Ref als Parameter, den iFrame direkt als State uebergeben:
+
+```typescript
+// In useBunnyPlayerProgress - Dependencies auf iframe selbst
+useEffect(() => {
+  if (!iframe) {
+    console.log('[BunnyPlayer] No iframe ref yet');
+    return;
+  }
+  // ... initialization
+}, [iframe, requiredSeconds]);  // iframe ist jetzt reaktiv
+```
 
 ---
 
-## Architektur-Entscheidung
-
-Es gibt zwei Wege, die Kommunikation zwischen Player und Hook zu organisieren:
-
-**Option A: Ref durchreichen (einfacher)**
-- MultiSourceVideoPlayer gibt iFrame-Ref nach oben
-- Hook wird in AkademieModul mit dieser Ref initialisiert
-
-**Option B: Context/Callback (sauberer)**
-- MultiSourceVideoPlayer managed Player.js intern
-- Feuert Callbacks: `onProgress(seconds)`, `onPlay()`, `onPause()`
-- Hook reagiert auf diese Events
-
-Ich empfehle **Option A** fuer Einfachheit, da es nur eine Komponente betrifft.
-
----
-
-## Dateien die ich aendern werde
+## Dateien die geaendert werden
 
 | Datei | Aenderung |
 |-------|-----------|
-| `index.html` | Player.js SDK Script hinzufuegen |
-| `src/hooks/useVideoProgress.ts` | Neuer Hook `useBunnyPlayerProgress` mit echtem Playback-Tracking |
-| `src/components/akademie/MultiSourceVideoPlayer.tsx` | iFrame-Ref exponieren, ID hinzufuegen |
-| `src/pages/AkademieModul.tsx` | Neuen Hook nutzen mit iFrame-Ref |
-| `src/vite-env.d.ts` | TypeScript-Deklaration fuer `playerjs` global |
+| `src/components/akademie/MultiSourceVideoPlayer.tsx` | BunnyStreamPlayer: Direkte Ref-Weitergabe statt useImperativeHandle |
+| `src/pages/AkademieModul.tsx` | iFrame Ref Polling mit Retry-Logik |
+| `src/hooks/useVideoProgress.ts` | Hook akzeptiert iFrame als State statt Ref, re-initialisiert bei Aenderung |
 
 ---
 
-## Anti-Skip Logik (Kernfeature)
+## Ablauf nach Fix
 
-```typescript
-// Pseudo-Code fuer Anti-Skip
-let maxReachedTime = 0;
-let accumulatedWatchTime = 0;
-let lastUpdateTime = 0;
-
-player.on('timeupdate', ({ seconds }) => {
-  // Normale Wiedergabe: kleine Spruenge (< 2 Sek) erlauben
-  if (seconds > lastUpdateTime && seconds - lastUpdateTime < 2) {
-    accumulatedWatchTime += (seconds - lastUpdateTime);
-    maxReachedTime = Math.max(maxReachedTime, seconds);
-  }
-  // Vorwaerts-Skip erkannt: zuruecksetzen!
-  else if (seconds > maxReachedTime + 2) {
-    player.setCurrentTime(maxReachedTime);
-  }
-  lastUpdateTime = seconds;
-});
-```
+1. `AkademieModul` rendert, `cssVarsReady = true`
+2. `MultiSourceVideoPlayer` rendert, `BunnyStreamPlayer` rendert iFrame
+3. Polling in `useEffect` findet iFrame nach ~100-200ms
+4. `setIframeRef(iframe)` loest State-Update aus
+5. `AkademieModulContent` bekommt neue `iframeRef` Prop
+6. `useBunnyPlayerProgress` Hook re-initialisiert mit echtem iFrame
+7. Player.js wird erfolgreich initialisiert
+8. Console: `[BunnyPlayer] Player ready`
+9. Play/Pause Events werden korrekt erkannt
+10. Anti-Skip Logik greift
 
 ---
 
-## Erwartetes Verhalten nach Implementierung
+## Zum Lerninhalt (DB Problem)
 
-1. User startet Video - Timer beginnt
-2. User pausiert Video - **Timer stoppt**
-3. User versucht vorzuspulen - **Video springt zurueck**
-4. Nur tatsaechlich abgespielte Zeit zaehlt
-5. Nach 90% echter Wiedergabe: Tabs und Button werden freigeschalten
+Der Screenshot zeigt `text_inhalt = NULL` fuer die Lektion `f10b3df0-1a58-4d2a-80a1-164b38a21292`.
 
----
+Das ist ein **Daten-Problem**, kein Code-Problem. Der Text den du frueher genannt hast (Cinderella-Prinzip etc.) muss in der Datenbank in die Spalte `text_inhalt` eingetragen werden.
 
-## Fallback fuer YouTube
-
-YouTube unterstuetzt Player.js **nicht**. Fuer YouTube-Videos bleibt der alte Timer-basierte Ansatz als Fallback:
-- Erkennung via `detectVideoSource()`
-- Bei `youtube`: weiterhin `useIframeLessonProgress` nutzen
-- Bei `bunny-stream`: neuen `useBunnyPlayerProgress` nutzen
+**Nach dem Code-Fix:** Du kannst den Lerninhalt direkt in Supabase eintragen:
+- Tabelle: `contractor_akademie_lektionen`
+- Row: UUID `f10b3df0-1a58-4d2a-80a1-164b38a21292`
+- Spalte: `text_inhalt`
+- Format: Markdown
 
 ---
 
-## Risiken
+## Erwartetes Ergebnis
 
-1. **Player.js Script blockiert**: Falls CDN nicht erreichbar, funktioniert Tracking nicht. Fallback auf Timer-basiert.
-2. **Timing-Races**: iFrame muss geladen sein bevor Player initialisiert wird. Robustes `player.on('ready')` Handling noetig.
-3. **Mobile Safari**: Kann restriktiver sein mit iframe-Kommunikation. Testen erforderlich.
+Nach dem Fix:
+- Video Play → Button zeigt "X:XX verbleibend" mit laufendem Timer
+- Video Pause → Button zeigt "Video pausiert"
+- User versucht zu skippen → Video springt zurueck zur erlaubten Position
+- 90% geschaut → Tabs und "Abschliessen" Button werden aktiv
