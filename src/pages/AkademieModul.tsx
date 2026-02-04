@@ -248,12 +248,15 @@ function AkademieModulContent({
   
   const fallbackProgress = useIframeLessonProgress(unterpunkt.dauerMinuten);
   
-  // Use Bunny progress if it's a Bunny stream
-  const progress = isBunnyStream ? bunnyProgress : fallbackProgress;
-  const canCompleteVideo = progress.canComplete;
-  const percentComplete = progress.percentComplete;
-  const timeRemainingFormatted = progress.timeRemainingFormatted;
-  const isPlaying = isBunnyStream ? bunnyProgress.isPlaying : true; // Assume playing for fallback
+  // Use Bunny progress if it's a Bunny stream - with two-phase logic
+  // canUnlockTabs = 90% watched (unlock content tabs)
+  // canMarkComplete = 100% or video ended (enable completion button)
+  const canUnlockTabs = isBunnyStream ? bunnyProgress.canUnlockTabs : fallbackProgress.canComplete;
+  const canMarkComplete = isBunnyStream ? bunnyProgress.canMarkComplete : fallbackProgress.canComplete;
+  const percentComplete = isBunnyStream ? bunnyProgress.percentComplete : fallbackProgress.percentComplete;
+  const timeRemainingFormatted = isBunnyStream ? bunnyProgress.timeRemainingFormatted : fallbackProgress.timeRemainingFormatted;
+  const isPlaying = isBunnyStream ? bunnyProgress.isPlaying : true;
+  const isVideoEnded = isBunnyStream ? bunnyProgress.isVideoEnded : false;
 
   const handleMarkComplete = () => {
     navigate('/', { 
@@ -315,15 +318,15 @@ function AkademieModulContent({
           <div className="p-4">
             <Tabs defaultValue="inhalt" className="w-full">
               <TabsList className="w-full grid grid-cols-3 mb-4">
-                <TabsTrigger value="inhalt" className="gap-1.5" disabled={!canCompleteVideo}>
+                <TabsTrigger value="inhalt" className="gap-1.5" disabled={!canUnlockTabs}>
                   <BookOpen className="w-4 h-4" />
                   <span className="hidden sm:inline">Lerninhalt</span>
-                  {!canCompleteVideo && <Lock className="w-3 h-3 ml-1 opacity-50" />}
+                  {!canUnlockTabs && <Lock className="w-3 h-3 ml-1 opacity-50" />}
                 </TabsTrigger>
-                <TabsTrigger value="zusammenfassung" className="gap-1.5" disabled={!canCompleteVideo}>
+                <TabsTrigger value="zusammenfassung" className="gap-1.5" disabled={!canUnlockTabs}>
                   <FileText className="w-4 h-4" />
                   <span className="hidden sm:inline">Zusammenfassung</span>
-                  {!canCompleteVideo && <Lock className="w-3 h-3 ml-1 opacity-50" />}
+                  {!canUnlockTabs && <Lock className="w-3 h-3 ml-1 opacity-50" />}
                 </TabsTrigger>
                 <TabsTrigger value="material" className="gap-1.5" disabled={!hasZusatzmaterial}>
                   <ExternalLink className="w-4 h-4" />
@@ -333,30 +336,49 @@ function AkademieModulContent({
 
               {/* Lerninhalt Tab */}
               <TabsContent value="inhalt" className="mt-0">
-                {hasTextContent ? (
+                {!canUnlockTabs ? (
+                  // Locked state: Show lock icon
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Lock className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Lerninhalt gesperrt</p>
+                    <p className="text-sm">Schaue das Video zu Ende, um freizuschalten.</p>
+                  </div>
+                ) : hasTextContent ? (
+                  // Unlocked with content
                   <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-li:text-muted-foreground">
                     <ReactMarkdown>{unterpunkt.textInhalt!}</ReactMarkdown>
                   </div>
                 ) : (
+                  // Unlocked but no content
                   <div className="text-center py-8 text-muted-foreground">
                     <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>Kein Lerninhalt verfügbar.</p>
-                    <p className="text-sm">Schaue dir das Video an.</p>
                   </div>
                 )}
               </TabsContent>
 
               {/* Zusammenfassung Tab */}
               <TabsContent value="zusammenfassung" className="mt-0">
-                {unterpunkt.textZusammenfassung ? (
+                {!canUnlockTabs ? (
+                  // Locked state
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Lock className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Zusammenfassung gesperrt</p>
+                    <p className="text-sm">Schaue das Video zu Ende, um freizuschalten.</p>
+                  </div>
+                ) : unterpunkt.textZusammenfassung ? (
+                  // Unlocked with content
                   <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
                     <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-primary" />
                       Key Takeaways
                     </h3>
-                    <p className="text-muted-foreground">{unterpunkt.textZusammenfassung}</p>
+                    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-li:text-muted-foreground">
+                      <ReactMarkdown>{unterpunkt.textZusammenfassung}</ReactMarkdown>
+                    </div>
                   </div>
                 ) : (
+                  // Unlocked but no content
                   <div className="text-center py-8 text-muted-foreground">
                     <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>Keine Zusammenfassung verfügbar.</p>
@@ -401,30 +423,41 @@ function AkademieModulContent({
         className="sticky bottom-0 bg-card border-t border-border p-4 safe-area-bottom"
       >
         <div className="max-w-3xl mx-auto">
-          {!canCompleteVideo ? (
+          {!canMarkComplete ? (
             <div className="space-y-2">
-              {/* Progress Bar */}
-              <Progress value={percentComplete} className="h-2" />
+              {/* Progress Bar - only show when tabs not yet unlocked */}
+              {!canUnlockTabs && <Progress value={percentComplete} className="h-2" />}
               
-              {/* Status indicator with play/pause for Bunny */}
+              {/* Status indicator with two-phase logic */}
               <Button className="w-full h-12 text-base" disabled>
-                {isBunnyStream && !isPlaying ? (
-                  <>
-                    <Pause className="w-5 h-5 mr-2" />
-                    Video pausiert
-                  </>
+                {!canUnlockTabs ? (
+                  // Phase 1: Still watching, show timer
+                  isBunnyStream && !isPlaying ? (
+                    <>
+                      <Pause className="w-5 h-5 mr-2" />
+                      Video pausiert
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-5 h-5 mr-2 animate-pulse" />
+                      {timeRemainingFormatted}
+                    </>
+                  )
                 ) : (
+                  // Phase 2: Tabs unlocked, waiting for video end
                   <>
-                    <Clock className="w-5 h-5 mr-2 animate-pulse" />
-                    {timeRemainingFormatted}
+                    <Play className="w-5 h-5 mr-2" />
+                    Video zu Ende schauen
                   </>
                 )}
               </Button>
               
               <p className="text-xs text-center text-muted-foreground">
-                {isBunnyStream && !isPlaying 
-                  ? "Starte das Video, um fortzufahren"
-                  : "Schaue das Video zu Ende, um fortzufahren"
+                {!canUnlockTabs 
+                  ? (isBunnyStream && !isPlaying 
+                      ? "Starte das Video, um fortzufahren"
+                      : "Schaue das Video weiter")
+                  : "Video zu Ende schauen, um abzuschließen"
                 }
               </p>
             </div>
