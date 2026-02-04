@@ -138,24 +138,25 @@ export default function AkademieModul() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-card border-b border-border px-4 py-3 safe-area-top">
-        <div className="flex items-center gap-3 max-w-3xl mx-auto">
+      <header className="sticky top-0 z-50 bg-card border-b border-border safe-area-top">
+        <div className="flex items-start gap-2 px-3 py-2 max-w-3xl mx-auto">
           <Button 
             variant="ghost" 
             size="icon"
+            className="shrink-0 mt-0.5"
             onClick={() => navigate('/')}
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground truncate">
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <p className="text-xs text-muted-foreground truncate leading-tight">
               {unterpunkt.hauptmodulTitel}
             </p>
-            <h1 className="font-semibold text-foreground truncate">
+            <h1 className="font-semibold text-foreground text-sm leading-tight line-clamp-2">
               {unterpunkt.titel}
             </h1>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Clock className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+              <Clock className="w-3 h-3 shrink-0" />
               <span>{unterpunkt.dauerMinuten} Minuten</span>
             </div>
           </div>
