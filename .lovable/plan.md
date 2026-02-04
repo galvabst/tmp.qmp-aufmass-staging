@@ -1,201 +1,157 @@
 
-## Unskippable Video + Content-Gating fuer Akademie
+## Echtes Unskippable Video mit Player.js API
 
-### Zusammenfassung
+### Problem-Analyse
 
-Die Akademie-Lektionen sollen ein "Unskippable Video"-System bekommen:
-- Der **Abschliessen-Button** wird erst aktiv, nachdem 90% der Video-Dauer auf der Seite vergangen ist
-- Die **Tabs "Lerninhalt" und "Zusammenfassung"** bleiben gesperrt, bis diese Zeit erreicht ist
-- Ein **Progress-Indikator** zeigt an, wie viel Zeit noch bleibt
+Du hast zwei Probleme gemeldet:
+1. **Video kann uebersprungen werden** - Der User kann vorspulen
+2. **Timer laeuft auch bei Pause** - Die Uhr zaehlt weiter, auch wenn das Video pausiert ist
 
-Da Bunny Stream und YouTube iFrames sind (cross-origin), koennen wir deren Playback nicht direkt tracken. Stattdessen nutzen wir einen **seitenbasierten Timer** basierend auf der in der Datenbank hinterlegten `dauerMinuten`.
+**Ursache:** Die aktuelle Implementierung nutzt einen simplen `setInterval`-Timer, der jede Sekunde hochzaehlt - unabhaengig davon, ob das Video spielt oder pausiert ist.
+
+### Loesung: Bunny Stream Player.js API
+
+Bunny Stream unterstuetzt die **Player.js API**, die es erlaubt:
+- `play` / `pause` Events zu empfangen
+- `timeupdate` Events mit aktueller Position zu erhalten
+- `setCurrentTime()` aufzurufen um Skipping zu verhindern
 
 ---
 
-### Technische Umsetzung
+## Technische Umsetzung
 
-#### 1) Neuer Hook: `useIframeLessonProgress`
+### 1) Player.js SDK einbinden
 
-**Datei:** `src/hooks/useVideoProgress.ts` (Erweiterung)
+**Datei:** `index.html`
+
+```html
+<script src="//assets.mediadelivery.net/playerjs/playerjs-latest.min.js"></script>
+```
+
+### 2) Neuer Hook: `useBunnyPlayerProgress`
+
+**Datei:** `src/hooks/useVideoProgress.ts`
+
+Dieser Hook ersetzt `useIframeLessonProgress` und macht folgendes:
+- Hoert auf `play`/`pause` Events vom Bunny Player
+- Zaehlt nur hoch wenn Video **tatsaechlich spielt**
+- Trackt die maximale erreichte Position
+- Verhindert Vorspulen ueber die maximal erreichte Position
 
 ```typescript
-/**
- * Hook for iframe-based videos (Bunny/YouTube) where we can't track playback.
- * Uses a page-based timer with the lesson's stored duration.
- */
-export function useIframeLessonProgress(
+interface UseBunnyPlayerProgressOptions {
+  requiredWatchPercent?: number;
+  iframeRef: RefObject<HTMLIFrameElement>;
+}
+
+export function useBunnyPlayerProgress(
   videoDurationMinutes: number,
-  options: { requiredWatchPercent?: number } = {}
+  options: UseBunnyPlayerProgressOptions
 ): {
   canComplete: boolean;
-  elapsedSeconds: number;
+  watchedSeconds: number;
   requiredSeconds: number;
   percentComplete: number;
   timeRemainingFormatted: string;
-} {
-  const { requiredWatchPercent = 0.9 } = options;
-  const [elapsed, setElapsed] = useState(0);
-  
-  const requiredSeconds = Math.round(videoDurationMinutes * 60 * requiredWatchPercent);
-  const canComplete = elapsed >= requiredSeconds;
-  const percentComplete = Math.min(100, Math.round((elapsed / requiredSeconds) * 100));
-  
-  // Format: "X:XX verbleibend"
-  const remaining = Math.max(0, requiredSeconds - elapsed);
-  const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
-  const timeRemainingFormatted = `${mins}:${secs.toString().padStart(2, '0')} verbleibend`;
-  
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setElapsed(prev => prev + 1);
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, []);
-  
-  return { canComplete, elapsedSeconds: elapsed, requiredSeconds, percentComplete, timeRemainingFormatted };
+  isPlaying: boolean;
 }
 ```
 
-**Warum so:**
-- Nutzt die in der DB gespeicherte `dauerMinuten` (z.B. 8 Minuten)
-- Berechnet 90% davon als erforderliche Zeit (7.2 Minuten = 432 Sekunden)
-- Zaehlt hoch, solange die Seite offen ist
-- Liefert formatierte Restzeit fuer UI-Anzeige
+**Logik:**
+1. `playerjs.Player(iframe)` initialisieren wenn iFrame geladen
+2. `player.on('timeupdate', callback)` - empfaengt `{seconds, duration}`
+3. Nur die tatsaechlich abgespielten Sekunden zaehlen (keine Spruenge)
+4. Bei Vorwaerts-Seek: `player.setCurrentTime(maxReachedTime)` zuruecksetzen
+
+### 3) BunnyStreamPlayer anpassen
+
+**Datei:** `src/components/akademie/MultiSourceVideoPlayer.tsx`
+
+- iFrame bekommt eine `id` oder `ref`
+- Progress-Hook bekommt Zugriff auf die iFrame-Referenz
+- Kommunikation nach oben via Callback/Context
+
+### 4) AkademieModul.tsx anpassen
+
+- Neuen Hook statt `useIframeLessonProgress` nutzen
+- iFrame-Ref von MultiSourceVideoPlayer durchreichen
 
 ---
 
-#### 2) AkademieModul.tsx - UI-Aenderungen
+## Architektur-Entscheidung
 
-**Datei:** `src/pages/AkademieModul.tsx`
+Es gibt zwei Wege, die Kommunikation zwischen Player und Hook zu organisieren:
 
-**A) Hook einbinden:**
-```typescript
-import { useIframeLessonProgress } from '@/hooks/useVideoProgress';
+**Option A: Ref durchreichen (einfacher)**
+- MultiSourceVideoPlayer gibt iFrame-Ref nach oben
+- Hook wird in AkademieModul mit dieser Ref initialisiert
 
-// Im Component:
-const { 
-  canComplete, 
-  percentComplete, 
-  timeRemainingFormatted 
-} = useIframeLessonProgress(unterpunkt.dauerMinuten);
-```
+**Option B: Context/Callback (sauberer)**
+- MultiSourceVideoPlayer managed Player.js intern
+- Feuert Callbacks: `onProgress(seconds)`, `onPlay()`, `onPause()`
+- Hook reagiert auf diese Events
 
-**B) Tabs sperren bis 90% erreicht:**
-```tsx
-<TabsTrigger 
-  value="inhalt" 
-  className="gap-1.5" 
-  disabled={!canComplete}
->
-  <BookOpen className="w-4 h-4" />
-  <span className="hidden sm:inline">Lerninhalt</span>
-  {!canComplete && <Lock className="w-3 h-3 ml-1 opacity-50" />}
-</TabsTrigger>
-
-<TabsTrigger 
-  value="zusammenfassung" 
-  className="gap-1.5" 
-  disabled={!canComplete}
->
-  <FileText className="w-4 h-4" />
-  <span className="hidden sm:inline">Zusammenfassung</span>
-  {!canComplete && <Lock className="w-3 h-3 ml-1 opacity-50" />}
-</TabsTrigger>
-```
-
-**C) Footer mit Progress-Anzeige:**
-```tsx
-<footer ref={footerRef} className="sticky bottom-0 ...">
-  <div className="max-w-3xl mx-auto">
-    {!canComplete ? (
-      <div className="space-y-2">
-        {/* Progress Bar */}
-        <Progress value={percentComplete} className="h-2" />
-        
-        {/* Disabled Button mit Restzeit */}
-        <Button className="w-full h-12 text-base" disabled>
-          <Clock className="w-5 h-5 mr-2 animate-pulse" />
-          {timeRemainingFormatted}
-        </Button>
-        
-        <p className="text-xs text-center text-muted-foreground">
-          Schaue das Video zu Ende, um fortzufahren
-        </p>
-      </div>
-    ) : (
-      <Button 
-        className="w-full h-12 text-base"
-        onClick={handleMarkComplete}
-      >
-        <Check className="w-5 h-5 mr-2" />
-        Als abgeschlossen markieren
-      </Button>
-    )}
-  </div>
-</footer>
-```
+Ich empfehle **Option A** fuer Einfachheit, da es nur eine Komponente betrifft.
 
 ---
 
-#### 3) Schwarze Balken (Letterboxing)
-
-**Problem:** Die schwarzen Balken oben/unten kommen vom Bunny-Player selbst, weil das Video ein Seitenverhaeltnis hat (z.B. 16:9) und der Container nicht exakt passt.
-
-**Realitaet:** Bei einem iFrame (cross-origin) koennen wir das interne Rendering nicht beeinflussen. Die Balken verschwinden nur, wenn:
-1. Das Quellvideo exakt zum Container passt (Seitenverhaeltnis identisch)
-2. Oder wir einen eigenen Player mit HLS-Stream bauen (grosser Aufwand)
-
-**Was wir optimieren koennen:**
-- Container-Hoehe so waehlen, dass sie moeglichst nah am 16:9-Verhaeltnis ist
-- Fuer Hochformat (Portrait-Modus) ist Letterboxing bei Landscape-Videos unvermeidlich
-
-**Vorschlag:** Statt heroischem Fullscreen-Modus auf Mobile einen **16:9-Container** nutzen, der die Balken minimiert:
-
-```tsx
-// In MultiSourceVideoPlayer - optionaler "portrait-safe" Modus
-style={{ 
-  aspectRatio: '16/9',
-  maxHeight: heightMode === 'hero' ? '75vh' : undefined,
-}}
-```
-
-Das bedeutet: Das Video behaelt immer 16:9, wird nie zu gross, und minimiert interne Letterboxing-Balken.
-
----
-
-### Dateien die ich aendern werde
+## Dateien die ich aendern werde
 
 | Datei | Aenderung |
 |-------|-----------|
-| `src/hooks/useVideoProgress.ts` | Neuer Hook `useIframeLessonProgress` hinzufuegen |
-| `src/pages/AkademieModul.tsx` | Hook einbinden, Tabs sperren, Footer mit Progress |
-| `src/components/akademie/MultiSourceVideoPlayer.tsx` | (Optional) Container-Strategie fuer weniger Letterboxing |
+| `index.html` | Player.js SDK Script hinzufuegen |
+| `src/hooks/useVideoProgress.ts` | Neuer Hook `useBunnyPlayerProgress` mit echtem Playback-Tracking |
+| `src/components/akademie/MultiSourceVideoPlayer.tsx` | iFrame-Ref exponieren, ID hinzufuegen |
+| `src/pages/AkademieModul.tsx` | Neuen Hook nutzen mit iFrame-Ref |
+| `src/vite-env.d.ts` | TypeScript-Deklaration fuer `playerjs` global |
 
 ---
 
-### Erwartetes Verhalten
+## Anti-Skip Logik (Kernfeature)
 
-1. User oeffnet Lektion mit 8-Minuten-Video
-2. Timer startet, zaehlt Sekunden hoch
-3. Tabs "Lerninhalt" und "Zusammenfassung" sind gesperrt (ausgegraut + Lock-Icon)
-4. Footer zeigt Progress-Bar und "X:XX verbleibend"
-5. Nach 90% der Zeit (7:12 bei 8 Min) wird alles entsperrt
-6. User kann jetzt Tabs oeffnen und "Als abgeschlossen markieren" klicken
+```typescript
+// Pseudo-Code fuer Anti-Skip
+let maxReachedTime = 0;
+let accumulatedWatchTime = 0;
+let lastUpdateTime = 0;
+
+player.on('timeupdate', ({ seconds }) => {
+  // Normale Wiedergabe: kleine Spruenge (< 2 Sek) erlauben
+  if (seconds > lastUpdateTime && seconds - lastUpdateTime < 2) {
+    accumulatedWatchTime += (seconds - lastUpdateTime);
+    maxReachedTime = Math.max(maxReachedTime, seconds);
+  }
+  // Vorwaerts-Skip erkannt: zuruecksetzen!
+  else if (seconds > maxReachedTime + 2) {
+    player.setCurrentTime(maxReachedTime);
+  }
+  lastUpdateTime = seconds;
+});
+```
 
 ---
 
-### Hinweis zu den schwarzen Balken
+## Erwartetes Verhalten nach Implementierung
 
-Die schwarzen Balken im Hochformat sind technisch nicht vollstaendig entfernbar, weil:
-- Das Quellvideo ist Landscape (16:9)
-- Im Hochformat (Portrait) muss das Video irgendwo "Platz lassen"
-- Bunny-Player zeigt schwarze Balken fuer den leeren Bereich
+1. User startet Video - Timer beginnt
+2. User pausiert Video - **Timer stoppt**
+3. User versucht vorzuspulen - **Video springt zurueck**
+4. Nur tatsaechlich abgespielte Zeit zaehlt
+5. Nach 90% echter Wiedergabe: Tabs und Button werden freigeschalten
 
-**Loesungsoptionen (ausserhalb dieses Plans):**
-1. Videos im 9:16 (Hochformat) produzieren - dann kein Letterboxing auf Handy
-2. Video nur im Fullscreen (Landscape) abspielen lassen
-3. Akzeptieren dass Landscape-Videos im Portrait Balken haben (wie bei YouTube)
+---
 
-Fuer diesen Plan fokussiere ich mich auf das Content-Gating (unskippable video logic), da das die Hauptanforderung ist.
+## Fallback fuer YouTube
+
+YouTube unterstuetzt Player.js **nicht**. Fuer YouTube-Videos bleibt der alte Timer-basierte Ansatz als Fallback:
+- Erkennung via `detectVideoSource()`
+- Bei `youtube`: weiterhin `useIframeLessonProgress` nutzen
+- Bei `bunny-stream`: neuen `useBunnyPlayerProgress` nutzen
+
+---
+
+## Risiken
+
+1. **Player.js Script blockiert**: Falls CDN nicht erreichbar, funktioniert Tracking nicht. Fallback auf Timer-basiert.
+2. **Timing-Races**: iFrame muss geladen sein bevor Player initialisiert wird. Robustes `player.on('ready')` Handling noetig.
+3. **Mobile Safari**: Kann restriktiver sein mit iframe-Kommunikation. Testen erforderlich.
