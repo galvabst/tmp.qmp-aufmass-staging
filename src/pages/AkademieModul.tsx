@@ -1,17 +1,81 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Clock, BookOpen, FileText, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Check, Clock, BookOpen, FileText, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAkademieUnterpunkt } from '@/hooks/useAkademieContent';
 import { MultiSourceVideoPlayer } from '@/components/akademie/MultiSourceVideoPlayer';
+import { isUuid } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
+
+const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
+
+function handleResetAkademieCache() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const state = JSON.parse(saved);
+      // Only reset akademie fields, keep other onboarding progress
+      state.akademieHauptmodule = [];
+      state.akademieModule = [];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+  } catch (e) {
+    console.warn('Failed to reset akademie cache', e);
+  }
+}
 
 export default function AkademieModul() {
   const { modulId } = useParams<{ modulId: string }>();
   const navigate = useNavigate();
   
-  const { data: unterpunkt, isLoading, error } = useAkademieUnterpunkt(modulId);
+  // Guard: Check if modulId is a valid UUID before making API call
+  const isValidUuid = isUuid(modulId);
+  
+  const { data: unterpunkt, isLoading, error } = useAkademieUnterpunkt(
+    isValidUuid ? modulId : undefined // Only fetch if valid UUID
+  );
+  
+  // Invalid UUID - show legacy link warning
+  if (!isValidUuid) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Veralteter Link</AlertTitle>
+            <AlertDescription>
+              Dieser Link verweist auf eine alte Version der Akademie. 
+              Die Daten wurden aktualisiert und müssen neu geladen werden.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="flex flex-col gap-3">
+            <Button 
+              onClick={() => {
+                handleResetAkademieCache();
+                navigate('/');
+                // Force page reload to trigger fresh DB hydration
+                window.location.reload();
+              }}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Daten aktualisieren & zurück
+            </Button>
+            
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/')}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Nur zurück zum Onboarding
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // Loading state
   if (isLoading) {
