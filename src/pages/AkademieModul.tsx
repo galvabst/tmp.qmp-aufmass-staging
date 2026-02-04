@@ -172,7 +172,6 @@ export default function AkademieModul() {
       } 
     });
   };
-  };
 
   const hasTextContent = unterpunkt.textInhalt && unterpunkt.textInhalt.trim().length > 0;
   const hasZusatzmaterial = unterpunkt.zusatzmaterialUrls && unterpunkt.zusatzmaterialUrls.length > 0;
