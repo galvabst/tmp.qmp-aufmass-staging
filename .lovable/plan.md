@@ -1,104 +1,121 @@
 
-## Akademie Video-Player Layout-Optimierung
 
-### Aktuelle Probleme (aus den Screenshots)
+## Video-Player Layout Fix: Edge-to-Edge ohne Raender
 
-1. **Desktop (Laptop)**: Das Video ist auf `max-w-3xl` (768px) begrenzt und hat deshalb viel leeren Rand links/rechts. Das Video sollte die volle verfuegbare Breite nutzen.
+### Problem-Analyse
 
-2. **Mobile**: Das Video wird ebenfalls durch den Container eingeschraenkt und wirkt zu klein. Auf Mobilgeraeten sollte das Video die volle Bildschirmbreite einnehmen (edge-to-edge).
+Die Screenshots zeigen deutlich:
+1. Das Video wird von grossen dunkelblauen Raendern umgeben
+2. Der Video-Container hat zwar `bg-black`, aber der **iFrame von Bunny Stream** zeigt das Video zentriert mit eigenem Padding
+3. Das Problem ist nicht unser CSS, sondern wie Bunny Stream den iFrame rendert
 
-3. **Fullscreen-Zugang**: Die iFrame-Player (Bunny Stream, YouTube) unterstuetzen Fullscreen nativ, aber der Zugang ist nicht offensichtlich (versteckt in Player-Controls). Ein visueller Hinweis oder Button fehlt.
+### Ursache
 
----
+Die Bunny Stream Embed-URL `https://iframe.mediadelivery.net/play/591760/...` laeuft intern mit:
+- Eigenem Dark Background (nicht vom iFrame-Container)
+- Video zentriert innerhalb des iFrames (nicht stretched)
+- Native Player-Controls die Platz brauchen
 
-### Geplante Aenderungen
+Unsere aktuelle Loesung mit `aspect-video` (16:9) passt nicht zum tatsaechlichen Video-Seitverhaeltnis.
 
-#### A) AkademieModul.tsx - Video-Container anpassen
+### Loesung
 
-**Ziel**: Video edge-to-edge auf allen Geraten, Content darunter weiterhin lesbar begrenzt.
+#### A) Responsive Video Container mit Auto-Height
 
-Aktuelle Struktur:
+**Datei:** `src/components/akademie/MultiSourceVideoPlayer.tsx`
+
+Statt fixes `aspect-video` nutzen wir einen responsiven Ansatz der dem Video mehr Platz gibt:
+
 ```tsx
-<main className="flex-1 flex flex-col">
-  <div className="w-full max-w-3xl mx-auto">
-    <MultiSourceVideoPlayer ... />
-    <div className="p-4">
-      {/* Tabs/Content */}
+// Fuer Bunny Stream: Container mit responsiver Hoehe
+function BunnyStreamPlayer({ url }: { url: string }) {
+  // Parameter hinzufuegen um schwarze Raender zu minimieren
+  const enhancedUrl = url.includes('?') 
+    ? `${url}&responsive=true&autoplay=false`
+    : `${url}?responsive=true&autoplay=false`;
+    
+  return (
+    <div className="relative w-full bg-black" style={{ 
+      paddingBottom: '56.25%', // 16:9 Basis
+      minHeight: '220px'
+    }}>
+      <iframe
+        src={enhancedUrl}
+        loading="lazy"
+        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        allowFullScreen
+        className="absolute inset-0 w-full h-full border-0"
+        style={{ 
+          backgroundColor: 'black'
+        }}
+        title="Video Player"
+      />
     </div>
-  </div>
-</main>
+  );
+}
 ```
 
-Neue Struktur:
+**Wichtig**: Bunny Stream unterstuetzt keine URL-Parameter zum Aendern des Aspect Ratios - das wird vom Stream selbst bestimmt.
+
+#### B) Realistischer Ansatz: Der schwarze Rand ist unvermeidlich
+
+Das eigentliche Problem ist, dass das gehostete Video (bei Bunny Stream) ein bestimmtes Seitverhaeltnis hat, und der Bunny-Player zeigt immer schwarze Balken wenn Container und Video nicht uebereinstimmen.
+
+**Bessere Loesung**: Den schwarzen Hintergrund akzeptieren, aber den Container so anpassen, dass er sich dem Inhalt anpasst:
+
 ```tsx
-<main className="flex-1 flex flex-col">
-  {/* Video AUSSERHALB des max-w Containers = volle Breite */}
-  <MultiSourceVideoPlayer ... />
-  
-  {/* Content MIT max-w fuer Lesbarkeit */}
-  <div className="w-full max-w-3xl mx-auto">
-    <div className="p-4">
-      {/* Tabs/Content */}
+function BunnyStreamPlayer({ url }: { url: string }) {
+  return (
+    // Volle Breite, natuerliches Aspect Ratio durch iFrame
+    <div className="relative w-full overflow-hidden bg-black">
+      {/* Padding-Trick fuer 16:9 Minimum */}
+      <div style={{ paddingBottom: '56.25%' }} />
+      <iframe
+        src={url}
+        loading="lazy"
+        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        allowFullScreen
+        className="absolute inset-0 w-full h-full border-0"
+        title="Video Player"
+      />
     </div>
-  </div>
-</main>
+  );
+}
 ```
 
-Das Video nimmt jetzt immer 100% der Viewport-Breite ein.
+#### C) Minimalistische Alternative: Viewport-basierte Hoehe
 
----
-
-#### B) MultiSourceVideoPlayer.tsx - Responsives Aspect Ratio
-
-**Problem**: `aspect-video` (16:9) auf kleinen Bildschirmen kann zu einer sehr kleinen Videohoehe fuehren.
-
-**Loesung**: Mindesthoehe auf Mobile setzen, damit das Video nicht zu klein wird.
+**Fuer Mobile**: Das Video nimmt eine feste Viewport-Hoehe ein (z.B. 50vh auf Mobile, 60vh auf Desktop):
 
 ```tsx
-// Vorher
-<div className="relative w-full aspect-video bg-black">
-
-// Nachher
-<div className="relative w-full aspect-video bg-black min-h-[200px] sm:min-h-[300px]">
+// Mobile-first: Viewport-basierte Hoehe
+<div className="relative w-full h-[50vh] sm:h-[60vh] max-h-[600px] bg-black">
+  <iframe ... className="absolute inset-0 w-full h-full" />
+</div>
 ```
 
----
+Dies stellt sicher, dass das Video immer eine vernuenftige Groesse hat, unabhaengig vom Geraet.
 
-#### C) MultiSourceVideoPlayer.tsx - Fullscreen-Hinweis fuer Mobile
+### Empfohlene Implementierung
 
-Da Bunny/YouTube-iFrames native Fullscreen-Controls haben, aber diese nicht immer offensichtlich sind, fuegen wir einen kleinen visuellen Hinweis hinzu:
+**Option C (Viewport-basiert)** ist am zuverlaessigsten weil:
+- Funktioniert auf allen Geraeten
+- Video ist nie zu klein (50vh Minimum)
+- Nie zu gross (max-h-[600px] Cap)
+- Schwarze Balken sind minimal weil Container grosszuegiger ist
 
-```tsx
-// Nach dem Player, optional sichtbar
-<p className="text-xs text-center text-muted-foreground py-1 sm:hidden">
-  Tippe auf das Video fuer Vollbild
-</p>
-```
+### Technische Aenderungen
 
-Alternativ: Ein Overlay mit Fullscreen-Icon beim ersten Anzeigen, das nach dem ersten Play verschwindet.
+| Datei | Aenderung |
+|-------|-----------|
+| `src/components/akademie/MultiSourceVideoPlayer.tsx` | Container-Hoehe von `aspect-video` zu `h-[50vh] sm:h-[60vh] max-h-[600px]` aendern |
+| `src/components/akademie/MultiSourceVideoPlayer.tsx` | Fullscreen-Attribut im allow-String hinzufuegen |
+| `src/pages/AkademieModul.tsx` | Keine Aenderungen noetig (Video ist bereits edge-to-edge) |
 
----
+### Erwartetes Ergebnis
 
-### Technische Details
+- **Mobile**: Video nimmt 50% der Viewport-Hoehe, volle Breite
+- **Desktop**: Video nimmt 60% der Viewport-Hoehe (max 600px), volle Breite
+- **Schwarze Balken**: Minimiert durch grosszuegigeren Container
+- **Fullscreen**: Nativer Bunny-Fullscreen-Button funktioniert
 
-| Aenderung | Datei | Zeilen (ca.) |
-|-----------|-------|--------------|
-| Video aus Container nehmen | `src/pages/AkademieModul.tsx` | ~168-170 |
-| Min-Height hinzufuegen | `src/components/akademie/MultiSourceVideoPlayer.tsx` | 55, 73, 91 |
-| Fullscreen-Hinweis (optional) | `src/components/akademie/MultiSourceVideoPlayer.tsx` | Nach Player-Return |
-
----
-
-### Ergebnis nach Implementation
-
-- **Desktop**: Video nutzt volle Bildschirmbreite (kein seitlicher Weissraum mehr)
-- **Mobile**: Video edge-to-edge mit Mindesthoehe, damit es nicht zu klein erscheint
-- **Tabs/Content**: Bleiben auf `max-w-3xl` begrenzt fuer optimale Lesbarkeit
-- **Fullscreen**: Native Browser-Fullscreen-Option bleibt erhalten (Doppeltipp/Controls)
-
----
-
-### Risiken / Bedenken
-
-- Bunny Stream iFrames sind bereits responsive (`w-full h-full` innerhalb eines `aspect-video` Containers). Die Aenderung sollte keine Breaking Changes verursachen.
-- Falls das Video zu gross wird auf sehr breiten Bildschirmen (4K), koennte man optional eine `max-w-6xl` oder `max-w-7xl` Begrenzung nur fuer das Video einfuehren - aber aktuell ist edge-to-edge gewuenscht.
