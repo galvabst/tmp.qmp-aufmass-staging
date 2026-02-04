@@ -1,5 +1,9 @@
-import { useRef } from 'react';
+import { forwardRef, useRef, useImperativeHandle } from 'react';
 import { Play } from 'lucide-react';
+
+export interface VideoPlayerHandle {
+  getIframeRef: () => HTMLIFrameElement | null;
+}
 
 interface MultiSourceVideoPlayerProps {
   videoUrl: string | null | undefined;
@@ -11,7 +15,7 @@ interface MultiSourceVideoPlayerProps {
  * Detects the video source type from a URL
  * Videos now come from Bunny Stream, YouTube, or direct MP4 URLs
  */
-function detectVideoSource(url: string): 'bunny-stream' | 'youtube' | 'direct-mp4' {
+export function detectVideoSource(url: string): 'bunny-stream' | 'youtube' | 'direct-mp4' {
   // Bunny Stream iframe embed
   if (url.includes('iframe.mediadelivery.net') || url.includes('video.bunnycdn.com')) {
     return 'bunny-stream';
@@ -91,22 +95,30 @@ function getYouTubeEmbedUrl(url: string): string {
   return url;
 }
 
-// Bunny Stream iframe player with normalized URL
-function BunnyStreamPlayer({ url }: { url: string }) {
-  const normalizedUrl = normalizeBunnyUrl(url);
-  
-  return (
-    <iframe
-      src={normalizedUrl}
-      loading="lazy"
-      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-      allowFullScreen
-      className="absolute inset-0 w-full h-full border-0 block"
-      style={{ backgroundColor: 'black' }}
-      title="Video Player"
-    />
-  );
-}
+// Bunny Stream iframe player with normalized URL and ref forwarding
+const BunnyStreamPlayer = forwardRef<HTMLIFrameElement, { url: string }>(
+  function BunnyStreamPlayer({ url }, ref) {
+    const normalizedUrl = normalizeBunnyUrl(url);
+    const internalRef = useRef<HTMLIFrameElement>(null);
+    
+    // Forward ref to parent
+    useImperativeHandle(ref, () => internalRef.current!, []);
+    
+    return (
+      <iframe
+        ref={internalRef}
+        id="bunny-player-iframe"
+        src={normalizedUrl}
+        loading="lazy"
+        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        allowFullScreen
+        className="absolute inset-0 w-full h-full border-0 block"
+        style={{ backgroundColor: 'black' }}
+        title="Video Player"
+      />
+    );
+  }
+);
 
 // YouTube iframe player
 function YouTubePlayer({ url }: { url: string }) {
@@ -159,54 +171,64 @@ function NoVideoPlaceholder() {
  * the appropriate player based on the video URL type.
  * 
  * Uses CSS variable --akademie-header-h set by parent for hero mode sizing.
+ * Exposes iframe ref via imperative handle for Player.js integration.
  */
-export function MultiSourceVideoPlayer({ videoUrl, heightMode = 'hero' }: MultiSourceVideoPlayerProps) {
-  // No video URL provided
-  if (!videoUrl || videoUrl.trim() === '') {
-    return (
-      <div className="relative w-full bg-black overflow-hidden" style={{ 
-        height: heightMode === 'hero' 
-          ? 'calc(100svh - var(--akademie-header-h, 60px) - var(--akademie-footer-h, 72px))' 
-          : undefined,
-        aspectRatio: heightMode === 'contained' ? '16/9' : undefined,
-        maxHeight: heightMode === 'hero' ? '75vh' : undefined,
-      }}>
-        <NoVideoPlaceholder />
-      </div>
-    );
-  }
-  
-  const sourceType = detectVideoSource(videoUrl);
-  
-  const renderPlayer = () => {
-    switch (sourceType) {
-      case 'bunny-stream':
-        return <BunnyStreamPlayer url={videoUrl} />;
-      case 'youtube':
-        return <YouTubePlayer url={videoUrl} />;
-      case 'direct-mp4':
-        return <DirectVideoPlayer url={videoUrl} />;
-      default:
-        return <NoVideoPlaceholder />;
-    }
-  };
-  
-  return (
-    <div className="w-full bg-black overflow-hidden">
-      {/* Video container with dynamic height based on mode */}
-      <div 
-        className="relative w-full bg-black"
-        style={{ 
+export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceVideoPlayerProps>(
+  function MultiSourceVideoPlayer({ videoUrl, heightMode = 'hero' }, ref) {
+    const bunnyIframeRef = useRef<HTMLIFrameElement>(null);
+    
+    // Expose iframe ref to parent
+    useImperativeHandle(ref, () => ({
+      getIframeRef: () => bunnyIframeRef.current
+    }), []);
+    
+    // No video URL provided
+    if (!videoUrl || videoUrl.trim() === '') {
+      return (
+        <div className="relative w-full bg-black overflow-hidden" style={{ 
           height: heightMode === 'hero' 
             ? 'calc(100svh - var(--akademie-header-h, 60px) - var(--akademie-footer-h, 72px))' 
             : undefined,
           aspectRatio: heightMode === 'contained' ? '16/9' : undefined,
           maxHeight: heightMode === 'hero' ? '75vh' : undefined,
-          minHeight: heightMode === 'hero' ? '280px' : undefined,
-        }}
-      >
-        {renderPlayer()}
+        }}>
+          <NoVideoPlaceholder />
+        </div>
+      );
+    }
+    
+    const sourceType = detectVideoSource(videoUrl);
+    
+    const renderPlayer = () => {
+      switch (sourceType) {
+        case 'bunny-stream':
+          return <BunnyStreamPlayer ref={bunnyIframeRef} url={videoUrl} />;
+        case 'youtube':
+          return <YouTubePlayer url={videoUrl} />;
+        case 'direct-mp4':
+          return <DirectVideoPlayer url={videoUrl} />;
+        default:
+          return <NoVideoPlaceholder />;
+      }
+    };
+    
+    return (
+      <div className="w-full bg-black overflow-hidden">
+        {/* Video container with dynamic height based on mode */}
+        <div 
+          className="relative w-full bg-black"
+          style={{ 
+            height: heightMode === 'hero' 
+              ? 'calc(100svh - var(--akademie-header-h, 60px) - var(--akademie-footer-h, 72px))' 
+              : undefined,
+            aspectRatio: heightMode === 'contained' ? '16/9' : undefined,
+            maxHeight: heightMode === 'hero' ? '75vh' : undefined,
+            minHeight: heightMode === 'hero' ? '280px' : undefined,
+          }}
+        >
+          {renderPlayer()}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+);

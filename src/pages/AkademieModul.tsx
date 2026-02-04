@@ -1,15 +1,15 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useRef, useLayoutEffect, useState } from 'react';
-import { ArrowLeft, Check, Clock, BookOpen, FileText, ExternalLink, AlertTriangle, RefreshCw, Lock } from 'lucide-react';
+import { useRef, useLayoutEffect, useState, useEffect } from 'react';
+import { ArrowLeft, Check, Clock, BookOpen, FileText, ExternalLink, AlertTriangle, RefreshCw, Lock, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAkademieUnterpunkt } from '@/hooks/useAkademieContent';
-import { MultiSourceVideoPlayer } from '@/components/akademie/MultiSourceVideoPlayer';
+import { MultiSourceVideoPlayer, detectVideoSource, VideoPlayerHandle } from '@/components/akademie/MultiSourceVideoPlayer';
 import { isUuid } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
-import { useIframeLessonProgress } from '@/hooks/useVideoProgress';
+import { useBunnyPlayerProgress, useIframeLessonProgress } from '@/hooks/useVideoProgress';
 import { Progress } from '@/components/ui/progress';
 
 const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
@@ -33,9 +33,11 @@ export default function AkademieModul() {
   const { modulId } = useParams<{ modulId: string }>();
   const navigate = useNavigate();
   
-  // Refs for measuring header/footer heights
+  // Refs for measuring header/footer heights and video player
   const headerRef = useRef<HTMLElement>(null);
   const footerRef = useRef<HTMLElement>(null);
+  const videoPlayerRef = useRef<VideoPlayerHandle>(null);
+  const [iframeRef, setIframeRef] = useState<HTMLIFrameElement | null>(null);
   const [cssVarsReady, setCssVarsReady] = useState(false);
   
   // Guard: Check if modulId is a valid UUID before making API call
@@ -44,6 +46,18 @@ export default function AkademieModul() {
   const { data: unterpunkt, isLoading, error } = useAkademieUnterpunkt(
     isValidUuid ? modulId : undefined // Only fetch if valid UUID
   );
+  
+  // Determine video source type
+  const videoSource = unterpunkt?.videoUrl ? detectVideoSource(unterpunkt.videoUrl) : null;
+  const isBunnyStream = videoSource === 'bunny-stream';
+  
+  // Get iframe ref when player mounts
+  useEffect(() => {
+    if (videoPlayerRef.current) {
+      const iframe = videoPlayerRef.current.getIframeRef();
+      setIframeRef(iframe);
+    }
+  }, [cssVarsReady, unterpunkt?.videoUrl]);
   
   // Measure header and footer heights, set CSS variables
   useLayoutEffect(() => {
@@ -157,12 +171,58 @@ export default function AkademieModul() {
     );
   }
 
-  // Progress hook for unskippable video gating
-  const { 
-    canComplete: canCompleteVideo, 
-    percentComplete, 
-    timeRemainingFormatted 
-  } = useIframeLessonProgress(unterpunkt.dauerMinuten);
+  return (
+    <AkademieModulContent 
+      unterpunkt={unterpunkt}
+      navigate={navigate}
+      headerRef={headerRef}
+      footerRef={footerRef}
+      videoPlayerRef={videoPlayerRef}
+      iframeRef={iframeRef}
+      cssVarsReady={cssVarsReady}
+      isBunnyStream={isBunnyStream}
+    />
+  );
+}
+
+// Separate component to use hooks after data is loaded
+function AkademieModulContent({
+  unterpunkt,
+  navigate,
+  headerRef,
+  footerRef,
+  videoPlayerRef,
+  iframeRef,
+  cssVarsReady,
+  isBunnyStream,
+}: {
+  unterpunkt: NonNullable<ReturnType<typeof useAkademieUnterpunkt>['data']>;
+  navigate: ReturnType<typeof useNavigate>;
+  headerRef: React.RefObject<HTMLElement>;
+  footerRef: React.RefObject<HTMLElement>;
+  videoPlayerRef: React.RefObject<VideoPlayerHandle>;
+  iframeRef: HTMLIFrameElement | null;
+  cssVarsReady: boolean;
+  isBunnyStream: boolean;
+}) {
+  // Create a stable ref object for the iframe
+  const iframeRefObject = useRef<HTMLIFrameElement | null>(null);
+  iframeRefObject.current = iframeRef;
+  
+  // Use Bunny Player.js hook for Bunny Stream, fallback timer for YouTube
+  const bunnyProgress = useBunnyPlayerProgress(
+    unterpunkt.dauerMinuten,
+    iframeRefObject
+  );
+  
+  const fallbackProgress = useIframeLessonProgress(unterpunkt.dauerMinuten);
+  
+  // Use Bunny progress if it's a Bunny stream
+  const progress = isBunnyStream ? bunnyProgress : fallbackProgress;
+  const canCompleteVideo = progress.canComplete;
+  const percentComplete = progress.percentComplete;
+  const timeRemainingFormatted = progress.timeRemainingFormatted;
+  const isPlaying = isBunnyStream ? bunnyProgress.isPlaying : true; // Assume playing for fallback
 
   const handleMarkComplete = () => {
     navigate('/', { 
@@ -211,7 +271,11 @@ export default function AkademieModul() {
       <main className="flex-1 flex flex-col">
         {/* Video Container - Full Width Hero (edge-to-edge, fills available space) */}
         {cssVarsReady && (
-          <MultiSourceVideoPlayer videoUrl={unterpunkt.videoUrl} heightMode="hero" />
+          <MultiSourceVideoPlayer 
+            ref={videoPlayerRef}
+            videoUrl={unterpunkt.videoUrl} 
+            heightMode="hero" 
+          />
         )}
 
         {/* Content Container - Constrained for readability */}
@@ -311,14 +375,26 @@ export default function AkademieModul() {
               {/* Progress Bar */}
               <Progress value={percentComplete} className="h-2" />
               
-              {/* Disabled Button with remaining time */}
+              {/* Status indicator with play/pause for Bunny */}
               <Button className="w-full h-12 text-base" disabled>
-                <Clock className="w-5 h-5 mr-2 animate-pulse" />
-                {timeRemainingFormatted}
+                {isBunnyStream && !isPlaying ? (
+                  <>
+                    <Pause className="w-5 h-5 mr-2" />
+                    Video pausiert
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-5 h-5 mr-2 animate-pulse" />
+                    {timeRemainingFormatted}
+                  </>
+                )}
               </Button>
               
               <p className="text-xs text-center text-muted-foreground">
-                Schaue das Video zu Ende, um fortzufahren
+                {isBunnyStream && !isPlaying 
+                  ? "Starte das Video, um fortzufahren"
+                  : "Schaue das Video zu Ende, um fortzufahren"
+                }
               </p>
             </div>
           ) : (

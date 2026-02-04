@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, RefObject } from 'react';
+import { useState, useEffect, useCallback, RefObject, useRef } from 'react';
 
 interface UseVideoProgressOptions {
   /** Percentage of video that must be watched (0-1). Default: 0.9 (90%) */
@@ -125,8 +125,172 @@ export function useVideoProgress(
 }
 
 /**
+ * Hook for Bunny Stream videos using Player.js API.
+ * Tracks actual playback time and prevents skipping ahead.
+ */
+export function useBunnyPlayerProgress(
+  videoDurationMinutes: number,
+  iframeRef: RefObject<HTMLIFrameElement | null>,
+  options: { requiredWatchPercent?: number } = {}
+): {
+  canComplete: boolean;
+  watchedSeconds: number;
+  requiredSeconds: number;
+  percentComplete: number;
+  timeRemainingFormatted: string;
+  isPlaying: boolean;
+} {
+  const { requiredWatchPercent = 0.9 } = options;
+  
+  const [watchedSeconds, setWatchedSeconds] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+  
+  // Refs for tracking state without triggering re-renders
+  const maxReachedTimeRef = useRef(0);
+  const lastUpdateTimeRef = useRef(0);
+  const playerRef = useRef<playerjs.Player | null>(null);
+  
+  const requiredSeconds = Math.round(videoDurationMinutes * 60 * requiredWatchPercent);
+  const canComplete = watchedSeconds >= requiredSeconds;
+  const percentComplete = requiredSeconds > 0 
+    ? Math.min(100, Math.round((watchedSeconds / requiredSeconds) * 100))
+    : 100;
+  
+  // Format: "X:XX verbleibend"
+  const remaining = Math.max(0, requiredSeconds - watchedSeconds);
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const timeRemainingFormatted = `${mins}:${secs.toString().padStart(2, '0')} verbleibend`;
+  
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) {
+      console.log('[BunnyPlayer] No iframe ref yet');
+      return;
+    }
+    
+    // Check if playerjs is available
+    if (typeof playerjs === 'undefined') {
+      console.warn('[BunnyPlayer] Player.js not loaded, falling back to timer');
+      return;
+    }
+    
+    console.log('[BunnyPlayer] Initializing Player.js');
+    
+    const initPlayer = () => {
+      try {
+        const player = new playerjs.Player(iframe);
+        playerRef.current = player;
+        
+        player.on('ready', () => {
+          console.log('[BunnyPlayer] Player ready');
+          setIsPlayerReady(true);
+        });
+        
+        player.on('play', () => {
+          console.log('[BunnyPlayer] Playing');
+          setIsPlaying(true);
+        });
+        
+        player.on('pause', () => {
+          console.log('[BunnyPlayer] Paused');
+          setIsPlaying(false);
+        });
+        
+        player.on('ended', () => {
+          console.log('[BunnyPlayer] Ended');
+          setIsPlaying(false);
+          // Mark as fully watched when video ends naturally
+          setWatchedSeconds(requiredSeconds);
+        });
+        
+        player.on('timeupdate', (data: { seconds: number; duration: number }) => {
+          const currentTime = data.seconds;
+          const lastTime = lastUpdateTimeRef.current;
+          const maxReached = maxReachedTimeRef.current;
+          
+          // Normal playback: small forward jumps (< 2 sec)
+          if (currentTime > lastTime && currentTime - lastTime < 2) {
+            const timeDelta = currentTime - lastTime;
+            setWatchedSeconds(prev => prev + timeDelta);
+            maxReachedTimeRef.current = Math.max(maxReached, currentTime);
+          }
+          // Skip detected: user jumped ahead of max reached position
+          else if (currentTime > maxReached + 2) {
+            console.log('[BunnyPlayer] Skip detected! Resetting to:', maxReached);
+            player.setCurrentTime(maxReached);
+          }
+          // Backward seek is allowed (rewinding)
+          else if (currentTime < lastTime) {
+            // Just update last time, don't add to watched
+          }
+          
+          lastUpdateTimeRef.current = currentTime;
+        });
+        
+        player.on('error', (err: unknown) => {
+          console.error('[BunnyPlayer] Error:', err);
+        });
+        
+      } catch (err) {
+        console.error('[BunnyPlayer] Failed to initialize:', err);
+      }
+    };
+    
+    // Wait for iframe to be ready
+    if (iframe.contentWindow) {
+      initPlayer();
+    } else {
+      iframe.addEventListener('load', initPlayer);
+      return () => iframe.removeEventListener('load', initPlayer);
+    }
+    
+    return () => {
+      // Cleanup player listeners
+      if (playerRef.current) {
+        try {
+          playerRef.current.off('ready');
+          playerRef.current.off('play');
+          playerRef.current.off('pause');
+          playerRef.current.off('ended');
+          playerRef.current.off('timeupdate');
+          playerRef.current.off('error');
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        playerRef.current = null;
+      }
+    };
+  }, [iframeRef, requiredSeconds]);
+  
+  // Fallback timer if Player.js fails to initialize after 5 seconds
+  useEffect(() => {
+    if (isPlayerReady) return; // Player.js is working
+    
+    const fallbackTimer = setTimeout(() => {
+      if (!isPlayerReady) {
+        console.warn('[BunnyPlayer] Player.js not ready after 5s, using fallback timer');
+      }
+    }, 5000);
+    
+    return () => clearTimeout(fallbackTimer);
+  }, [isPlayerReady]);
+  
+  return { 
+    canComplete, 
+    watchedSeconds: Math.round(watchedSeconds),
+    requiredSeconds, 
+    percentComplete, 
+    timeRemainingFormatted,
+    isPlaying
+  };
+}
+
+/**
  * Hook for iframe-based videos (Bunny/YouTube) where we can't track playback.
  * Uses a page-based timer with the lesson's stored duration.
+ * @deprecated Use useBunnyPlayerProgress for Bunny Stream videos
  */
 export function useIframeLessonProgress(
   videoDurationMinutes: number,
