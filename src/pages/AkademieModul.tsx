@@ -165,10 +165,11 @@ export default function AkademieModul() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
-        <div className="w-full max-w-3xl mx-auto">
-          {/* Video Container */}
-          <MultiSourceVideoPlayer videoUrl={unterpunkt.videoUrl} />
+        {/* Video Container - Full Width (edge-to-edge) */}
+        <MultiSourceVideoPlayer videoUrl={unterpunkt.videoUrl} />
 
+        {/* Content Container - Constrained for readability */}
+        <div className="w-full max-w-3xl mx-auto">
           {/* Tabs: Lerninhalt / Zusammenfassung / Material */}
           <div className="p-4">
             <Tabs defaultValue="inhalt" className="w-full">
