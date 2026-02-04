@@ -125,6 +125,48 @@ export function useVideoProgress(
 }
 
 /**
+ * Hook for iframe-based videos (Bunny/YouTube) where we can't track playback.
+ * Uses a page-based timer with the lesson's stored duration.
+ */
+export function useIframeLessonProgress(
+  videoDurationMinutes: number,
+  options: { requiredWatchPercent?: number } = {}
+): {
+  canComplete: boolean;
+  elapsedSeconds: number;
+  requiredSeconds: number;
+  percentComplete: number;
+  timeRemainingFormatted: string;
+} {
+  const { requiredWatchPercent = 0.9 } = options;
+  const [elapsed, setElapsed] = useState(0);
+  
+  const requiredSeconds = Math.round(videoDurationMinutes * 60 * requiredWatchPercent);
+  const canComplete = elapsed >= requiredSeconds;
+  const percentComplete = requiredSeconds > 0 
+    ? Math.min(100, Math.round((elapsed / requiredSeconds) * 100))
+    : 100;
+  
+  // Format: "X:XX verbleibend"
+  const remaining = Math.max(0, requiredSeconds - elapsed);
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const timeRemainingFormatted = `${mins}:${secs.toString().padStart(2, '0')} verbleibend`;
+  
+  useEffect(() => {
+    if (canComplete) return; // Stop timer once complete
+    
+    const timer = setInterval(() => {
+      setElapsed(prev => prev + 1);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [canComplete]);
+  
+  return { canComplete, elapsedSeconds: elapsed, requiredSeconds, percentComplete, timeRemainingFormatted };
+}
+
+/**
  * Simple hook for non-video lessons (text only)
  * Enables completion after a minimum reading time.
  */
