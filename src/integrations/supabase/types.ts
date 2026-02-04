@@ -9666,6 +9666,7 @@ export type Database = {
           reihenfolge: number
           storage_pfad: string
           titel: string
+          video_url: string
           zielgruppe: string
         }[]
       }
