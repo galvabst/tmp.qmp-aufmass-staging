@@ -15,7 +15,6 @@ import {
   calculateOnboardingProgress,
 } from '@/lib/onboarding-config';
 import { isUuid } from '@/lib/utils';
-import { useAkademieContent } from '@/hooks/useAkademieContent';
 
 const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
 
@@ -23,7 +22,7 @@ const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
  * Validate if akademieHauptmodule contains valid UUIDs
  * Returns false if any ID is not a UUID (legacy mock data)
  */
-function hasValidAkademieIds(hauptmodule: AkademieHauptmodul[] | undefined): boolean {
+export function hasValidAkademieIds(hauptmodule: AkademieHauptmodul[] | undefined): boolean {
   if (!hauptmodule || hauptmodule.length === 0) return false;
   
   // Check all hauptmodul IDs and their unterpunkte IDs
@@ -75,53 +74,6 @@ export function useOnboardingState(
       ? createInitialOnboardingState(initialProfile)
       : loadPersistedState(initialProfile)
   );
-  
-  // Track if we've already hydrated from DB to prevent loops
-  const hasHydratedRef = useRef(false);
-  
-  // Fetch akademie content from database
-  const { data: dbAkademieModule, isSuccess: dbLoaded } = useAkademieContent();
-
-  // Hydrate akademie state from database when loaded
-  useEffect(() => {
-    if (isPreview || hasHydratedRef.current) return;
-    if (!dbLoaded || !dbAkademieModule || dbAkademieModule.length === 0) return;
-    
-    const currentHauptmodule = state.akademieHauptmodule || [];
-    const hasValidIds = hasValidAkademieIds(currentHauptmodule);
-    
-    // Only hydrate if: empty, or IDs mismatch (schema changed)
-    const dbIds = dbAkademieModule.flatMap(m => [m.id, ...m.unterpunkte.map(u => u.id)]).sort().join(',');
-    const stateIds = currentHauptmodule.flatMap(m => [m.id, ...(m.unterpunkte || []).map(u => u.id)]).sort().join(',');
-    
-    if (currentHauptmodule.length === 0 || !hasValidIds || dbIds !== stateIds) {
-      console.log('[Onboarding] Hydrating akademie from database...');
-      
-      // Merge: use DB structure but preserve local progress
-      const mergedModules = dbAkademieModule.map(dbHm => {
-        const existingHm = currentHauptmodule.find(h => h.id === dbHm.id);
-        return {
-          ...dbHm,
-          unterpunkte: dbHm.unterpunkte.map(dbUp => {
-            const existingUp = existingHm?.unterpunkte?.find(u => u.id === dbUp.id);
-            return {
-              ...dbUp,
-              abgeschlossen: existingUp?.abgeschlossen || false,
-              abgeschlossenAt: existingUp?.abgeschlossenAt,
-            };
-          }),
-        };
-      });
-      
-      hasHydratedRef.current = true;
-      setState(prev => ({
-        ...prev,
-        akademieHauptmodule: mergedModules,
-      }));
-    } else {
-      hasHydratedRef.current = true;
-    }
-  }, [dbLoaded, dbAkademieModule, state.akademieHauptmodule, isPreview]);
 
   // Persist state to localStorage on every change (only if not in preview mode)
   useEffect(() => {
@@ -136,10 +88,50 @@ export function useOnboardingState(
   // Reset state when entering preview mode
   useEffect(() => {
     if (isPreview) {
-      hasHydratedRef.current = false;
       setState(createInitialOnboardingState(initialProfile));
     }
   }, [isPreview, initialProfile]);
+  
+  // Hydrate akademie from external data (called by component with DB data)
+  const hydrateAkademieFromDb = useCallback((dbModules: AkademieHauptmodul[]) => {
+    if (!dbModules || dbModules.length === 0) return;
+    
+    setState(prev => {
+      const currentHauptmodule = prev.akademieHauptmodule || [];
+      const hasValidIds = hasValidAkademieIds(currentHauptmodule);
+      
+      // Only hydrate if: empty, or IDs mismatch (schema changed)
+      const dbIds = dbModules.flatMap(m => [m.id, ...m.unterpunkte.map(u => u.id)]).sort().join(',');
+      const stateIds = currentHauptmodule.flatMap(m => [m.id, ...(m.unterpunkte || []).map(u => u.id)]).sort().join(',');
+      
+      if (currentHauptmodule.length === 0 || !hasValidIds || dbIds !== stateIds) {
+        console.log('[Onboarding] Hydrating akademie from database...');
+        
+        // Merge: use DB structure but preserve local progress
+        const mergedModules = dbModules.map(dbHm => {
+          const existingHm = currentHauptmodule.find(h => h.id === dbHm.id);
+          return {
+            ...dbHm,
+            unterpunkte: dbHm.unterpunkte.map(dbUp => {
+              const existingUp = existingHm?.unterpunkte?.find(u => u.id === dbUp.id);
+              return {
+                ...dbUp,
+                abgeschlossen: existingUp?.abgeschlossen || false,
+                abgeschlossenAt: existingUp?.abgeschlossenAt,
+              };
+            }),
+          };
+        });
+        
+        return {
+          ...prev,
+          akademieHauptmodule: mergedModules,
+        };
+      }
+      
+      return prev; // No change needed
+    });
+  }, []);
 
   // Navigation
   const goToNextStep = useCallback(() => {
@@ -374,6 +366,7 @@ export function useOnboardingState(
     completeAkademieUnterpunkt,
     completeAkademieModul,
     setAkademieTestBestanden,
+    hydrateAkademieFromDb,
     
     // Schritt 6
     updateCheckliste,

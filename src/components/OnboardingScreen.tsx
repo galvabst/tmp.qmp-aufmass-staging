@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlertTriangle, X } from 'lucide-react';
@@ -12,6 +12,7 @@ import { ProofStep } from './onboarding/steps/ProofStep';
 import { CoachingStep } from './onboarding/steps/CoachingStep';
 import { OnboardingComplete } from './onboarding/OnboardingComplete';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
+import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { 
   MOCK_PRODUCTS, 
   MOCK_COACHING_SLOTS,
@@ -31,6 +32,7 @@ interface OnboardingScreenProps {
 export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview }: OnboardingScreenProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const hasHydratedRef = useRef(false);
   
   const {
     state,
@@ -54,7 +56,19 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview 
     setGesamtfotoUrl,
     setGebuchterCoachingSlot,
     setCoachingAbgeschlossen,
+    hydrateAkademieFromDb,
   } = useOnboardingState(MOCK_APPLICANT_PROFILE, isPreview);
+  
+  // Fetch akademie content from database and hydrate state
+  const { data: dbAkademieModule, isSuccess: dbLoaded } = useAkademieContent();
+  
+  useEffect(() => {
+    if (isPreview || hasHydratedRef.current) return;
+    if (!dbLoaded || !dbAkademieModule || dbAkademieModule.length === 0) return;
+    
+    hasHydratedRef.current = true;
+    hydrateAkademieFromDb(dbAkademieModule);
+  }, [dbLoaded, dbAkademieModule, isPreview, hydrateAkademieFromDb]);
 
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
   const [coachingSlots, setCoachingSlots] = useState<CoachingSlot[]>(MOCK_COACHING_SLOTS);
