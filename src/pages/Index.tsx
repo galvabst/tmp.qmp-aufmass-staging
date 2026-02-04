@@ -12,10 +12,12 @@ import { TechnicianOrder, CheckinPhase } from '@/types/technician';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
 
+const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
+
 // Load profile data from onboarding state (localStorage)
 const loadOnboardingProfile = () => {
   try {
-    const saved = localStorage.getItem('thermocheck_onboarding_state');
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const state = JSON.parse(saved);
       return state.profil;
@@ -29,7 +31,7 @@ const loadOnboardingProfile = () => {
 // Load onboarding completion status from localStorage
 const loadOnboardingStatus = () => {
   try {
-    const saved = localStorage.getItem('thermocheck_onboarding_state');
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const state = JSON.parse(saved);
       return {
