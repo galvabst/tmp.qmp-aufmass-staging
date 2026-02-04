@@ -95,18 +95,15 @@ function getYouTubeEmbedUrl(url: string): string {
   return url;
 }
 
-// Bunny Stream iframe player with normalized URL and ref forwarding
+// Bunny Stream iframe player with normalized URL and DIRECT ref forwarding
+// Fix: Previously used useImperativeHandle which broke the ref chain
 const BunnyStreamPlayer = forwardRef<HTMLIFrameElement, { url: string }>(
   function BunnyStreamPlayer({ url }, ref) {
     const normalizedUrl = normalizeBunnyUrl(url);
-    const internalRef = useRef<HTMLIFrameElement>(null);
-    
-    // Forward ref to parent
-    useImperativeHandle(ref, () => internalRef.current!, []);
     
     return (
       <iframe
-        ref={internalRef}
+        ref={ref}  // Direct ref forwarding to parent
         id="bunny-player-iframe"
         src={normalizedUrl}
         loading="lazy"
