@@ -136,12 +136,14 @@ export function useBunnyPlayerProgress(
   iframeRef: RefObject<HTMLIFrameElement | null>,
   options: { requiredWatchPercent?: number } = {}
 ): {
-  canComplete: boolean;
+  canUnlockTabs: boolean;
+  canMarkComplete: boolean;
   watchedSeconds: number;
   requiredSeconds: number;
   percentComplete: number;
   timeRemainingFormatted: string;
   isPlaying: boolean;
+  isVideoEnded: boolean;
 } {
   const { requiredWatchPercent = 0.9 } = options;
   
@@ -149,20 +151,26 @@ export function useBunnyPlayerProgress(
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [initAttempt, setInitAttempt] = useState(0);
+  const [isVideoEnded, setIsVideoEnded] = useState(false);
   
   // Refs for tracking state without triggering re-renders
   const maxReachedTimeRef = useRef(0);
   const lastUpdateTimeRef = useRef(0);
   const playerRef = useRef<playerjs.Player | null>(null);
   
-  const requiredSeconds = Math.round(videoDurationMinutes * 60 * requiredWatchPercent);
-  const canComplete = watchedSeconds >= requiredSeconds;
+  const totalDurationSeconds = Math.round(videoDurationMinutes * 60);
+  const requiredSeconds = Math.round(totalDurationSeconds * requiredWatchPercent);
+  
+  // Two-phase logic: tabs unlock at 90%, completion at 100%
+  const canUnlockTabs = watchedSeconds >= requiredSeconds;
+  const canMarkComplete = isVideoEnded || watchedSeconds >= totalDurationSeconds;
+  
   const percentComplete = requiredSeconds > 0 
     ? Math.min(100, Math.round((watchedSeconds / requiredSeconds) * 100))
     : 100;
   
-  // Format: "X:XX verbleibend"
-  const remaining = Math.max(0, requiredSeconds - watchedSeconds);
+  // Format: "X:XX verbleibend" - FIXED: Round to avoid decimals
+  const remaining = Math.max(0, Math.round(requiredSeconds - watchedSeconds));
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
   const timeRemainingFormatted = `${mins}:${secs.toString().padStart(2, '0')} verbleibend`;
@@ -228,8 +236,9 @@ export function useBunnyPlayerProgress(
         player.on('ended', () => {
           console.log('[BunnyPlayer] ⏹ Ended');
           setIsPlaying(false);
+          setIsVideoEnded(true);
           // Mark as fully watched when video ends naturally
-          setWatchedSeconds(requiredSeconds);
+          setWatchedSeconds(totalDurationSeconds);
         });
         
         player.on('timeupdate', (data: { seconds: number; duration: number }) => {
@@ -307,12 +316,14 @@ export function useBunnyPlayerProgress(
   }, [isPlayerReady]);
   
   return { 
-    canComplete, 
+    canUnlockTabs,
+    canMarkComplete,
     watchedSeconds: Math.round(watchedSeconds),
     requiredSeconds, 
     percentComplete, 
     timeRemainingFormatted,
-    isPlaying
+    isPlaying,
+    isVideoEnded
   };
 }
 

@@ -212,6 +212,7 @@ export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceV
     return (
       <div className="w-full bg-black overflow-hidden">
         {/* Video container with dynamic height based on mode */}
+        {/* REMOVED maxHeight: 75vh to allow portrait videos to fill container like YouTube */}
         <div 
           className="relative w-full bg-black"
           style={{ 
@@ -219,8 +220,7 @@ export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceV
               ? 'calc(100svh - var(--akademie-header-h, 60px) - var(--akademie-footer-h, 72px))' 
               : undefined,
             aspectRatio: heightMode === 'contained' ? '16/9' : undefined,
-            maxHeight: heightMode === 'hero' ? '75vh' : undefined,
-            minHeight: heightMode === 'hero' ? '280px' : undefined,
+            minHeight: heightMode === 'hero' ? '300px' : undefined,
           }}
         >
           {renderPlayer()}
