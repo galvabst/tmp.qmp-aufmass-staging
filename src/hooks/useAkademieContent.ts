@@ -120,7 +120,7 @@ export function useAkademieContent() {
       try {
         // Fetch modules from thermocheck schema
         const { data: module, error: modError } = await thermocheckClient
-          .from('techniker_akademie_module')
+          .from('contractor_akademie_module')
           .select('*')
           .eq('ist_aktiv', true)
           .order('reihenfolge');
@@ -137,7 +137,7 @@ export function useAkademieContent() {
 
         // Fetch all lektionen from thermocheck schema
         const { data: lektionen, error: lekError } = await thermocheckClient
-          .from('techniker_akademie_lektionen')
+          .from('contractor_akademie_lektionen')
           .select('*')
           .eq('ist_aktiv', true)
           .order('reihenfolge');
@@ -192,7 +192,7 @@ export function useAkademieUnterpunkt(lektionId: string | undefined) {
       // Primary: Try thermocheck schema
       try {
         const { data: lektion, error: lekError } = await thermocheckClient
-          .from('techniker_akademie_lektionen')
+          .from('contractor_akademie_lektionen')
           .select('*')
           .eq('id', lektionId)
           .eq('ist_aktiv', true)
@@ -201,7 +201,7 @@ export function useAkademieUnterpunkt(lektionId: string | undefined) {
         if (!lekError && lektion) {
           // Fetch the parent module
           const { data: modul } = await thermocheckClient
-            .from('techniker_akademie_module')
+            .from('contractor_akademie_module')
             .select('id, titel')
             .eq('id', lektion.modul_id)
             .maybeSingle();
