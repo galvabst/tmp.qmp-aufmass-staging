@@ -1,89 +1,201 @@
 
-## Ziel
-Die riesigen „blauen Ränder“ im Bunny-Video sollen verschwinden, sodass das Video den verfügbaren Player-Bereich wirklich ausfüllt (auf Mobile idealerweise als „Hero“ fast/komplett screenfüllend). Zusätzlich soll klar sein, **warum** es passiert: aktuell wird ein Bunny-Player-Link genutzt, der im iFrame offenbar **nicht responsive** rendert (Video wird innerhalb des Players klein zentriert → großer Hintergrundbereich).
+## Unskippable Video + Content-Gating fuer Akademie
+
+### Zusammenfassung
+
+Die Akademie-Lektionen sollen ein "Unskippable Video"-System bekommen:
+- Der **Abschliessen-Button** wird erst aktiv, nachdem 90% der Video-Dauer auf der Seite vergangen ist
+- Die **Tabs "Lerninhalt" und "Zusammenfassung"** bleiben gesperrt, bis diese Zeit erreicht ist
+- Ein **Progress-Indikator** zeigt an, wie viel Zeit noch bleibt
+
+Da Bunny Stream und YouTube iFrames sind (cross-origin), koennen wir deren Playback nicht direkt tracken. Stattdessen nutzen wir einen **seitenbasierten Timer** basierend auf der in der Datenbank hinterlegten `dauerMinuten`.
 
 ---
 
-## Was ich anhand der Screenshots + Code als Ursache sehe (Fakten)
-1. Der blaue Bereich ist **nicht unser Tailwind-Background**, sondern kommt **aus dem Bunny-Player innerhalb des iFrames** (cross-origin).
-2. In der DB/Migration ist ein Bunny-Link der Form gespeichert:
-   - `https://iframe.mediadelivery.net/play/{libraryId}/{videoId}`
-3. Bunny empfiehlt für iFrame-Embeds in der Regel die **/embed/**-Variante und `responsive=true`. Das `/play/`-Format ist eher „direct play“ und kann im iFrame dazu führen, dass der Player intern eine feste/kleinere Layout-Breite nutzt → Ergebnis: „Video klein in der Mitte“.
+### Technische Umsetzung
 
-Wichtig: Selbst mit perfektem iFrame kann es bei nicht-16:9-Videos immer noch leichte Balken geben (Letterboxing), weil der Player das Seitenverhältnis schützt. Aber der „geisteskrank große“ Rahmen in deinem Screenshot sieht nach **nicht-responsive Player Layout** aus – das können wir sehr wahrscheinlich beheben.
+#### 1) Neuer Hook: `useIframeLessonProgress`
 
----
+**Datei:** `src/hooks/useVideoProgress.ts` (Erweiterung)
 
-## Umsetzung (konkret)
+```typescript
+/**
+ * Hook for iframe-based videos (Bunny/YouTube) where we can't track playback.
+ * Uses a page-based timer with the lesson's stored duration.
+ */
+export function useIframeLessonProgress(
+  videoDurationMinutes: number,
+  options: { requiredWatchPercent?: number } = {}
+): {
+  canComplete: boolean;
+  elapsedSeconds: number;
+  requiredSeconds: number;
+  percentComplete: number;
+  timeRemainingFormatted: string;
+} {
+  const { requiredWatchPercent = 0.9 } = options;
+  const [elapsed, setElapsed] = useState(0);
+  
+  const requiredSeconds = Math.round(videoDurationMinutes * 60 * requiredWatchPercent);
+  const canComplete = elapsed >= requiredSeconds;
+  const percentComplete = Math.min(100, Math.round((elapsed / requiredSeconds) * 100));
+  
+  // Format: "X:XX verbleibend"
+  const remaining = Math.max(0, requiredSeconds - elapsed);
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const timeRemainingFormatted = `${mins}:${secs.toString().padStart(2, '0')} verbleibend`;
+  
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsed(prev => prev + 1);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, []);
+  
+  return { canComplete, elapsedSeconds: elapsed, requiredSeconds, percentComplete, timeRemainingFormatted };
+}
+```
 
-### 1) Bunny-URL im Frontend normalisieren (ohne DB-Änderung)
-**Datei:** `src/components/akademie/MultiSourceVideoPlayer.tsx`
-
-- Eine kleine Helper-Funktion hinzufügen, die Bunny-URLs robust umschreibt:
-  - `/play/` → `/embed/`
-  - Optional: Host belassen (`iframe.mediadelivery.net`) oder (falls sinnvoll) auf den neuen Player umstellen (`player.mediadelivery.net`) – das testen wir direkt.
-  - Query-Params hinzufügen/ergänzen (ohne bestehende zu zerstören):
-    - `responsive=true`
-    - `autoplay=false` (oder so belassen, wie es aktuell ist – wir setzen hier bewusst auf stabil/konservativ)
-- Dann im `BunnyStreamPlayer` nicht `src={url}`, sondern `src={normalizedUrl}` verwenden.
-
-**Warum das hilft:** Der `/embed/`-Player ist genau für responsive iFrames gedacht. Damit sollte das Video im iFrame die verfügbare Fläche ausfüllen statt „klein mittig“ zu bleiben.
-
----
-
-### 2) „Echter Hero“-Modus: Video nimmt (fast) den kompletten Screen ein
-Aktuell ist der Container `h-[50vh] ...`. Du willst aber „kompletter Screen“.
-
-**Datei:** `src/components/akademie/MultiSourceVideoPlayer.tsx` **oder** (besser) `src/pages/AkademieModul.tsx`
-
-Ich setze das als „Hero“ um, damit es nicht die gesamte Seite zerstört:
-
-- **Mobile:** Video-Höhe = `100svh` minus Header-Höhe (damit Header sichtbar bleibt)  
-- **Desktop:** etwas moderater (z.B. `70svh` oder capped), damit nicht alles nur Video ist
-
-Technisch sauber (ohne Raten von Header-Pixeln):
-- In `AkademieModul.tsx`:
-  - Header bekommt ein `ref`
-  - per `ResizeObserver` / `useLayoutEffect` wird die Headerhöhe gemessen
-  - diese Höhe wird als CSS-Variable gesetzt (z.B. `--akademie-header-h: 64px`)
-- Der Video-Wrapper bekommt dann:
-  - `height: calc(100svh - var(--akademie-header-h))` (Mobile)
-  - auf Desktop z.B. `min(70svh, 720px)` (oder ähnlich)
-
-**Warum so:** Dann ist es wirklich screenfüllend auf Handy, ohne dass wir harte Werte raten müssen.
-
----
-
-### 3) Optik: keine „Umrandung“ aus unserer Seite
-Selbst wenn Bunny intern noch minimale Balken macht:
-- Außenrum muss es „clean“ sein:
-  - Player-Wrapper: `bg-black`, `overflow-hidden`, keine Padding/Margins
-  - iFrame: `display:block` (verhindert inline-gap), `border-0`
+**Warum so:**
+- Nutzt die in der DB gespeicherte `dauerMinuten` (z.B. 8 Minuten)
+- Berechnet 90% davon als erforderliche Zeit (7.2 Minuten = 432 Sekunden)
+- Zaehlt hoch, solange die Seite offen ist
+- Liefert formatierte Restzeit fuer UI-Anzeige
 
 ---
 
-## Test/Verifikation (Pflicht, damit wir nicht wieder im Kreis drehen)
-1. Auf `/akademie/modul/f10b3df0-1a58-4d2a-80a1-164b38a21292` prüfen:
-   - Wird das Video im Player groß/flächig angezeigt (nicht mehr klein zentriert)?
-2. In Lovable Preview oben rechts Device-Switch:
-   - Mobile (z.B. iPhone 390x844): Video sollte „Hero“ sein (fast Screen).
-   - Desktop: Video breit und prominent, aber nicht „komisch“.
-3. Fullscreen-Button im Bunny-Player testen (iFrame `allowFullScreen` ist schon gesetzt; bleibt so).
+#### 2) AkademieModul.tsx - UI-Aenderungen
+
+**Datei:** `src/pages/AkademieModul.tsx`
+
+**A) Hook einbinden:**
+```typescript
+import { useIframeLessonProgress } from '@/hooks/useVideoProgress';
+
+// Im Component:
+const { 
+  canComplete, 
+  percentComplete, 
+  timeRemainingFormatted 
+} = useIframeLessonProgress(unterpunkt.dauerMinuten);
+```
+
+**B) Tabs sperren bis 90% erreicht:**
+```tsx
+<TabsTrigger 
+  value="inhalt" 
+  className="gap-1.5" 
+  disabled={!canComplete}
+>
+  <BookOpen className="w-4 h-4" />
+  <span className="hidden sm:inline">Lerninhalt</span>
+  {!canComplete && <Lock className="w-3 h-3 ml-1 opacity-50" />}
+</TabsTrigger>
+
+<TabsTrigger 
+  value="zusammenfassung" 
+  className="gap-1.5" 
+  disabled={!canComplete}
+>
+  <FileText className="w-4 h-4" />
+  <span className="hidden sm:inline">Zusammenfassung</span>
+  {!canComplete && <Lock className="w-3 h-3 ml-1 opacity-50" />}
+</TabsTrigger>
+```
+
+**C) Footer mit Progress-Anzeige:**
+```tsx
+<footer ref={footerRef} className="sticky bottom-0 ...">
+  <div className="max-w-3xl mx-auto">
+    {!canComplete ? (
+      <div className="space-y-2">
+        {/* Progress Bar */}
+        <Progress value={percentComplete} className="h-2" />
+        
+        {/* Disabled Button mit Restzeit */}
+        <Button className="w-full h-12 text-base" disabled>
+          <Clock className="w-5 h-5 mr-2 animate-pulse" />
+          {timeRemainingFormatted}
+        </Button>
+        
+        <p className="text-xs text-center text-muted-foreground">
+          Schaue das Video zu Ende, um fortzufahren
+        </p>
+      </div>
+    ) : (
+      <Button 
+        className="w-full h-12 text-base"
+        onClick={handleMarkComplete}
+      >
+        <Check className="w-5 h-5 mr-2" />
+        Als abgeschlossen markieren
+      </Button>
+    )}
+  </div>
+</footer>
+```
 
 ---
 
-## Risiken / Grenzen (kritisch, damit Erwartung sauber ist)
-- Wenn das Originalvideo ein ungewöhnliches Seitenverhältnis hat, kann Bunny weiterhin Balken anzeigen, weil es nicht croppt.  
-  Was wir fixen: den „Player rendert klein in der Mitte“-Bug durch falschen Embed-Link.
-- „Video soll IMMER ohne Balken“ bedeutet technisch „cover/crop“. Das lässt sich in einem cross-origin iFrame meistens nicht erzwingen. Falls du wirklich immer „ohne Balken“ willst, bräuchten wir statt iFrame einen eigenen `<video>`-Player mit Stream-URL (HLS/MP4) von Bunny (höhere Komplexität + saubere, stabile Stream-URLs nötig).
+#### 3) Schwarze Balken (Letterboxing)
+
+**Problem:** Die schwarzen Balken oben/unten kommen vom Bunny-Player selbst, weil das Video ein Seitenverhaeltnis hat (z.B. 16:9) und der Container nicht exakt passt.
+
+**Realitaet:** Bei einem iFrame (cross-origin) koennen wir das interne Rendering nicht beeinflussen. Die Balken verschwinden nur, wenn:
+1. Das Quellvideo exakt zum Container passt (Seitenverhaeltnis identisch)
+2. Oder wir einen eigenen Player mit HLS-Stream bauen (grosser Aufwand)
+
+**Was wir optimieren koennen:**
+- Container-Hoehe so waehlen, dass sie moeglichst nah am 16:9-Verhaeltnis ist
+- Fuer Hochformat (Portrait-Modus) ist Letterboxing bei Landscape-Videos unvermeidlich
+
+**Vorschlag:** Statt heroischem Fullscreen-Modus auf Mobile einen **16:9-Container** nutzen, der die Balken minimiert:
+
+```tsx
+// In MultiSourceVideoPlayer - optionaler "portrait-safe" Modus
+style={{ 
+  aspectRatio: '16/9',
+  maxHeight: heightMode === 'hero' ? '75vh' : undefined,
+}}
+```
+
+Das bedeutet: Das Video behaelt immer 16:9, wird nie zu gross, und minimiert interne Letterboxing-Balken.
 
 ---
 
-## Dateien, die ich ändern werde
-1. `src/components/akademie/MultiSourceVideoPlayer.tsx`
-   - Bunny-URL Normalisierung (/play → /embed, responsive=true)
-   - Hero-Container-Styles (oder per Prop steuerbar)
-2. `src/pages/AkademieModul.tsx` (optional aber empfohlen)
-   - Headerhöhe messen und als CSS-Variable bereitstellen, damit Hero wirklich „perfekt“ wird
+### Dateien die ich aendern werde
+
+| Datei | Aenderung |
+|-------|-----------|
+| `src/hooks/useVideoProgress.ts` | Neuer Hook `useIframeLessonProgress` hinzufuegen |
+| `src/pages/AkademieModul.tsx` | Hook einbinden, Tabs sperren, Footer mit Progress |
+| `src/components/akademie/MultiSourceVideoPlayer.tsx` | (Optional) Container-Strategie fuer weniger Letterboxing |
 
 ---
+
+### Erwartetes Verhalten
+
+1. User oeffnet Lektion mit 8-Minuten-Video
+2. Timer startet, zaehlt Sekunden hoch
+3. Tabs "Lerninhalt" und "Zusammenfassung" sind gesperrt (ausgegraut + Lock-Icon)
+4. Footer zeigt Progress-Bar und "X:XX verbleibend"
+5. Nach 90% der Zeit (7:12 bei 8 Min) wird alles entsperrt
+6. User kann jetzt Tabs oeffnen und "Als abgeschlossen markieren" klicken
+
+---
+
+### Hinweis zu den schwarzen Balken
+
+Die schwarzen Balken im Hochformat sind technisch nicht vollstaendig entfernbar, weil:
+- Das Quellvideo ist Landscape (16:9)
+- Im Hochformat (Portrait) muss das Video irgendwo "Platz lassen"
+- Bunny-Player zeigt schwarze Balken fuer den leeren Bereich
+
+**Loesungsoptionen (ausserhalb dieses Plans):**
+1. Videos im 9:16 (Hochformat) produzieren - dann kein Letterboxing auf Handy
+2. Video nur im Fullscreen (Landscape) abspielen lassen
+3. Akzeptieren dass Landscape-Videos im Portrait Balken haben (wie bei YouTube)
+
+Fuer diesen Plan fokussiere ich mich auf das Content-Gating (unskippable video logic), da das die Hauptanforderung ist.
