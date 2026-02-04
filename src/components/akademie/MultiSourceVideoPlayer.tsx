@@ -1,6 +1,5 @@
 import { useRef } from 'react';
-import { Play, Loader2, ExternalLink } from 'lucide-react';
-import { useSignedVideoUrl } from '@/hooks/useSignedVideoUrl';
+import { Play } from 'lucide-react';
 
 interface MultiSourceVideoPlayerProps {
   videoUrl: string | null | undefined;
@@ -8,8 +7,9 @@ interface MultiSourceVideoPlayerProps {
 
 /**
  * Detects the video source type from a URL
+ * Videos now come from Bunny Stream, YouTube, or direct MP4 URLs
  */
-function detectVideoSource(url: string): 'bunny-stream' | 'youtube' | 'direct-mp4' | 'supabase-storage' {
+function detectVideoSource(url: string): 'bunny-stream' | 'youtube' | 'direct-mp4' {
   // Bunny Stream iframe embed
   if (url.includes('iframe.mediadelivery.net') || url.includes('video.bunnycdn.com')) {
     return 'bunny-stream';
@@ -20,17 +20,7 @@ function detectVideoSource(url: string): 'bunny-stream' | 'youtube' | 'direct-mp
     return 'youtube';
   }
   
-  // Direct video file (mp4, webm, etc.)
-  if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(url)) {
-    return 'direct-mp4';
-  }
-  
-  // Default: assume Supabase Storage path (no http)
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    return 'supabase-storage';
-  }
-  
-  // Unknown URL with http - try as direct video
+  // Default: Direct video file
   return 'direct-mp4';
 }
 
@@ -113,45 +103,6 @@ function DirectVideoPlayer({ url }: { url: string }) {
   );
 }
 
-// Supabase Storage player (uses signed URLs)
-function SupabaseStoragePlayer({ path }: { path: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const { signedUrl, isLoading, error } = useSignedVideoUrl(path);
-  
-  if (isLoading) {
-    return (
-      <div className="relative w-full aspect-video bg-black flex flex-col items-center justify-center text-white">
-        <Loader2 className="w-10 h-10 animate-spin mb-2" />
-        <p className="text-white/80 text-sm">Video wird geladen...</p>
-      </div>
-    );
-  }
-  
-  if (error || !signedUrl) {
-    return (
-      <div className="relative w-full aspect-video bg-black flex flex-col items-center justify-center text-white/60">
-        <Play className="w-12 h-12 mb-2" />
-        <p className="text-sm">Video konnte nicht geladen werden</p>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="relative w-full aspect-video bg-black">
-      <video
-        ref={videoRef}
-        src={signedUrl}
-        controls
-        className="w-full h-full"
-        controlsList="nodownload"
-        playsInline
-      >
-        Dein Browser unterstützt keine Videos.
-      </video>
-    </div>
-  );
-}
-
 // No video placeholder
 function NoVideoPlaceholder() {
   return (
@@ -181,8 +132,6 @@ export function MultiSourceVideoPlayer({ videoUrl }: MultiSourceVideoPlayerProps
       return <YouTubePlayer url={videoUrl} />;
     case 'direct-mp4':
       return <DirectVideoPlayer url={videoUrl} />;
-    case 'supabase-storage':
-      return <SupabaseStoragePlayer path={videoUrl} />;
     default:
       return <NoVideoPlaceholder />;
   }
