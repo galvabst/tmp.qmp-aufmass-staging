@@ -52,11 +52,11 @@ function getYouTubeEmbedUrl(url: string): string {
 // Bunny Stream iframe player
 function BunnyStreamPlayer({ url }: { url: string }) {
   return (
-    <div className="relative w-full aspect-video bg-black min-h-[200px] sm:min-h-[300px]">
+    <div className="relative w-full h-[50vh] sm:h-[60vh] max-h-[600px] bg-black">
       <iframe
         src={url}
         loading="lazy"
-        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         allowFullScreen
         className="absolute inset-0 w-full h-full border-0"
         title="Video Player"
@@ -70,11 +70,11 @@ function YouTubePlayer({ url }: { url: string }) {
   const embedUrl = getYouTubeEmbedUrl(url);
   
   return (
-    <div className="relative w-full aspect-video bg-black min-h-[200px] sm:min-h-[300px]">
+    <div className="relative w-full h-[50vh] sm:h-[60vh] max-h-[600px] bg-black">
       <iframe
         src={embedUrl}
         loading="lazy"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
         allowFullScreen
         className="absolute inset-0 w-full h-full border-0"
         title="YouTube Video Player"
@@ -88,12 +88,12 @@ function DirectVideoPlayer({ url }: { url: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   
   return (
-    <div className="relative w-full aspect-video bg-black min-h-[200px] sm:min-h-[300px]">
+    <div className="relative w-full h-[50vh] sm:h-[60vh] max-h-[600px] bg-black">
       <video
         ref={videoRef}
         src={url}
         controls
-        className="w-full h-full"
+        className="w-full h-full object-contain"
         controlsList="nodownload"
         playsInline
       >
