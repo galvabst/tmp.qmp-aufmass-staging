@@ -1,102 +1,104 @@
 
-## Ziel
-Beim Klick auf ein Akademie‑Modul wird aktuell eine alte (Mock-)ID wie `up-1-1` in die URL geschrieben (`/akademie/modul/up-1-1`). Seitdem das `thermocheck`‑Schema live genutzt wird, erwartet Supabase an dieser Stelle aber eine echte UUID. Ergebnis: `400 Bad Request` und die Seite zeigt „Modul nicht gefunden“.
+## Akademie Video-Player Layout-Optimierung
 
-## Was gerade passiert (Ursache)
-- Die **Akademie-Liste** in der Onboarding-Ansicht kommt aus `useOnboardingState` → `state.akademieHauptmodule`.
-- `useOnboardingState` lädt zuerst aus `localStorage` (Key: `thermocheck_onboarding_state_v2`).
-- In deinem Browser ist dort noch eine **alte, gespeicherte Akademie-Struktur** mit IDs wie `up-1-1`.
-- `AcademyStep` navigiert dann konsequent zu:
-  - `navigate(/akademie/modul/${unterpunkt.id})` → also `/akademie/modul/up-1-1`
-- `AkademieModul` ruft `useAkademieUnterpunkt(modulId)` auf und Supabase versucht `id = 'up-1-1'` (UUID-Spalte) zu filtern → **400**.
+### Aktuelle Probleme (aus den Screenshots)
 
-## Lösungsidee (ohne dass du manuell im Browser etwas löschen musst)
-Wir bauen eine „Selbstheilung“ ein:
-1) **Automatische Migration/Reset**: Wenn gespeicherte Akademie‑IDs keine UUIDs sind, wird nur der Akademie‑Teil aus dem localStorage-State verworfen.
-2) **Hydrierung aus der DB**: Die echten Module/Lektionen werden per `useAkademieContent()` aus `thermocheck.contractor_akademie_*` geladen und in den Onboarding‑State übernommen (mit Merge, damit Fortschritt nicht verloren geht).
-3) **Schutz im Modul‑Screen**: Wenn jemand (oder ein alter Bookmark) trotzdem `/akademie/modul/up-1-1` aufruft, zeigen wir eine klare Meldung „Veralteter Link“ + Button „Daten aktualisieren“, der intern den Cache repariert und zurück zur Akademie führt.
+1. **Desktop (Laptop)**: Das Video ist auf `max-w-3xl` (768px) begrenzt und hat deshalb viel leeren Rand links/rechts. Das Video sollte die volle verfuegbare Breite nutzen.
+
+2. **Mobile**: Das Video wird ebenfalls durch den Container eingeschraenkt und wirkt zu klein. Auf Mobilgeraeten sollte das Video die volle Bildschirmbreite einnehmen (edge-to-edge).
+
+3. **Fullscreen-Zugang**: Die iFrame-Player (Bunny Stream, YouTube) unterstuetzen Fullscreen nativ, aber der Zugang ist nicht offensichtlich (versteckt in Player-Controls). Ein visueller Hinweis oder Button fehlt.
 
 ---
 
-## Geplante Änderungen (konkret)
+### Geplante Aenderungen
 
-### A) UUID-Check Helper einführen
-**Datei:** `src/lib/utils.ts` (oder kleine neue Utility-Datei)
-- Funktion `isUuid(value: string): boolean` (Regex-basiert).
-- Nutzen wir an mehreren Stellen für sichere Entscheidungen.
+#### A) AkademieModul.tsx - Video-Container anpassen
 
-### B) Onboarding-State: gespeicherte Akademie-Daten validieren & migrieren
-**Datei:** `src/hooks/useOnboardingState.ts`
-1. In `loadPersistedState(...)`:
-   - Nach dem JSON-Parse prüfen:
-     - Gibt es `parsed.akademieHauptmodule`?
-     - Haben `hauptmodul.id` und besonders `unterpunkte[].id` ein UUID-Format?
-   - Wenn nicht UUID:
-     - Setze `akademieHauptmodule` auf `initial.akademieHauptmodule` (aktuell leer)
-     - Optional: Setze `akademieModule` (Legacy) ebenfalls zurück
-     - Wichtig: Alle anderen Onboarding-Felder (Profil, Dokumente, Bestellungen etc.) bleiben erhalten.
-   - Ziel: Alte `up-...` IDs verschwinden automatisch.
+**Ziel**: Video edge-to-edge auf allen Geraten, Content darunter weiterhin lesbar begrenzt.
 
-### C) Onboarding-State: Akademie aus der DB laden und in State „hydratisieren“
-**Dateien:**  
-- `src/hooks/useOnboardingState.ts`  
-- `src/hooks/useAkademieContent.ts` (nur falls kleine Anpassungen nötig sind)
+Aktuelle Struktur:
+```tsx
+<main className="flex-1 flex flex-col">
+  <div className="w-full max-w-3xl mx-auto">
+    <MultiSourceVideoPlayer ... />
+    <div className="p-4">
+      {/* Tabs/Content */}
+    </div>
+  </div>
+</main>
+```
 
-Vorgehen:
-1. In `useOnboardingState` zusätzlich `useAkademieContent()` aufrufen.
-2. Wenn DB-Daten geladen sind (`data` vorhanden):
-   - `setState(prev => ...)` und `prev.akademieHauptmodule` mit DB-Inhalt ersetzen/mergen:
-     - Module/Lektionen aus DB sind der „Katalog“
-     - `abgeschlossen` und `abgeschlossenAt` wird aus `prev` übernommen (wenn IDs matchen)
-3. Schutz gegen Endlos-Updates:
-   - Nur hydratisieren, wenn:
-     - `prev.akademieHauptmodule` leer ist, oder
-     - IDs/Anzahl anders sind (ein einfacher Vergleich der ID-Listen reicht)
+Neue Struktur:
+```tsx
+<main className="flex-1 flex flex-col">
+  {/* Video AUSSERHALB des max-w Containers = volle Breite */}
+  <MultiSourceVideoPlayer ... />
+  
+  {/* Content MIT max-w fuer Lesbarkeit */}
+  <div className="w-full max-w-3xl mx-auto">
+    <div className="p-4">
+      {/* Tabs/Content */}
+    </div>
+  </div>
+</main>
+```
 
-Ergebnis:
-- Nach einem Reload kommen die Module aus der DB, und die Klick-URLs sind UUIDs.
-
-### D) Akademie-Modulseite robuster machen (alte URL abfangen)
-**Datei:** `src/pages/AkademieModul.tsx`
-1. Vor dem Hook-Aufruf/Rendering prüfen:
-   - Wenn `modulId` fehlt oder `!isUuid(modulId)`:
-     - Zeige spezielle „Veralteter Link / Daten aktualisieren“ UI
-     - Button:
-       - löscht/cleart gezielt `thermocheck_onboarding_state_v2` ODER nur den akademie-Teil (je nach gewünschtem Verhalten)
-       - navigiert nach `/` (Onboarding)
-2. Optional zusätzlich:
-   - `useAkademieUnterpunkt` nur `enabled`, wenn UUID, damit keine 400er Requests mehr entstehen.
-
-### E) (Optional, aber empfehlenswert) LocalStorage-Key Konsistenz in Index-Seite
-**Datei:** `src/pages/Index.tsx`
-- `Index.tsx` liest aktuell noch `thermocheck_onboarding_state` (ohne `_v2`) für Profil/Status.
-- Das ist inkonsistent und kann später für Verwirrung sorgen.
-- Plan: auf `thermocheck_onboarding_state_v2` umstellen (oder bewusst beide unterstützen, mit Fallback).
+Das Video nimmt jetzt immer 100% der Viewport-Breite ein.
 
 ---
 
-## Testplan (End-to-End)
-1. Öffnen der App und zum Onboarding → Schritt „Akademie“ navigieren.
-2. Prüfen, dass die Akademie-Liste **nach Reload** weiterhin erscheint (jetzt aus DB).
-3. Auf eine Lektion klicken:
-   - URL muss wie `/akademie/modul/<uuid>` aussehen (nicht `up-1-1`).
-   - Seite lädt Inhalte ohne „Modul nicht gefunden“.
-4. Direkt alte URL testen:
-   - `/akademie/modul/up-1-1`
-   - Erwartung: „Veralteter Link“ UI + „Daten aktualisieren“ Button, kein 400-Request-Spam.
-5. Regression-Check: Profil/Dokumente/Bestellungen bleiben unverändert gespeichert.
+#### B) MultiSourceVideoPlayer.tsx - Responsives Aspect Ratio
+
+**Problem**: `aspect-video` (16:9) auf kleinen Bildschirmen kann zu einer sehr kleinen Videohoehe fuehren.
+
+**Loesung**: Mindesthoehe auf Mobile setzen, damit das Video nicht zu klein wird.
+
+```tsx
+// Vorher
+<div className="relative w-full aspect-video bg-black">
+
+// Nachher
+<div className="relative w-full aspect-video bg-black min-h-[200px] sm:min-h-[300px]">
+```
 
 ---
 
-## Risiken / Hinweise
-- Falls auf den `thermocheck.contractor_akademie_*` Tabellen **RLS aktiv** ist und keine SELECT-Policy existiert, sehen wir nach der Migration ggf. **401/403** statt 400. Dann müssten wir eine sichere Read-Policy ergänzen (für Trainingsinhalte meist ok).
-- Der Console-Warnhinweis „Function components cannot be given refs“ ist unabhängig vom 400/UUID-Problem. Kann man separat fixen, sobald das Laden stabil ist.
+#### C) MultiSourceVideoPlayer.tsx - Fullscreen-Hinweis fuer Mobile
+
+Da Bunny/YouTube-iFrames native Fullscreen-Controls haben, aber diese nicht immer offensichtlich sind, fuegen wir einen kleinen visuellen Hinweis hinzu:
+
+```tsx
+// Nach dem Player, optional sichtbar
+<p className="text-xs text-center text-muted-foreground py-1 sm:hidden">
+  Tippe auf das Video fuer Vollbild
+</p>
+```
+
+Alternativ: Ein Overlay mit Fullscreen-Icon beim ersten Anzeigen, das nach dem ersten Play verschwindet.
 
 ---
 
-## Feature‑Vorschläge (als nächstes sinnvoll)
-1) End-to-End prüfen: Akademie öffnen → Lektion starten → als abgeschlossen markieren → zurück ins Onboarding, Fortschritt sichtbar.  
-2) Akademie-Fortschritt in Supabase speichern (statt nur localStorage), damit es geräteübergreifend funktioniert.  
-3) Admin-Ansicht zum Pflegen von Modulen/Lektionen/Quizfragen im `thermocheck` Schema.  
-4) Sequenzielles Unlocking wieder aktivieren (aktuell ist alles „TEMP: unlocked“).  
-5) Besseres Error-Handling: Ladezustände + „Keine Inhalte vorhanden“ UI, falls DB leer ist.
+### Technische Details
+
+| Aenderung | Datei | Zeilen (ca.) |
+|-----------|-------|--------------|
+| Video aus Container nehmen | `src/pages/AkademieModul.tsx` | ~168-170 |
+| Min-Height hinzufuegen | `src/components/akademie/MultiSourceVideoPlayer.tsx` | 55, 73, 91 |
+| Fullscreen-Hinweis (optional) | `src/components/akademie/MultiSourceVideoPlayer.tsx` | Nach Player-Return |
+
+---
+
+### Ergebnis nach Implementation
+
+- **Desktop**: Video nutzt volle Bildschirmbreite (kein seitlicher Weissraum mehr)
+- **Mobile**: Video edge-to-edge mit Mindesthoehe, damit es nicht zu klein erscheint
+- **Tabs/Content**: Bleiben auf `max-w-3xl` begrenzt fuer optimale Lesbarkeit
+- **Fullscreen**: Native Browser-Fullscreen-Option bleibt erhalten (Doppeltipp/Controls)
+
+---
+
+### Risiken / Bedenken
+
+- Bunny Stream iFrames sind bereits responsive (`w-full h-full` innerhalb eines `aspect-video` Containers). Die Aenderung sollte keine Breaking Changes verursachen.
+- Falls das Video zu gross wird auf sehr breiten Bildschirmen (4K), koennte man optional eine `max-w-6xl` oder `max-w-7xl` Begrenzung nur fuer das Video einfuehren - aber aktuell ist edge-to-edge gewuenscht.
