@@ -1,90 +1,180 @@
 
-# Plan: Akademie Locking temporär deaktivieren
+
+# Bereinigungsplan: Altlasten, Duplikate & Dead Code entfernen
+
+## Übersicht
+
+Das System enthält Überreste aus der Prototyp-Phase die nie aufgeräumt wurden:
+- Storage Bucket mit Dummy-Ordnern (Videos kommen jetzt von Bunny)
+- Doppelte Datenbank-Tabellen für Akademie und Onboarding
+- ~270 Zeilen Mock-Daten im Code die echte DB-Daten überschreiben
+- Dead Code für Supabase Storage Video-Handling
+
+---
+
+## Phase 1: Storage Bucket bereinigen
+
+### Was wird gelöscht
+
+| Resource | Inhalt | Grund |
+|----------|--------|-------|
+| Bucket `akademie-videos` | 1 Dummy-Placeholder | Videos kommen von Bunny Stream, Bucket unbenutzt |
+
+### SQL-Migration
+
+```sql
+-- Alle Objekte im akademie-videos Bucket löschen
+DELETE FROM storage.objects WHERE bucket_id = 'akademie-videos';
+
+-- Bucket selbst löschen
+DELETE FROM storage.buckets WHERE id = 'akademie-videos';
+```
+
+---
+
+## Phase 2: Dead Code entfernen
+
+### Dateien löschen
+
+| Datei | Zeilen | Grund |
+|-------|--------|-------|
+| `src/hooks/useSignedVideoUrl.ts` | 91 | Supabase Storage URLs nicht mehr genutzt |
+
+### Code-Änderungen
+
+**Datei:** `src/components/akademie/MultiSourceVideoPlayer.tsx`
+
+Entfernen:
+- Import von `useSignedVideoUrl` (Zeile 3)
+- `SupabaseStoragePlayer` Component (Zeilen 117-153)
+- Case `'supabase-storage'` im Switch (Zeilen 184-185)
+- `'supabase-storage'` aus `detectVideoSource` Funktion (Zeilen 28-31)
+
+---
+
+## Phase 3: Legacy Datenbank-Tabellen löschen
+
+### Übersicht der Duplikate
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    AKADEMIE CONTENT                              │
+├─────────────────────────────────────────────────────────────────┤
+│  LEGACY (löschen)              │  SSOT (behalten)               │
+│  public.onboarding_akademie_   │  thermocheck.techniker_        │
+│    hauptmodule (4 rows)        │    akademie_module (13 rows)   │
+│    unterpunkte (16 rows)       │    akademie_lektionen (52 rows)│
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    TECHNIKER ONBOARDING                          │
+├─────────────────────────────────────────────────────────────────┤
+│  LEGACY (löschen)              │  SSOT (behalten)               │
+│  thermocheck.techniker_        │  thermocheck.contractor_       │
+│    onboarding (1 row)          │    onboarding (1 row)          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### SQL-Migration
+
+```sql
+-- 1. Legacy Akademie-Tabellen (public schema)
+DROP TABLE IF EXISTS public.onboarding_akademie_unterpunkte CASCADE;
+DROP TABLE IF EXISTS public.onboarding_akademie_hauptmodule CASCADE;
+
+-- 2. Legacy Onboarding-Tabelle (thermocheck schema)
+DROP TABLE IF EXISTS thermocheck.techniker_onboarding CASCADE;
+
+-- 3. Bereits markierte Tabelle
+DROP TABLE IF EXISTS thermocheck.ideen_to_be_deleted CASCADE;
+
+-- 4. Leere/unbenutzte Tabellen aufräumen
+DROP TABLE IF EXISTS thermocheck.academy_module CASCADE;
+DROP TABLE IF EXISTS thermocheck.contractor_academy_progress CASCADE;
+DROP TABLE IF EXISTS thermocheck.contractor_coaching CASCADE;
+DROP TABLE IF EXISTS thermocheck.contractor_compliance CASCADE;
+
+-- 5. Legacy RPC-Funktionen löschen
+DROP FUNCTION IF EXISTS thermocheck_create_techniker_onboarding;
+DROP FUNCTION IF EXISTS thermocheck_get_techniker_onboarding;
+DROP FUNCTION IF EXISTS thermocheck_update_techniker_onboarding;
+DROP FUNCTION IF EXISTS thermocheck_delete_techniker_onboarding;
+```
+
+---
+
+## Phase 4: Code Cleanup - Mock Daten entfernen
+
+### Datei: `src/lib/onboarding-config.ts`
+
+**Aktion:** `MOCK_AKADEMIE_HAUPTMODULE` (~270 Zeilen) durch leeres Array ersetzen
+
+```typescript
+// Zeile 177-445: Kompletten Mock löschen und ersetzen durch:
+export const MOCK_AKADEMIE_HAUPTMODULE: AkademieHauptmodul[] = [];
+```
+
+### Datei: `src/hooks/useAkademieContent.ts`
+
+**Aktion:** Legacy-Fallback Logik entfernen (Zeilen 178-216 und 266-297)
+
+Vorher:
+```typescript
+// Fallback: Try legacy public schema tables
+try {
+  const { data: hauptmodule } = await supabase
+    .from('onboarding_akademie_hauptmodule')
+    // ... 30+ Zeilen Legacy-Code
+}
+```
+
+Nachher:
+```typescript
+// Kein Legacy-Fallback mehr - thermocheck ist SSOT
+console.warn('[Akademie] No data found in thermocheck schema');
+return [];
+```
+
+---
+
+## Phase 5: Frontend-Integration fixen
+
+### Datei: `src/components/OnboardingScreen.tsx`
+
+**Problem:** Nutzt `state.akademieHauptmodule` (Mock) statt DB
+
+**Lösung:**
+
+```typescript
+// Import hinzufügen
+import { useAkademieContent } from '@/hooks/useAkademieContent';
+
+// Im Component Body
+const { data: dbAkademie, isLoading: isAkademieLoading } = useAkademieContent();
+
+// An AcademyStep übergeben (ca. Zeile 239)
+<AcademyStep
+  hauptmodule={dbAkademie || []}  // DB statt Mock
+  onCompleteUnterpunkt={...}
+  isAkademieComplete={...}
+/>
+```
+
+---
 
 ## Zusammenfassung
 
-Die Akademie zeigt alle Module außer dem ersten als **gesperrt** an. Das ist korrektes Verhalten laut Locking-Logik, aber du willst während der Aufbauphase **alle Module betrachtbar** haben.
+| Phase | Aktion | Zeilen/Objekte |
+|-------|--------|----------------|
+| 1 | Storage Bucket löschen | 1 Bucket + Dummy-Dateien |
+| 2 | Dead Code entfernen | ~130 Zeilen |
+| 3 | Legacy DB-Tabellen löschen | 7 Tabellen + 4 Funktionen |
+| 4 | Mock-Daten entfernen | ~300 Zeilen |
+| 5 | Frontend fixen | ~10 Zeilen ändern |
 
-**Zusätzlich:** Das Video wurde zur falschen Lektion zugeordnet. "Was ist der Thermocheck?" ist in Modul 2 ("Grundlagen"), aber Modul 2 ist gesperrt.
-
----
-
-## Technische Änderungen
-
-### 1. Locking temporär deaktivieren
-
-**Datei:** `src/components/onboarding/steps/AcademyStep.tsx`
-
-Die Funktionen `isHauptmodulUnlocked()` und `isUnterpunktUnlocked()` werden so angepasst, dass sie während der Aufbauphase **immer `true` zurückgeben**:
-
-**Änderung in Zeile 25-30:**
-```tsx
-// Helper: Prüft ob Hauptmodul freigeschaltet ist
-function isHauptmodulUnlocked(index: number, hauptmodule: AkademieHauptmodul[]): boolean {
-  // TEMP: Alle Module freigeschaltet während Aufbauphase
-  return true;
-  
-  // Original-Logik (später reaktivieren):
-  // if (index === 0) return true;
-  // const prev = hauptmodule[index - 1];
-  // const prevUnterpunkte = prev?.unterpunkte || [];
-  // return prevUnterpunkte.every(u => u.abgeschlossen);
-}
-```
-
-**Änderung in Zeile 49-65:**
-```tsx
-// Helper: Prüft ob ein Unterpunkt freigeschaltet ist
-function isUnterpunktUnlocked(
-  hauptmodulIndex: number, 
-  unterpunktIndex: number, 
-  hauptmodule: AkademieHauptmodul[]
-): boolean {
-  // TEMP: Alle Unterpunkte freigeschaltet während Aufbauphase
-  return true;
-  
-  // Original-Logik (später reaktivieren):
-  // if (!isHauptmodulUnlocked(hauptmodulIndex, hauptmodule)) return false;
-  // if (unterpunktIndex === 0) return true;
-  // const hauptmodul = hauptmodule[hauptmodulIndex];
-  // const unterpunkte = hauptmodul?.unterpunkte || [];
-  // return unterpunkte[unterpunktIndex - 1]?.abgeschlossen ?? false;
-}
-```
-
-### 2. Video-URL für eine testbare Lektion setzen
-
-Die Lektion "Was ist der Thermocheck?" hat die Video-URL, aber sie ist in Modul 2 (momentan gesperrt). Nach dem Entsperren kannst du sie testen.
-
-**Alternativ** kann ich die Video-URL auch zur ersten Lektion ("Ziel der Akademie") kopieren, damit du sofort im ersten Modul testen kannst:
-
-```sql
-UPDATE thermocheck.techniker_akademie_lektionen
-SET video_url = 'https://iframe.mediadelivery.net/play/591760/5950ea70-de80-4a18-8e04-f516cd78fcf6'
-WHERE titel = 'Ziel der Akademie';
-```
-
----
-
-## Betroffene Dateien
-
-| Datei | Änderung |
-|-------|----------|
-| `src/components/onboarding/steps/AcademyStep.tsx` | Locking-Funktionen geben temporär immer `true` zurück |
-| (Optional) SQL Update | Video-URL auch für "Ziel der Akademie" setzen |
-
----
-
-## Ergebnis nach Umsetzung
-
-1. ✅ Alle Module und Lektionen sind klickbar (kein Schloss-Symbol mehr)
-2. ✅ Jede Lektion navigiert zu `/akademie/modul/:id`
-3. ✅ Videos werden als Bunny Stream iframe angezeigt
-4. ✅ Du kannst in Ruhe alle Inhalte aufbauen und testen
-
----
-
-## Spätere Reaktivierung
-
-Wenn das Akademie-System produktionsreif ist, einfach die `return true;` Zeilen entfernen und die auskommentierte Original-Logik wieder aktivieren.
+**Ergebnis nach Umsetzung:**
+- Klare Single Source of Truth (thermocheck Schema)
+- Videos werden aus DB geladen (Bunny URLs)
+- Kein Dead Code für Supabase Storage
+- Keine verwirrenden Duplikate
 
