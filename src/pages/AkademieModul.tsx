@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { useRef, useLayoutEffect, useState } from 'react';
 import { ArrowLeft, Check, Clock, BookOpen, FileText, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,12 +31,43 @@ export default function AkademieModul() {
   const { modulId } = useParams<{ modulId: string }>();
   const navigate = useNavigate();
   
+  // Refs for measuring header/footer heights
+  const headerRef = useRef<HTMLElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
+  const [cssVarsReady, setCssVarsReady] = useState(false);
+  
   // Guard: Check if modulId is a valid UUID before making API call
   const isValidUuid = isUuid(modulId);
   
   const { data: unterpunkt, isLoading, error } = useAkademieUnterpunkt(
     isValidUuid ? modulId : undefined // Only fetch if valid UUID
   );
+  
+  // Measure header and footer heights, set CSS variables
+  useLayoutEffect(() => {
+    const updateCssVars = () => {
+      const headerHeight = headerRef.current?.offsetHeight ?? 60;
+      const footerHeight = footerRef.current?.offsetHeight ?? 72;
+      
+      document.documentElement.style.setProperty('--akademie-header-h', `${headerHeight}px`);
+      document.documentElement.style.setProperty('--akademie-footer-h', `${footerHeight}px`);
+      setCssVarsReady(true);
+    };
+    
+    // Initial measurement
+    updateCssVars();
+    
+    // Re-measure on resize
+    const resizeObserver = new ResizeObserver(updateCssVars);
+    if (headerRef.current) resizeObserver.observe(headerRef.current);
+    if (footerRef.current) resizeObserver.observe(footerRef.current);
+    
+    return () => {
+      resizeObserver.disconnect();
+      document.documentElement.style.removeProperty('--akademie-header-h');
+      document.documentElement.style.removeProperty('--akademie-footer-h');
+    };
+  }, []);
   
   // Invalid UUID - show legacy link warning
   if (!isValidUuid) {
@@ -137,8 +169,11 @@ export default function AkademieModul() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-card border-b border-border safe-area-top">
+      {/* Header - Compact with measured height */}
+      <header 
+        ref={headerRef}
+        className="sticky top-0 z-50 bg-card border-b border-border safe-area-top"
+      >
         <div className="flex items-start gap-2 px-3 py-2 max-w-3xl mx-auto">
           <Button 
             variant="ghost" 
@@ -165,8 +200,10 @@ export default function AkademieModul() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
-        {/* Video Container - Full Width (edge-to-edge) */}
-        <MultiSourceVideoPlayer videoUrl={unterpunkt.videoUrl} />
+        {/* Video Container - Full Width Hero (edge-to-edge, fills available space) */}
+        {cssVarsReady && (
+          <MultiSourceVideoPlayer videoUrl={unterpunkt.videoUrl} heightMode="hero" />
+        )}
 
         {/* Content Container - Constrained for readability */}
         <div className="w-full max-w-3xl mx-auto">
@@ -248,20 +285,15 @@ export default function AkademieModul() {
                 )}
               </TabsContent>
             </Tabs>
-
-            {/* Fortschrittshinweis */}
-            <div className="bg-muted/50 rounded-xl p-4 mt-4">
-              <p className="text-sm text-muted-foreground">
-                <strong>📝 Hinweis:</strong> Schau dir das Video vollständig an und 
-                lies den Lerninhalt, um das Modul als abgeschlossen zu markieren.
-              </p>
-            </div>
           </div>
         </div>
       </main>
 
-      {/* Footer mit Abschluss-Button */}
-      <footer className="sticky bottom-0 bg-card border-t border-border p-4 safe-area-bottom">
+      {/* Footer mit Abschluss-Button - Measured height */}
+      <footer 
+        ref={footerRef}
+        className="sticky bottom-0 bg-card border-t border-border p-4 safe-area-bottom"
+      >
         <div className="max-w-3xl mx-auto">
           <Button 
             className="w-full h-12 text-base"
