@@ -1,150 +1,168 @@
 
-# Bugfix: Onboarding-Complete wird fälschlich angezeigt
+# Fix: Authentication Flow - Session-Transfer von Sales OS
 
 ## Problem
 
-Ein brandneuer User sieht sofort den "Onboarding abgeschlossen" Screen, obwohl die Datenbank zeigt:
-- `onboarding_status: 'invited'`
-- `trainer_freigabe: false`
+Du loggst dich erfolgreich auf **Sales OS** ein (die Auth-Logs zeigen erfolgreiche Logins), aber die Session wird nicht auf **quick-measure-pro.lovable.app** übertragen.
 
-**Ursache:** `localStorage` enthält alte Testdaten (`coachingAbgeschlossen: true`) von vorherigen Sessions. Diese werden beim Start geladen und triggern `isComplete = true`.
+**Ursache:** Die geplante `Auth.tsx`-Komponente zum Empfangen der Session existiert nicht im Code. Die App kann Session-Tokens aus der URL (`#access_token=...&refresh_token=...&type=session_transfer`) nicht verarbeiten.
 
 ## Lösung
 
-Die Komponente `OnboardingScreen.tsx` prüft aktuell nur den **lokalen** `isComplete`-Status. Sie muss stattdessen den **DB-Status** als Wahrheitsquelle nutzen.
+Implementiere den Cross-Domain Session-Transfer in 3 Schritten:
 
-### Änderung 1: OnboardingScreen.tsx
+### 1. Auth-Page erstellen (`src/pages/Auth.tsx`)
 
-Übergebe den DB-Status an die Komponente und validiere gegen diesen:
+Neue Seite die:
+- URL-Fragment parst (`#access_token=...`)
+- `supabase.auth.setSession()` aufruft
+- Bei Erfolg nach `/` weiterleitet
+
+```text
+Ablauf:
+Sales OS → https://quick-measure-pro.lovable.app/auth#access_token=xxx&refresh_token=yyy
+                                ↓
+                        Auth.tsx parst Hash
+                                ↓
+                        supabase.auth.setSession()
+                                ↓
+                        Redirect nach /
+```
+
+### 2. Route registrieren (`src/App.tsx`)
 
 ```tsx
-interface OnboardingScreenProps {
-  onComplete: () => void;
-  isPreview?: boolean;
-  onExitPreview?: () => void;
-  dbStatus?: {  // NEU
-    onboardingStatus: string;
-    trainerFreigabe: boolean;
-  };
-}
-
-// In der Komponente:
-// Nur "complete" anzeigen, wenn DB sagt "ready" + trainer_freigabe
-// NICHT basierend auf localStorage!
-const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
-
-if (isComplete && isDbReady) {
-  // Zeige Complete-Screen nur wenn BEIDES stimmt
-  return <OnboardingComplete onContinue={onComplete} />;
-} else if (isComplete && !isDbReady) {
-  // localStorage sagt complete, DB sagt nein → "Warte auf Freigabe" Screen
-  return <WaitingForApprovalScreen />;
-}
+<Route path="/auth" element={<Auth />} />
 ```
 
-### Änderung 2: Index.tsx
+### 3. Session-Reaktivität verbessern (`src/hooks/useSupabaseSession.ts`)
 
-Übergebe den DB-Status an OnboardingScreen:
+Neuer Hook der:
+- `onAuthStateChange` listener nutzt (statt nur `getSession`)
+- Loading-State korrekt verwaltet
+- React Query Keys invalidiert bei Session-Änderung
 
-```tsx
-<OnboardingScreen 
-  isPreview={isPreviewMode}
-  onExitPreview={() => { ... }}
-  onComplete={() => { ... }}
-  dbStatus={onboardingRecord ? {
-    onboardingStatus: onboardingRecord.onboarding_status,
-    trainerFreigabe: onboardingRecord.trainer_freigabe || false,
-  } : undefined}
-/>
-```
+### 4. Index.tsx Session-Check verbessern
 
-### Änderung 3: Neuer "Warte auf Freigabe" Screen
-
-Für User die alle Schritte abgeschlossen haben, aber noch auf Trainer-Freigabe warten:
-
-```tsx
-// src/components/onboarding/WaitingForApproval.tsx
-export function WaitingForApproval() {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6">
-      <Clock className="w-16 h-16 text-primary mb-6 animate-pulse" />
-      <h1 className="text-2xl font-bold mb-4">Onboarding abgeschlossen!</h1>
-      <p className="text-muted-foreground text-center max-w-md">
-        Du hast alle Schritte erfolgreich absolviert. 
-        Bitte warte auf die Freigabe durch deinen Trainer.
-      </p>
-    </div>
-  );
-}
-```
-
-### Alternative: localStorage bei neuem User zurücksetzen
-
-Eine zusätzliche Sicherheit wäre, den localStorage für einen User zu validieren:
-
-```typescript
-// In loadPersistedState():
-// Wenn DB-Status "invited" ist, ignoriere localStorage "coachingAbgeschlossen"
-if (dbStatus === 'invited' && parsed.coachingAbgeschlossen) {
-  console.warn('[Onboarding] DB says invited but localStorage says complete - resetting');
-  return createInitialOnboardingState(initialProfile);
-}
-```
+- Nutze `useSupabaseSession` für reaktive Session-Updates
+- Zeige "Nicht eingeloggt" statt "Kein Contractor-Zugang" wenn keine Session
 
 ## Betroffene Dateien
 
 | Datei | Änderung |
 |-------|----------|
-| `src/components/OnboardingScreen.tsx` | DB-Status als Prop + Validierung |
-| `src/pages/Index.tsx` | DB-Status an OnboardingScreen übergeben |
-| `src/components/onboarding/WaitingForApproval.tsx` | NEU: "Warte auf Freigabe" Screen |
+| `src/pages/Auth.tsx` | **NEU** - Session-Transfer Handler |
+| `src/App.tsx` | Route `/auth` hinzufügen |
+| `src/hooks/useSupabaseSession.ts` | **NEU** - Reaktiver Session-Hook |
+| `src/hooks/useContractorOnboardingStatus.ts` | Session-Hook integrieren |
+| `src/hooks/useIAM.ts` | Session-Hook integrieren |
+| `src/pages/Index.tsx` | Session-Check + bessere Fehlermeldung |
+| `src/components/ui/AuthRequiredScreen.tsx` | **NEU** - "Bitte einloggen" UI |
 
-## Flussdiagramm
+## Fluss nach Implementation
 
 ```text
-User besucht /
-       │
-       ▼
-┌──────────────────────────────────────────┐
-│ Lade DB-Status (useContractorOnboarding) │
-│ Lade localStorage (useOnboardingState)   │
-└────────────────────┬─────────────────────┘
-                     │
-                     ▼
-        ┌────────────────────────────┐
-        │ DB: onboarding_status?     │
-        └────────────────────────────┘
-                     │
-      ┌──────────────┼──────────────┐
-      ▼              ▼              ▼
-   'ready'       'in_progress'   'invited'
-   + freigabe         │              │
-      │               │              │
-      ▼               ▼              ▼
-   Haupt-App    Onboarding-     Onboarding-
-   zeigen       Schritte        Schritte
-                     │              │
-                     ▼              ▼
-              localStorage     localStorage
-              isComplete?      isComplete?
-                     │              │
-         ┌───────────┴───────────┐  │
-         ▼                       ▼  ▼
-      true                    false│
-   (alle Schritte                  │
-    lokal fertig)                  │
-         │                         │
-         ▼                         ▼
-   "Warte auf              Normale
-   Freigabe"               Onboarding-
-   Screen                  Schritte
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ USER FLOW                                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Sales OS                     quick-measure-pro.lovable.app                  │
+│  ─────────                    ─────────────────────────────                  │
+│                                                                              │
+│  1. User loggt sich ein                                                      │
+│         │                                                                    │
+│         ▼                                                                    │
+│  2. Sales OS generiert                                                       │
+│     Redirect-URL mit Tokens                                                  │
+│         │                                                                    │
+│         ▼                                                                    │
+│  3. Redirect zu ─────────────► /auth#access_token=xxx&refresh_token=yyy      │
+│                                      │                                       │
+│                                      ▼                                       │
+│                               4. Auth.tsx parst Hash                         │
+│                                      │                                       │
+│                                      ▼                                       │
+│                               5. setSession() speichert                      │
+│                                  in localStorage                             │
+│                                      │                                       │
+│                                      ▼                                       │
+│                               6. Redirect nach /                             │
+│                                      │                                       │
+│                                      ▼                                       │
+│                               7. Index.tsx prüft Session ✓                   │
+│                                      │                                       │
+│                                      ▼                                       │
+│                               8. Onboarding oder App                         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Warum diese Lösung?
+## Technische Details
 
-1. **DB bleibt Single Source of Truth** für den "einsatzbereit"-Status
-2. **localStorage** behält den Fortschritt (für UX, falls User Seite schließt)
-3. **Neuer Screen** erklärt dem User was passiert (Trainer muss freigeben)
-4. **Kein Datenverlust** - User muss nicht von vorne anfangen
+### Auth.tsx Token-Parsing
 
-Soll ich mit der Implementierung beginnen?
+```tsx
+// Parse hash: #access_token=xxx&refresh_token=yyy&type=session_transfer
+const hashParams = new URLSearchParams(window.location.hash.substring(1));
+const accessToken = hashParams.get('access_token');
+const refreshToken = hashParams.get('refresh_token');
+
+if (accessToken && refreshToken) {
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  
+  if (!error) {
+    navigate('/', { replace: true });
+  }
+}
+```
+
+### useSupabaseSession Hook
+
+```tsx
+export function useSupabaseSession() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsLoading(false);
+    });
+
+    // Listen for changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        // Invalidate all auth-dependent queries
+        queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-status'] });
+        queryClient.invalidateQueries({ queryKey: ['iam'] });
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [queryClient]);
+
+  return { session, isLoading, user: session?.user ?? null };
+}
+```
+
+## Was Sales OS tun muss
+
+Nach Implementation muss Sales OS die User zu dieser URL weiterleiten:
+
+```
+https://quick-measure-pro.lovable.app/auth#access_token=<TOKEN>&refresh_token=<TOKEN>&type=session_transfer
+```
+
+Aktuell leitet Sales OS vermutlich direkt zu `/` weiter, wo keine Token-Verarbeitung stattfindet.
+
+## Nächste Schritte nach Auth-Fix
+
+1. ✅ Session-Transfer funktioniert
+2. Onboarding-Flow testen
+3. Stripe-Integration für Bestellungen
