@@ -1,91 +1,136 @@
 
-## Was passiert gerade (warum du “Kein Contractor-Zugang” siehst, obwohl der Datensatz existiert)
+# Problem: "Onboarding abgeschlossen" wird angezeigt, obwohl nichts gemacht wurde
 
-- In deiner DB existiert der Datensatz **thermocheck.contractor_onboarding** für die User-ID `e9e3e91a-bf72-4350-b110-8526292fb6a8` (E-Mail `loloy47164@azeriom.com`). Das ist korrekt.
-- Die App prüft das aber über eine RPC-Function und ruft aktuell diese URL auf:
+## Was passiert (Root Cause)
 
-  `POST /rest/v1/rpc/get_my_contractor_onboarding`
+Du siehst "Onboarding abgeschlossen! Du hast alle Schritte erfolgreich absolviert" obwohl:
+- Die Datenbank zeigt: `onboarding_status = 'invited'`, `onboarding_substatus = 'neu_angelegt'`
+- Es gibt keinen echten Fortschritt (keine Adresse, keine Lektionen abgeschlossen, keine Bestellungen)
 
-- **Ohne Schema-Angabe** sucht PostgREST standardmäßig im **public**-Schema nach der Function.
-- Deine Function heißt aber **thermocheck.get_my_contractor_onboarding()** (liegt im `thermocheck`-Schema).
-- Ergebnis: PostgREST findet in `public` keine Function → **404 / PGRST202** (genau das steht auch in den Logs: „Searched for public.get_my_contractor_onboarding … no matches“).
-- Unser Hook interpretiert diesen 404 fälschlich als “kein Datensatz” und zeigt dann die “Contractor Onboarding wurde noch nicht angelegt”-UI.
+### Ursache: localStorage vs. Datenbank-Konflikt
 
-Kurz: **Der Datensatz ist da – die App fragt nur am falschen Ort nach (public statt thermocheck).**
+Der Onboarding-Fortschritt wird aktuell **nur in localStorage** gespeichert (`thermocheck_onboarding_state_v2`).
 
----
+Die Logik prüft:
+```
+isComplete = completedSteps.length === 7 || coachingAbgeschlossen === true
+```
 
-## Ziel (Fix)
-- Die App soll den vorhandenen Datensatz zuverlässig finden und dann (da Status aktuell `invited/neu_angelegt`) direkt ins Onboarding gehen.
-- Zusätzlich soll die UI nicht mehr “Datensatz fehlt” sagen, wenn in Wahrheit die RPC-Function nur falsch erreichbar ist.
+Wenn dein Browser **alte localStorage-Daten** von einem früheren Test enthält (wo `coachingAbgeschlossen: true`), zeigt die App "Onboarding abgeschlossen" – obwohl die DB sagt "neu_angelegt".
 
----
-
-## Lösung, die am meisten Sinn macht (robust, ohne Dashboard-Klicks)
-Wir machen die RPC-Function im `public`-Schema verfügbar (Wrapper), damit der bestehende Endpoint `/rest/v1/rpc/get_my_contractor_onboarding` funktioniert, ohne dass wir API-Schema-Header setzen oder “Exposed Schemas” im Supabase-Dashboard zwingend brauchen.
-
-### Warum Wrapper besser ist als “Schema-Header + Exposed Schemas”
-- Schema-Header (`Content-Profile: thermocheck`) funktionieren nur, wenn `thermocheck` in Supabase “Exposed Schemas” korrekt konfiguriert ist.
-- Wrapper in `public` funktioniert **immer**, weil PostgREST standardmäßig `public` kann.
-- Wir behalten trotzdem die SSOT-Logik in `thermocheck.get_my_contractor_onboarding()`.
+**Das ist ein fundamentales Architektur-Problem**: LocalStorage und DB sind nicht synchron.
 
 ---
 
-## Umsetzung (konkret)
+## Lösung: DB als Single Source of Truth für Fortschritt
 
-### 1) DB-Migration: Public-Wrapper Function anlegen
-Neue SQL-Migration (über Lovable/Supabase Migration Tool), die Folgendes erstellt:
+### Schritt 1: DB-basierte Fortschrittsvalidierung
 
-- `public.get_my_contractor_onboarding()` mit identischer Return-Struktur
-- intern: `SELECT * FROM thermocheck.get_my_contractor_onboarding();`
-- `GRANT EXECUTE` für `authenticated`
+Die `OnboardingScreen`-Komponente muss den DB-Status prüfen, bevor sie "complete" zeigt:
 
-Ergebnis: Der bestehende Call auf `/rest/v1/rpc/get_my_contractor_onboarding` findet jetzt eine Function im `public`-Schema.
+```text
+WENN DB sagt "invited" oder "neu_angelegt"
+  → zeige IMMER das Onboarding-Wizard (nicht WaitingForApproval)
 
-### 2) Frontend: Hook `useContractorOnboardingStatus` reparieren
-Aktuell macht der Hook einen manuellen `fetch()` auf `/rest/v1/rpc/...` und “schluckt” 404/403 als “kein Record”.
+WENN DB sagt "in_progress" oder "academy_complete"  
+  → localStorage erlaubt
+  → aber prüfe, ob coachingAbgeschlossen WIRKLICH ist
 
-Wir ändern den Hook so, dass er:
-- entweder direkt `supabase.rpc('get_my_contractor_onboarding')` nutzt (bevorzugt, weil sauberer als hardcoded URL+Key),
-- und Fehler sauber unterscheidet:
-  - **“kein Record”** = 200 + leeres Ergebnis
-  - **“RPC kaputt / nicht erreichbar”** = echte Fehlermeldung (nicht als “kein Onboarding” maskieren)
+WENN DB sagt "ready" + kein trainer_freigabe
+  → zeige WaitingForApproval
 
-### 3) UI: Fehlermeldung entkoppeln (damit es nicht mehr verwirrt)
-In `Index.tsx` (oder in einem kleinen UI-Screen) unterscheiden wir:
-- “Kein Contractor-Onboarding-Datensatz” (echter Fall)
-vs.
-- “Technischer Fehler: Onboarding-Status konnte nicht geladen werden” (RPC/Misconfig)
+WENN DB sagt "ready" + trainer_freigabe = true
+  → zeige OnboardingComplete (Zugang zur App)
+```
 
-Damit bekommst du künftig nicht mehr die falsche Aussage “nicht angelegt”, wenn es in Wahrheit ein API/RPC-Problem ist.
+### Schritt 2: localStorage beim ersten Login leeren
 
----
+Wenn DB sagt `onboarding_status = 'invited'` (frischer User), aber localStorage enthält Fortschritt → localStorage löschen und neu starten.
 
-## Testplan (End-to-End, Published)
-1) Auf `https://quick-measure-pro.lovable.app/login` einloggen
-2) Danach auf `/`:
-   - Erwartung: **nicht** mehr “Kein Contractor-Zugang”
-   - Stattdessen: **OnboardingScreen** (weil Status `invited/neu_angelegt` und nicht `ready`)
-3) Browser-Konsole prüfen:
-   - Erwartung: keine `PGRST202`/404 “public.get_my_contractor_onboarding not found” mehr
-4) (Optional) Direkt-Check:
-   - In Network: RPC-Call liefert 200 und enthält `onboarding_status`, `trainer_freigabe`, etc.
+### Schritt 3: Fortschritt in DB speichern (nicht nur localStorage)
+
+Langfristig: Jeder Onboarding-Schritt soll in die DB geschrieben werden:
+- `contractor_akademie_lektions_fortschritt` (bereits vorhanden)
+- `contractor_bestellungen` (bereits vorhanden)
+- `contractor_onboarding.onboarding_substatus` updaten bei Fortschritt
 
 ---
 
-## Betroffene Dateien / Artefakte
-- DB: neue Migration für `public.get_my_contractor_onboarding()`
-- Frontend:
-  - `src/hooks/useContractorOnboardingStatus.ts` (RPC-Aufruf + Error-Handling)
-  - `src/pages/Index.tsx` (UI-Entscheidung: “kein Record” vs “technischer Fehler”)
+## Betroffene Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `src/components/OnboardingScreen.tsx` | `isComplete`-Logik mit DB-Status verknüpfen |
+| `src/hooks/useOnboardingState.ts` | localStorage löschen wenn DB = "invited" |
+| `src/pages/Index.tsx` | dbStatus an OnboardingScreen durchreichen (bereits teilweise implementiert) |
 
 ---
 
-## Risiko / Nebenwirkungen
-- Sehr gering: Es ist eine reine Korrektur, damit der existierende Datensatz gefunden wird.
-- Sicherheit: Die Funktion liefert nur Daten für `auth.uid()`; ohne Login kommt nichts zurück. Execute bleibt auf `authenticated`.
+## Konkrete Code-Änderungen
+
+### 1. OnboardingScreen.tsx: DB-Status als Veto
+
+```typescript
+// Zeile 109: isComplete-Check erweitern
+if (isComplete) {
+  // NEUER CHECK: DB muss MINDESTENS "in_progress" sein
+  // Wenn DB noch "invited"/"neu_angelegt" sagt, ist localStorage falsch
+  const dbShowsNoProgress = dbStatus?.onboardingStatus === 'invited';
+  
+  if (dbShowsNoProgress) {
+    // LocalStorage lügt - User hat noch nichts gemacht
+    // → zeige Wizard, nicht Complete-Screen
+    // (optional: localStorage reset)
+    console.warn('[Onboarding] localStorage says complete but DB says invited - resetting');
+    // ... weiter mit Wizard
+  } else if (isDbReady) {
+    return <OnboardingComplete onContinue={onComplete} />;
+  } else {
+    return <WaitingForApproval />;
+  }
+}
+```
+
+### 2. useOnboardingState.ts: Frisch-User-Reset
+
+Wenn DB sagt "invited", aber localStorage hat Fortschritt → localStorage löschen:
+
+```typescript
+// Neue Funktion exportieren
+export function clearOnboardingLocalStorage() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+// In OnboardingScreen: wenn dbStatus = invited UND localStorage hat Daten
+// → clearOnboardingLocalStorage() aufrufen und State neu initialisieren
+```
+
+### 3. Index.tsx: dbStatus durchreichen (bereits implementiert ✓)
+
+Zeile 267-270 gibt bereits `dbStatus` an `OnboardingScreen` weiter – das ist korrekt.
 
 ---
 
-## Optional (später, nicht nötig für den Fix)
-- `thermocheck` in Supabase “Exposed Schemas” aufnehmen und dann langfristig schema-spezifische Calls nutzen. Der Wrapper bleibt trotzdem praktisch als stabiler Fallback.
+## Testplan
+
+1. **localStorage leeren** (DevTools → Application → Clear Storage)
+2. Mit Testuser einloggen (loloy47164@azeriom.com)
+3. Erwartung: **Wizard startet bei Schritt 1 (Profil)**
+4. Nicht mehr "Onboarding abgeschlossen"
+
+5. Schritte durchlaufen, prüfen ob DB-Status sich aktualisiert
+6. Nach Coaching: `WaitingForApproval` zeigen (weil `trainer_freigabe = false`)
+7. Admin gibt Freigabe → `OnboardingComplete` zeigen → Zugang zu Pool
+
+---
+
+## Hinweis für sofortigen Quick-Fix
+
+Du kannst als **Workaround** jetzt manuell im Browser die localStorage leeren:
+1. F12 → Application → Local Storage → quick-measure-pro.lovable.app
+2. `thermocheck_onboarding_state_v2` löschen
+3. Seite neu laden
+
+Dann sollte der Wizard bei Schritt 1 starten.
+
+Aber die richtige Lösung ist der obige Plan, damit das für jeden neuen User automatisch funktioniert.
