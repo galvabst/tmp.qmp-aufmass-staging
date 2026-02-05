@@ -1,58 +1,27 @@
 
-# Problem: "Onboarding abgeschlossen" wird angezeigt, obwohl nichts gemacht wurde
+# Fix: Reload-Loop beheben + Onboarding-Daten mit Datenbank verknüpfen
 
-## Was passiert (Root Cause)
+## Zusammenfassung der Probleme
 
-Du siehst "Onboarding abgeschlossen! Du hast alle Schritte erfolgreich absolviert" obwohl:
-- Die Datenbank zeigt: `onboarding_status = 'invited'`, `onboarding_substatus = 'neu_angelegt'`
-- Es gibt keinen echten Fortschritt (keine Adresse, keine Lektionen abgeschlossen, keine Bestellungen)
+### Problem 1: Endlosschleife (Reload-Loop)
+Die aktuelle Logik löscht localStorage und ruft `window.location.reload()` auf. Nach dem Reload:
+- `useOnboardingState` lädt erneut aus localStorage (jetzt leer)
+- Aber `createInitialOnboardingState()` nutzt `MOCK_APPLICANT_PROFILE`
+- Der State wird wieder gespeichert in localStorage
+- Bei der nächsten DB-Prüfung: wieder `isComplete && dbShowsNoProgress` → wieder reload
 
-### Ursache: localStorage vs. Datenbank-Konflikt
+**Lösung**: Statt `reload()` den State direkt im Hook zurücksetzen und einen "sync"-Flag setzen, der verhindert, dass Mock-Daten persistiert werden.
 
-Der Onboarding-Fortschritt wird aktuell **nur in localStorage** gespeichert (`thermocheck_onboarding_state_v2`).
+### Problem 2: Keine DB-Verknüpfung der Profildaten
+Aktuell werden alle Onboarding-Daten in localStorage gespeichert:
+- Profil-Daten kommen aus `MOCK_APPLICANT_PROFILE` (Mock)
+- Änderungen werden nicht in die DB geschrieben
+- Profilbild wird nicht gespeichert
 
-Die Logik prüft:
-```
-isComplete = completedSteps.length === 7 || coachingAbgeschlossen === true
-```
-
-Wenn dein Browser **alte localStorage-Daten** von einem früheren Test enthält (wo `coachingAbgeschlossen: true`), zeigt die App "Onboarding abgeschlossen" – obwohl die DB sagt "neu_angelegt".
-
-**Das ist ein fundamentales Architektur-Problem**: LocalStorage und DB sind nicht synchron.
-
----
-
-## Lösung: DB als Single Source of Truth für Fortschritt
-
-### Schritt 1: DB-basierte Fortschrittsvalidierung
-
-Die `OnboardingScreen`-Komponente muss den DB-Status prüfen, bevor sie "complete" zeigt:
-
-```text
-WENN DB sagt "invited" oder "neu_angelegt"
-  → zeige IMMER das Onboarding-Wizard (nicht WaitingForApproval)
-
-WENN DB sagt "in_progress" oder "academy_complete"  
-  → localStorage erlaubt
-  → aber prüfe, ob coachingAbgeschlossen WIRKLICH ist
-
-WENN DB sagt "ready" + kein trainer_freigabe
-  → zeige WaitingForApproval
-
-WENN DB sagt "ready" + trainer_freigabe = true
-  → zeige OnboardingComplete (Zugang zur App)
-```
-
-### Schritt 2: localStorage beim ersten Login leeren
-
-Wenn DB sagt `onboarding_status = 'invited'` (frischer User), aber localStorage enthält Fortschritt → localStorage löschen und neu starten.
-
-### Schritt 3: Fortschritt in DB speichern (nicht nur localStorage)
-
-Langfristig: Jeder Onboarding-Schritt soll in die DB geschrieben werden:
-- `contractor_akademie_lektions_fortschritt` (bereits vorhanden)
-- `contractor_bestellungen` (bereits vorhanden)
-- `contractor_onboarding.onboarding_substatus` updaten bei Fortschritt
+**Lösung** (gemäß LOVABLE_BEHAVIOUR.txt Regel 1: "profiles ist SSoT für User-Identität"):
+1. Profil-Daten aus `public.profiles` laden (über `profile_id` aus `contractor_onboarding`)
+2. Bei Änderungen: Updates an `public.profiles` UND `thermocheck.contractor_onboarding` schreiben
+3. Profilbild in Supabase Storage speichern
 
 ---
 
@@ -60,77 +29,194 @@ Langfristig: Jeder Onboarding-Schritt soll in die DB geschrieben werden:
 
 | Datei | Änderung |
 |-------|----------|
-| `src/components/OnboardingScreen.tsx` | `isComplete`-Logik mit DB-Status verknüpfen |
-| `src/hooks/useOnboardingState.ts` | localStorage löschen wenn DB = "invited" |
-| `src/pages/Index.tsx` | dbStatus an OnboardingScreen durchreichen (bereits teilweise implementiert) |
+| `src/components/OnboardingScreen.tsx` | Endlosschleife-Fix: State-Reset ohne Reload |
+| `src/hooks/useOnboardingState.ts` | Export `resetOnboardingState()` Funktion |
+| `src/hooks/useContractorProfile.ts` | NEUER Hook: Lädt/speichert Profile aus DB |
+| `src/components/onboarding/steps/ProfileStep.tsx` | Nutzt DB-Daten, speichert Änderungen |
+| `src/pages/Index.tsx` | Gibt `profile_id` an OnboardingScreen weiter |
 
 ---
 
-## Konkrete Code-Änderungen
+## Technische Details
 
-### 1. OnboardingScreen.tsx: DB-Status als Veto
+### 1. Endlosschleife beheben (Priorität: KRITISCH)
 
+**OnboardingScreen.tsx** - State-Reset ohne Page-Reload:
+
+Statt:
 ```typescript
-// Zeile 109: isComplete-Check erweitern
-if (isComplete) {
-  // NEUER CHECK: DB muss MINDESTENS "in_progress" sein
-  // Wenn DB noch "invited"/"neu_angelegt" sagt, ist localStorage falsch
-  const dbShowsNoProgress = dbStatus?.onboardingStatus === 'invited';
-  
-  if (dbShowsNoProgress) {
-    // LocalStorage lügt - User hat noch nichts gemacht
-    // → zeige Wizard, nicht Complete-Screen
-    // (optional: localStorage reset)
-    console.warn('[Onboarding] localStorage says complete but DB says invited - resetting');
-    // ... weiter mit Wizard
-  } else if (isDbReady) {
-    return <OnboardingComplete onContinue={onComplete} />;
-  } else {
-    return <WaitingForApproval />;
+if (isComplete && dbShowsNoProgress) {
+  clearOnboardingLocalStorage();
+  window.location.reload();
+  return null;
+}
+```
+
+Neu:
+```typescript
+const [forceReset, setForceReset] = useState(false);
+
+// Prüfe beim ersten Render
+useEffect(() => {
+  if (isComplete && dbShowsNoProgress && !forceReset) {
+    clearOnboardingLocalStorage();
+    setForceReset(true);
+    // State wird beim nächsten Render durch Hook-Reinitialisierung frisch
   }
-}
+}, [isComplete, dbShowsNoProgress, forceReset]);
+
+// Nach Reset: Hook mit leerer Initialisierung starten
 ```
 
-### 2. useOnboardingState.ts: Frisch-User-Reset
+**Alternative (einfacher)**: In `useOnboardingState` eine `forceReset`-Funktion exportieren, die den State auf den Initialzustand zurücksetzt.
 
-Wenn DB sagt "invited", aber localStorage hat Fortschritt → localStorage löschen:
+### 2. Profile-Daten aus DB laden
+
+**Neuer Hook: `useContractorProfile.ts`**
+
+Lädt die Profile-Daten des aktuellen Users aus:
+- `public.profiles` (Vorname, Nachname, E-Mail, Telefon, Avatar)
+- `thermocheck.contractor_onboarding` (Adresse)
 
 ```typescript
-// Neue Funktion exportieren
-export function clearOnboardingLocalStorage() {
-  localStorage.removeItem(STORAGE_KEY);
+export function useContractorProfile(profileId: string | null) {
+  return useQuery({
+    queryKey: ['contractor-profile', profileId],
+    queryFn: async () => {
+      if (!profileId) return null;
+      
+      // Profile-Daten
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('vorname, nachname, email, telefon, avatar_url')
+        .eq('id', profileId)
+        .single();
+      
+      // Adress-Daten aus contractor_onboarding
+      const { data: onboardingData } = await supabase
+        .rpc('get_my_contractor_onboarding');
+      
+      return {
+        vorname: profileData?.vorname || '',
+        nachname: profileData?.nachname || '',
+        email: profileData?.email || '',
+        telefon: profileData?.telefon || '',
+        avatarUrl: profileData?.avatar_url || undefined,
+        strasse: onboardingData?.anschrift_strasse || '',
+        hausnummer: '', // Nicht separat in DB - Teil von strasse
+        plz: onboardingData?.anschrift_plz || '',
+        ort: onboardingData?.anschrift_ort || '',
+      };
+    },
+    enabled: !!profileId,
+  });
 }
-
-// In OnboardingScreen: wenn dbStatus = invited UND localStorage hat Daten
-// → clearOnboardingLocalStorage() aufrufen und State neu initialisieren
 ```
 
-### 3. Index.tsx: dbStatus durchreichen (bereits implementiert ✓)
+### 3. Profile-Änderungen in DB speichern
 
-Zeile 267-270 gibt bereits `dbStatus` an `OnboardingScreen` weiter – das ist korrekt.
+**Mutation für Profile-Updates:**
+
+```typescript
+export function useUpdateContractorProfile() {
+  return useMutation({
+    mutationFn: async (profile: ApplicantProfile) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      
+      // 1. public.profiles updaten (Name, Telefon)
+      await supabase
+        .from('profiles')
+        .update({
+          vorname: profile.vorname,
+          nachname: profile.nachname,
+          telefon: profile.telefon,
+          // Email ist auth-gebunden, nicht änderbar
+        })
+        .eq('id', user.id);
+      
+      // 2. thermocheck.contractor_onboarding updaten (Adresse)
+      await supabase
+        .from('contractor_onboarding')
+        .update({
+          anschrift_strasse: `${profile.strasse} ${profile.hausnummer}`.trim(),
+          anschrift_plz: profile.plz,
+          anschrift_ort: profile.ort,
+        })
+        .eq('profile_id', user.id);
+    },
+  });
+}
+```
+
+### 4. Avatar-Upload in Supabase Storage
+
+**Storage-Bucket**: `contractor-avatars` (oder existierender Bucket nutzen)
+
+```typescript
+async function uploadAvatar(file: File, userId: string): Promise<string> {
+  const fileName = `${userId}/avatar-${Date.now()}.${file.name.split('.').pop()}`;
+  
+  const { data, error } = await supabase.storage
+    .from('contractor-avatars')
+    .upload(fileName, file, { upsert: true });
+  
+  if (error) throw error;
+  
+  // Public URL holen
+  const { data: { publicUrl } } = supabase.storage
+    .from('contractor-avatars')
+    .getPublicUrl(fileName);
+  
+  // In profiles speichern
+  await supabase
+    .from('profiles')
+    .update({ avatar_url: publicUrl })
+    .eq('id', userId);
+  
+  return publicUrl;
+}
+```
 
 ---
 
-## Testplan
+## Architektur-Konformität (LOVABLE_BEHAVIOUR.txt)
 
-1. **localStorage leeren** (DevTools → Application → Clear Storage)
-2. Mit Testuser einloggen (loloy47164@azeriom.com)
-3. Erwartung: **Wizard startet bei Schritt 1 (Profil)**
-4. Nicht mehr "Onboarding abgeschlossen"
-
-5. Schritte durchlaufen, prüfen ob DB-Status sich aktualisiert
-6. Nach Coaching: `WaitingForApproval` zeigen (weil `trainer_freigabe = false`)
-7. Admin gibt Freigabe → `OnboardingComplete` zeigen → Zugang zu Pool
+| Regel | Umsetzung |
+|-------|-----------|
+| **Regel 1**: profiles ist SSoT für User-Identität | ✓ Profil-Daten aus `public.profiles` laden |
+| **Regel 12**: Schema-Trennung | ✓ Adresse bleibt in `thermocheck.contractor_onboarding` |
+| **Regel 5**: Layered Architecture | ✓ Hook (Data Layer) getrennt von UI (Presentation Layer) |
+| **Regel 9.3**: Modular Development | ✓ Eigener Hook für Profile-Daten |
+| **Regel 13**: ENUM-Pflicht | ✓ Keine neuen Status-Felder nötig |
 
 ---
 
-## Hinweis für sofortigen Quick-Fix
+## Schritte der Umsetzung
 
-Du kannst als **Workaround** jetzt manuell im Browser die localStorage leeren:
-1. F12 → Application → Local Storage → quick-measure-pro.lovable.app
-2. `thermocheck_onboarding_state_v2` löschen
-3. Seite neu laden
+1. **Fix Reload-Loop** (sofort, kritisch)
+   - `useOnboardingState.ts`: `resetState()` Funktion hinzufügen
+   - `OnboardingScreen.tsx`: State-Reset ohne Reload
 
-Dann sollte der Wizard bei Schritt 1 starten.
+2. **Hook für Profile-Daten** (danach)
+   - Neuer Hook `useContractorProfile.ts`
+   - Lädt aus `profiles` + `contractor_onboarding`
 
-Aber die richtige Lösung ist der obige Plan, damit das für jeden neuen User automatisch funktioniert.
+3. **ProfileStep mit DB verknüpfen**
+   - Prefill aus DB-Daten
+   - onChange → DB-Update via Mutation
+
+4. **Avatar-Upload implementieren**
+   - Storage-Upload Funktion
+   - ProfileStep anpassen
+
+5. **Optional: RLS für Storage-Bucket**
+   - Nur eigenes Avatar änderbar
+
+---
+
+## Risiken
+
+- **Gering**: Die Änderungen sind modular und betreffen nur den Onboarding-Flow
+- **Migration nicht nötig**: Alle benötigten Spalten existieren bereits in der DB
+- **Kein Breaking Change**: Bestehende localStorage-Logik bleibt für Offline-Zwischenspeicherung erhalten, aber DB ist SSOT
