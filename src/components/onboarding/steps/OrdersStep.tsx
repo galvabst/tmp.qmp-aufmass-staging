@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingCart, Check } from 'lucide-react';
+import { ShoppingCart, Check, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -281,6 +281,18 @@ export function OrdersStep({
                   {orderedProducts.includes('tshirt') ? '2 von 2: Poloshirt' : '1 von 2: T-Shirt'}
                 </p>
               </div>
+            )}
+
+            {/* Auswahl ändern - nur wenn noch kein Oberteil bestellt */}
+            {!orderedProducts.includes('tshirt') && !orderedProducts.includes('poloshirt') && (
+              <button
+                type="button"
+                onClick={() => onOberteilAuswahl(null)}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4 mx-auto"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Auswahl ändern
+              </button>
             )}
 
             <ProductImageSlideshow
