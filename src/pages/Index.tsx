@@ -239,6 +239,10 @@ const Index = () => {
           setIsPreviewMode(false);
           toast.info('Vorschau beendet');
         }}
+        dbStatus={onboardingRecord ? {
+          onboardingStatus: onboardingRecord.onboarding_status || 'invited',
+          trainerFreigabe: onboardingRecord.trainer_freigabe || false,
+        } : undefined}
         onComplete={() => {
           if (isPreviewMode) {
             setIsPreviewMode(false);
