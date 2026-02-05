@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlertTriangle, X } from 'lucide-react';
 import { OnboardingStepWrapper } from './onboarding/OnboardingStepWrapper';
@@ -15,6 +15,7 @@ import { WaitingForApproval } from './onboarding/WaitingForApproval';
 import { useOnboardingState, clearOnboardingLocalStorage } from '@/hooks/useOnboardingState';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useContractorProfile } from '@/hooks/useContractorProfile';
+import { useContractorOrders, getPaidProductKeys } from '@/hooks/useContractorOrders';
 import {
   MOCK_PRODUCTS,
   MOCK_COACHING_SLOTS,
@@ -53,8 +54,10 @@ const EMPTY_PROFILE: ApplicantProfile = {
 export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview, dbStatus }: OnboardingScreenProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const hasHydratedRef = useRef(false);
   const nextClickLockRef = useRef(false);
+  const paymentHandledRef = useRef(false);
 
   // verhindert Mehrfachklicks/Spam auf "Weiter" (sonst Steps werden übersprungen)
   const [isAdvancing, setIsAdvancing] = useState(false);
@@ -207,6 +210,61 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     hasHydratedRef.current = true;
     hydrateAkademieFromDb(dbAkademieModule);
   }, [dbLoaded, dbAkademieModule, isPreview, hydrateAkademieFromDb]);
+
+  // Bestellungen aus DB laden (für Payment-Status-Sync)
+  const { 
+    data: dbOrders, 
+    refetchOrders,
+    isSuccess: ordersLoaded,
+  } = useContractorOrders(dbStatus?.profileId || null);
+
+  // Sync bezahlte Bestellungen in den State
+  useEffect(() => {
+    if (!ordersLoaded || !dbOrders || dbOrders.length === 0) return;
+    
+    const paidKeys = getPaidProductKeys(dbOrders);
+    if (paidKeys.length === 0) return;
+    
+    // Prüfe ob es neue bezahlte Produkte gibt
+    const newPaidProducts = paidKeys.filter(key => !state.bestellungenBestaetigt.includes(key));
+    if (newPaidProducts.length > 0) {
+      console.log('[Onboarding] Syncing paid products from DB:', newPaidProducts);
+      newPaidProducts.forEach(productId => {
+        toggleProductOrdered(productId);
+      });
+    }
+  }, [ordersLoaded, dbOrders, state.bestellungenBestaetigt, toggleProductOrdered]);
+
+  // Payment Success Handler - wird aufgerufen wenn User von Stripe zurückkommt
+  useEffect(() => {
+    if (paymentHandledRef.current) return;
+    
+    const paymentStatus = searchParams.get('payment');
+    const sessionId = searchParams.get('session_id');
+    
+    if (paymentStatus === 'success' && sessionId) {
+      paymentHandledRef.current = true;
+      console.log('[Onboarding] Payment success detected, session:', sessionId);
+      
+      // Toast anzeigen
+      toast.success('Zahlung erfolgreich! 🎉');
+      
+      // Bestellungen neu laden (Webhook hat DB aktualisiert)
+      refetchOrders();
+      
+      // Stelle sicher dass wir auf dem Bestellungen-Schritt sind
+      if (state.currentStep !== 'bestellungen') {
+        goToStep('bestellungen');
+      }
+      
+      // URL-Parameter entfernen (saubere URL)
+      setSearchParams({}, { replace: true });
+    } else if (paymentStatus === 'cancelled') {
+      paymentHandledRef.current = true;
+      toast.info('Zahlung abgebrochen');
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, refetchOrders, state.currentStep, goToStep]);
 
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
   const [coachingSlots, setCoachingSlots] = useState<CoachingSlot[]>(MOCK_COACHING_SLOTS);
