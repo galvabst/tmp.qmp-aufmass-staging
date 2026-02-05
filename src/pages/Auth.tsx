@@ -9,10 +9,18 @@ import { GalvanekLogo } from '@/components/GalvanekLogo';
 type AuthState = 'processing' | 'success' | 'error' | 'no-tokens';
 
 /**
- * Auth page that handles session transfer from Sales OS.
+ * Auth page that handles multiple authentication callback scenarios:
  * 
- * Expected URL format:
- * /auth#access_token=xxx&refresh_token=yyy&type=session_transfer
+ * 1. Session transfer from Sales OS:
+ *    /auth#access_token=xxx&refresh_token=yyy&type=session_transfer
+ * 
+ * 2. PKCE code flow (Supabase email links):
+ *    /auth?code=xxx
+ * 
+ * 3. Recovery/Invite links:
+ *    /auth#access_token=xxx&refresh_token=yyy&type=recovery
+ *    /auth#access_token=xxx&refresh_token=yyy&type=invite
+ *    → These redirect to /set-password
  */
 export default function Auth() {
   const navigate = useNavigate();
@@ -20,69 +28,109 @@ export default function Auth() {
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
-    const processSessionTransfer = async () => {
-      // Parse the hash fragment
-      const hash = window.location.hash.substring(1); // Remove the leading #
-      if (!hash) {
-        console.log('[Auth] No hash fragment found');
-        setState('no-tokens');
-        return;
-      }
+    const processAuth = async () => {
+      // Check for PKCE code in query params first
+      const searchParams = new URLSearchParams(window.location.search);
+      const code = searchParams.get('code');
+      
+      // Parse hash fragment
+      const hash = window.location.hash.substring(1);
+      const hashParams = hash ? new URLSearchParams(hash) : null;
+      
+      // Get tokens from hash
+      const accessToken = hashParams?.get('access_token');
+      const refreshToken = hashParams?.get('refresh_token');
+      const authType = hashParams?.get('type') || searchParams.get('type');
 
-      const hashParams = new URLSearchParams(hash);
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-      const transferType = hashParams.get('type');
-
-      console.log('[Auth] Processing session transfer:', {
+      console.log('[Auth] Processing auth callback:', {
+        hasCode: !!code,
         hasAccessToken: !!accessToken,
         hasRefreshToken: !!refreshToken,
-        type: transferType,
+        type: authType,
       });
 
-      if (!accessToken || !refreshToken) {
-        console.warn('[Auth] Missing tokens in URL');
-        setState('no-tokens');
-        return;
-      }
+      // Case 1: PKCE code flow
+      if (code) {
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          
+          if (error) {
+            console.error('[Auth] Code exchange failed:', error);
+            setErrorMessage(error.message);
+            setState('error');
+            return;
+          }
 
-      try {
-        // Set the session using the tokens from the URL
-        const { data, error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-
-        if (error) {
-          console.error('[Auth] Session transfer failed:', error);
-          setErrorMessage(error.message);
+          console.log('[Auth] Code exchange successful:', data.user?.email);
+          
+          // Clear URL params for security
+          window.history.replaceState(null, '', '/auth');
+          
+          // Check if this is a recovery/invite flow
+          if (authType === 'recovery' || authType === 'invite') {
+            console.log('[Auth] Recovery/Invite flow, redirecting to /set-password');
+            navigate('/set-password', { replace: true });
+          } else {
+            setState('success');
+            setTimeout(() => navigate('/', { replace: true }), 500);
+          }
+          return;
+        } catch (err) {
+          console.error('[Auth] Unexpected code exchange error:', err);
+          setErrorMessage(err instanceof Error ? err.message : 'Unbekannter Fehler');
           setState('error');
           return;
         }
-
-        console.log('[Auth] Session transfer successful:', data.user?.email);
-        setState('success');
-
-        // Clear the hash from URL for security
-        window.history.replaceState(null, '', '/auth');
-
-        // Redirect to home page
-        setTimeout(() => {
-          navigate('/', { replace: true });
-        }, 500);
-      } catch (err) {
-        console.error('[Auth] Unexpected error:', err);
-        setErrorMessage(err instanceof Error ? err.message : 'Unbekannter Fehler');
-        setState('error');
       }
+
+      // Case 2: Hash tokens (Sales OS transfer or email links)
+      if (accessToken && refreshToken) {
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            console.error('[Auth] Session set failed:', error);
+            setErrorMessage(error.message);
+            setState('error');
+            return;
+          }
+
+          console.log('[Auth] Session set successful:', data.user?.email);
+          
+          // Clear the hash from URL for security
+          window.history.replaceState(null, '', '/auth');
+
+          // Check if this is a recovery/invite flow
+          if (authType === 'recovery' || authType === 'invite') {
+            console.log('[Auth] Recovery/Invite flow, redirecting to /set-password');
+            navigate('/set-password', { replace: true });
+          } else {
+            setState('success');
+            setTimeout(() => navigate('/', { replace: true }), 500);
+          }
+          return;
+        } catch (err) {
+          console.error('[Auth] Unexpected session error:', err);
+          setErrorMessage(err instanceof Error ? err.message : 'Unbekannter Fehler');
+          setState('error');
+          return;
+        }
+      }
+
+      // Case 3: No tokens/code - show login prompt
+      console.log('[Auth] No auth data found in URL');
+      setState('no-tokens');
     };
 
-    processSessionTransfer();
+    processAuth();
   }, [navigate]);
 
   // Processing state
   if (state === 'processing') {
-    return <OnboardingLoadingScreen message="Session wird übertragen..." />;
+    return <OnboardingLoadingScreen message="Anmeldung wird verarbeitet..." />;
   }
 
   // Success state (brief)
@@ -107,18 +155,18 @@ export default function Auth() {
           
           <p className="text-sm text-muted-foreground">
             {state === 'error' 
-              ? `Die Session konnte nicht übertragen werden: ${errorMessage}`
-              : 'Diese Seite erwartet Anmeldedaten aus Sales OS. Bitte logge dich über Sales OS ein.'
+              ? `Die Anmeldung ist fehlgeschlagen: ${errorMessage}`
+              : 'Diese Seite erwartet Anmeldedaten. Bitte logge dich über die Login-Seite ein.'
             }
           </p>
         </div>
         
         <div className="flex flex-col gap-2">
           <Button 
-            onClick={() => window.location.href = 'https://salesos.lovable.app'}
+            onClick={() => navigate('/login', { replace: true })}
             className="w-full"
           >
-            Zu Sales OS
+            Zum Login
           </Button>
           
           <Button 
