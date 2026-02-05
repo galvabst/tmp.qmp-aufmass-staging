@@ -9281,6 +9281,14 @@ export type Database = {
           ord: number
         }[]
       }
+      get_contractor_address: {
+        Args: { p_profile_id: string }
+        Returns: {
+          anschrift_ort: string
+          anschrift_plz: string
+          anschrift_strasse: string
+        }[]
+      }
       get_contractor_arbeitspaket_fortschritt: {
         Args: { p_contractor_arbeitspaket_id: string }
         Returns: {
