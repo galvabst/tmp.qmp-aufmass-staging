@@ -1,35 +1,89 @@
-# Fix: Reload-Loop + DB-Verknüpfung (ERLEDIGT ✅)
 
-## Status: Implementiert am 2026-02-05
 
-### Gelöste Probleme
+# Fix: Profil-Daten bei Schritt-Wechsel in die Datenbank speichern
 
-1. **Reload-Loop behoben**: State-Reset ohne `window.location.reload()` via `forceReset`-Flag
-2. **Profildaten aus DB**: Neuer `useContractorProfile` Hook lädt aus `public.profiles` + `thermocheck.contractor_onboarding`
-3. **Avatar-Upload**: Storage-Bucket `contractor-avatars` mit RLS-Policies angelegt
-4. **Adress-Updates**: RPC-Funktion `update_contractor_onboarding_address` erstellt
+## Problem
 
-### Geänderte Dateien
+Der User gibt Adresse ein (Straße, PLZ, Ort), klickt "Weiter zu Dokumente", aber:
+- Die Datenbank zeigt: `anschrift_strasse = NULL`, `anschrift_plz = NULL`, `anschrift_ort = NULL`
+- Die Daten werden nur im Browser (localStorage) gespeichert, nicht in der Datenbank
+
+## Ursache
+
+In `OnboardingScreen.tsx`:
+1. Der Hook `useContractorProfile` wird eingebunden und bietet `saveProfileToDb` an (Zeile 90)
+2. Diese Funktion wird aber **nie aufgerufen**
+3. `handleNext()` (Zeile 240) navigiert einfach zum nächsten Schritt ohne DB-Speicherung
+
+## Lösung
+
+Beim Klick auf "Weiter" (wenn aktueller Schritt = "profil"):
+1. Profil-Daten in die Datenbank speichern via `saveProfileToDb`
+2. Avatar-Upload falls vorhanden
+3. Erst dann zum nächsten Schritt navigieren
+
+## Betroffene Dateien
 
 | Datei | Änderung |
 |-------|----------|
-| `src/hooks/useOnboardingState.ts` | `forceReset` Parameter hinzugefügt |
-| `src/components/OnboardingScreen.tsx` | State-Reset ohne Reload, useContractorProfile integriert |
-| `src/hooks/useContractorProfile.ts` | NEUER Hook für DB-Profildaten |
-| `src/pages/Index.tsx` | `profileId` an OnboardingScreen übergeben |
+| `src/components/OnboardingScreen.tsx` | `handleNext` erweitern: DB-Speicherung bei Profil-Schritt |
 
-### Architektur
+## Konkrete Änderungen
 
+### OnboardingScreen.tsx - handleNext erweitern
+
+```typescript
+const handleNext = async () => {
+  // Bei Profil-Schritt: Daten in DB speichern
+  if (state.currentStep === 'profil') {
+    try {
+      await saveProfileToDb(state.profil);
+      toast.success('Profildaten gespeichert');
+    } catch (error) {
+      console.error('[Onboarding] Failed to save profile:', error);
+      toast.error('Fehler beim Speichern der Profildaten');
+      return; // Nicht weiter navigieren bei Fehler
+    }
+  }
+  
+  if (state.currentStep === 'coaching' && state.coachingAbgeschlossen) {
+    return;
+  }
+  goToNextStep();
+};
 ```
-DB (SSoT)
-├── public.profiles (Name, Email, Telefon, Avatar)
-│   └── avatar_url → storage.contractor-avatars
-└── thermocheck.contractor_onboarding (Adresse)
-    └── RPC: update_contractor_onboarding_address()
+
+### Avatar-Upload ebenfalls verknüpfen
+
+Der aktuelle `handleAvatarUpload` nutzt nur `URL.createObjectURL` (Zeile 185-189).
+Stattdessen muss `uploadAvatar` aus dem Hook verwendet werden:
+
+```typescript
+const handleAvatarUpload = async (file: File) => {
+  try {
+    const url = await uploadAvatar(file);
+    setAvatarUrl(url);
+    toast.success('Profilbild hochgeladen');
+  } catch (error) {
+    console.error('[Onboarding] Avatar upload failed:', error);
+    toast.error('Fehler beim Hochladen des Profilbilds');
+  }
+};
 ```
 
-### Nächste Schritte (optional)
+## Zusätzliche Überlegung: "Zurück" und erneutes Bearbeiten
 
-- [ ] ProfileStep mit echten DB-Updates verknüpfen (onChange → saveProfileToDb)
-- [ ] Avatar-Upload im ProfileStep testen
-- [ ] E-Mail als readonly markieren (auth-gebunden)
+Falls der User zurückgeht und Daten ändert:
+- Bei erneutem "Weiter" werden die Daten erneut gespeichert (Update statt Insert)
+- Das funktioniert, weil `useContractorProfile.updateProfile` ein UPSERT via `eq('id', user.id)` macht
+
+## Testplan
+
+1. Einloggen als Test-User
+2. Adresse eingeben: "Am Steinbruch 3, 91466 Gerhardshofen"
+3. "Weiter zu Dokumente" klicken
+4. In Supabase Dashboard prüfen: `thermocheck.contractor_onboarding` sollte jetzt zeigen:
+   - `anschrift_strasse = 'Am Steinbruch 3'`
+   - `anschrift_plz = '91466'`
+   - `anschrift_ort = 'Gerhardshofen'`
+
