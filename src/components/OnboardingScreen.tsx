@@ -119,13 +119,38 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     hydrateAkademieFromDb,
   } = useOnboardingState(initialProfile, isPreview, forceReset);
   
-  // Sync DB-Profil in State wenn geladen und State noch leer
+  // Sync DB-Profil in State wenn geladen - intelligentes Merging
   useEffect(() => {
-    if (!profileLoading && dbProfile && state.profil.id === '') {
-      console.log('[Onboarding] Hydrating profile from DB:', dbProfile);
-      updateProfile(dbProfile);
+    if (!profileLoading && dbProfile) {
+      // Prüfe ob wichtige DB-Felder fehlen im State
+      const stateHasNoAvatar = !state.profil.avatarUrl;
+      const dbHasAvatar = !!dbProfile.avatarUrl;
+      
+      // Hydrate wenn State leer ODER wenn DB wichtige Daten hat die im State fehlen
+      if (state.profil.id === '' || (stateHasNoAvatar && dbHasAvatar)) {
+        console.log('[Onboarding] Hydrating profile from DB:', {
+          reason: state.profil.id === '' ? 'empty_state' : 'missing_avatar',
+          dbProfile,
+        });
+        
+        // Merge: Lokale Eingaben behalten, DB-Werte für leere Felder nutzen
+        const mergedProfile: ApplicantProfile = {
+          id: dbProfile.id,
+          vorname: state.profil.vorname || dbProfile.vorname,
+          nachname: state.profil.nachname || dbProfile.nachname,
+          email: state.profil.email || dbProfile.email,
+          telefon: state.profil.telefon || dbProfile.telefon,
+          avatarUrl: state.profil.avatarUrl || dbProfile.avatarUrl,
+          strasse: state.profil.strasse || dbProfile.strasse,
+          hausnummer: state.profil.hausnummer || dbProfile.hausnummer,
+          plz: state.profil.plz || dbProfile.plz,
+          ort: state.profil.ort || dbProfile.ort,
+        };
+        
+        updateProfile(mergedProfile);
+      }
     }
-  }, [profileLoading, dbProfile, state.profil.id, updateProfile]);
+  }, [profileLoading, dbProfile, state.profil, updateProfile]);
   
   // Fetch akademie content from database and hydrate state
   const { data: dbAkademieModule, isSuccess: dbLoaded } = useAkademieContent();
