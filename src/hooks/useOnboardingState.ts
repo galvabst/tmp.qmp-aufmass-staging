@@ -19,6 +19,14 @@ import { isUuid } from '@/lib/utils';
 const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
 
 /**
+ * Clear onboarding localStorage - used when DB says "invited" but localStorage has stale progress
+ */
+export function clearOnboardingLocalStorage() {
+  localStorage.removeItem(STORAGE_KEY);
+  console.log('[Onboarding] localStorage cleared due to DB sync');
+}
+
+/**
  * Validate if akademieHauptmodule contains valid UUIDs
  * Returns false if any ID is not a UUID (legacy mock data)
  */
