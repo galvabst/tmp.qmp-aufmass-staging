@@ -1,168 +1,130 @@
 
-# Fix: Authentication Flow - Session-Transfer von Sales OS
+## Zielbild (was du danach hast)
+- Eine saubere **Login-Seite in dieser App** (E-Mail + Passwort), ohne Zwangs-Redirect zu Sales OS.
+- Ein sauberer Flow für **“Passwort festlegen”** (Invite/Recovery-Link) → danach automatisch in die App → Onboarding starten.
+- Der bisherige Sales-OS-Session-Transfer über `/auth#access_token=…` bleibt als Option bestehen, aber blockiert niemanden mehr.
 
-## Problem
+## Warum es aktuell “beschissen” wirkt (Root Cause)
+1. **Du bist auf `quick-measure-pro.lovable.app` nicht eingeloggt**, daher zeigt die App `AuthRequiredScreen`.
+2. `AuthRequiredScreen` schickt dich aktuell stumpf zu **Sales OS (`salesos.lovable.app`)**.
+3. Dein Account hat dort **keine Module** → du kommst nicht weiter (Screenshot “Ihnen wurden noch keine Module zugewiesen.”).  
+   Das ist kein Onboarding-Problem in dieser App, sondern ein falscher Login-Kanal für Contractors.
 
-Du loggst dich erfolgreich auf **Sales OS** ein (die Auth-Logs zeigen erfolgreiche Logins), aber die Session wird nicht auf **quick-measure-pro.lovable.app** übertragen.
+Kurz: **Onboarding-Record vorhanden ≠ Browser ist eingeloggt**. Ohne Session kann die App auch nicht “wissen”, dass du berechtigt bist.
 
-**Ursache:** Die geplante `Auth.tsx`-Komponente zum Empfangen der Session existiert nicht im Code. Die App kann Session-Tokens aus der URL (`#access_token=...&refresh_token=...&type=session_transfer`) nicht verarbeiten.
+## Lösung: “App-eigener Login” + “Passwort-festlegen”-Flow
 
-## Lösung
+### A) Neue Seiten (Frontend)
+1) **`/login` (neu)**: Login-Formular
+- Felder: E-Mail, Passwort
+- Button: “Anmelden”
+- Link/Button: “Passwort vergessen?” → sendet Reset-Mail (Supabase)
+- Optional (zweiter Button, unauffällig): “Mit Sales OS anmelden” (nur als Alternative für interne User)
 
-Implementiere den Cross-Domain Session-Transfer in 3 Schritten:
+2) **`/set-password` (neu)**: Passwort festlegen / ändern
+- Wird genutzt für Invite/Recovery-Links (wenn User über einen Mail-Link kommt).
+- Felder: neues Passwort + Bestätigung
+- Aktion: `supabase.auth.updateUser({ password })`
+- Danach Redirect nach `/` (App startet Onboarding automatisch)
 
-### 1. Auth-Page erstellen (`src/pages/Auth.tsx`)
+### B) `/auth` robuster machen (bestehende Seite erweitern)
+Aktuell verarbeitet `/auth` nur **Hash-Token** (`#access_token=…&refresh_token=…`).
 
-Neue Seite die:
-- URL-Fragment parst (`#access_token=...`)
-- `supabase.auth.setSession()` aufruft
-- Bei Erfolg nach `/` weiterleitet
+Wir erweitern `/auth` so, dass es **alle relevanten Supabase-Callback-Fälle** sauber kann:
 
-```text
-Ablauf:
-Sales OS → https://quick-measure-pro.lovable.app/auth#access_token=xxx&refresh_token=yyy
-                                ↓
-                        Auth.tsx parst Hash
-                                ↓
-                        supabase.auth.setSession()
-                                ↓
-                        Redirect nach /
-```
+1) **Hash Flow** (bereits drin):
+- `access_token` + `refresh_token` → `setSession()`
 
-### 2. Route registrieren (`src/App.tsx`)
+2) **PKCE Code Flow** (häufig bei neueren Supabase Email Links):
+- Wenn URL `?code=...` hat → `supabase.auth.exchangeCodeForSession(code)`
 
-```tsx
-<Route path="/auth" element={<Auth />} />
-```
+3) **Typen sauber behandeln**:
+- Wenn `type` in Hash/Params `recovery` oder `invite` ist:
+  - Session setzen → Redirect zu **`/set-password`**
+- Sonst:
+  - Session setzen → Redirect zu **`/`**
 
-### 3. Session-Reaktivität verbessern (`src/hooks/useSupabaseSession.ts`)
+4) Wenn **keine Tokens/kein Code** vorhanden ist:
+- Nicht mehr “geh zu Sales OS”
+- Stattdessen: **Hinweis + Button “Zum Login”** (`/login`)
 
-Neuer Hook der:
-- `onAuthStateChange` listener nutzt (statt nur `getSession`)
-- Loading-State korrekt verwaltet
-- React Query Keys invalidiert bei Session-Änderung
+### C) AuthRequiredScreen ändern (bestehende UI)
+- Primär: Button “Einloggen” → `/login`
+- Sekundär: optional “Mit Sales OS fortfahren” (falls ihr es für interne Rollen weiterhin braucht)
+- Text anpassen: “Du bist in dieser App nicht angemeldet …”
 
-### 4. Index.tsx Session-Check verbessern
+### D) Routen ergänzen (App Router)
+In `src/App.tsx`:
+- `/login` → neue Login Page
+- `/set-password` → neue SetPassword Page
+- `/auth` bleibt bestehen (erweitert)
 
-- Nutze `useSupabaseSession` für reaktive Session-Updates
-- Zeige "Nicht eingeloggt" statt "Kein Contractor-Zugang" wenn keine Session
+### E) Supabase Auth Dashboard: Redirect-URLs korrekt setzen (wichtig!)
+Damit Invite/Recovery-Links wirklich auf **diese App** zeigen und nicht “irgendwohin”:
+- Supabase Dashboard → Authentication → URL Configuration
+- Sicherstellen:
+  - **Site URL**: `https://quick-measure-pro.lovable.app`
+  - **Additional Redirect URLs** enthalten mindestens:
+    - `https://quick-measure-pro.lovable.app/auth`
+    - `https://quick-measure-pro.lovable.app/set-password`
+    - (optional) `https://quick-measure-pro.lovable.app/login`
 
-## Betroffene Dateien
+Ohne diese Einstellung kann Supabase Links blocken oder auf falsche Domains leiten.
 
-| Datei | Änderung |
-|-------|----------|
-| `src/pages/Auth.tsx` | **NEU** - Session-Transfer Handler |
-| `src/App.tsx` | Route `/auth` hinzufügen |
-| `src/hooks/useSupabaseSession.ts` | **NEU** - Reaktiver Session-Hook |
-| `src/hooks/useContractorOnboardingStatus.ts` | Session-Hook integrieren |
-| `src/hooks/useIAM.ts` | Session-Hook integrieren |
-| `src/pages/Index.tsx` | Session-Check + bessere Fehlermeldung |
-| `src/components/ui/AuthRequiredScreen.tsx` | **NEU** - "Bitte einloggen" UI |
+## Umsetzungsschritte (konkret im Repo)
 
-## Fluss nach Implementation
+### 1) Neue Pages anlegen
+- `src/pages/Login.tsx` (neu)
+  - UI mit shadcn Input/Button/Form (react-hook-form + zod)
+  - `supabase.auth.signInWithPassword({ email, password })`
+  - Fehlerhandling (falsches Passwort, user not found, etc.)
+  - “Passwort vergessen?” → `supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/auth' })`
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ USER FLOW                                                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Sales OS                     quick-measure-pro.lovable.app                  │
-│  ─────────                    ─────────────────────────────                  │
-│                                                                              │
-│  1. User loggt sich ein                                                      │
-│         │                                                                    │
-│         ▼                                                                    │
-│  2. Sales OS generiert                                                       │
-│     Redirect-URL mit Tokens                                                  │
-│         │                                                                    │
-│         ▼                                                                    │
-│  3. Redirect zu ─────────────► /auth#access_token=xxx&refresh_token=yyy      │
-│                                      │                                       │
-│                                      ▼                                       │
-│                               4. Auth.tsx parst Hash                         │
-│                                      │                                       │
-│                                      ▼                                       │
-│                               5. setSession() speichert                      │
-│                                  in localStorage                             │
-│                                      │                                       │
-│                                      ▼                                       │
-│                               6. Redirect nach /                             │
-│                                      │                                       │
-│                                      ▼                                       │
-│                               7. Index.tsx prüft Session ✓                   │
-│                                      │                                       │
-│                                      ▼                                       │
-│                               8. Onboarding oder App                         │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+- `src/pages/SetPassword.tsx` (neu)
+  - Prüft ob Session vorhanden (sonst “Link abgelaufen → zurück zu Login”)
+  - `supabase.auth.updateUser({ password })`
+  - Danach `navigate('/')`
 
-## Technische Details
+### 2) `src/pages/Auth.tsx` erweitern
+- Unterstützt:
+  - Hash tokens → `setSession`
+  - `?code=` → `exchangeCodeForSession`
+- Routing-Entscheidung:
+  - `type in ['recovery','invite']` → `/set-password`
+  - sonst → `/`
 
-### Auth.tsx Token-Parsing
+### 3) `src/components/ui/AuthRequiredScreen.tsx` ändern
+- Entfernt “zwingend Sales OS”
+- Button zu `/login`
 
-```tsx
-// Parse hash: #access_token=xxx&refresh_token=yyy&type=session_transfer
-const hashParams = new URLSearchParams(window.location.hash.substring(1));
-const accessToken = hashParams.get('access_token');
-const refreshToken = hashParams.get('refresh_token');
+### 4) `src/App.tsx` Routen erweitern
+- Neue Routes: `/login`, `/set-password`
 
-if (accessToken && refreshToken) {
-  const { error } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
-  
-  if (!error) {
-    navigate('/', { replace: true });
-  }
-}
-```
+### 5) (Optional, aber empfohlen) Index-Verhalten verfeinern
+- Statt nur Screen anzeigen: wenn `!session`, kann direkt `navigate('/login')` passieren (mit `replace: true`)  
+  oder Screen mit Button beibehalten (UX-Entscheidung).
 
-### useSupabaseSession Hook
+## Testplan (End-to-End)
+1) **Frischer Browser / Inkognito**
+2) `https://quick-measure-pro.lovable.app/login`
+3) Mit Contractor-Email + Passwort einloggen
+4) Erwartung:
+   - Redirect nach `/`
+   - OnboardingScreen erscheint (solange DB nicht `ready` + `trainer_freigabe=true`)
+5) “Passwort vergessen?” testen:
+   - Email eingeben → Reset-Mail kommt
+   - Link führt zu `/auth?...` oder `/auth#...`
+   - Erwartung: Redirect nach `/set-password`
+   - Passwort setzen → Redirect nach `/` → eingeloggt
+6) (Falls weiterhin genutzt) Sales-OS-Redirect testen:
+   - Sales OS redirect zu `/auth#access_token=…`
+   - Erwartung: Session gesetzt → `/`
 
-```tsx
-export function useSupabaseSession() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const queryClient = useQueryClient();
+## Risiken / Edge Cases
+- Manche Supabase Links liefern **`code`** statt Hash Tokens → deshalb `exchangeCodeForSession` ergänzen.
+- Mobile Browser (iOS) können Storage/Redirects zickig haben → deshalb klare `/login` Fallback-Route.
+- Falls Invite/Recovery-Link auf falsche Domain zeigt → Supabase “Redirect URLs” müssen korrigiert werden.
 
-  useEffect(() => {
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsLoading(false);
-    });
-
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        // Invalidate all auth-dependent queries
-        queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-status'] });
-        queryClient.invalidateQueries({ queryKey: ['iam'] });
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, [queryClient]);
-
-  return { session, isLoading, user: session?.user ?? null };
-}
-```
-
-## Was Sales OS tun muss
-
-Nach Implementation muss Sales OS die User zu dieser URL weiterleiten:
-
-```
-https://quick-measure-pro.lovable.app/auth#access_token=<TOKEN>&refresh_token=<TOKEN>&type=session_transfer
-```
-
-Aktuell leitet Sales OS vermutlich direkt zu `/` weiter, wo keine Token-Verarbeitung stattfindet.
-
-## Nächste Schritte nach Auth-Fix
-
-1. ✅ Session-Transfer funktioniert
-2. Onboarding-Flow testen
-3. Stripe-Integration für Bestellungen
+## Sicherheits-Notiz (separat, nicht Blocker für Login)
+- Aktuell sind die RLS Policies für `thermocheck.contractor_onboarding` extrem permissiv (SELECT/UPDATE = `true`).  
+  Das ist langfristig kritisch und sollte nach dem Login-Fix gehärtet werden (Row Ownership via `profile_id = auth.uid()` + Admin-Ausnahmen über IAM).
