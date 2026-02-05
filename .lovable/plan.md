@@ -1,171 +1,101 @@
 
+# Automatische Weiterleitung für Admins
 
-# Admin-View Implementation Plan
+## Problem
+Du (als superadmin) landest auf `/` und siehst "Kein Contractor-Zugang", weil:
+- `/` ist die Techniker-App
+- Sie erwartet einen `contractor_onboarding` Datensatz
+- Du hast keinen, weil du Admin bist, kein Techniker
 
-## Übersicht
+## Lösung: Smart Routing
 
-Du brauchst eine Admin-Ansicht, um alle Aufträge und Techniker zu sehen - nicht nur deine eigenen. Die gute Nachricht: Die Infrastruktur dafür existiert bereits größtenteils!
+Die App soll automatisch erkennen:
+- **Admin ohne Contractor-Record** → Weiterleitung zu `/admin`
+- **Techniker mit Contractor-Record** → normale Techniker-App
+- **Admin MIT Contractor-Record** → kann beide Ansichten nutzen
 
-**Was bereits vorhanden ist:**
-- `/admin` Route (aktuell deaktiviert → zeigt NotFound)
-- Admin-Komponenten (`AdminLayout`, `AdminBottomNav`)
-- Feature-Views (`ContractorListView`, `ObjectOrderListView`, etc.)
-- Datenbank-Funktionen: `is_admin()` und `get_user_iam_roles()`
-- Du hast bereits `superadmin`-Rolle in `iam.user_system_roles`
+### Änderungen
 
-**Was fehlt:**
-1. Route aktivieren + Zugriffsschutz
-2. `useIAM` Hook erweitern, um echte Rollen aus der DB zu laden
-3. RLS-Policies für Admin-Lesezugriff auf relevante Tabellen
+#### 1. Index.tsx anpassen
 
----
-
-## Implementierungsschritte
-
-### Schritt 1: useIAM Hook auf echte IAM-Rollen umstellen
-
-Der Hook fragt aktuell nur `profiles` ab. Er muss die echten System-Rollen aus `iam.user_system_roles` laden.
-
-**Änderung in `src/hooks/useIAM.ts`:**
-- RPC-Aufruf zu `get_user_iam_roles()` statt Profil-Check
-- `useIsAdmin()` prüft auf `superadmin`, `admin` oder `manager`
-
-### Schritt 2: Protected Admin Route
-
-**Änderungen in `src/App.tsx`:**
-- Admin-Route aktivieren (nicht mehr auf NotFound)
-- Neue `AdminRoute`-Wrapper-Komponente erstellen
-
-**Neue Komponente: `src/components/auth/ProtectedAdminRoute.tsx`**
-- Prüft mit `useIsAdmin()` ob User Zugriff hat
-- Zeigt Loading während Check
-- Zeigt "Zugriff verweigert" wenn keine Berechtigung
-
-### Schritt 3: RLS-Policies für Admin-Lesezugriff
-
-Damit Admins alle Daten sehen können, brauchen relevante Tabellen SELECT-Policies:
-
-**Tabellen mit neuen Policies:**
-- `thermocheck.contractor_onboarding` → Admins sehen alle Techniker
-- `thermocheck.contractor_bestellungen` → Admins sehen alle Bestellungen
-- `thermocheck.contractor_akademie_lektions_fortschritt` → Admins sehen Fortschritte
-
-**Policy-Pattern:**
-```sql
-CREATE POLICY "Admin kann alle lesen"
-ON thermocheck.tabelle FOR SELECT TO authenticated
-USING (
-  public.is_admin() 
-  OR [existing user-specific condition]
-);
-```
-
-### Schritt 4: Admin-Views mit echten Daten verbinden
-
-Die Views (`ContractorListView`, `ObjectOrderListView`) nutzen aktuell Mock-Daten. Sie müssen:
-- `useQuery` für Supabase-Abfragen verwenden
-- Die Daten aus den entsprechenden Tabellen laden
-
----
-
-## Architektur-Diagramm
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                         App.tsx Routes                              │
-├─────────────────────────────────────────────────────────────────────┤
-│  /         → Index.tsx (Techniker-App)                              │
-│  /admin    → ProtectedAdminRoute → Admin.tsx                        │
-│  /akademie → AkademieModul.tsx                                      │
-└─────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    ProtectedAdminRoute                              │
-├─────────────────────────────────────────────────────────────────────┤
-│  useIsAdmin() → true  → <Admin />                                   │
-│  useIsAdmin() → false → <AccessDenied />                            │
-│  useIsAdmin() → undefined → <Loading />                             │
-└─────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         useIAM Hook                                 │
-├─────────────────────────────────────────────────────────────────────┤
-│  Ruft RPC get_user_iam_roles() auf                                  │
-│  Cached Rollen: ['superadmin'] / ['admin'] / ['manager'] / ['user'] │
-│  useIsAdmin() = role in (superadmin, admin, manager)                │
-└─────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Supabase RLS Layer                               │
-├─────────────────────────────────────────────────────────────────────┤
-│  Techniker: Sieht nur eigene Daten (profile_id = auth.uid())        │
-│  Admin: is_admin() = true → Sieht alle Daten                        │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Technische Details
-
-### 1. useIAM Hook Update
+Erweitere die Logik in der `NoContractorAccessScreen` Entscheidung:
 
 ```typescript
-// Neue Query-Funktion
-const queryFn = async () => {
-  const { data, error } = await supabase.rpc('get_user_iam_roles');
-  if (error) throw error;
-  return data || [];
-};
+// Neue Imports
+import { useIsAdmin } from '@/hooks/useIAM';
+import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
-// useIsAdmin prüft echte Rollen
-export function useIsAdmin(): boolean | undefined {
-  const { systemRoles, loading } = useIAM();
-  if (loading) return undefined;
-  return ['superadmin', 'admin', 'manager'].some(r => systemRoles.includes(r));
+// In der Komponente:
+const isAdmin = useIsAdmin();
+const navigate = useNavigate();
+
+// Vor dem Rendering:
+// Wenn Admin OHNE Contractor-Record → automatisch zu /admin
+useEffect(() => {
+  if (isAdmin === true && !hasContractorRecord) {
+    navigate('/admin', { replace: true });
+  }
+}, [isAdmin, hasContractorRecord, navigate]);
+
+// Loading erweitern
+if (isDbLoading || isAdmin === undefined) {
+  return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
 }
 ```
 
-### 2. Neue Dateien
+#### 2. NoContractorAccessScreen.tsx erweitern
 
-| Datei | Zweck |
-|-------|-------|
-| `src/components/auth/ProtectedAdminRoute.tsx` | Wrapper für Admin-Routen |
-| `src/components/ui/AccessDeniedScreen.tsx` | UI für fehlende Berechtigung |
+Falls kein Auto-Redirect (Admin === false), zeige trotzdem einen Link zum Admin-Bereich für manuelle Navigation:
 
-### 3. RLS Migration
-
-```sql
--- Beispiel: contractor_onboarding Admin-Zugriff
-CREATE POLICY "Admin sieht alle Onboardings"
-ON thermocheck.contractor_onboarding FOR SELECT TO authenticated
-USING (
-  public.is_admin()
-  OR profile_id = auth.uid()
-);
+```tsx
+// Optional: Link zum Admin-Bereich wenn kein Contractor
+{/* Nur für Debugging/Entwicklung */}
+<Button 
+  variant="link" 
+  onClick={() => window.location.href = '/admin'}
+>
+  Zur Admin-Ansicht
+</Button>
 ```
 
----
+### Flussdiagramm
 
-## Risiken & Mitigationen
+```text
+User besucht /
+       │
+       ▼
+┌──────────────────┐
+│ Lade IAM Rollen  │
+│ + Contractor DB  │
+└────────┬─────────┘
+         │
+         ▼
+┌────────────────────────────────────────┐
+│ Hat Contractor-Record?                 │
+├────────────────────────────────────────┤
+│ JA → Normale Techniker-App zeigen      │
+│ NEIN → Ist Admin?                      │
+│   ├─ JA → Redirect zu /admin           │
+│   └─ NEIN → NoContractorAccessScreen   │
+└────────────────────────────────────────┘
+```
 
-| Risiko | Mitigation |
-|--------|------------|
-| RLS-Policy-Konflikt | Bestehende Policies prüfen, ggf. kombinieren statt neue erstellen |
-| Performance bei vielen Einträgen | Pagination in Admin-Views implementieren |
-| Cache-Probleme | QueryClient Invalidation bei Auth-Änderungen |
+## Betroffene Dateien
 
----
+| Datei | Änderung |
+|-------|----------|
+| `src/pages/Index.tsx` | Auto-Redirect für Admins ohne Contractor-Record |
+| `src/components/ui/NoContractorAccessScreen.tsx` | Optional: Admin-Link hinzufügen |
 
-## Reihenfolge der Implementation
+## Risiken
 
-1. **useIAM Hook updaten** → Echte Rollen laden
-2. **ProtectedAdminRoute erstellen** → Zugriffsschutz
-3. **Route aktivieren** → `/admin` zeigt Admin.tsx
-4. **RLS-Policies hinzufügen** → Admin-Lesezugriff
-5. **Views mit echten Daten** → Mock-Daten ersetzen
+- **Race Condition**: Loading-States von IAM und Contractor-Check müssen beide abgewartet werden
+- **Mitigation**: Beide Loading-States prüfen vor jeder Entscheidung
 
-Soll ich mit der Implementierung beginnen?
+## Ergebnis
 
+Nach Implementation:
+- Du gehst auf `/` → wirst automatisch zu `/admin` weitergeleitet
+- Techniker gehen auf `/` → sehen ihre App oder Onboarding
+- Du kannst jederzeit manuell zu `/` gehen, wenn du dich selbst als Techniker testen willst (dann brauchst du einen Contractor-Record)
