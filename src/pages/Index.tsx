@@ -92,10 +92,13 @@ const Index = () => {
     };
   });
   
-  // Onboarding state - now driven by DB status
-  // Only consider complete if DB says ready AND trainer approved
-  const [onboardingComplete, setOnboardingComplete] = useState(false);
+  // Preview mode for testing the onboarding flow
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  
+  // NOTE: We no longer use a local "onboardingComplete" state.
+  // The DB (isDbReady) is the SINGLE SOURCE OF TRUTH.
+  // Local state was causing bugs where localStorage said "complete" 
+  // but DB said "not ready".
 
   // Count orders per tab
   const poolCount = orders.filter(o => o.status === 'published').length;
@@ -219,12 +222,12 @@ const Index = () => {
     return <OnboardingLoadingScreen message="Weiterleitung zum Admin-Bereich..." />;
   }
 
-  // 3. If DB says NOT ready (not 'ready' status OR no trainer approval), show onboarding
-  // Preview mode bypasses this check
-  if ((!isDbReady && !onboardingComplete) || isPreviewMode) {
+  // 4. If DB says NOT ready (not 'ready' status OR no trainer approval), show onboarding
+  // DB is the SINGLE SOURCE OF TRUTH - localStorage does NOT determine ready status!
+  // Preview mode bypasses this check for testing purposes
+  if (!isDbReady || isPreviewMode) {
     console.log('[Index] Showing onboarding:', { 
       isDbReady, 
-      onboardingComplete, 
       isPreviewMode,
       dbStatus: onboardingRecord?.onboarding_status,
       trainerFreigabe: onboardingRecord?.trainer_freigabe,
@@ -242,7 +245,10 @@ const Index = () => {
             return;
           }
           
-          setOnboardingComplete(true);
+          // NOTE: We don't set any local "complete" state anymore.
+          // The DB status is the SSOT - onComplete just syncs profile data
+          // and shows a success message. The actual ready-check happens 
+          // on next render via isDbReady from the DB.
           
           // Sync profile with onboarding data
           const onboardingProfile = loadOnboardingProfile();
@@ -256,7 +262,7 @@ const Index = () => {
             }));
           }
           
-          toast.success('Willkommen bei Thermocheck! 🎉');
+          toast.success('Onboarding abgeschlossen – bitte warte auf Trainer-Freigabe! 🎓');
         }}
       />
     );
@@ -338,7 +344,7 @@ const Index = () => {
             toast.success('Profil aktualisiert');
             console.log('Profile update:', updatedData);
           }}
-          onStartOnboarding={() => setOnboardingComplete(false)}
+          // NOTE: onStartOnboarding removed - DB controls onboarding state now
           onStartOnboardingPreview={() => {
             setIsPreviewMode(true);
             toast.info('Vorschau-Modus gestartet');
