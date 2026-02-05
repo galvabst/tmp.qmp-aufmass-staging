@@ -67,12 +67,12 @@ Deno.serve(async (req) => {
     // 5. Use service role client for DB operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 6. Get user's onboarding record
+    // 6. Get user's onboarding record (profile_id = auth.uid())
     const { data: onboarding, error: onboardingError } = await supabaseAdmin
       .schema("thermocheck")
       .from("contractor_onboarding")
-      .select("id, user_id")
-      .eq("user_id", userId)
+      .select("id, profile_id")
+      .eq("profile_id", userId)
       .maybeSingle();
 
     if (onboardingError) {
