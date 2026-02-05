@@ -75,30 +75,36 @@ const loadPersistedState = (initialProfile: ApplicantProfile): OnboardingState =
 
 export function useOnboardingState(
   initialProfile: ApplicantProfile,
-  isPreview: boolean = false
+  isPreview: boolean = false,
+  forceReset: boolean = false // NEU: Flag um State ohne Reload zurückzusetzen
 ) {
-  const [state, setState] = useState<OnboardingState>(() => 
-    isPreview 
+  const [state, setState] = useState<OnboardingState>(() => {
+    // Bei forceReset: frischer State ohne localStorage
+    if (forceReset) {
+      console.log('[Onboarding] Force reset triggered - starting fresh');
+      return createInitialOnboardingState(initialProfile);
+    }
+    return isPreview 
       ? createInitialOnboardingState(initialProfile)
-      : loadPersistedState(initialProfile)
-  );
+      : loadPersistedState(initialProfile);
+  });
 
-  // Persist state to localStorage on every change (only if not in preview mode)
+  // Persist state to localStorage on every change (only if not in preview mode AND not force reset)
   useEffect(() => {
-    if (isPreview) return; // Don't persist in preview mode
+    if (isPreview || forceReset) return; // Don't persist in preview or force-reset mode
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       console.warn('Failed to save onboarding state to localStorage', e);
     }
-  }, [state, isPreview]);
+  }, [state, isPreview, forceReset]);
 
-  // Reset state when entering preview mode
+  // Reset state when entering preview mode or force reset
   useEffect(() => {
-    if (isPreview) {
+    if (isPreview || forceReset) {
       setState(createInitialOnboardingState(initialProfile));
     }
-  }, [isPreview, initialProfile]);
+  }, [isPreview, forceReset, initialProfile]);
   
   // Hydrate akademie from external data (called by component with DB data)
   const hydrateAkademieFromDb = useCallback((dbModules: AkademieHauptmodul[]) => {
