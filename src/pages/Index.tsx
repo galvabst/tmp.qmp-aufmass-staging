@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BottomNav, Tab } from '@/components/BottomNav';
 import { PoolView } from '@/components/PoolView';
 import { BookingsView } from '@/components/BookingsView';
@@ -12,6 +13,7 @@ import { TechnicianOrder, CheckinPhase } from '@/types/technician';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
 import { useContractorOnboardingStatus } from '@/hooks/useContractorOnboardingStatus';
+import { useIsAdmin } from '@/hooks/useIAM';
 import { OnboardingLoadingScreen } from '@/components/ui/OnboardingLoadingScreen';
 import { NoContractorAccessScreen } from '@/components/ui/NoContractorAccessScreen';
 
@@ -50,8 +52,10 @@ const loadOnboardingStatus = () => {
 };
 
 const Index = () => {
+  const navigate = useNavigate();
+  
   // ============================================
-  // DB-FIRST ONBOARDING STATUS CHECK
+  // DB-FIRST ONBOARDING STATUS CHECK + IAM
   // ============================================
   const { 
     isReady: isDbReady, 
@@ -59,6 +63,8 @@ const Index = () => {
     hasRecord: hasContractorRecord,
     onboardingRecord,
   } = useContractorOnboardingStatus();
+  
+  const isAdmin = useIsAdmin();
 
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
@@ -187,17 +193,30 @@ const Index = () => {
   };
 
   // ============================================
-  // DB-FIRST RENDERING LOGIC
+  // DB-FIRST RENDERING LOGIC + ADMIN REDIRECT
   // ============================================
   
-  // 1. Show loading screen while checking DB status
-  if (isDbLoading) {
-    return <OnboardingLoadingScreen message="Prüfe Onboarding-Status..." />;
+  // Auto-redirect admins without contractor record to /admin
+  useEffect(() => {
+    if (isAdmin === true && !hasContractorRecord && !isDbLoading) {
+      navigate('/admin', { replace: true });
+    }
+  }, [isAdmin, hasContractorRecord, isDbLoading, navigate]);
+  
+  // 1. Show loading screen while checking DB status OR IAM roles
+  if (isDbLoading || isAdmin === undefined) {
+    return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
   }
 
-  // 2. If no contractor record exists, show access denied
-  if (!hasContractorRecord) {
+  // 2. If no contractor record exists AND not admin, show access denied
+  // (Admins get redirected by the useEffect above)
+  if (!hasContractorRecord && !isAdmin) {
     return <NoContractorAccessScreen userEmail={onboardingRecord?.ag_domain_email || undefined} />;
+  }
+  
+  // 3. Admin without contractor record - show brief loading while redirect happens
+  if (!hasContractorRecord && isAdmin) {
+    return <OnboardingLoadingScreen message="Weiterleitung zum Admin-Bereich..." />;
   }
 
   // 3. If DB says NOT ready (not 'ready' status OR no trainer approval), show onboarding
