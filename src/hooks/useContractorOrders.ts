@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ContractorBestellung {
@@ -19,17 +19,49 @@ export interface ContractorBestellung {
 /**
  * Hook to fetch contractor's orders from the database
  * Used to sync payment status after Stripe redirect
+ * 
+ * @param profileId - The user's profile ID (auth.uid())
  */
-export function useContractorOrders(onboardingId: string | null) {
-  return useQuery({
-    queryKey: ["contractor-orders", onboardingId],
+export function useContractorOrders(profileId: string | null) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["contractor-orders", profileId],
     queryFn: async (): Promise<ContractorBestellung[]> => {
-      if (!onboardingId) return [];
+      if (!profileId) return [];
 
       // Use fetch to access thermocheck schema directly
+      // First get onboarding_id from profile_id, then fetch orders
       const { data: session } = await supabase.auth.getSession();
       const accessToken = session?.session?.access_token;
 
+      // Step 1: Get onboarding_id for this profile
+      const onboardingResponse = await fetch(
+        `https://keplsvhudmfaagixttql.supabase.co/rest/v1/contractor_onboarding?profile_id=eq.${profileId}&select=id`,
+        {
+          headers: {
+            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlcGxzdmh1ZG1mYWFnaXh0dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0OTQ4MzIsImV4cCI6MjA3MjA3MDgzMn0.pfrd37wSwqnofDinrv60YOtCqnYTc9BXq08m_TSVTNY",
+            Authorization: accessToken ? `Bearer ${accessToken}` : "",
+            "Accept-Profile": "thermocheck",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!onboardingResponse.ok) {
+        console.error("[useContractorOrders] Failed to fetch onboarding:", onboardingResponse.status);
+        return [];
+      }
+
+      const onboardingData = await onboardingResponse.json();
+      if (!onboardingData || onboardingData.length === 0) {
+        console.log("[useContractorOrders] No onboarding record found for profile:", profileId);
+        return [];
+      }
+
+      const onboardingId = onboardingData[0].id;
+
+      // Step 2: Fetch orders for this onboarding_id
       const response = await fetch(
         `https://keplsvhudmfaagixttql.supabase.co/rest/v1/contractor_bestellungen?onboarding_id=eq.${onboardingId}&order=created_at.desc`,
         {
@@ -48,11 +80,23 @@ export function useContractorOrders(onboardingId: string | null) {
       }
 
       const data = await response.json();
+      console.log("[useContractorOrders] Loaded orders:", data?.length || 0);
       return (data || []) as ContractorBestellung[];
     },
-    enabled: !!onboardingId,
-    staleTime: 30 * 1000, // 30 seconds - refetch more often for payment status
+    enabled: !!profileId,
+    staleTime: 10 * 1000, // 10 seconds - refetch often for payment status
+    refetchOnWindowFocus: true,
   });
+
+  // Function to manually refetch orders (useful after payment success)
+  const refetchOrders = () => {
+    return queryClient.invalidateQueries({ queryKey: ["contractor-orders", profileId] });
+  };
+
+  return {
+    ...query,
+    refetchOrders,
+  };
 }
 
 /**

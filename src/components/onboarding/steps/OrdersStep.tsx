@@ -1,17 +1,7 @@
 import { useState } from 'react';
-import { ShoppingCart, Check, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, Check, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { OnboardingProduct, ClothingVariant, OberteilAuswahl } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
 import { ProductImageSlideshow } from '../ProductImageSlideshow';
@@ -19,6 +9,7 @@ import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { SizeSelector } from '../SizeSelector';
 import { useOnboardingSizes } from '@/hooks/useOnboardingSizes';
 import { brauchtGroessenauswahl } from '@/lib/onboarding-sizes';
+import { useStripeCheckout } from '@/hooks/useStripeCheckout';
 
 // Import Kleidungsbilder
 import tshirtVorne from '@/assets/onboarding/kleidung/tshirt-vorne.png';
@@ -39,19 +30,19 @@ import googleWorkspace from '@/assets/onboarding/lizenzen/google-workspace.png';
 export const PULLOVER_BILDER = [pulloverVorne, pulloverHinten];
 export const AUSWEISKARTE_BILDER = [ausweiskarteVorne, ausweiskarteHinten];
 
-// Oberteil-Varianten mit Bildern
+// Oberteil-Varianten mit Bildern (ohne externLink - Stripe-Integration)
 const OBERTEIL_VARIANTEN: ClothingVariant[] = [
   {
     id: 'tshirt',
     name: 'T-Shirt',
     bildUrls: [tshirtVorne, tshirtHinten],
-    externLink: 'https://shop.thermocheck.de/tshirt',
+    externLink: '', // Legacy - nicht mehr genutzt
   },
   {
     id: 'poloshirt',
     name: 'Poloshirt',
     bildUrls: [poloshirtVorne, poloshirtHinten],
-    externLink: 'https://shop.thermocheck.de/poloshirt',
+    externLink: '', // Legacy - nicht mehr genutzt
   },
 ];
 
@@ -70,14 +61,15 @@ export function OrdersStep({
   oberteilAuswahl,
   onOberteilAuswahl,
 }: OrdersStepProps) {
-  const [confirmingProduct, setConfirmingProduct] = useState<OnboardingProduct | null>(null);
-  const [confirmingVariant, setConfirmingVariant] = useState<ClothingVariant | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ClothingVariant | null>(OBERTEIL_VARIANTEN[0]);
   
   // Größenauswahl State
   const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
   const { updateSize, isUpdating } = useOnboardingSizes();
+  
+  // Stripe Checkout Hook
+  const { startCheckout, isLoading: isCheckoutLoading } = useStripeCheckout();
 
   // Sortiere Produkte nach Reihenfolge
   const sortedProducts = [...products].sort((a, b) => a.reihenfolge - b.reihenfolge);
@@ -129,6 +121,7 @@ export function OrdersStep({
     }
   };
 
+  // Stripe Checkout starten statt externem Link
   const handleOrderClick = async (product: OnboardingProduct) => {
     const sizeType = brauchtGroessenauswahl(product.id);
     
@@ -137,12 +130,11 @@ export function OrdersStep({
       return; // Button sollte disabled sein, aber sicherheitshalber
     }
     
-    // Öffne externen Link in neuem Tab
-    window.open(product.externLink, '_blank', 'noopener,noreferrer');
-    // Zeige Bestätigungs-Dialog
-    setConfirmingProduct(product);
+    // Starte Stripe Checkout - Redirect erfolgt automatisch
+    await startCheckout(product.id, selectedSizes[product.id]);
   };
 
+  // Stripe Checkout für Oberteil-Varianten
   const handleVariantOrderClick = async (variant: ClothingVariant) => {
     const sizeType = brauchtGroessenauswahl(variant.id);
     
@@ -151,24 +143,8 @@ export function OrdersStep({
       return; // Button sollte disabled sein
     }
     
-    // Öffne externen Link in neuem Tab
-    window.open(variant.externLink, '_blank', 'noopener,noreferrer');
-    // Zeige Bestätigungs-Dialog
-    setConfirmingVariant(variant);
-  };
-
-  const handleConfirmOrder = () => {
-    if (confirmingProduct) {
-      onProductOrder(confirmingProduct.id);
-      setConfirmingProduct(null);
-    }
-  };
-
-  const handleConfirmVariantOrder = () => {
-    if (confirmingVariant) {
-      onProductOrder(confirmingVariant.id);
-      setConfirmingVariant(null);
-    }
+    // Starte Stripe Checkout - Redirect erfolgt automatisch
+    await startCheckout(variant.id, selectedSizes[variant.id]);
   };
 
   // Wenn alle bestellt sind
@@ -316,7 +292,7 @@ export function OrdersStep({
                 type="kleidung"
                 selectedSize={selectedSizes[nextVariant.id] || null}
                 onSizeSelect={(size) => handleSizeSelect(nextVariant.id, size)}
-                disabled={isUpdating}
+                disabled={isUpdating || isCheckoutLoading}
               />
             </div>
 
@@ -324,34 +300,25 @@ export function OrdersStep({
               size="lg"
               className="w-full mt-6"
               onClick={() => handleVariantOrderClick(nextVariant)}
-              disabled={!selectedSizes[nextVariant.id] || isUpdating}
+              disabled={!selectedSizes[nextVariant.id] || isUpdating || isCheckoutLoading}
             >
-              <ShoppingCart className="w-5 h-5 mr-2" />
-              {selectedSizes[nextVariant.id] 
-                ? `Jetzt bestellen (Größe ${selectedSizes[nextVariant.id]})`
-                : 'Zuerst Größe wählen'
-              }
+              {isCheckoutLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Weiterleitung zu Stripe...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-5 h-5 mr-2" />
+                  {selectedSizes[nextVariant.id] 
+                    ? `Jetzt bestellen (Größe ${selectedSizes[nextVariant.id]})`
+                    : 'Zuerst Größe wählen'
+                  }
+                </>
+              )}
             </Button>
           </div>
         )}
-
-        {/* Bestätigungs-Dialog für Variante */}
-        <AlertDialog open={!!confirmingVariant} onOpenChange={() => setConfirmingVariant(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Bestellung abgeschlossen?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Hast du das <strong>Thermocheck {confirmingVariant?.name}</strong> im Shop bestellt?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Nein, noch nicht</AlertDialogCancel>
-              <AlertDialogAction onClick={handleConfirmVariantOrder}>
-                Ja, bestellt
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     );
   }
@@ -461,45 +428,39 @@ export function OrdersStep({
               type={brauchtGroessenauswahl(currentProduct.id)!}
               selectedSize={selectedSizes[currentProduct.id] || null}
               onSizeSelect={(size) => handleSizeSelect(currentProduct.id, size)}
-              disabled={isUpdating}
+              disabled={isUpdating || isCheckoutLoading}
             />
           </div>
         )}
 
-        {/* Bestell-Button */}
+        {/* Bestell-Button mit Stripe */}
         <Button
           size="lg"
           className="w-full mt-6"
           onClick={() => handleOrderClick(currentProduct)}
-          disabled={brauchtGroessenauswahl(currentProduct.id) && !selectedSizes[currentProduct.id]}
-        >
-          <ShoppingCart className="w-5 h-5 mr-2" />
-          {brauchtGroessenauswahl(currentProduct.id) && selectedSizes[currentProduct.id]
-            ? `Jetzt bestellen (${brauchtGroessenauswahl(currentProduct.id) === 'schuhe' ? 'Größe' : 'Größe'} ${selectedSizes[currentProduct.id]})`
-            : brauchtGroessenauswahl(currentProduct.id)
-              ? 'Zuerst Größe wählen'
-              : 'Jetzt bestellen'
+          disabled={
+            (brauchtGroessenauswahl(currentProduct.id) && !selectedSizes[currentProduct.id]) ||
+            isCheckoutLoading
           }
+        >
+          {isCheckoutLoading ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Weiterleitung zu Stripe...
+            </>
+          ) : (
+            <>
+              <ShoppingCart className="w-5 h-5 mr-2" />
+              {brauchtGroessenauswahl(currentProduct.id) && selectedSizes[currentProduct.id]
+                ? `Jetzt bestellen (Größe ${selectedSizes[currentProduct.id]})`
+                : brauchtGroessenauswahl(currentProduct.id)
+                  ? 'Zuerst Größe wählen'
+                  : 'Jetzt bestellen'
+              }
+            </>
+          )}
         </Button>
       </div>
-
-      {/* Bestätigungs-Dialog */}
-      <AlertDialog open={!!confirmingProduct} onOpenChange={() => setConfirmingProduct(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Bestellung abgeschlossen?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Hast du <strong>{confirmingProduct?.name}</strong> im Shop bestellt?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Nein, noch nicht</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmOrder}>
-              Ja, bestellt
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Lightbox für Schlappen */}
       <ImageLightbox
