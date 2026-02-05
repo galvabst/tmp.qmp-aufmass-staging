@@ -119,6 +119,14 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     hydrateAkademieFromDb,
   } = useOnboardingState(initialProfile, isPreview, forceReset);
   
+  // Sync DB-Profil in State wenn geladen und State noch leer
+  useEffect(() => {
+    if (!profileLoading && dbProfile && state.profil.id === '') {
+      console.log('[Onboarding] Hydrating profile from DB:', dbProfile);
+      updateProfile(dbProfile);
+    }
+  }, [profileLoading, dbProfile, state.profil.id, updateProfile]);
+  
   // Fetch akademie content from database and hydrate state
   const { data: dbAkademieModule, isSuccess: dbLoaded } = useAkademieContent();
   
@@ -243,8 +251,14 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   };
 
   const handleNext = async () => {
-    // Bei Profil-Schritt: Daten in DB speichern
+    // Bei Profil-Schritt: Validierung + DB speichern
     if (state.currentStep === 'profil') {
+      // Validiere Pflichtfelder inkl. Adresse
+      if (!state.profil.strasse?.trim() || !state.profil.plz?.trim() || !state.profil.ort?.trim()) {
+        toast.error('Bitte fülle deine vollständige Adresse aus');
+        return;
+      }
+      
       try {
         await saveProfileToDb(state.profil);
         toast.success('Profildaten gespeichert');
