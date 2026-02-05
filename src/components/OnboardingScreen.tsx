@@ -181,11 +181,16 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
   const currentStepConfig = ONBOARDING_STEPS.find(s => s.id === state.currentStep);
 
-  // Handler für File-Uploads (Mock)
-  const handleAvatarUpload = (file: File) => {
-    const url = URL.createObjectURL(file);
-    setAvatarUrl(url);
-    toast.success('Profilbild hochgeladen');
+  // Handler für File-Uploads
+  const handleAvatarUpload = async (file: File) => {
+    try {
+      const url = await uploadAvatar(file);
+      setAvatarUrl(url);
+      toast.success('Profilbild hochgeladen');
+    } catch (error) {
+      console.error('[Onboarding] Avatar upload failed:', error);
+      toast.error('Fehler beim Hochladen des Profilbilds');
+    }
   };
 
   const handleGewerbescheinUpload = (file: File) => {
@@ -237,7 +242,19 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     toast.success('Coaching-Termin gebucht!');
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Bei Profil-Schritt: Daten in DB speichern
+    if (state.currentStep === 'profil') {
+      try {
+        await saveProfileToDb(state.profil);
+        toast.success('Profildaten gespeichert');
+      } catch (error) {
+        console.error('[Onboarding] Failed to save profile:', error);
+        toast.error('Fehler beim Speichern der Profildaten');
+        return; // Nicht weiter navigieren bei Fehler
+      }
+    }
+    
     if (state.currentStep === 'coaching' && state.coachingAbgeschlossen) {
       // Onboarding abgeschlossen
       return;
