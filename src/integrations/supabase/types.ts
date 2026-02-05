@@ -10760,6 +10760,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_contractor_onboarding_address: {
+        Args: { p_ort: string; p_plz: string; p_strasse: string }
+        Returns: undefined
+      }
       update_kpi_nachweis_validation: {
         Args: { p_ai_result: Json; p_nachweis_id: string; p_status: string }
         Returns: undefined
