@@ -16,6 +16,9 @@ import { OnboardingProduct, ClothingVariant, OberteilAuswahl } from '@/types/onb
 import { cn } from '@/lib/utils';
 import { ProductImageSlideshow } from '../ProductImageSlideshow';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
+import { SizeSelector } from '../SizeSelector';
+import { useOnboardingSizes } from '@/hooks/useOnboardingSizes';
+import { brauchtGroessenauswahl } from '@/lib/onboarding-sizes';
 
 // Import Kleidungsbilder
 import tshirtVorne from '@/assets/onboarding/kleidung/tshirt-vorne.png';
@@ -71,6 +74,10 @@ export function OrdersStep({
   const [confirmingVariant, setConfirmingVariant] = useState<ClothingVariant | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ClothingVariant | null>(OBERTEIL_VARIANTEN[0]);
+  
+  // Größenauswahl State
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
+  const { updateSize, isUpdating } = useOnboardingSizes();
 
   // Sortiere Produkte nach Reihenfolge
   const sortedProducts = [...products].sort((a, b) => a.reihenfolge - b.reihenfolge);
@@ -111,14 +118,39 @@ export function OrdersStep({
     return null;
   };
 
-  const handleOrderClick = (product: OnboardingProduct) => {
+  const handleSizeSelect = async (produktId: string, size: string) => {
+    setSelectedSizes(prev => ({ ...prev, [produktId]: size }));
+    // Größe direkt in DB speichern
+    try {
+      await updateSize({ produktId, groesse: size });
+    } catch (error) {
+      console.error('[OrdersStep] Failed to save size:', error);
+      // Trotzdem lokal speichern für UX
+    }
+  };
+
+  const handleOrderClick = async (product: OnboardingProduct) => {
+    const sizeType = brauchtGroessenauswahl(product.id);
+    
+    // Prüfe ob Größe ausgewählt wurde (falls erforderlich)
+    if (sizeType && !selectedSizes[product.id]) {
+      return; // Button sollte disabled sein, aber sicherheitshalber
+    }
+    
     // Öffne externen Link in neuem Tab
     window.open(product.externLink, '_blank', 'noopener,noreferrer');
     // Zeige Bestätigungs-Dialog
     setConfirmingProduct(product);
   };
 
-  const handleVariantOrderClick = (variant: ClothingVariant) => {
+  const handleVariantOrderClick = async (variant: ClothingVariant) => {
+    const sizeType = brauchtGroessenauswahl(variant.id);
+    
+    // Prüfe ob Größe ausgewählt wurde (falls erforderlich)
+    if (sizeType && !selectedSizes[variant.id]) {
+      return; // Button sollte disabled sein
+    }
+    
     // Öffne externen Link in neuem Tab
     window.open(variant.externLink, '_blank', 'noopener,noreferrer');
     // Zeige Bestätigungs-Dialog
@@ -266,13 +298,27 @@ export function OrdersStep({
               <Badge variant="secondary">Preis im Shop (einmalig)</Badge>
             </div>
 
+            {/* Größenauswahl für Oberteil-Variante */}
+            <div className="mt-6">
+              <SizeSelector
+                type="kleidung"
+                selectedSize={selectedSizes[nextVariant.id] || null}
+                onSizeSelect={(size) => handleSizeSelect(nextVariant.id, size)}
+                disabled={isUpdating}
+              />
+            </div>
+
             <Button
               size="lg"
               className="w-full mt-6"
               onClick={() => handleVariantOrderClick(nextVariant)}
+              disabled={!selectedSizes[nextVariant.id] || isUpdating}
             >
               <ShoppingCart className="w-5 h-5 mr-2" />
-              Jetzt bestellen
+              {selectedSizes[nextVariant.id] 
+                ? `Jetzt bestellen (Größe ${selectedSizes[nextVariant.id]})`
+                : 'Zuerst Größe wählen'
+              }
             </Button>
           </div>
         )}
@@ -396,14 +442,32 @@ export function OrdersStep({
           </div>
         </div>
 
+        {/* Größenauswahl für Produkte die es benötigen */}
+        {brauchtGroessenauswahl(currentProduct.id) && (
+          <div className="mt-6">
+            <SizeSelector
+              type={brauchtGroessenauswahl(currentProduct.id)!}
+              selectedSize={selectedSizes[currentProduct.id] || null}
+              onSizeSelect={(size) => handleSizeSelect(currentProduct.id, size)}
+              disabled={isUpdating}
+            />
+          </div>
+        )}
+
         {/* Bestell-Button */}
         <Button
           size="lg"
           className="w-full mt-6"
           onClick={() => handleOrderClick(currentProduct)}
+          disabled={brauchtGroessenauswahl(currentProduct.id) && !selectedSizes[currentProduct.id]}
         >
           <ShoppingCart className="w-5 h-5 mr-2" />
-          Jetzt bestellen
+          {brauchtGroessenauswahl(currentProduct.id) && selectedSizes[currentProduct.id]
+            ? `Jetzt bestellen (${brauchtGroessenauswahl(currentProduct.id) === 'schuhe' ? 'Größe' : 'Größe'} ${selectedSizes[currentProduct.id]})`
+            : brauchtGroessenauswahl(currentProduct.id)
+              ? 'Zuerst Größe wählen'
+              : 'Jetzt bestellen'
+          }
         </Button>
       </div>
 
