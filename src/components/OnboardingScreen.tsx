@@ -11,6 +11,7 @@ import { AcademyStep } from './onboarding/steps/AcademyStep';
 import { ProofStep } from './onboarding/steps/ProofStep';
 import { CoachingStep } from './onboarding/steps/CoachingStep';
 import { OnboardingComplete } from './onboarding/OnboardingComplete';
+import { WaitingForApproval } from './onboarding/WaitingForApproval';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { 
@@ -27,9 +28,13 @@ interface OnboardingScreenProps {
   onComplete: () => void;
   isPreview?: boolean;
   onExitPreview?: () => void;
+  dbStatus?: {
+    onboardingStatus: string;
+    trainerFreigabe: boolean;
+  };
 }
 
-export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview }: OnboardingScreenProps) {
+export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview, dbStatus }: OnboardingScreenProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const hasHydratedRef = useRef(false);
@@ -97,14 +102,24 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview 
     }
   }, [location.state, completeAkademieModul, completeAkademieUnterpunkt, goToStep, navigate]);
 
-  // Wenn abgeschlossen, zeige Complete-Screen
+  // DB ist die Single Source of Truth für "einsatzbereit"
+  const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
+
+  // Wenn abgeschlossen, zeige Complete-Screen oder Warte-auf-Freigabe
   if (isComplete) {
     if (isPreview) {
       toast.success('Vorschau beendet');
       onExitPreview?.();
       return null;
     }
-    return <OnboardingComplete onContinue={onComplete} />;
+    
+    // Nur Complete-Screen wenn DB auch "ready" sagt
+    if (isDbReady) {
+      return <OnboardingComplete onContinue={onComplete} />;
+    }
+    
+    // localStorage sagt complete, aber DB noch nicht ready → Warte auf Freigabe
+    return <WaitingForApproval />;
   }
 
   const currentStepConfig = ONBOARDING_STEPS.find(s => s.id === state.currentStep);
