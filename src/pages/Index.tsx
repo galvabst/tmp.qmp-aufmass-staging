@@ -18,6 +18,7 @@ import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { OnboardingLoadingScreen } from '@/components/ui/OnboardingLoadingScreen';
 import { NoContractorAccessScreen } from '@/components/ui/NoContractorAccessScreen';
 import { AuthRequiredScreen } from '@/components/ui/AuthRequiredScreen';
+import { TechnicalErrorScreen } from '@/components/ui/TechnicalErrorScreen';
 
 const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
 
@@ -64,8 +65,11 @@ const Index = () => {
   const { 
     isReady: isDbReady, 
     isLoading: isDbLoading, 
+    isError: isDbError,
+    errorMessage: dbErrorMessage,
     hasRecord: hasContractorRecord,
     onboardingRecord,
+    refetch: refetchOnboardingStatus,
   } = useContractorOnboardingStatus();
   
   const isAdmin = useIsAdmin();
@@ -225,6 +229,11 @@ const Index = () => {
   // 2. Show loading screen while checking DB status OR IAM roles
   if (isDbLoading || isAdmin === undefined) {
     return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
+  }
+
+  // 2.5 If there was a technical error fetching onboarding status, show error screen
+  if (isDbError && dbErrorMessage) {
+    return <TechnicalErrorScreen errorMessage={dbErrorMessage} onRetry={refetchOnboardingStatus} />;
   }
 
   // 3. If no contractor record exists AND not admin, show access denied

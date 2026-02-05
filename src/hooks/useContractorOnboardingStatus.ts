@@ -20,8 +20,10 @@ interface UseContractorOnboardingStatusResult {
   isReady: boolean;
   /** True while fetching data */
   isLoading: boolean;
-  /** True if there was an error fetching */
+  /** True if there was an error fetching (RPC issue, not "no record") */
   isError: boolean;
+  /** Error message if isError is true */
+  errorMessage: string | null;
   /** The contractor onboarding record, or null if not found */
   onboardingRecord: ContractorOnboardingRecord | null;
   /** Whether a contractor_onboarding record exists for this user */
@@ -30,12 +32,12 @@ interface UseContractorOnboardingStatusResult {
   refetch: () => void;
 }
 
-const SUPABASE_URL = 'https://keplsvhudmfaagixttql.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlcGxzdmh1ZG1mYWFnaXh0dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0OTQ4MzIsImV4cCI6MjA3MjA3MDgzMn0.pfrd37wSwqnofDinrv60YOtCqnYTc9BXq08m_TSVTNY';
-
 /**
  * Hook to fetch the contractor onboarding status from the database.
  * This is the Single Source of Truth for determining if a user has completed onboarding.
+ * 
+ * Uses the public wrapper function `public.get_my_contractor_onboarding()` which
+ * internally calls `thermocheck.get_my_contractor_onboarding()`.
  * 
  * A user is considered "ready" (einsatzbereit) only if:
  * 1. They have a record in thermocheck.contractor_onboarding
@@ -43,51 +45,46 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
  * 3. trainer_freigabe = true
  */
 export function useContractorOnboardingStatus(): UseContractorOnboardingStatusResult {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['contractor-onboarding-status'],
-    queryFn: async (): Promise<ContractorOnboardingRecord | null> => {
+    queryFn: async (): Promise<{ record: ContractorOnboardingRecord | null; errorMessage: string | null }> => {
       // First check if user is authenticated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         console.log('[ContractorOnboardingStatus] No authenticated user');
-        return null;
+        return { record: null, errorMessage: null };
       }
 
-      // Call the RPC function via fetch since it's in thermocheck schema
-      // and not in the generated TypeScript types
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/rpc/get_my_contractor_onboarding`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      );
+      // Call the public wrapper RPC function using Supabase client
+      // This is cleaner than manual fetch and handles auth automatically
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_contractor_onboarding');
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[ContractorOnboardingStatus] RPC error:', response.status, errorText);
+      if (rpcError) {
+        console.error('[ContractorOnboardingStatus] RPC error:', rpcError);
         
-        // If function doesn't exist (404) or permission denied, return null
-        if (response.status === 404 || response.status === 403) {
-          console.warn('[ContractorOnboardingStatus] RPC function not found or access denied');
-          return null;
+        // PGRST202 = function not found (shouldn't happen with public wrapper)
+        // But if it does, it's a technical error, not "no record"
+        if (rpcError.code === 'PGRST202') {
+          return { 
+            record: null, 
+            errorMessage: 'Die Onboarding-Funktion ist nicht erreichbar. Bitte kontaktiere den Support.' 
+          };
         }
         
-        throw new Error(`RPC call failed: ${response.status}`);
+        // Other errors are also technical issues
+        return { 
+          record: null, 
+          errorMessage: `Technischer Fehler: ${rpcError.message}` 
+        };
       }
 
-      const responseData = await response.json();
-      
-      if (!responseData || (Array.isArray(responseData) && responseData.length === 0)) {
+      // Check for empty result (legitimate "no record" case)
+      if (!rpcData || (Array.isArray(rpcData) && rpcData.length === 0)) {
         console.log('[ContractorOnboardingStatus] No contractor_onboarding record found for user:', session.user.id);
-        return null;
+        return { record: null, errorMessage: null };
       }
 
-      const record = Array.isArray(responseData) ? responseData[0] : responseData;
+      const record = Array.isArray(rpcData) ? rpcData[0] : rpcData;
       
       console.log('[ContractorOnboardingStatus] Loaded record:', {
         id: record.id,
@@ -99,36 +96,45 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
       });
 
       return {
-        id: record.id,
-        profile_id: record.profile_id,
-        onboarding_status: record.onboarding_status,
-        onboarding_substatus: record.onboarding_substatus,
-        trainer_freigabe: record.trainer_freigabe,
-        trainer_freigabe_am: record.trainer_freigabe_am,
-        trainer_freigabe_von: record.trainer_freigabe_von,
-        ag_domain_email: record.ag_domain_email,
-        lektionen_abgeschlossen: record.lektionen_abgeschlossen || 0,
-        bestellungen_bezahlt: record.bestellungen_bezahlt || 0,
+        record: {
+          id: record.id,
+          profile_id: record.profile_id,
+          onboarding_status: record.onboarding_status,
+          onboarding_substatus: record.onboarding_substatus,
+          trainer_freigabe: record.trainer_freigabe,
+          trainer_freigabe_am: record.trainer_freigabe_am,
+          trainer_freigabe_von: record.trainer_freigabe_von,
+          ag_domain_email: record.ag_domain_email,
+          lektionen_abgeschlossen: record.lektionen_abgeschlossen || 0,
+          bestellungen_bezahlt: record.bestellungen_bezahlt || 0,
+        },
+        errorMessage: null,
       };
     },
     staleTime: 30_000, // 30 seconds
     refetchOnWindowFocus: true,
   });
 
+  // Extract record and error message from query result
+  const onboardingRecord = data?.record ?? null;
+  const errorMessage = data?.errorMessage ?? (error ? String(error) : null);
+  const isError = !!errorMessage;
+
   // Determine if user is fully ready
   // User must have onboarding_status = 'ready' AND trainer_freigabe = true
   const isReady = !!(
-    data &&
-    data.onboarding_status === 'ready' &&
-    data.trainer_freigabe === true
+    onboardingRecord &&
+    onboardingRecord.onboarding_status === 'ready' &&
+    onboardingRecord.trainer_freigabe === true
   );
 
   return {
     isReady,
     isLoading,
     isError,
-    onboardingRecord: data ?? null,
-    hasRecord: !!data,
+    errorMessage,
+    onboardingRecord,
+    hasRecord: !!onboardingRecord,
     refetch,
   };
 }
