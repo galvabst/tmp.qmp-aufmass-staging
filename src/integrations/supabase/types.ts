@@ -10035,6 +10035,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      service_role_create_contractor_onboarding: {
+        Args: { _erstellt_von: string; _profile_id: string }
+        Returns: string
+      }
+      service_role_get_access_group_names: {
+        Args: { _group_ids: string[] }
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
       service_role_set_user_access_groups:
         | {
             Args: {
@@ -10697,10 +10708,6 @@ export type Database = {
       st_wrapx: {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
-      }
-      start_contractor_arbeitspaket: {
-        Args: { p_arbeitspaket_code: string; p_contractor_id: string }
-        Returns: string
       }
       suggest_appointment_slots_v2: {
         Args: {
