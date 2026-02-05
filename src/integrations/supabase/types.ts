@@ -8526,6 +8526,7 @@ export type Database = {
         Args: { _target_user_id: string }
         Returns: Json
       }
+      admin_count_kunden_without_auftraege: { Args: never; Returns: number }
       admin_create_access_group:
         | {
             Args: {
