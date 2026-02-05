@@ -38,21 +38,24 @@ export function useContractorProfile(profileId: string | null) {
         throw profileError;
       }
       
-      // 2. Adress-Daten aus thermocheck.v_contractor_details View (enthält Adresse)
+      // 2. Adress-Daten aus thermocheck.contractor_onboarding via RPC
       let onboardingData: ContractorOnboardingData | null = null;
 
-      // Die View thermocheck.v_contractor_details ist unsere SSoT und enthält Adressdaten
-      // Wir nutzen einen direkten RPC-Aufruf da thermocheck-Schema nicht in Types ist
+      // Die RPC get_contractor_address lädt Adressdaten aus thermocheck.contractor_onboarding
       try {
-        const { data, error } = await supabase.rpc('get_contractor_address', {
-          p_profile_id: profileId,
-        }) as { data: ContractorOnboardingData | null; error: Error | null };
+        const { data, error } = await (supabase.rpc as unknown as (
+          fn: string,
+          params: { p_profile_id: string }
+        ) => Promise<{ data: ContractorOnboardingData[] | null; error: Error | null }>)(
+          'get_contractor_address',
+          { p_profile_id: profileId }
+        );
 
         if (error) {
           console.warn('[useContractorProfile] get_contractor_address RPC failed:', error);
-        } else if (data) {
-          onboardingData = data;
-          console.log('[useContractorProfile] Address loaded via RPC:', data);
+        } else if (data && data.length > 0) {
+          onboardingData = data[0];
+          console.log('[useContractorProfile] Address loaded via RPC:', onboardingData);
         }
       } catch (e) {
         console.warn('[useContractorProfile] Failed to call get_contractor_address:', e);
