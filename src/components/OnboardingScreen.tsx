@@ -14,14 +14,15 @@ import { OnboardingComplete } from './onboarding/OnboardingComplete';
 import { WaitingForApproval } from './onboarding/WaitingForApproval';
 import { useOnboardingState, clearOnboardingLocalStorage } from '@/hooks/useOnboardingState';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
+import { useContractorProfile } from '@/hooks/useContractorProfile';
 import { 
   MOCK_PRODUCTS, 
   MOCK_COACHING_SLOTS,
-  MOCK_APPLICANT_PROFILE,
   MOCK_EQUIPMENT,
   ONBOARDING_STEPS,
+  createInitialOnboardingState,
 } from '@/lib/onboarding-config';
-import { CoachingSlot } from '@/types/onboarding';
+import { CoachingSlot, ApplicantProfile } from '@/types/onboarding';
 import { Button } from '@/components/ui/button';
 
 interface OnboardingScreenProps {
@@ -31,13 +32,67 @@ interface OnboardingScreenProps {
   dbStatus?: {
     onboardingStatus: string;
     trainerFreigabe: boolean;
+    profileId?: string; // NEU: Profile ID für DB-Abfragen
   };
 }
+
+// Leeres Profil als Fallback (wird durch DB-Daten ersetzt)
+const EMPTY_PROFILE: ApplicantProfile = {
+  id: '',
+  vorname: '',
+  nachname: '',
+  email: '',
+  telefon: '',
+  strasse: '',
+  hausnummer: '',
+  plz: '',
+  ort: '',
+};
 
 export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview, dbStatus }: OnboardingScreenProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const hasHydratedRef = useRef(false);
+  
+  // KRITISCH: Prüfe ob localStorage-Fortschritt ignoriert werden muss
+  // weil DB sagt "invited" (kein echter Fortschritt vorhanden)
+  const dbShowsNoProgress = dbStatus?.onboardingStatus === 'invited';
+  const [forceReset, setForceReset] = useState(false);
+  
+  // Wenn DB "invited" sagt, aber localStorage möglicherweise alten Fortschritt hat
+  // → State ohne Reload zurücksetzen
+  useEffect(() => {
+    if (dbShowsNoProgress && !forceReset && !isPreview) {
+      console.log('[Onboarding] DB says invited - checking localStorage for stale data...');
+      const savedState = localStorage.getItem('thermocheck_onboarding_state_v2');
+      if (savedState) {
+        try {
+          const parsed = JSON.parse(savedState);
+          // Wenn localStorage "complete" Zustand zeigt, aber DB sagt "invited" → Reset
+          if (parsed.coachingAbgeschlossen || (parsed.completedSteps?.length || 0) > 0) {
+            console.warn('[Onboarding] Stale localStorage detected - forcing reset');
+            clearOnboardingLocalStorage();
+            setForceReset(true);
+          }
+        } catch (e) {
+          // Kaputtes JSON → auch resetten
+          clearOnboardingLocalStorage();
+          setForceReset(true);
+        }
+      }
+    }
+  }, [dbShowsNoProgress, forceReset, isPreview]);
+  
+  // Profildaten aus DB laden (SSoT: public.profiles + thermocheck.contractor_onboarding)
+  const { 
+    data: dbProfile, 
+    isLoading: profileLoading,
+    updateProfile: saveProfileToDb,
+    uploadAvatar,
+  } = useContractorProfile(dbStatus?.profileId || null);
+  
+  // Initial-Profil: DB-Daten oder leeres Fallback
+  const initialProfile: ApplicantProfile = dbProfile || EMPTY_PROFILE;
   
   const {
     state,
@@ -62,7 +117,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setGebuchterCoachingSlot,
     setCoachingAbgeschlossen,
     hydrateAkademieFromDb,
-  } = useOnboardingState(MOCK_APPLICANT_PROFILE, isPreview);
+  } = useOnboardingState(initialProfile, isPreview, forceReset);
   
   // Fetch akademie content from database and hydrate state
   const { data: dbAkademieModule, isSuccess: dbLoaded } = useAkademieContent();
@@ -105,18 +160,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   // DB ist die Single Source of Truth für "einsatzbereit"
   const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
   
-  // KRITISCH: DB-Status "invited" bedeutet, dass der User noch nie Fortschritt gemacht hat
-  // In diesem Fall ist localStorage-Fortschritt falsch (veraltete Test-Daten) und muss ignoriert werden
-  const dbShowsNoProgress = dbStatus?.onboardingStatus === 'invited';
-
-  // Wenn abgeschlossen (laut localStorage), aber DB sagt "invited" → localStorage lügt
-  if (isComplete && dbShowsNoProgress) {
-    console.warn('[Onboarding] localStorage says complete but DB says invited - resetting localStorage');
-    clearOnboardingLocalStorage();
-    // Force page reload to re-initialize with fresh state
-    window.location.reload();
-    return null;
-  }
+  // Hinweis: dbShowsNoProgress wird bereits oben definiert (Zeile 58)
 
   // Wenn abgeschlossen, zeige Complete-Screen oder Warte-auf-Freigabe
   if (isComplete) {
