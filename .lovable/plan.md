@@ -1,283 +1,154 @@
 
-# Enterprise-Grade Stripe Payment Integration für Contractor-Onboarding
+# Bugfix-Plan: Onboarding muss DB-Status prüfen (nicht nur localStorage)
 
-## Kontext & Problemstellung
+## Identifiziertes Problem
 
-Du fragst wie Amazon das machen würde - hier ist die Antwort: Mit **Event-Driven Architecture**, **Audit Trails**, **Idempotenz** und **strenger Trennung der Verantwortlichkeiten**.
+Die App zeigt "Du bist einsatzbereit!" obwohl:
+- `onboarding_substatus = 'neu_angelegt'` (nicht 'einsatzbereit')
+- `trainer_freigabe = FALSE`
+- `contractor_akademie_lektions_fortschritt` ist leer (keine Lektionen abgeschlossen)
 
----
+**Root Cause:** Die gesamte Onboarding-Logik basiert ausschließlich auf localStorage. Die Datenbank wird niemals abgefragt.
 
-## Kritische Entdeckung: DB-Schema-Fehler
+## Lösung: DB als Single Source of Truth
 
-Bei meiner Analyse habe ich einen **kritischen Fehler** gefunden:
-
-Der Trigger `thermocheck.on_bestellung_paid` versucht in Spalten zu schreiben die NICHT existieren:
-
-```sql
--- Trigger versucht:
-INSERT INTO thermocheck.contractor_admin_tasks (
-  contractor_id, task_key, titel, beschreibung, status, bestellung_details
-)
--- Aber die Tabelle hat nur:
--- id, contractor_id, task_key, task_label, erledigt, erledigt_am, erledigt_von, notiz, reihenfolge
-```
-
-**Fehlende Spalten in `contractor_admin_tasks`:**
-- `titel` (Trigger nutzt diese, Tabelle hat `task_label`)
-- `beschreibung`
-- `status`
-- `bestellung_details`
-
-Dieser Trigger wird beim ersten echten Zahlungseingang crashen.
-
----
-
-## Enterprise-Architektur (Amazon-Level)
-
-### 1. Event-Driven Payment Flow
+### Architektur-Änderung
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           PAYMENT FLOW (EVENT-DRIVEN)                        │
+│                           ONBOARDING STATUS CHECK                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌──────────────┐                                                            │
-│  │   Frontend   │                                                            │
-│  │ OrdersStep   │                                                            │
+│  │   App Start  │                                                            │
 │  └──────┬───────┘                                                            │
-│         │ POST {product_key, onboarding_id}                                  │
-│         ▼                                                                    │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │ Edge Function: create-checkout-session                           │       │
-│  │ ──────────────────────────────────────────────────────────────── │       │
-│  │ 1. Validate JWT → Extract user_id                                │       │
-│  │ 2. Check: onboarding_id belongs to user?                         │       │
-│  │ 3. Check: Produkt bereits bezahlt? → Return existing order       │       │
-│  │ 4. Create Stripe Checkout Session                                │       │
-│  │    - mode: payment | subscription                                │       │
-│  │    - metadata: {onboarding_id, produkt_key, user_id}            │       │
-│  │ 5. UPSERT contractor_bestellungen (status: pending)              │       │
-│  │ 6. Return {checkout_url}                                         │       │
-│  └──────────────────────────┬───────────────────────────────────────┘       │
-│                             │                                                │
-│         ┌───────────────────┼───────────────────┐                           │
-│         ▼                   ▼                   ▼                           │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                    │
-│  │   Success   │     │   Cancel    │     │   Abandon   │                    │
-│  │   Redirect  │     │   Redirect  │     │   (Close)   │                    │
-│  └──────┬──────┘     └─────────────┘     └─────────────┘                    │
 │         │                                                                    │
-│         │ (User sieht UI sofort - aber Status wird erst durch Webhook      │
-│         │  definitiv bestätigt. UI pollt oder zeigt "Zahlung wird geprüft") │
 │         ▼                                                                    │
-│  ┌──────────────────────────────────────────────────────────────────┐       │
-│  │ Edge Function: stripe-webhook                                     │       │
-│  │ ──────────────────────────────────────────────────────────────── │       │
-│  │ 1. Verify Stripe Signature (STRIPE_WEBHOOK_SECRET)               │       │
-│  │ 2. Parse Event: checkout.session.completed                       │       │
-│  │ 3. Extract metadata: {onboarding_id, produkt_key}                │       │
-│  │ 4. Idempotenz-Check: Bereits verarbeitet? → Skip                 │       │
-│  │ 5. UPDATE contractor_bestellungen SET status='paid'              │       │
-│  │ 6. DB-Trigger erstellt Admin-Task automatisch                    │       │
-│  │ 7. Log to contractor_audit_log                                   │       │
-│  └──────────────────────────────────────────────────────────────────┘       │
+│  ┌────────────────────────────────────┐                                     │
+│  │ 1. Prüfe auth.user() vorhanden?    │                                     │
+│  └─────────────┬──────────────────────┘                                     │
+│                │ Ja                                                          │
+│                ▼                                                             │
+│  ┌────────────────────────────────────┐                                     │
+│  │ 2. Lade contractor_onboarding      │                                     │
+│  │    WHERE profile_id = auth.uid()   │                                     │
+│  └─────────────┬──────────────────────┘                                     │
+│                │                                                             │
+│         ┌──────┴──────┐                                                      │
+│         ▼             ▼                                                      │
+│   Kein Eintrag   Eintrag gefunden                                           │
+│       │               │                                                      │
+│       │               ▼                                                      │
+│       │         ┌────────────────────────────────────┐                       │
+│       │         │ 3. Prüfe onboarding_substatus:     │                       │
+│       │         │    - 'einsatzbereit' UND           │                       │
+│       │         │    - trainer_freigabe = TRUE       │                       │
+│       │         └─────────────┬──────────────────────┘                       │
+│       │                       │                                              │
+│       │              ┌────────┴────────┐                                     │
+│       │              ▼                 ▼                                     │
+│       │         Alle erfüllt      Nicht erfüllt                             │
+│       │              │                 │                                     │
+│       ▼              ▼                 ▼                                     │
+│  ┌──────────┐  ┌──────────────┐  ┌──────────────────────────┐               │
+│  │Anmeldung │  │  Zeige       │  │ Zeige Onboarding-Wizard  │               │
+│  │ verweig. │  │  Hauptapp    │  │ beim aktuellen Schritt   │               │
+│  └──────────┘  └──────────────┘  └──────────────────────────┘               │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Datenbank-Schema (Amazon-Level)
+### Implementierung
 
-**Prinzipien die Amazon nutzt:**
-- **Idempotenz**: Jede Operation kann mehrfach ausgeführt werden ohne Seiteneffekte
-- **Audit Trail**: Jede Statusänderung wird protokolliert
-- **Event Sourcing**: Status-History statt nur aktueller Status
-- **Stripe als Source of Truth**: Webhook bestätigt, nicht UI
+#### Schritt 1: Neuer Hook für DB-Onboarding-Status
 
----
+Neuer Hook: `src/hooks/useContractorOnboardingStatus.ts`
 
-## Implementierungsplan
+Funktionen:
+- Lädt `contractor_onboarding` für den eingeloggten User
+- Prüft `onboarding_substatus` und `trainer_freigabe`
+- Gibt `isReady`, `isLoading`, `onboardingRecord` zurück
+- Cached mit React Query für Performance
 
-### Schritt 1: DB-Schema korrigieren (KRITISCH!)
+#### Schritt 2: Index.tsx anpassen
 
-**Problem**: `contractor_admin_tasks` hat falsche Spaltenstruktur für den Trigger.
+Änderungen:
+- Import des neuen Hooks
+- Prüfe DB-Status bevor localStorage geprüft wird
+- Zeige Loading-State während DB-Abfrage
+- DB-Status hat Priorität über localStorage
 
-**Lösung**: Migration die fehlende Spalten hinzufügt:
-
-| Spalte | Typ | Beschreibung |
-|--------|-----|--------------|
-| `titel` | text | Task-Titel (Trigger nutzt diese) |
-| `beschreibung` | text | Detaillierte Beschreibung |
-| `status` | ENUM | 'offen', 'in_bearbeitung', 'erledigt' |
-| `bestellung_details` | jsonb | Stripe/Produkt-Metadaten |
-
-**Alternative**: Trigger anpassen um vorhandene Spalten zu nutzen (`task_label` statt `titel`).
-
-### Schritt 2: Bestellungen-Tabelle erweitern
-
-Die `contractor_bestellungen` Tabelle ist bereits gut strukturiert, aber für Enterprise-Level fehlt:
-
-| Neue Spalte | Typ | Zweck |
-|-------------|-----|-------|
-| `stripe_customer_id` | text | Für wiederkehrende Kunden (Subscriptions) |
-| `stripe_subscription_id` | text | Für Abo-Tracking |
-| `webhook_received_at` | timestamptz | Wann wurde Webhook verarbeitet? |
-| `idempotency_key` | text | Verhindert doppelte Verarbeitung |
-
-### Schritt 3: Edge Function `create-checkout-session`
-
-**Datei**: `supabase/functions/create-checkout-session/index.ts`
-
-**Enterprise-Features:**
-- JWT-Validierung mit User-ID Extraktion
-- Ownership-Check: Gehört onboarding_id zum User?
-- Idempotenz: Pending Session wiederverwenden oder neue erstellen
-- Stripe Metadata für Webhook-Zuordnung
-- Service-Role für DB-Writes (RLS-bypass)
-
-**Produkt-Mapping (hartkodiert nach deinen Price-IDs):**
-
-| Produkt | Price-ID | Mode |
-|---------|----------|------|
-| tshirt | price_1SvgcrLnjPqrEfxxgvConSYk | payment |
-| poloshirt | price_1SvgtgLnjPqrEfxxEneJQgW0 | payment |
-| pullover | price_1SvgvELnjPqrEfxx4N5BArSC | payment |
-| schlappen | price_1SvgwYLnjPqrEfxxldTsLr6R | payment |
-| ausweiskarte | price_1SvgZrLnjPqrEfxx9ByGa0UB | payment |
-| scanner-lizenz | price_1SvhF0LnjPqrEfxxNZn53Ydt | subscription |
-| google-workspace | price_1Svh1QLnjPqrEfxxhoLlUgo6 | subscription |
-
-### Schritt 4: Edge Function `stripe-webhook`
-
-**Datei**: `supabase/functions/stripe-webhook/index.ts`
-
-**Enterprise-Features:**
-- Signatur-Verifizierung (STRIPE_WEBHOOK_SECRET)
-- Event-Type Routing (checkout.session.completed, invoice.payment_failed)
-- Idempotenz-Prüfung via `webhook_received_at`
-- Audit-Log Eintrag bei jeder Verarbeitung
-- Fehler-Handling mit Retry-freundlichen HTTP-Codes
-
-**Events die verarbeitet werden:**
-- `checkout.session.completed` → Status 'paid'
-- `invoice.payment_failed` → Status 'failed' (für Subscriptions)
-- `customer.subscription.deleted` → Optional für Kündigung
-
-### Schritt 5: Frontend-Integration
-
-**Datei**: `src/components/onboarding/steps/OrdersStep.tsx`
-
-**Änderungen:**
-1. Neuer Hook `useStripeCheckout` für API-Calls
-2. Button "Jetzt bezahlen" statt "Jetzt bestellen"
-3. Nach Klick: Loading-State → API-Call → Redirect zu Stripe
-4. Nach Rückkehr: URL-Parameter prüfen → Toast anzeigen
-5. Status aus DB laden (Realtime oder Polling)
-
-**Kein AlertDialog mehr**: Zahlung wird durch Webhook bestätigt, nicht durch User-Klick.
-
-### Schritt 6: Status-Sync Hook
-
-**Neue Datei**: `src/hooks/useBestellungenStatus.ts`
-
-**Funktionen:**
-- Lade bezahlte Produkte aus `contractor_bestellungen`
-- Optional: Realtime-Subscription für Live-Updates
-- Merge mit lokalem Onboarding-State
-
----
-
-## Sicherheits-Architektur (LOVABLE_BEHAVIOUR.txt konform)
-
-### RLS-Policies
-
-**contractor_bestellungen:**
-- SELECT: User sieht nur eigene Bestellungen (`onboarding_id` in User's onboardings)
-- INSERT/UPDATE: Nur via Edge Function (Service-Role)
-- DELETE: Nur Admin
-
-### Edge Function Security
-
-**config.toml:**
-```toml
-[functions.create-checkout-session]
-verify_jwt = false  # Validierung im Code
-
-[functions.stripe-webhook]
-verify_jwt = false  # Stripe-Signatur statt JWT
-```
-
-**Warum `verify_jwt = false`?**
-- `create-checkout-session`: Validiert JWT manuell im Code um User-ID zu extrahieren
-- `stripe-webhook`: Nutzt Stripe-Signatur statt JWT (Stripe sendet kein JWT)
-
-**Im Code (Regel 197-199):**
+Logik:
 ```typescript
-// create-checkout-session
-const authHeader = req.headers.get('Authorization');
-if (!authHeader) return new Response('Unauthorized', { status: 401 });
-const { data: { user } } = await supabase.auth.getUser(token);
-if (!user) return new Response('Unauthorized', { status: 401 });
+// Pseudocode
+const { isReady, isLoading, onboardingRecord } = useContractorOnboardingStatus();
+
+// Wenn noch am Laden -> Loading anzeigen
+if (isLoading) return <LoadingScreen />;
+
+// Wenn kein Contractor-Eintrag -> Zugang verweigern
+if (!onboardingRecord) return <AccessDenied />;
+
+// Wenn nicht einsatzbereit ODER keine Trainer-Freigabe -> Onboarding anzeigen
+if (!isReady) {
+  return <OnboardingScreen ... />;
+}
+
+// Ansonsten -> Hauptapp anzeigen
+return <MainApp />;
 ```
 
----
+#### Schritt 3: localStorage als Fallback/Cache
 
-## Audit Trail (Amazon-Level)
+Änderungen in `useOnboardingState.ts`:
+- Beim ersten Laden: Sync mit DB-Status
+- localStorage dient nur als Offline-Cache
+- Bei DB-Konflikt: DB gewinnt immer
 
-Jeder Zahlungsvorgang wird protokolliert in `contractor_audit_log`:
+#### Schritt 4: Berechnung der Step-Position aus DB
 
-| Event | Payload |
-|-------|---------|
-| `bestellung_created` | {produkt_key, stripe_session_id, betrag} |
-| `bestellung_paid` | {stripe_payment_intent_id, paid_at} |
-| `bestellung_failed` | {error_message, stripe_error_code} |
-| `admin_task_created` | {task_key, assigned_to} |
+Neue Logik um den aktuellen Schritt zu berechnen basierend auf:
+- `contractor_bestellungen` (welche Produkte bezahlt?)
+- `contractor_akademie_lektions_fortschritt` (welche Lektionen abgeschlossen?)
+- `contractor_onboarding` Felder (Gewerbeschein, etc.)
 
----
-
-## Fehlerszenarien & Handling
-
-| Szenario | Handling |
-|----------|----------|
-| User bricht Checkout ab | Bestellung bleibt 'pending', kann erneut gestartet werden |
-| Webhook kommt vor UI-Redirect | Idempotenz-Check verhindert Duplikate |
-| Webhook kommt nie | Stripe wiederholt bis zu 72h; Admin kann manuell prüfen |
-| Doppelter Webhook | `webhook_received_at` Idempotenz-Check |
-| Subscription-Zahlung fehlgeschlagen | invoice.payment_failed Event → Status 'failed' |
-
----
-
-## Dateien die erstellt/geändert werden
+## Dateien die geändert werden
 
 | Datei | Aktion | Beschreibung |
 |-------|--------|--------------|
-| Migration (DB) | NEU | contractor_admin_tasks Spalten + Trigger-Fix |
-| `supabase/functions/create-checkout-session/index.ts` | NEU | Checkout Session erstellen |
-| `supabase/functions/stripe-webhook/index.ts` | NEU | Webhook verarbeiten |
-| `supabase/config.toml` | ERWEITERN | Function-Config |
-| `src/components/onboarding/steps/OrdersStep.tsx` | ÄNDERN | Stripe-Integration |
-| `src/hooks/useBestellungenStatus.ts` | NEU | DB-Status laden |
-| `src/lib/stripe.ts` | NEU | Stripe-Helper (optional) |
+| `src/hooks/useContractorOnboardingStatus.ts` | NEU | DB-Status-Hook mit React Query |
+| `src/pages/Index.tsx` | ÄNDERN | DB-Prüfung vor localStorage |
+| `src/hooks/useOnboardingState.ts` | ÄNDERN | DB-Sync bei Initialisierung |
+| `src/components/ui/LoadingScreen.tsx` | NEU (optional) | Loading-Anzeige während DB-Check |
 
----
+## Sicherheitsaspekte
 
-## Stripe Dashboard Setup (nach Deployment)
+- RLS-Policy auf `contractor_onboarding` stellt sicher dass User nur eigene Daten sieht
+- `trainer_freigabe` kann nur von berechtigten Rollen gesetzt werden (manager, admin)
+- Kein Bypass durch localStorage-Manipulation möglich nach dem Fix
 
-1. **Webhook erstellen**:
-   - URL: `https://keplsvhudmfaagixttql.supabase.co/functions/v1/stripe-webhook`
-   - Events: `checkout.session.completed`, `invoice.payment_failed`
-   
-2. **Signing Secret kopieren** → Prüfen ob bereits in Supabase Secrets
+## Technische Details
 
-3. **Testen** mit Stripe CLI oder Test-Karte `4242 4242 4242 4242`
+Query für den Status-Check:
+```sql
+SELECT 
+  co.id,
+  co.onboarding_substatus,
+  co.trainer_freigabe,
+  co.trainer_freigabe_am,
+  -- Akademie-Fortschritt aggregiert
+  (SELECT COUNT(*) FROM thermocheck.contractor_akademie_lektions_fortschritt 
+   WHERE contractor_id = co.id AND status = 'completed') as lektionen_abgeschlossen,
+  -- Bestellungen
+  (SELECT COUNT(*) FROM thermocheck.contractor_bestellungen 
+   WHERE onboarding_id = co.id AND status = 'paid') as bestellungen_bezahlt
+FROM thermocheck.contractor_onboarding co
+WHERE co.profile_id = auth.uid()
+```
 
----
-
-## Zusammenfassung: Was macht das "Enterprise-Level"?
-
-1. **Event-Driven**: Webhook ist Source of Truth, nicht UI-Klick
-2. **Idempotenz**: Jede Operation kann sicher wiederholt werden
-3. **Audit Trail**: Volle Nachvollziehbarkeit jeder Transaktion
-4. **Trennung**: DB-Trigger für Business-Logic, Edge Functions für Integration
-5. **Security**: JWT + Stripe-Signatur, RLS für Datenzugriff
-6. **Fehlertoleranz**: Graceful Degradation bei Webhook-Problemen
-7. **LOVABLE_BEHAVIOUR.txt konform**: ENUMs, Trigger, keine Email-JOINs, saubere Architektur
+Bedingung für "einsatzbereit":
+```typescript
+const isReady = 
+  onboardingRecord.onboarding_substatus === 'einsatzbereit' &&
+  onboardingRecord.trainer_freigabe === true;
+```
