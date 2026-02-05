@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import AkademieModul from "./pages/AkademieModul";
 import NotFound from "./pages/NotFound";
+import { ProtectedAdminRoute } from "@/components/auth/ProtectedAdminRoute";
 
 const queryClient = new QueryClient();
 
@@ -19,7 +20,14 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/akademie/modul/:modulId" element={<AkademieModul />} />
-          <Route path="/admin" element={<NotFound />} />
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedAdminRoute>
+                <Admin />
+              </ProtectedAdminRoute>
+            } 
+          />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
