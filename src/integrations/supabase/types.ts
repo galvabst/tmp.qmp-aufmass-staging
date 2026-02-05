@@ -9659,6 +9659,15 @@ export type Database = {
         Args: { user_id?: string }
         Returns: string
       }
+      get_sales_training_coaches: {
+        Args: never
+        Returns: {
+          email: string
+          name: string
+          profile_id: string
+          vorname: string
+        }[]
+      }
       get_termine_for_lead: {
         Args: { p_lead_id: string }
         Returns: {
@@ -9784,6 +9793,10 @@ export type Database = {
         }[]
       }
       gettransactionid: { Args: never; Returns: unknown }
+      has_app_access: {
+        Args: { _app_code: string; _user_id: string }
+        Returns: boolean
+      }
       has_lead_access: {
         Args: { _lead_id: string; _user_id?: string }
         Returns: boolean
