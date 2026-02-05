@@ -1,89 +1,148 @@
 
 
-# Fix: Profil-Daten bei Schritt-Wechsel in die Datenbank speichern
+# Größen-Tracking für Onboarding-Bestellungen implementieren
 
-## Problem
+## Analyse: Aktueller Stand
 
-Der User gibt Adresse ein (Straße, PLZ, Ort), klickt "Weiter zu Dokumente", aber:
-- Die Datenbank zeigt: `anschrift_strasse = NULL`, `anschrift_plz = NULL`, `anschrift_ort = NULL`
-- Die Daten werden nur im Browser (localStorage) gespeichert, nicht in der Datenbank
+### Datenbank (thermocheck-Schema)
+Die Struktur ist bereits gut vorbereitet:
 
-## Ursache
+| Tabelle | Relevante Spalten |
+|---------|-------------------|
+| `contractor_onboarding` | `anschrift_strasse`, `anschrift_plz`, `anschrift_ort` ✅ |
+| `contractor_bestellungen` | `produkt_key`, `stripe_payment_status`, `groessen_info` (JSONB) ✅ |
+| `contractor_admin_tasks` | Für Backoffice-Tasks nach Bestellung ✅ |
 
-In `OnboardingScreen.tsx`:
-1. Der Hook `useContractorProfile` wird eingebunden und bietet `saveProfileToDb` an (Zeile 90)
-2. Diese Funktion wird aber **nie aufgerufen**
-3. `handleNext()` (Zeile 240) navigiert einfach zum nächsten Schritt ohne DB-Speicherung
+### Frontend (OrdersStep.tsx)
+Aktuell fehlt:
+1. **Keine Größenabfrage** - User klickt nur "Jetzt bestellen"
+2. **Keine DB-Speicherung** - Bestellungen nur in localStorage
+3. **Keine Größen-UI** für T-Shirt, Poloshirt, Pullover, Schlappen
+
+---
 
 ## Lösung
 
-Beim Klick auf "Weiter" (wenn aktueller Schritt = "profil"):
-1. Profil-Daten in die Datenbank speichern via `saveProfileToDb`
-2. Avatar-Upload falls vorhanden
-3. Erst dann zum nächsten Schritt navigieren
+### 1. Neue Spalten in `contractor_onboarding` (Alternative zu JSONB in bestellungen)
+
+Da die Größen pro Techniker einmalig festgelegt werden und für ALLE Bestellungen gelten, macht es Sinn diese zentral zu speichern:
+
+```sql
+ALTER TABLE thermocheck.contractor_onboarding
+ADD COLUMN tshirt_groesse text,         -- z.B. 'S', 'M', 'L', 'XL', 'XXL'
+ADD COLUMN poloshirt_groesse text,
+ADD COLUMN pullover_groesse text,
+ADD COLUMN schuh_groesse text;          -- z.B. '42', '43', etc.
+```
+
+**Begründung**: 
+- Größen gehören zum Techniker-Profil, nicht zur einzelnen Bestellung
+- Ermöglicht Nachbestellungen ohne erneute Größenabfrage
+- Einfacher für Backoffice-Ansicht
+
+### 2. Größen-Auswahl-UI vor der Bestellung
+
+Im `OrdersStep.tsx` bei Kleidungsartikeln:
+1. **Vor "Jetzt bestellen"**: Größenauswahl-Dropdown anzeigen
+2. Größe speichern in `contractor_onboarding` via RPC
+3. Erst dann Shop-Link öffnen + Bestätigungs-Dialog
+
+### 3. Bestellungen in DB tracken
+
+Neue Funktion die beim "Ja, bestellt"-Klick:
+1. Eintrag in `contractor_bestellungen` erstellen
+2. `groessen_info` JSONB befüllen
+3. Admin-Task in `contractor_admin_tasks` erstellen für Versand
+
+---
 
 ## Betroffene Dateien
 
 | Datei | Änderung |
 |-------|----------|
-| `src/components/OnboardingScreen.tsx` | `handleNext` erweitern: DB-Speicherung bei Profil-Schritt |
+| `supabase/migrations/xxx.sql` | Größen-Spalten in `contractor_onboarding` |
+| `src/types/onboarding.ts` | `ApplicantProfile` um Größen erweitern |
+| `src/components/onboarding/steps/OrdersStep.tsx` | Größenauswahl-UI hinzufügen |
+| `src/hooks/useOnboardingOrders.ts` | NEUER Hook: Bestellungen in DB speichern |
+| `src/lib/onboarding-config.ts` | Größen-Optionen definieren |
 
-## Konkrete Änderungen
+---
 
-### OnboardingScreen.tsx - handleNext erweitern
+## UI-Änderungen für OrdersStep
 
-```typescript
-const handleNext = async () => {
-  // Bei Profil-Schritt: Daten in DB speichern
-  if (state.currentStep === 'profil') {
-    try {
-      await saveProfileToDb(state.profil);
-      toast.success('Profildaten gespeichert');
-    } catch (error) {
-      console.error('[Onboarding] Failed to save profile:', error);
-      toast.error('Fehler beim Speichern der Profildaten');
-      return; // Nicht weiter navigieren bei Fehler
-    }
-  }
-  
-  if (state.currentStep === 'coaching' && state.coachingAbgeschlossen) {
-    return;
-  }
-  goToNextStep();
-};
+```text
+┌─────────────────────────────────────────┐
+│  Thermocheck T-Shirt                    │
+│  [Bild Slideshow]                       │
+│                                         │
+│  Größe auswählen:                       │
+│  [S] [M] [L] [XL] [XXL]   ← NEU         │
+│                                         │
+│  [🛒 Jetzt bestellen]                   │
+└─────────────────────────────────────────┘
 ```
 
-### Avatar-Upload ebenfalls verknüpfen
-
-Der aktuelle `handleAvatarUpload` nutzt nur `URL.createObjectURL` (Zeile 185-189).
-Stattdessen muss `uploadAvatar` aus dem Hook verwendet werden:
-
-```typescript
-const handleAvatarUpload = async (file: File) => {
-  try {
-    const url = await uploadAvatar(file);
-    setAvatarUrl(url);
-    toast.success('Profilbild hochgeladen');
-  } catch (error) {
-    console.error('[Onboarding] Avatar upload failed:', error);
-    toast.error('Fehler beim Hochladen des Profilbilds');
-  }
-};
+Für Schlappen analog:
+```text
+│  Schuhgröße:                            │
+│  [38] [39] [40] [41] [42] [43] [44] [45]│
 ```
 
-## Zusätzliche Überlegung: "Zurück" und erneutes Bearbeiten
+---
 
-Falls der User zurückgeht und Daten ändert:
-- Bei erneutem "Weiter" werden die Daten erneut gespeichert (Update statt Insert)
-- Das funktioniert, weil `useContractorProfile.updateProfile` ein UPSERT via `eq('id', user.id)` macht
+## Datenfluss
+
+```text
+1. User wählt Größe → speichert in contractor_onboarding
+2. User klickt "Jetzt bestellen" → Shop öffnet sich
+3. User bestätigt "Ja, bestellt"
+   → Eintrag in contractor_bestellungen (mit groessen_info)
+   → Admin-Task für Versand erstellt
+4. Backoffice sieht: Name, Adresse, Produkt, Größe
+```
+
+---
+
+## Migration SQL
+
+```sql
+-- Größen-Spalten für Onboarding hinzufügen
+ALTER TABLE thermocheck.contractor_onboarding
+ADD COLUMN IF NOT EXISTS tshirt_groesse text,
+ADD COLUMN IF NOT EXISTS poloshirt_groesse text,  
+ADD COLUMN IF NOT EXISTS pullover_groesse text,
+ADD COLUMN IF NOT EXISTS schuh_groesse text;
+
+-- Optional: ENUMs für Validierung (empfohlen gemäß LOVABLE_BEHAVIOUR Regel 4)
+CREATE TYPE thermocheck.kleidungsgroesse_enum AS ENUM ('XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL');
+CREATE TYPE thermocheck.schuhgroesse_enum AS ENUM ('36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47');
+
+-- Spalten mit ENUMs (alternative Variante)
+-- ALTER TABLE thermocheck.contractor_onboarding
+-- ADD COLUMN tshirt_groesse thermocheck.kleidungsgroesse_enum,
+-- ...
+```
+
+---
 
 ## Testplan
 
-1. Einloggen als Test-User
-2. Adresse eingeben: "Am Steinbruch 3, 91466 Gerhardshofen"
-3. "Weiter zu Dokumente" klicken
-4. In Supabase Dashboard prüfen: `thermocheck.contractor_onboarding` sollte jetzt zeigen:
-   - `anschrift_strasse = 'Am Steinbruch 3'`
-   - `anschrift_plz = '91466'`
-   - `anschrift_ort = 'Gerhardshofen'`
+1. User öffnet Bestellungen-Schritt
+2. Bei T-Shirt: Größenauswahl erscheint
+3. User wählt "L" → wird gespeichert
+4. User klickt "Jetzt bestellen"
+5. In Supabase prüfen:
+   - `contractor_onboarding.tshirt_groesse = 'L'`
+   - `contractor_bestellungen` hat neuen Eintrag mit `groessen_info`
+
+---
+
+## Offene Frage
+
+**ENUMs oder Text?**
+- ENUMs sind sauberer (gemäß LOVABLE_BEHAVIOUR Regel 4)
+- Aber: Größen könnten sich ändern (z.B. "3XL" hinzufügen)
+- Empfehlung: ENUMs verwenden, da Größen relativ stabil sind
+
+Soll ich mit ENUMs oder text-Spalten arbeiten?
 
