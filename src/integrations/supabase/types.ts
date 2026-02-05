@@ -8621,6 +8621,7 @@ export type Database = {
         }[]
       }
       admin_get_group_details: { Args: { _group_id: string }; Returns: Json }
+      admin_get_group_details_v2: { Args: { _group_id: string }; Returns: Json }
       admin_get_group_permissions: {
         Args: { _group_id: string }
         Returns: Json

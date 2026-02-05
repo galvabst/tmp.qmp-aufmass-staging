@@ -303,10 +303,14 @@ export function useOnboardingState(
         // Preview-Modus: Profil-Validierung überspringen
         if (isPreview) return true;
         return !!(
-          state.profil.vorname &&
-          state.profil.nachname &&
-          state.profil.email &&
-          state.profil.avatarUrl
+          state.profil.vorname?.trim() &&
+          state.profil.nachname?.trim() &&
+          state.profil.email?.trim() &&
+          state.profil.avatarUrl &&
+          // Adresse ist auch Pflicht
+          state.profil.strasse?.trim() &&
+          state.profil.plz?.trim() &&
+          state.profil.ort?.trim()
         );
       case 'dokumente':
         // Preview-Modus: Dokumente-Validierung überspringen
