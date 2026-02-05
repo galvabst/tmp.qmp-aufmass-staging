@@ -12,7 +12,7 @@ import { ProofStep } from './onboarding/steps/ProofStep';
 import { CoachingStep } from './onboarding/steps/CoachingStep';
 import { OnboardingComplete } from './onboarding/OnboardingComplete';
 import { WaitingForApproval } from './onboarding/WaitingForApproval';
-import { useOnboardingState } from '@/hooks/useOnboardingState';
+import { useOnboardingState, clearOnboardingLocalStorage } from '@/hooks/useOnboardingState';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { 
   MOCK_PRODUCTS, 
@@ -104,6 +104,19 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
   // DB ist die Single Source of Truth für "einsatzbereit"
   const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
+  
+  // KRITISCH: DB-Status "invited" bedeutet, dass der User noch nie Fortschritt gemacht hat
+  // In diesem Fall ist localStorage-Fortschritt falsch (veraltete Test-Daten) und muss ignoriert werden
+  const dbShowsNoProgress = dbStatus?.onboardingStatus === 'invited';
+
+  // Wenn abgeschlossen (laut localStorage), aber DB sagt "invited" → localStorage lügt
+  if (isComplete && dbShowsNoProgress) {
+    console.warn('[Onboarding] localStorage says complete but DB says invited - resetting localStorage');
+    clearOnboardingLocalStorage();
+    // Force page reload to re-initialize with fresh state
+    window.location.reload();
+    return null;
+  }
 
   // Wenn abgeschlossen, zeige Complete-Screen oder Warte-auf-Freigabe
   if (isComplete) {
