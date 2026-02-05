@@ -11,6 +11,9 @@ import { mockTechnicianOrders, mockTechnicianProfile } from '@/data/mockTechnici
 import { TechnicianOrder, CheckinPhase } from '@/types/technician';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
+import { useContractorOnboardingStatus } from '@/hooks/useContractorOnboardingStatus';
+import { OnboardingLoadingScreen } from '@/components/ui/OnboardingLoadingScreen';
+import { NoContractorAccessScreen } from '@/components/ui/NoContractorAccessScreen';
 
 const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
 
@@ -47,6 +50,16 @@ const loadOnboardingStatus = () => {
 };
 
 const Index = () => {
+  // ============================================
+  // DB-FIRST ONBOARDING STATUS CHECK
+  // ============================================
+  const { 
+    isReady: isDbReady, 
+    isLoading: isDbLoading, 
+    hasRecord: hasContractorRecord,
+    onboardingRecord,
+  } = useContractorOnboardingStatus();
+
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
   const [orders, setOrders] = useState<TechnicianOrder[]>(mockTechnicianOrders);
@@ -73,7 +86,8 @@ const Index = () => {
     };
   });
   
-  // Onboarding state
+  // Onboarding state - now driven by DB status
+  // Only consider complete if DB says ready AND trainer approved
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
@@ -172,8 +186,30 @@ const Index = () => {
     }
   };
 
-  // Show onboarding screen if not complete or in preview mode
-  if (!onboardingComplete || isPreviewMode) {
+  // ============================================
+  // DB-FIRST RENDERING LOGIC
+  // ============================================
+  
+  // 1. Show loading screen while checking DB status
+  if (isDbLoading) {
+    return <OnboardingLoadingScreen message="Prüfe Onboarding-Status..." />;
+  }
+
+  // 2. If no contractor record exists, show access denied
+  if (!hasContractorRecord) {
+    return <NoContractorAccessScreen userEmail={onboardingRecord?.ag_domain_email || undefined} />;
+  }
+
+  // 3. If DB says NOT ready (not 'ready' status OR no trainer approval), show onboarding
+  // Preview mode bypasses this check
+  if ((!isDbReady && !onboardingComplete) || isPreviewMode) {
+    console.log('[Index] Showing onboarding:', { 
+      isDbReady, 
+      onboardingComplete, 
+      isPreviewMode,
+      dbStatus: onboardingRecord?.onboarding_status,
+      trainerFreigabe: onboardingRecord?.trainer_freigabe,
+    });
     return (
       <OnboardingScreen 
         isPreview={isPreviewMode}
