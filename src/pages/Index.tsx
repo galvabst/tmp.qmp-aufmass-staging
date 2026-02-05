@@ -14,8 +14,10 @@ import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
 import { useContractorOnboardingStatus } from '@/hooks/useContractorOnboardingStatus';
 import { useIsAdmin } from '@/hooks/useIAM';
+import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { OnboardingLoadingScreen } from '@/components/ui/OnboardingLoadingScreen';
 import { NoContractorAccessScreen } from '@/components/ui/NoContractorAccessScreen';
+import { AuthRequiredScreen } from '@/components/ui/AuthRequiredScreen';
 
 const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
 
@@ -55,8 +57,10 @@ const Index = () => {
   const navigate = useNavigate();
   
   // ============================================
-  // DB-FIRST ONBOARDING STATUS CHECK + IAM
+  // SESSION + DB-FIRST ONBOARDING STATUS CHECK + IAM
   // ============================================
+  const { session, isLoading: isSessionLoading } = useSupabaseSession();
+  
   const { 
     isReady: isDbReady, 
     isLoading: isDbLoading, 
@@ -196,28 +200,40 @@ const Index = () => {
   };
 
   // ============================================
-  // DB-FIRST RENDERING LOGIC + ADMIN REDIRECT
+  // ADMIN REDIRECT EFFECT (before early returns!)
   // ============================================
-  
-  // Auto-redirect admins without contractor record to /admin
   useEffect(() => {
-    if (isAdmin === true && !hasContractorRecord && !isDbLoading) {
+    if (isAdmin === true && !hasContractorRecord && !isDbLoading && session) {
       navigate('/admin', { replace: true });
     }
-  }, [isAdmin, hasContractorRecord, isDbLoading, navigate]);
+  }, [isAdmin, hasContractorRecord, isDbLoading, navigate, session]);
+
+  // ============================================
+  // DB-FIRST RENDERING LOGIC + AUTH
+  // ============================================
   
-  // 1. Show loading screen while checking DB status OR IAM roles
+  // 0. Show loading screen while checking session
+  if (isSessionLoading) {
+    return <OnboardingLoadingScreen message="Prüfe Anmeldung..." />;
+  }
+  
+  // 1. If no session exists, show auth required screen
+  if (!session) {
+    return <AuthRequiredScreen />;
+  }
+  
+  // 2. Show loading screen while checking DB status OR IAM roles
   if (isDbLoading || isAdmin === undefined) {
     return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
   }
 
-  // 2. If no contractor record exists AND not admin, show access denied
+  // 3. If no contractor record exists AND not admin, show access denied
   // (Admins get redirected by the useEffect above)
   if (!hasContractorRecord && !isAdmin) {
-    return <NoContractorAccessScreen userEmail={onboardingRecord?.ag_domain_email || undefined} />;
+    return <NoContractorAccessScreen userEmail={onboardingRecord?.ag_domain_email || session.user.email || undefined} />;
   }
   
-  // 3. Admin without contractor record - show brief loading while redirect happens
+  // 4. Admin without contractor record - show brief loading while redirect happens
   if (!hasContractorRecord && isAdmin) {
     return <OnboardingLoadingScreen message="Weiterleitung zum Admin-Bereich..." />;
   }
