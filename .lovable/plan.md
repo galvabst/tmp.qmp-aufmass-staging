@@ -1,101 +1,150 @@
 
-# Automatische Weiterleitung für Admins
+# Bugfix: Onboarding-Complete wird fälschlich angezeigt
 
 ## Problem
-Du (als superadmin) landest auf `/` und siehst "Kein Contractor-Zugang", weil:
-- `/` ist die Techniker-App
-- Sie erwartet einen `contractor_onboarding` Datensatz
-- Du hast keinen, weil du Admin bist, kein Techniker
 
-## Lösung: Smart Routing
+Ein brandneuer User sieht sofort den "Onboarding abgeschlossen" Screen, obwohl die Datenbank zeigt:
+- `onboarding_status: 'invited'`
+- `trainer_freigabe: false`
 
-Die App soll automatisch erkennen:
-- **Admin ohne Contractor-Record** → Weiterleitung zu `/admin`
-- **Techniker mit Contractor-Record** → normale Techniker-App
-- **Admin MIT Contractor-Record** → kann beide Ansichten nutzen
+**Ursache:** `localStorage` enthält alte Testdaten (`coachingAbgeschlossen: true`) von vorherigen Sessions. Diese werden beim Start geladen und triggern `isComplete = true`.
 
-### Änderungen
+## Lösung
 
-#### 1. Index.tsx anpassen
+Die Komponente `OnboardingScreen.tsx` prüft aktuell nur den **lokalen** `isComplete`-Status. Sie muss stattdessen den **DB-Status** als Wahrheitsquelle nutzen.
 
-Erweitere die Logik in der `NoContractorAccessScreen` Entscheidung:
+### Änderung 1: OnboardingScreen.tsx
 
-```typescript
-// Neue Imports
-import { useIsAdmin } from '@/hooks/useIAM';
-import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+Übergebe den DB-Status an die Komponente und validiere gegen diesen:
+
+```tsx
+interface OnboardingScreenProps {
+  onComplete: () => void;
+  isPreview?: boolean;
+  onExitPreview?: () => void;
+  dbStatus?: {  // NEU
+    onboardingStatus: string;
+    trainerFreigabe: boolean;
+  };
+}
 
 // In der Komponente:
-const isAdmin = useIsAdmin();
-const navigate = useNavigate();
+// Nur "complete" anzeigen, wenn DB sagt "ready" + trainer_freigabe
+// NICHT basierend auf localStorage!
+const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
 
-// Vor dem Rendering:
-// Wenn Admin OHNE Contractor-Record → automatisch zu /admin
-useEffect(() => {
-  if (isAdmin === true && !hasContractorRecord) {
-    navigate('/admin', { replace: true });
-  }
-}, [isAdmin, hasContractorRecord, navigate]);
-
-// Loading erweitern
-if (isDbLoading || isAdmin === undefined) {
-  return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
+if (isComplete && isDbReady) {
+  // Zeige Complete-Screen nur wenn BEIDES stimmt
+  return <OnboardingComplete onContinue={onComplete} />;
+} else if (isComplete && !isDbReady) {
+  // localStorage sagt complete, DB sagt nein → "Warte auf Freigabe" Screen
+  return <WaitingForApprovalScreen />;
 }
 ```
 
-#### 2. NoContractorAccessScreen.tsx erweitern
+### Änderung 2: Index.tsx
 
-Falls kein Auto-Redirect (Admin === false), zeige trotzdem einen Link zum Admin-Bereich für manuelle Navigation:
+Übergebe den DB-Status an OnboardingScreen:
 
 ```tsx
-// Optional: Link zum Admin-Bereich wenn kein Contractor
-{/* Nur für Debugging/Entwicklung */}
-<Button 
-  variant="link" 
-  onClick={() => window.location.href = '/admin'}
->
-  Zur Admin-Ansicht
-</Button>
+<OnboardingScreen 
+  isPreview={isPreviewMode}
+  onExitPreview={() => { ... }}
+  onComplete={() => { ... }}
+  dbStatus={onboardingRecord ? {
+    onboardingStatus: onboardingRecord.onboarding_status,
+    trainerFreigabe: onboardingRecord.trainer_freigabe || false,
+  } : undefined}
+/>
 ```
 
-### Flussdiagramm
+### Änderung 3: Neuer "Warte auf Freigabe" Screen
 
-```text
-User besucht /
-       │
-       ▼
-┌──────────────────┐
-│ Lade IAM Rollen  │
-│ + Contractor DB  │
-└────────┬─────────┘
-         │
-         ▼
-┌────────────────────────────────────────┐
-│ Hat Contractor-Record?                 │
-├────────────────────────────────────────┤
-│ JA → Normale Techniker-App zeigen      │
-│ NEIN → Ist Admin?                      │
-│   ├─ JA → Redirect zu /admin           │
-│   └─ NEIN → NoContractorAccessScreen   │
-└────────────────────────────────────────┘
+Für User die alle Schritte abgeschlossen haben, aber noch auf Trainer-Freigabe warten:
+
+```tsx
+// src/components/onboarding/WaitingForApproval.tsx
+export function WaitingForApproval() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6">
+      <Clock className="w-16 h-16 text-primary mb-6 animate-pulse" />
+      <h1 className="text-2xl font-bold mb-4">Onboarding abgeschlossen!</h1>
+      <p className="text-muted-foreground text-center max-w-md">
+        Du hast alle Schritte erfolgreich absolviert. 
+        Bitte warte auf die Freigabe durch deinen Trainer.
+      </p>
+    </div>
+  );
+}
+```
+
+### Alternative: localStorage bei neuem User zurücksetzen
+
+Eine zusätzliche Sicherheit wäre, den localStorage für einen User zu validieren:
+
+```typescript
+// In loadPersistedState():
+// Wenn DB-Status "invited" ist, ignoriere localStorage "coachingAbgeschlossen"
+if (dbStatus === 'invited' && parsed.coachingAbgeschlossen) {
+  console.warn('[Onboarding] DB says invited but localStorage says complete - resetting');
+  return createInitialOnboardingState(initialProfile);
+}
 ```
 
 ## Betroffene Dateien
 
 | Datei | Änderung |
 |-------|----------|
-| `src/pages/Index.tsx` | Auto-Redirect für Admins ohne Contractor-Record |
-| `src/components/ui/NoContractorAccessScreen.tsx` | Optional: Admin-Link hinzufügen |
+| `src/components/OnboardingScreen.tsx` | DB-Status als Prop + Validierung |
+| `src/pages/Index.tsx` | DB-Status an OnboardingScreen übergeben |
+| `src/components/onboarding/WaitingForApproval.tsx` | NEU: "Warte auf Freigabe" Screen |
 
-## Risiken
+## Flussdiagramm
 
-- **Race Condition**: Loading-States von IAM und Contractor-Check müssen beide abgewartet werden
-- **Mitigation**: Beide Loading-States prüfen vor jeder Entscheidung
+```text
+User besucht /
+       │
+       ▼
+┌──────────────────────────────────────────┐
+│ Lade DB-Status (useContractorOnboarding) │
+│ Lade localStorage (useOnboardingState)   │
+└────────────────────┬─────────────────────┘
+                     │
+                     ▼
+        ┌────────────────────────────┐
+        │ DB: onboarding_status?     │
+        └────────────────────────────┘
+                     │
+      ┌──────────────┼──────────────┐
+      ▼              ▼              ▼
+   'ready'       'in_progress'   'invited'
+   + freigabe         │              │
+      │               │              │
+      ▼               ▼              ▼
+   Haupt-App    Onboarding-     Onboarding-
+   zeigen       Schritte        Schritte
+                     │              │
+                     ▼              ▼
+              localStorage     localStorage
+              isComplete?      isComplete?
+                     │              │
+         ┌───────────┴───────────┐  │
+         ▼                       ▼  ▼
+      true                    false│
+   (alle Schritte                  │
+    lokal fertig)                  │
+         │                         │
+         ▼                         ▼
+   "Warte auf              Normale
+   Freigabe"               Onboarding-
+   Screen                  Schritte
+```
 
-## Ergebnis
+## Warum diese Lösung?
 
-Nach Implementation:
-- Du gehst auf `/` → wirst automatisch zu `/admin` weitergeleitet
-- Techniker gehen auf `/` → sehen ihre App oder Onboarding
-- Du kannst jederzeit manuell zu `/` gehen, wenn du dich selbst als Techniker testen willst (dann brauchst du einen Contractor-Record)
+1. **DB bleibt Single Source of Truth** für den "einsatzbereit"-Status
+2. **localStorage** behält den Fortschritt (für UX, falls User Seite schließt)
+3. **Neuer Screen** erklärt dem User was passiert (Trainer muss freigeben)
+4. **Kein Datenverlust** - User muss nicht von vorne anfangen
+
+Soll ich mit der Implementierung beginnen?
