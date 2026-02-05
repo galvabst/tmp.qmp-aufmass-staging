@@ -191,27 +191,57 @@ Deno.serve(async (req) => {
     const session = await stripe.checkout.sessions.create(sessionParams);
     console.log(`[create-checkout-session] Created session: ${session.id}`);
 
-    // 13. Create pending order in contractor_bestellungen
-    const { error: insertError } = await supabaseAdmin
+    // 13. Create or update pending order in contractor_bestellungen (UPSERT for re-checkout safety)
+    // First check if a pending order exists for this product
+    const { data: existingOrder } = await supabaseAdmin
       .schema("thermocheck")
       .from("contractor_bestellungen")
-      .insert({
-        onboarding_id: onboarding.id,
-        produkt_typ: produkt.produkt_typ,
-        produkt_key: produkt_key,
-        stripe_session_id: session.id,
-        stripe_payment_status: "pending",
-        stripe_customer_id: customerId,
-        betrag_netto: produkt.preis_netto,
-        betrag_brutto: produkt.preis_brutto,
-        groesse: groesse || null,
-      });
+      .select("id, stripe_payment_status")
+      .eq("onboarding_id", onboarding.id)
+      .eq("produkt_key", produkt_key)
+      .eq("stripe_payment_status", "pending")
+      .maybeSingle();
 
-    if (insertError) {
-      console.error("[create-checkout-session] Failed to create order:", insertError);
-      // Don't fail - the webhook will handle it as a fallback
+    if (existingOrder) {
+      // Update existing pending order with new session
+      const { error: updateError } = await supabaseAdmin
+        .schema("thermocheck")
+        .from("contractor_bestellungen")
+        .update({
+          stripe_session_id: session.id,
+          stripe_customer_id: customerId,
+          groesse: groesse || null,
+        })
+        .eq("id", existingOrder.id);
+
+      if (updateError) {
+        console.error("[create-checkout-session] Failed to update order:", updateError);
+      } else {
+        console.log(`[create-checkout-session] Updated pending order ${existingOrder.id} with new session: ${session.id}`);
+      }
     } else {
-      console.log(`[create-checkout-session] Created pending order for session: ${session.id}`);
+      // Create new order
+      const { error: insertError } = await supabaseAdmin
+        .schema("thermocheck")
+        .from("contractor_bestellungen")
+        .insert({
+          onboarding_id: onboarding.id,
+          produkt_typ: produkt.produkt_typ,
+          produkt_key: produkt_key,
+          stripe_session_id: session.id,
+          stripe_payment_status: "pending",
+          stripe_customer_id: customerId,
+          betrag_netto: produkt.preis_netto,
+          betrag_brutto: produkt.preis_brutto,
+          groesse: groesse || null,
+        });
+
+      if (insertError) {
+        console.error("[create-checkout-session] Failed to create order:", insertError);
+        // Don't fail - the webhook will handle it as a fallback
+      } else {
+        console.log(`[create-checkout-session] Created pending order for session: ${session.id}`);
+      }
     }
 
     // 14. Return checkout URL

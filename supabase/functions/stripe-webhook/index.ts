@@ -263,15 +263,15 @@ Deno.serve(async (req) => {
     }
 
     // 7. Write to audit log (ALWAYS, for all processed events)
+    // Schema: bestellung_id, event_type (ENUM), event_data (JSONB), stripe_event_id, actor_type
     const { error: auditError } = await supabase
       .schema("thermocheck")
       .from("contractor_audit_log")
       .insert({
         bestellung_id: bestellungId,
-        action_type: auditEventType,
-        object_type: "stripe_event",
-        object_id: bestellungId,
-        payload: event.data.object,
+        event_type: auditEventType,
+        event_data: event.data.object,
+        stripe_event_id: event.id,
         actor_type: "system",
       });
 
