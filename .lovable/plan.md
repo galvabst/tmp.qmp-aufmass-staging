@@ -1,106 +1,119 @@
 
+# Fix: Stripe Checkout Redirect funktioniert nicht
 
-# Stripe Checkout Integration in OrdersStep
+## Problem-Diagnose
 
-## Problem-Analyse
+Der User klickt auf "Jetzt bestellen", der Button wird disabled (Loading-State), aber es passiert kein Redirect zu Stripe. Stattdessen erscheint der Login-Screen.
 
-Aktuell gibt es zwei Probleme:
+### Ursachen identifiziert:
 
-1. **Nicht-existierende Shop-Links**: Der Button "Jetzt bestellen" öffnet `shop.thermocheck.de/tshirt` etc. - diese Domain existiert nicht (DNS_PROBE_FINISHED_NXDOMAIN)
-
-2. **Redundanter Bestätigungs-Dialog**: Nach dem Klick erscheint "Hast du bestellt? Ja/Nein" - das ist überflüssig, weil der Stripe Webhook die Zahlung automatisch in der DB trackt
-
-## Lösung
-
-Die technische Infrastruktur ist bereits vorhanden:
-- Edge Function `create-checkout-session` erstellt Stripe Sessions
-- Hook `useStripeCheckout` ruft die Edge Function auf
-- Webhook `stripe-webhook` aktualisiert den Payment-Status in der DB
-- Alle 7 Produkte haben gültige `stripe_price_id` in der DB
-
-Nur die UI-Integration fehlt.
+| Problem | Quelle | Auswirkung |
+|---------|--------|------------|
+| `window.location.href` im iframe | `useStripeCheckout.ts` | Redirect wird blockiert oder führt zum Login |
+| Duplicate Key Error | `create-checkout-session` Edge Function | Re-Checkout für gleiches Produkt schlägt fehl |
+| Webhook Audit-Log Schema-Fehler | `stripe-webhook` Edge Function | Insert in contractor_audit_log scheitert |
 
 ---
 
-## Technischer Ansatz
+## Lösung
 
-### Schritt 1: OrdersStep.tsx - Stripe Checkout statt externe Links
+### Schritt 1: useStripeCheckout.ts - Redirect-Methode ändern
 
-**Änderungen:**
+**Problem:** `window.location.href` funktioniert nicht zuverlässig in der Lovable Preview.
 
-| Vorher | Nachher |
-|--------|---------|
-| `window.open(product.externLink, '_blank')` | `startCheckout(produktKey, groesse)` |
-| Nach Klick: AlertDialog "Hast du bestellt?" | Direkter Redirect zu Stripe Checkout |
-| Manuelles "Ja, bestellt" klicken | Automatisches Tracking via Webhook |
+**Lösung:** `window.open()` mit `_top` Target verwenden, um den gesamten Browser-Tab zu navigieren (nicht nur das iframe):
 
-**Zu entfernen:**
-- `confirmingProduct` und `confirmingVariant` State
-- Beide `AlertDialog` Komponenten
-- Alle Referenzen auf `externLink`
+```typescript
+// Vorher:
+window.location.href = data.checkout_url;
 
-**Zu importieren:**
-- `useStripeCheckout` Hook
-- Loading-State während Checkout-Erstellung anzeigen
-
-### Schritt 2: OnboardingScreen.tsx - Payment Success Handler
-
-Nach erfolgreicher Zahlung kommt der User zurück mit URL-Parameter:
-```
-/?payment=success&session_id=cs_xxx
+// Nachher:
+window.open(data.checkout_url, '_self');
 ```
 
-**Neuer useEffect:**
-1. URL-Parameter `payment=success` erkennen
-2. Bestellungen aus DB neu laden (`useContractorOrders`)
-3. Bezahlte Produkte in `orderedProducts` State übernehmen
-4. Toast "Zahlung erfolgreich!" anzeigen
-5. URL-Parameter entfernen (saubere URL)
+Falls das nicht funktioniert, Alternative mit `_top`:
+```typescript
+window.top?.location.replace(data.checkout_url) || window.location.replace(data.checkout_url);
+```
 
-### Schritt 3: OBERTEIL_VARIANTEN anpassen
+### Schritt 2: create-checkout-session - Duplicate Key vermeiden
 
-Die `externLink` Property wird nicht mehr benötigt - kann entfernt werden da Stripe über `produkt_key` funktioniert:
-- `tshirt` -> `useStripeCheckout.startCheckout('tshirt', selectedSize)`
-- `poloshirt` -> `useStripeCheckout.startCheckout('poloshirt', selectedSize)`
+**Problem:** Bei erneutem Checkout für dasselbe Produkt (z.B. User hat Stripe-Seite verlassen ohne zu zahlen) kommt ein Fehler:
+```
+duplicate key value violates unique constraint "unique_onboarding_product"
+```
+
+**Lösung:** Statt `INSERT` ein `UPSERT` verwenden, das die bestehende pending-Bestellung aktualisiert:
+
+```typescript
+// Statt .insert() → .upsert() mit onConflict
+.upsert({
+  onboarding_id: onboarding.id,
+  produkt_key: produkt_key,
+  // ... andere Felder
+}, {
+  onConflict: 'onboarding_id,produkt_key',
+  ignoreDuplicates: false
+})
+```
+
+### Schritt 3: stripe-webhook - Audit-Log Schema korrigieren
+
+**Problem:** Der Insert in `contractor_audit_log` verwendet falsche Spaltennamen:
+- `action_type` statt `event_type`
+- `payload` statt `event_data`
+- Fehlend: `stripe_event_id`
+
+**Lösung:** Die Insert-Logik an das tatsächliche Schema anpassen:
+
+```typescript
+// Vorher (falsch):
+.insert({
+  bestellung_id: bestellungId,
+  action_type: auditEventType,
+  object_type: "stripe_event",
+  object_id: bestellungId,
+  payload: event.data.object,
+  actor_type: "system",
+})
+
+// Nachher (korrekt):
+.insert({
+  bestellung_id: bestellungId,
+  event_type: auditEventType, // muss ein gültiger ENUM-Wert sein
+  event_data: event.data.object,
+  stripe_event_id: event.id,
+  actor_type: "system",
+})
+```
 
 ---
 
 ## Dateien die geändert werden
 
-| Datei | Aktion |
-|-------|--------|
-| `src/components/onboarding/steps/OrdersStep.tsx` | Stripe Integration, AlertDialogs entfernen |
-| `src/components/OnboardingScreen.tsx` | Payment Success Handler hinzufügen |
-| `src/types/onboarding.ts` | Optional: `externLink` aus ClothingVariant entfernen |
+| Datei | Änderung |
+|-------|----------|
+| `src/hooks/useStripeCheckout.ts` | `window.location.href` → `window.open(..., '_self')` |
+| `supabase/functions/create-checkout-session/index.ts` | `INSERT` → `UPSERT` für Duplicate-Safety |
+| `supabase/functions/stripe-webhook/index.ts` | Audit-Log Insert mit korrektem Schema |
 
 ---
 
-## Benutzer-Flow nach Implementierung
+## Erwartetes Ergebnis nach Fix
 
-```text
-1. User wählt Größe (falls erforderlich)
-2. User klickt "Jetzt bestellen"
-3. Loading-Spinner erscheint
-4. Redirect zu Stripe Checkout
-5. User zahlt bei Stripe
-6. Stripe Webhook → DB Update (paid)
-7. Redirect zurück: /?payment=success
-8. OnboardingScreen erkennt Parameter
-9. Lädt Bestellungen aus DB
-10. Produkt als "bezahlt" markiert
-11. Nächstes Produkt erscheint automatisch
-```
+1. User klickt "Jetzt bestellen"
+2. Loading-Spinner erscheint
+3. **Browser navigiert zu Stripe Checkout** (nicht mehr Login-Screen)
+4. User zahlt bei Stripe
+5. Redirect zurück zur App mit `?payment=success`
+6. Toast "Zahlung erfolgreich!" erscheint
+7. Nächstes Produkt wird angezeigt
 
 ---
 
-## Wichtiger Hinweis zu `useOnboardingSizes`
+## Technischer Hinweis: Webhook-Signatur
 
-Die Network-Logs zeigen einen 404-Fehler bei `update_contractor_onboarding_size`:
+Die Logs zeigen auch `StripeSignatureVerificationError`. Das liegt wahrscheinlich daran, dass der Webhook Secret nicht korrekt gesetzt ist oder Stripe das Event anders formatiert als erwartet.
 
-```
-POST /rpc/update_contractor_onboarding_size → 404
-"Could not find the function public.update_contractor_onboarding_size"
-```
-
-Das ist ein separates Problem - die RPC-Funktion fehlt in der DB. Aber das blockiert nicht die Stripe-Integration, weil die Größe über den `create-checkout-session` Call in die Bestellung geschrieben wird (Parameter `groesse`).
+Da der Webhook aber nur nach erfolgreicher Zahlung relevant ist, und wir zuerst den Redirect fixen müssen, ist das ein sekundäres Problem.
 
