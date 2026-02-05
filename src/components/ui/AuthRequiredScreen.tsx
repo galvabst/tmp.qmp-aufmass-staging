@@ -1,4 +1,5 @@
 import { LogIn } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { GalvanekLogo } from '@/components/GalvanekLogo';
 
@@ -8,9 +9,11 @@ interface AuthRequiredScreenProps {
 
 /**
  * Screen shown when user is not authenticated.
- * Prompts them to log in via Sales OS.
+ * Prompts them to log in via the app's login page.
  */
 export function AuthRequiredScreen({ message }: AuthRequiredScreenProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       <div className="max-w-md w-full text-center space-y-6">
@@ -26,17 +29,29 @@ export function AuthRequiredScreen({ message }: AuthRequiredScreenProps) {
           </h1>
           
           <p className="text-sm text-muted-foreground">
-            {message || 'Du bist nicht angemeldet. Bitte logge dich über Sales OS ein, um fortzufahren.'}
+            {message || 'Du bist in dieser App nicht angemeldet. Bitte logge dich ein, um fortzufahren.'}
           </p>
         </div>
         
         <Button 
-          onClick={() => window.location.href = 'https://salesos.lovable.app'}
+          onClick={() => navigate('/login')}
           className="w-full gap-2"
         >
           <LogIn className="h-4 w-4" />
-          Mit Sales OS anmelden
+          Einloggen
         </Button>
+
+        {/* Optional: Sales OS fallback for internal users */}
+        <div className="pt-2">
+          <Button 
+            variant="ghost"
+            size="sm"
+            onClick={() => window.location.href = 'https://salesos.lovable.app'}
+            className="text-xs text-muted-foreground"
+          >
+            Interner Mitarbeiter? Mit Sales OS anmelden
+          </Button>
+        </div>
       </div>
     </div>
   );
