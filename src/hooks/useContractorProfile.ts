@@ -38,45 +38,24 @@ export function useContractorProfile(profileId: string | null) {
         throw profileError;
       }
       
-      // 2. Adress-Daten aus thermocheck.contractor_onboarding (SSoT für Lieferadresse)
+      // 2. Adress-Daten aus thermocheck.v_contractor_details View (enthält Adresse)
       let onboardingData: ContractorOnboardingData | null = null;
 
-      // Prefer direct table access (address fields are NOT part of get_my_contractor_onboarding RPC)
+      // Die View thermocheck.v_contractor_details ist unsere SSoT und enthält Adressdaten
+      // Wir nutzen einen direkten RPC-Aufruf da thermocheck-Schema nicht in Types ist
       try {
-        const thermocheck = (supabase as any).schema?.('thermocheck');
-        if (thermocheck) {
-          const { data, error } = await thermocheck
-            .from('contractor_onboarding')
-            .select('anschrift_strasse, anschrift_plz, anschrift_ort')
-            .eq('profile_id', profileId)
-            .maybeSingle();
+        const { data, error } = await supabase.rpc('get_contractor_address', {
+          p_profile_id: profileId,
+        }) as { data: ContractorOnboardingData | null; error: Error | null };
 
-          if (error) {
-            console.warn('[useContractorProfile] Error loading contractor_onboarding address:', error);
-          } else {
-            onboardingData = data as ContractorOnboardingData;
-          }
+        if (error) {
+          console.warn('[useContractorProfile] get_contractor_address RPC failed:', error);
+        } else if (data) {
+          onboardingData = data;
+          console.log('[useContractorProfile] Address loaded via RPC:', data);
         }
       } catch (e) {
-        console.warn('[useContractorProfile] Failed to load contractor_onboarding address:', e);
-      }
-
-      // Fallback: legacy RPC (may not include address fields depending on version)
-      if (!onboardingData) {
-        // RPC gibt ein Array zurück, wir nehmen das erste Element
-        const { data: onboardingDataArray, error: onboardingError } = await supabase
-          .rpc('get_my_contractor_onboarding');
-
-        if (onboardingError) {
-          console.warn('[useContractorProfile] Error loading onboarding data:', onboardingError);
-          // Kein Fehler werfen - Onboarding-Daten sind optional für erste Schritte
-        } else if (Array.isArray(onboardingDataArray) && onboardingDataArray.length > 0) {
-          // RPC gibt Array zurück - erstes Element nehmen
-          onboardingData = onboardingDataArray[0] as ContractorOnboardingData;
-        } else if (onboardingDataArray && !Array.isArray(onboardingDataArray)) {
-          // Falls doch ein einzelnes Objekt zurückkommt
-          onboardingData = onboardingDataArray as unknown as ContractorOnboardingData;
-        }
+        console.warn('[useContractorProfile] Failed to call get_contractor_address:', e);
       }
       
       // Straße und Hausnummer aus kombiniertem Feld extrahieren (falls vorhanden)
