@@ -30,13 +30,16 @@ interface UseContractorOnboardingStatusResult {
   refetch: () => void;
 }
 
+const SUPABASE_URL = 'https://keplsvhudmfaagixttql.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlcGxzdmh1ZG1mYWFnaXh0dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0OTQ4MzIsImV4cCI6MjA3MjA3MDgzMn0.pfrd37wSwqnofDinrv60YOtCqnYTc9BXq08m_TSVTNY';
+
 /**
  * Hook to fetch the contractor onboarding status from the database.
  * This is the Single Source of Truth for determining if a user has completed onboarding.
  * 
  * A user is considered "ready" (einsatzbereit) only if:
  * 1. They have a record in thermocheck.contractor_onboarding
- * 2. onboarding_substatus = 'einsatzbereit'
+ * 2. onboarding_substatus = 'einsatzbereit' (via onboarding_status = 'ready')
  * 3. trainer_freigabe = true
  */
 export function useContractorOnboardingStatus(): UseContractorOnboardingStatusResult {
@@ -44,36 +47,51 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
     queryKey: ['contractor-onboarding-status'],
     queryFn: async (): Promise<ContractorOnboardingRecord | null> => {
       // First check if user is authenticated
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         console.log('[ContractorOnboardingStatus] No authenticated user');
         return null;
       }
 
-      // Query contractor_onboarding using RPC or raw query
-      // Since thermocheck schema is not in the generated types, we use rpc
-      const { data: onboardingData, error: onboardingError } = await supabase
-        .rpc('get_contractor_onboarding_status', { p_profile_id: user.id });
-
-      if (onboardingError) {
-        // If function doesn't exist, fall back to direct query
-        if (onboardingError.code === 'PGRST202' || onboardingError.message.includes('function')) {
-          console.log('[ContractorOnboardingStatus] RPC not found, trying direct query...');
-          return await fetchDirectQuery(user.id);
+      // Call the RPC function via fetch since it's in thermocheck schema
+      // and not in the generated TypeScript types
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/rpc/get_my_contractor_onboarding`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${session.access_token}`,
+          },
         }
-        console.error('[ContractorOnboardingStatus] Error fetching onboarding:', onboardingError);
-        throw onboardingError;
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[ContractorOnboardingStatus] RPC error:', response.status, errorText);
+        
+        // If function doesn't exist (404) or permission denied, return null
+        if (response.status === 404 || response.status === 403) {
+          console.warn('[ContractorOnboardingStatus] RPC function not found or access denied');
+          return null;
+        }
+        
+        throw new Error(`RPC call failed: ${response.status}`);
       }
 
-      if (!onboardingData || (Array.isArray(onboardingData) && onboardingData.length === 0)) {
-        console.log('[ContractorOnboardingStatus] No contractor_onboarding record found for user:', user.id);
+      const responseData = await response.json();
+      
+      if (!responseData || (Array.isArray(responseData) && responseData.length === 0)) {
+        console.log('[ContractorOnboardingStatus] No contractor_onboarding record found for user:', session.user.id);
         return null;
       }
 
-      const record = Array.isArray(onboardingData) ? onboardingData[0] : onboardingData;
+      const record = Array.isArray(responseData) ? responseData[0] : responseData;
       
       console.log('[ContractorOnboardingStatus] Loaded record:', {
         id: record.id,
+        status: record.onboarding_status,
         substatus: record.onboarding_substatus,
         trainer_freigabe: record.trainer_freigabe,
         lektionen: record.lektionen_abgeschlossen,
@@ -98,9 +116,10 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
   });
 
   // Determine if user is fully ready
+  // User must have onboarding_status = 'ready' AND trainer_freigabe = true
   const isReady = !!(
     data &&
-    data.onboarding_substatus === 'einsatzbereit' &&
+    data.onboarding_status === 'ready' &&
     data.trainer_freigabe === true
   );
 
@@ -111,63 +130,5 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
     onboardingRecord: data ?? null,
     hasRecord: !!data,
     refetch,
-  };
-}
-
-/**
- * Fallback: Direct SQL query via PostgREST
- * Used if the RPC function doesn't exist yet
- */
-async function fetchDirectQuery(userId: string): Promise<ContractorOnboardingRecord | null> {
-  // Use a raw SQL query through the REST API
-  const response = await fetch(
-    `https://keplsvhudmfaagixttql.supabase.co/rest/v1/rpc/get_my_contractor_onboarding`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlcGxzdmh1ZG1mYWFnaXh0dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0OTQ4MzIsImV4cCI6MjA3MjA3MDgzMn0.pfrd37wSwqnofDinrv60YOtCqnYTc9BXq08m_TSVTNY',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    // Function doesn't exist - return null to trigger migration prompt
-    console.warn('[ContractorOnboardingStatus] RPC function not found, migration needed');
-    
-    // For now, return a mock "not ready" state to force onboarding
-    // This will be replaced once the migration is run
-    return {
-      id: 'pending-migration',
-      profile_id: userId,
-      onboarding_status: 'in_onboarding',
-      onboarding_substatus: 'neu_angelegt',
-      trainer_freigabe: false,
-      trainer_freigabe_am: null,
-      trainer_freigabe_von: null,
-      ag_domain_email: null,
-      lektionen_abgeschlossen: 0,
-      bestellungen_bezahlt: 0,
-    };
-  }
-
-  const data = await response.json();
-  if (!data || data.length === 0) {
-    return null;
-  }
-
-  const record = data[0];
-  return {
-    id: record.id,
-    profile_id: record.profile_id,
-    onboarding_status: record.onboarding_status,
-    onboarding_substatus: record.onboarding_substatus,
-    trainer_freigabe: record.trainer_freigabe,
-    trainer_freigabe_am: record.trainer_freigabe_am,
-    trainer_freigabe_von: record.trainer_freigabe_von,
-    ag_domain_email: record.ag_domain_email,
-    lektionen_abgeschlossen: record.lektionen_abgeschlossen || 0,
-    bestellungen_bezahlt: record.bestellungen_bezahlt || 0,
   };
 }
