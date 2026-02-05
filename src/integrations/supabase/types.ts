@@ -3953,6 +3953,7 @@ export type Database = {
           lead_quelle: string | null
           leadpreis: number | null
           leadquelle_id: string | null
+          letzter_kontakt: string | null
           lieferadresse_hausnummer: string | null
           lieferadresse_lat: number | null
           lieferadresse_lng: number | null
@@ -3961,6 +3962,7 @@ export type Database = {
           lieferadresse_strasse: string | null
           location_geo: unknown
           mitarbeiter_id: string
+          naechste_wiedervorlage: string | null
           nettoangebotssumme: number | null
           next_suggested_appointment_date: string | null
           notizen: string | null
@@ -4015,6 +4017,7 @@ export type Database = {
           lead_quelle?: string | null
           leadpreis?: number | null
           leadquelle_id?: string | null
+          letzter_kontakt?: string | null
           lieferadresse_hausnummer?: string | null
           lieferadresse_lat?: number | null
           lieferadresse_lng?: number | null
@@ -4023,6 +4026,7 @@ export type Database = {
           lieferadresse_strasse?: string | null
           location_geo?: unknown
           mitarbeiter_id: string
+          naechste_wiedervorlage?: string | null
           nettoangebotssumme?: number | null
           next_suggested_appointment_date?: string | null
           notizen?: string | null
@@ -4077,6 +4081,7 @@ export type Database = {
           lead_quelle?: string | null
           leadpreis?: number | null
           leadquelle_id?: string | null
+          letzter_kontakt?: string | null
           lieferadresse_hausnummer?: string | null
           lieferadresse_lat?: number | null
           lieferadresse_lng?: number | null
@@ -4085,6 +4090,7 @@ export type Database = {
           lieferadresse_strasse?: string | null
           location_geo?: unknown
           mitarbeiter_id?: string
+          naechste_wiedervorlage?: string | null
           nettoangebotssumme?: number | null
           next_suggested_appointment_date?: string | null
           notizen?: string | null
