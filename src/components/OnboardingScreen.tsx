@@ -15,15 +15,16 @@ import { WaitingForApproval } from './onboarding/WaitingForApproval';
 import { useOnboardingState, clearOnboardingLocalStorage } from '@/hooks/useOnboardingState';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useContractorProfile } from '@/hooks/useContractorProfile';
-import { 
-  MOCK_PRODUCTS, 
+import {
+  MOCK_PRODUCTS,
   MOCK_COACHING_SLOTS,
   MOCK_EQUIPMENT,
   ONBOARDING_STEPS,
   createInitialOnboardingState,
 } from '@/lib/onboarding-config';
-import { CoachingSlot, ApplicantProfile } from '@/types/onboarding';
+import { CoachingSlot, ApplicantProfile, OnboardingStepId } from '@/types/onboarding';
 import { Button } from '@/components/ui/button';
+import { getOnboardingStorageKey } from '@/lib/onboarding-storage';
 
 interface OnboardingScreenProps {
   onComplete: () => void;
@@ -53,46 +54,62 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const location = useLocation();
   const navigate = useNavigate();
   const hasHydratedRef = useRef(false);
-  
+  const nextClickLockRef = useRef(false);
+
+  // verhindert Mehrfachklicks/Spam auf "Weiter" (sonst Steps werden übersprungen)
+  const [isAdvancing, setIsAdvancing] = useState(false);
+
   // KRITISCH: Prüfe ob localStorage-Fortschritt ignoriert werden muss
   // weil DB sagt "invited" (kein echter Fortschritt vorhanden)
   const dbShowsNoProgress = dbStatus?.onboardingStatus === 'invited';
   const [forceReset, setForceReset] = useState(false);
-  
-  // Wenn DB "invited" sagt, aber localStorage möglicherweise alten Fortschritt hat
-  // → State ohne Reload zurücksetzen
+
+  // Wenn DB "invited" sagt, aber localStorage möglicherweise "fertig" oder stark fortgeschritten ist
+  // (z.B. wenn ein anderer User im gleichen Browser vorher Onboarding gemacht hat)
   useEffect(() => {
-    if (dbShowsNoProgress && !forceReset && !isPreview) {
-      console.log('[Onboarding] DB says invited - checking localStorage for stale data...');
-      const savedState = localStorage.getItem('thermocheck_onboarding_state_v2');
-      if (savedState) {
-        try {
-          const parsed = JSON.parse(savedState);
-          // Wenn localStorage "complete" Zustand zeigt, aber DB sagt "invited" → Reset
-          if (parsed.coachingAbgeschlossen || (parsed.completedSteps?.length || 0) > 0) {
-            console.warn('[Onboarding] Stale localStorage detected - forcing reset');
-            clearOnboardingLocalStorage();
-            setForceReset(true);
-          }
-        } catch (e) {
-          // Kaputtes JSON → auch resetten
-          clearOnboardingLocalStorage();
-          setForceReset(true);
-        }
+    const profileId = dbStatus?.profileId;
+    if (!profileId || !dbShowsNoProgress || forceReset || isPreview) return;
+
+    const storageKey = getOnboardingStorageKey(profileId);
+    const savedState = localStorage.getItem(storageKey);
+    if (!savedState) return;
+
+    try {
+      const parsed = JSON.parse(savedState);
+
+      const completedSteps: OnboardingStepId[] = parsed.completedSteps || [];
+      const indicatesMajorProgress =
+        parsed.coachingAbgeschlossen === true ||
+        completedSteps.includes('bestellungen') ||
+        completedSteps.includes('equipment') ||
+        completedSteps.includes('akademie') ||
+        completedSteps.includes('nachweise') ||
+        completedSteps.includes('coaching') ||
+        (parsed.bestellungenBestaetigt?.length || 0) > 0 ||
+        parsed.akademieTestBestanden === true;
+
+      if (indicatesMajorProgress) {
+        console.warn('[Onboarding] Stale localStorage detected (DB invited) - forcing reset');
+        clearOnboardingLocalStorage(profileId);
+        setForceReset(true);
       }
+    } catch {
+      clearOnboardingLocalStorage(profileId);
+      setForceReset(true);
     }
-  }, [dbShowsNoProgress, forceReset, isPreview]);
-  
+  }, [dbShowsNoProgress, forceReset, isPreview, dbStatus?.profileId]);
+
   // Profildaten aus DB laden (SSoT: public.profiles + thermocheck.contractor_onboarding)
-  const { 
-    data: dbProfile, 
+  const {
+    data: dbProfile,
     isLoading: profileLoading,
     updateProfile: saveProfileToDb,
     uploadAvatar,
   } = useContractorProfile(dbStatus?.profileId || null);
-  
-  // Initial-Profil: DB-Daten oder leeres Fallback
-  const initialProfile: ApplicantProfile = dbProfile || EMPTY_PROFILE;
+
+  // Initial-Profil: DB-Daten oder leeres Fallback (aber mit korrekter User-ID für localStorage-Key)
+  const initialProfile: ApplicantProfile =
+    dbProfile || { ...EMPTY_PROFILE, id: dbStatus?.profileId || '' };
   
   const {
     state,
@@ -119,20 +136,48 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     hydrateAkademieFromDb,
   } = useOnboardingState(initialProfile, isPreview, forceReset);
   
+  // Unlock "Weiter" sobald der Schritt gewechselt hat
+  useEffect(() => {
+    if (!nextClickLockRef.current) return;
+    nextClickLockRef.current = false;
+    setIsAdvancing(false);
+  }, [state.currentStep]);
+
   // Sync DB-Profil in State wenn geladen - intelligentes Merging
   useEffect(() => {
     if (!profileLoading && dbProfile) {
       // Prüfe ob wichtige DB-Felder fehlen im State
       const stateHasNoAvatar = !state.profil.avatarUrl;
       const dbHasAvatar = !!dbProfile.avatarUrl;
-      
+
+      const stateMissingAddress =
+        !state.profil.strasse?.trim() ||
+        !state.profil.hausnummer?.trim() ||
+        !state.profil.plz?.trim() ||
+        !state.profil.ort?.trim();
+
+      const dbHasAddress =
+        !!dbProfile.strasse?.trim() &&
+        !!dbProfile.hausnummer?.trim() &&
+        !!dbProfile.plz?.trim() &&
+        !!dbProfile.ort?.trim();
+
       // Hydrate wenn State leer ODER wenn DB wichtige Daten hat die im State fehlen
-      if (state.profil.id === '' || (stateHasNoAvatar && dbHasAvatar)) {
+      if (
+        state.profil.id === '' ||
+        (stateHasNoAvatar && dbHasAvatar) ||
+        (stateMissingAddress && dbHasAddress)
+      ) {
         console.log('[Onboarding] Hydrating profile from DB:', {
-          reason: state.profil.id === '' ? 'empty_state' : 'missing_avatar',
+          reason:
+            state.profil.id === ''
+              ? 'empty_state'
+              : stateHasNoAvatar && dbHasAvatar
+                ? 'missing_avatar'
+                : 'missing_address',
           dbProfile,
         });
-        
+
         // Merge: Lokale Eingaben behalten, DB-Werte für leere Felder nutzen
         const mergedProfile: ApplicantProfile = {
           id: dbProfile.id,
@@ -146,7 +191,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
           plz: state.profil.plz || dbProfile.plz,
           ort: state.profil.ort || dbProfile.ort,
         };
-        
+
         updateProfile(mergedProfile);
       }
     }
@@ -276,28 +321,44 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   };
 
   const handleNext = async () => {
+    if (nextClickLockRef.current) return;
+    nextClickLockRef.current = true;
+    setIsAdvancing(true);
+
     // Bei Profil-Schritt: Validierung + DB speichern
     if (state.currentStep === 'profil') {
       // Validiere Pflichtfelder inkl. Adresse
-      if (!state.profil.strasse?.trim() || !state.profil.plz?.trim() || !state.profil.ort?.trim()) {
+      if (
+        !state.profil.strasse?.trim() ||
+        !state.profil.hausnummer?.trim() ||
+        !state.profil.plz?.trim() ||
+        !state.profil.ort?.trim()
+      ) {
         toast.error('Bitte fülle deine vollständige Adresse aus');
+        nextClickLockRef.current = false;
+        setIsAdvancing(false);
         return;
       }
-      
+
       try {
         await saveProfileToDb(state.profil);
         toast.success('Profildaten gespeichert');
       } catch (error) {
         console.error('[Onboarding] Failed to save profile:', error);
         toast.error('Fehler beim Speichern der Profildaten');
+        nextClickLockRef.current = false;
+        setIsAdvancing(false);
         return; // Nicht weiter navigieren bei Fehler
       }
     }
-    
+
     if (state.currentStep === 'coaching' && state.coachingAbgeschlossen) {
       // Onboarding abgeschlossen
+      nextClickLockRef.current = false;
+      setIsAdvancing(false);
       return;
     }
+
     goToNextStep();
   };
 
@@ -441,7 +502,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         onBack={isPreview ? onExitPreview : goToPreviousStep}
         onNext={handleNext}
         nextLabel={getNextLabel()}
-        nextDisabled={!canProceed}
+        nextDisabled={!canProceed || isAdvancing}
         progress={progress}
       >
         {renderStep()}
