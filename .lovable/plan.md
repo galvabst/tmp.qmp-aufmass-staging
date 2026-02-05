@@ -1,154 +1,171 @@
 
-# Bugfix-Plan: Onboarding muss DB-Status prüfen (nicht nur localStorage)
 
-## Identifiziertes Problem
+# Admin-View Implementation Plan
 
-Die App zeigt "Du bist einsatzbereit!" obwohl:
-- `onboarding_substatus = 'neu_angelegt'` (nicht 'einsatzbereit')
-- `trainer_freigabe = FALSE`
-- `contractor_akademie_lektions_fortschritt` ist leer (keine Lektionen abgeschlossen)
+## Übersicht
 
-**Root Cause:** Die gesamte Onboarding-Logik basiert ausschließlich auf localStorage. Die Datenbank wird niemals abgefragt.
+Du brauchst eine Admin-Ansicht, um alle Aufträge und Techniker zu sehen - nicht nur deine eigenen. Die gute Nachricht: Die Infrastruktur dafür existiert bereits größtenteils!
 
-## Lösung: DB als Single Source of Truth
+**Was bereits vorhanden ist:**
+- `/admin` Route (aktuell deaktiviert → zeigt NotFound)
+- Admin-Komponenten (`AdminLayout`, `AdminBottomNav`)
+- Feature-Views (`ContractorListView`, `ObjectOrderListView`, etc.)
+- Datenbank-Funktionen: `is_admin()` und `get_user_iam_roles()`
+- Du hast bereits `superadmin`-Rolle in `iam.user_system_roles`
 
-### Architektur-Änderung
+**Was fehlt:**
+1. Route aktivieren + Zugriffsschutz
+2. `useIAM` Hook erweitern, um echte Rollen aus der DB zu laden
+3. RLS-Policies für Admin-Lesezugriff auf relevante Tabellen
+
+---
+
+## Implementierungsschritte
+
+### Schritt 1: useIAM Hook auf echte IAM-Rollen umstellen
+
+Der Hook fragt aktuell nur `profiles` ab. Er muss die echten System-Rollen aus `iam.user_system_roles` laden.
+
+**Änderung in `src/hooks/useIAM.ts`:**
+- RPC-Aufruf zu `get_user_iam_roles()` statt Profil-Check
+- `useIsAdmin()` prüft auf `superadmin`, `admin` oder `manager`
+
+### Schritt 2: Protected Admin Route
+
+**Änderungen in `src/App.tsx`:**
+- Admin-Route aktivieren (nicht mehr auf NotFound)
+- Neue `AdminRoute`-Wrapper-Komponente erstellen
+
+**Neue Komponente: `src/components/auth/ProtectedAdminRoute.tsx`**
+- Prüft mit `useIsAdmin()` ob User Zugriff hat
+- Zeigt Loading während Check
+- Zeigt "Zugriff verweigert" wenn keine Berechtigung
+
+### Schritt 3: RLS-Policies für Admin-Lesezugriff
+
+Damit Admins alle Daten sehen können, brauchen relevante Tabellen SELECT-Policies:
+
+**Tabellen mit neuen Policies:**
+- `thermocheck.contractor_onboarding` → Admins sehen alle Techniker
+- `thermocheck.contractor_bestellungen` → Admins sehen alle Bestellungen
+- `thermocheck.contractor_akademie_lektions_fortschritt` → Admins sehen Fortschritte
+
+**Policy-Pattern:**
+```sql
+CREATE POLICY "Admin kann alle lesen"
+ON thermocheck.tabelle FOR SELECT TO authenticated
+USING (
+  public.is_admin() 
+  OR [existing user-specific condition]
+);
+```
+
+### Schritt 4: Admin-Views mit echten Daten verbinden
+
+Die Views (`ContractorListView`, `ObjectOrderListView`) nutzen aktuell Mock-Daten. Sie müssen:
+- `useQuery` für Supabase-Abfragen verwenden
+- Die Daten aus den entsprechenden Tabellen laden
+
+---
+
+## Architektur-Diagramm
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           ONBOARDING STATUS CHECK                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────┐                                                            │
-│  │   App Start  │                                                            │
-│  └──────┬───────┘                                                            │
-│         │                                                                    │
-│         ▼                                                                    │
-│  ┌────────────────────────────────────┐                                     │
-│  │ 1. Prüfe auth.user() vorhanden?    │                                     │
-│  └─────────────┬──────────────────────┘                                     │
-│                │ Ja                                                          │
-│                ▼                                                             │
-│  ┌────────────────────────────────────┐                                     │
-│  │ 2. Lade contractor_onboarding      │                                     │
-│  │    WHERE profile_id = auth.uid()   │                                     │
-│  └─────────────┬──────────────────────┘                                     │
-│                │                                                             │
-│         ┌──────┴──────┐                                                      │
-│         ▼             ▼                                                      │
-│   Kein Eintrag   Eintrag gefunden                                           │
-│       │               │                                                      │
-│       │               ▼                                                      │
-│       │         ┌────────────────────────────────────┐                       │
-│       │         │ 3. Prüfe onboarding_substatus:     │                       │
-│       │         │    - 'einsatzbereit' UND           │                       │
-│       │         │    - trainer_freigabe = TRUE       │                       │
-│       │         └─────────────┬──────────────────────┘                       │
-│       │                       │                                              │
-│       │              ┌────────┴────────┐                                     │
-│       │              ▼                 ▼                                     │
-│       │         Alle erfüllt      Nicht erfüllt                             │
-│       │              │                 │                                     │
-│       ▼              ▼                 ▼                                     │
-│  ┌──────────┐  ┌──────────────┐  ┌──────────────────────────┐               │
-│  │Anmeldung │  │  Zeige       │  │ Zeige Onboarding-Wizard  │               │
-│  │ verweig. │  │  Hauptapp    │  │ beim aktuellen Schritt   │               │
-│  └──────────┘  └──────────────┘  └──────────────────────────┘               │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         App.tsx Routes                              │
+├─────────────────────────────────────────────────────────────────────┤
+│  /         → Index.tsx (Techniker-App)                              │
+│  /admin    → ProtectedAdminRoute → Admin.tsx                        │
+│  /akademie → AkademieModul.tsx                                      │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    ProtectedAdminRoute                              │
+├─────────────────────────────────────────────────────────────────────┤
+│  useIsAdmin() → true  → <Admin />                                   │
+│  useIsAdmin() → false → <AccessDenied />                            │
+│  useIsAdmin() → undefined → <Loading />                             │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         useIAM Hook                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│  Ruft RPC get_user_iam_roles() auf                                  │
+│  Cached Rollen: ['superadmin'] / ['admin'] / ['manager'] / ['user'] │
+│  useIsAdmin() = role in (superadmin, admin, manager)                │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Supabase RLS Layer                               │
+├─────────────────────────────────────────────────────────────────────┤
+│  Techniker: Sieht nur eigene Daten (profile_id = auth.uid())        │
+│  Admin: is_admin() = true → Sieht alle Daten                        │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Implementierung
-
-#### Schritt 1: Neuer Hook für DB-Onboarding-Status
-
-Neuer Hook: `src/hooks/useContractorOnboardingStatus.ts`
-
-Funktionen:
-- Lädt `contractor_onboarding` für den eingeloggten User
-- Prüft `onboarding_substatus` und `trainer_freigabe`
-- Gibt `isReady`, `isLoading`, `onboardingRecord` zurück
-- Cached mit React Query für Performance
-
-#### Schritt 2: Index.tsx anpassen
-
-Änderungen:
-- Import des neuen Hooks
-- Prüfe DB-Status bevor localStorage geprüft wird
-- Zeige Loading-State während DB-Abfrage
-- DB-Status hat Priorität über localStorage
-
-Logik:
-```typescript
-// Pseudocode
-const { isReady, isLoading, onboardingRecord } = useContractorOnboardingStatus();
-
-// Wenn noch am Laden -> Loading anzeigen
-if (isLoading) return <LoadingScreen />;
-
-// Wenn kein Contractor-Eintrag -> Zugang verweigern
-if (!onboardingRecord) return <AccessDenied />;
-
-// Wenn nicht einsatzbereit ODER keine Trainer-Freigabe -> Onboarding anzeigen
-if (!isReady) {
-  return <OnboardingScreen ... />;
-}
-
-// Ansonsten -> Hauptapp anzeigen
-return <MainApp />;
-```
-
-#### Schritt 3: localStorage als Fallback/Cache
-
-Änderungen in `useOnboardingState.ts`:
-- Beim ersten Laden: Sync mit DB-Status
-- localStorage dient nur als Offline-Cache
-- Bei DB-Konflikt: DB gewinnt immer
-
-#### Schritt 4: Berechnung der Step-Position aus DB
-
-Neue Logik um den aktuellen Schritt zu berechnen basierend auf:
-- `contractor_bestellungen` (welche Produkte bezahlt?)
-- `contractor_akademie_lektions_fortschritt` (welche Lektionen abgeschlossen?)
-- `contractor_onboarding` Felder (Gewerbeschein, etc.)
-
-## Dateien die geändert werden
-
-| Datei | Aktion | Beschreibung |
-|-------|--------|--------------|
-| `src/hooks/useContractorOnboardingStatus.ts` | NEU | DB-Status-Hook mit React Query |
-| `src/pages/Index.tsx` | ÄNDERN | DB-Prüfung vor localStorage |
-| `src/hooks/useOnboardingState.ts` | ÄNDERN | DB-Sync bei Initialisierung |
-| `src/components/ui/LoadingScreen.tsx` | NEU (optional) | Loading-Anzeige während DB-Check |
-
-## Sicherheitsaspekte
-
-- RLS-Policy auf `contractor_onboarding` stellt sicher dass User nur eigene Daten sieht
-- `trainer_freigabe` kann nur von berechtigten Rollen gesetzt werden (manager, admin)
-- Kein Bypass durch localStorage-Manipulation möglich nach dem Fix
+---
 
 ## Technische Details
 
-Query für den Status-Check:
-```sql
-SELECT 
-  co.id,
-  co.onboarding_substatus,
-  co.trainer_freigabe,
-  co.trainer_freigabe_am,
-  -- Akademie-Fortschritt aggregiert
-  (SELECT COUNT(*) FROM thermocheck.contractor_akademie_lektions_fortschritt 
-   WHERE contractor_id = co.id AND status = 'completed') as lektionen_abgeschlossen,
-  -- Bestellungen
-  (SELECT COUNT(*) FROM thermocheck.contractor_bestellungen 
-   WHERE onboarding_id = co.id AND status = 'paid') as bestellungen_bezahlt
-FROM thermocheck.contractor_onboarding co
-WHERE co.profile_id = auth.uid()
+### 1. useIAM Hook Update
+
+```typescript
+// Neue Query-Funktion
+const queryFn = async () => {
+  const { data, error } = await supabase.rpc('get_user_iam_roles');
+  if (error) throw error;
+  return data || [];
+};
+
+// useIsAdmin prüft echte Rollen
+export function useIsAdmin(): boolean | undefined {
+  const { systemRoles, loading } = useIAM();
+  if (loading) return undefined;
+  return ['superadmin', 'admin', 'manager'].some(r => systemRoles.includes(r));
+}
 ```
 
-Bedingung für "einsatzbereit":
-```typescript
-const isReady = 
-  onboardingRecord.onboarding_substatus === 'einsatzbereit' &&
-  onboardingRecord.trainer_freigabe === true;
+### 2. Neue Dateien
+
+| Datei | Zweck |
+|-------|-------|
+| `src/components/auth/ProtectedAdminRoute.tsx` | Wrapper für Admin-Routen |
+| `src/components/ui/AccessDeniedScreen.tsx` | UI für fehlende Berechtigung |
+
+### 3. RLS Migration
+
+```sql
+-- Beispiel: contractor_onboarding Admin-Zugriff
+CREATE POLICY "Admin sieht alle Onboardings"
+ON thermocheck.contractor_onboarding FOR SELECT TO authenticated
+USING (
+  public.is_admin()
+  OR profile_id = auth.uid()
+);
 ```
+
+---
+
+## Risiken & Mitigationen
+
+| Risiko | Mitigation |
+|--------|------------|
+| RLS-Policy-Konflikt | Bestehende Policies prüfen, ggf. kombinieren statt neue erstellen |
+| Performance bei vielen Einträgen | Pagination in Admin-Views implementieren |
+| Cache-Probleme | QueryClient Invalidation bei Auth-Änderungen |
+
+---
+
+## Reihenfolge der Implementation
+
+1. **useIAM Hook updaten** → Echte Rollen laden
+2. **ProtectedAdminRoute erstellen** → Zugriffsschutz
+3. **Route aktivieren** → `/admin` zeigt Admin.tsx
+4. **RLS-Policies hinzufügen** → Admin-Lesezugriff
+5. **Views mit echten Daten** → Mock-Daten ersetzen
+
+Soll ich mit der Implementierung beginnen?
+
