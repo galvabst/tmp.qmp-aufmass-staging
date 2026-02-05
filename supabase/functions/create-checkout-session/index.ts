@@ -38,20 +38,19 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // 3. Validate JWT with getClaims
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    // 3. Validate JWT with getUser()
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
 
-    if (claimsError || !claimsData?.claims) {
-      console.error("[create-checkout-session] JWT validation failed:", claimsError);
+    if (userError || !user) {
+      console.error("[create-checkout-session] JWT validation failed:", userError);
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub;
-    const userEmail = claimsData.claims.email as string | undefined;
+    const userId = user.id;
+    const userEmail = user.email;
     console.log(`[create-checkout-session] User authenticated: ${userId}`);
 
     // 4. Parse request body
