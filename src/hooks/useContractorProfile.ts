@@ -110,8 +110,12 @@ export function useContractorProfile(profileId: string | null) {
           .join(' ')
           .trim();
         
-        // Update via raw SQL call (thermocheck schema not in generated types)
-        const { error } = await supabase.rpc('update_contractor_onboarding_address', {
+        // Update via RPC (Funktion existiert, aber Types noch nicht regeneriert)
+        // Daher als any casten
+        const { error } = await (supabase.rpc as unknown as (
+          fn: string, 
+          params: Record<string, string | null>
+        ) => Promise<{ error: Error | null }>)('update_contractor_onboarding_address', {
           p_strasse: anschriftStrasse || null,
           p_plz: profile.plz || null,
           p_ort: profile.ort || null,
