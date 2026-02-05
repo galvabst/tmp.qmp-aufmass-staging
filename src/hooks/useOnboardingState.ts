@@ -10,20 +10,26 @@ import {
   getNextStep,
   getPreviousStep,
 } from '@/types/onboarding';
-import { 
-  createInitialOnboardingState, 
+import {
+  createInitialOnboardingState,
   calculateOnboardingProgress,
 } from '@/lib/onboarding-config';
+import { getOnboardingStorageKey, ONBOARDING_STORAGE_KEY_PREFIX } from '@/lib/onboarding-storage';
 import { isUuid } from '@/lib/utils';
-
-const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
 
 /**
  * Clear onboarding localStorage - used when DB says "invited" but localStorage has stale progress
  */
-export function clearOnboardingLocalStorage() {
-  localStorage.removeItem(STORAGE_KEY);
-  console.log('[Onboarding] localStorage cleared due to DB sync');
+export function clearOnboardingLocalStorage(profileId?: string) {
+  const key = getOnboardingStorageKey(profileId);
+  localStorage.removeItem(key);
+
+  // Legacy cleanup (pre user-namespacing)
+  if (profileId) {
+    localStorage.removeItem(ONBOARDING_STORAGE_KEY_PREFIX);
+  }
+
+  console.log('[Onboarding] localStorage cleared due to DB sync', { key });
 }
 
 /**
@@ -32,7 +38,7 @@ export function clearOnboardingLocalStorage() {
  */
 export function hasValidAkademieIds(hauptmodule: AkademieHauptmodul[] | undefined): boolean {
   if (!hauptmodule || hauptmodule.length === 0) return false;
-  
+
   // Check all hauptmodul IDs and their unterpunkte IDs
   return hauptmodule.every(hm => {
     if (!isUuid(hm.id)) return false;
@@ -41,27 +47,47 @@ export function hasValidAkademieIds(hauptmodule: AkademieHauptmodul[] | undefine
   });
 }
 
-const loadPersistedState = (initialProfile: ApplicantProfile): OnboardingState => {
+const loadPersistedState = (initialProfile: ApplicantProfile, storageKey: string): OnboardingState => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    let saved = localStorage.getItem(storageKey);
+
+    // Legacy migration: global key -> per-user key (only if profile matches)
+    if (!saved && initialProfile.id) {
+      const legacy = localStorage.getItem(ONBOARDING_STORAGE_KEY_PREFIX);
+      if (legacy) {
+        try {
+          const legacyParsed = JSON.parse(legacy) as Partial<OnboardingState>;
+          const legacyProfileId = (legacyParsed as any)?.profil?.id;
+          if (legacyProfileId === initialProfile.id) {
+            saved = legacy;
+            localStorage.setItem(storageKey, legacy);
+            localStorage.removeItem(ONBOARDING_STORAGE_KEY_PREFIX);
+            console.log('[Onboarding] Migrated legacy localStorage state to user key');
+          }
+        } catch {
+          // Ignore legacy parse errors here; normal load flow will handle invalid JSON.
+        }
+      }
+    }
+
     if (saved) {
       const parsed = JSON.parse(saved) as Partial<OnboardingState>;
       const initial = createInitialOnboardingState(initialProfile);
-      
+
       // Check if akademie data has valid UUIDs - if not, reset it
       const hasValidAkademie = hasValidAkademieIds(parsed.akademieHauptmodule);
-      
+
       if (!hasValidAkademie && parsed.akademieHauptmodule?.length) {
         console.log('[Onboarding] Legacy akademie IDs detected, resetting akademie data...');
       }
-      
+
       // Merge mit initialem State um fehlende Felder zu ergänzen
       return {
         ...initial,
         ...parsed,
         // Reset akademie if legacy IDs detected, otherwise keep persisted
-        akademieHauptmodule: hasValidAkademie 
-          ? parsed.akademieHauptmodule! 
+        akademieHauptmodule: hasValidAkademie
+          ? parsed.akademieHauptmodule!
           : [], // Empty array triggers DB hydration
         // Legacy akademieModule - also reset if needed
         akademieModule: [],
@@ -78,26 +104,28 @@ export function useOnboardingState(
   isPreview: boolean = false,
   forceReset: boolean = false // NEU: Flag um State ohne Reload zurückzusetzen
 ) {
+  const storageKey = getOnboardingStorageKey(initialProfile.id || undefined);
+
   const [state, setState] = useState<OnboardingState>(() => {
     // Bei forceReset: frischer State ohne localStorage
     if (forceReset) {
       console.log('[Onboarding] Force reset triggered - starting fresh');
       return createInitialOnboardingState(initialProfile);
     }
-    return isPreview 
+    return isPreview
       ? createInitialOnboardingState(initialProfile)
-      : loadPersistedState(initialProfile);
+      : loadPersistedState(initialProfile, storageKey);
   });
 
   // Persist state to localStorage on every change (only if not in preview mode AND not force reset)
   useEffect(() => {
     if (isPreview || forceReset) return; // Don't persist in preview or force-reset mode
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(storageKey, JSON.stringify(state));
     } catch (e) {
       console.warn('Failed to save onboarding state to localStorage', e);
     }
-  }, [state, isPreview, forceReset]);
+  }, [state, isPreview, forceReset, storageKey]);
 
   // Reset state when entering preview mode or force reset
   useEffect(() => {
@@ -309,6 +337,7 @@ export function useOnboardingState(
           state.profil.avatarUrl &&
           // Adresse ist auch Pflicht
           state.profil.strasse?.trim() &&
+          state.profil.hausnummer?.trim() &&
           state.profil.plz?.trim() &&
           state.profil.ort?.trim()
         );
