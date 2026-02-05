@@ -9548,6 +9548,21 @@ export type Database = {
           rechnung_status: string
         }[]
       }
+      get_my_contractor_onboarding: {
+        Args: never
+        Returns: {
+          ag_domain_email: string
+          bestellungen_bezahlt: number
+          id: string
+          lektionen_abgeschlossen: number
+          onboarding_status: string
+          onboarding_substatus: string
+          profile_id: string
+          trainer_freigabe: boolean
+          trainer_freigabe_am: string
+          trainer_freigabe_von: string
+        }[]
+      }
       get_my_kpi_eligible_leads: {
         Args: { p_mitarbeiter_id: string }
         Returns: {
