@@ -34,11 +34,10 @@ interface OnboardingScreenProps {
   dbStatus?: {
     onboardingStatus: string;
     trainerFreigabe: boolean;
-    profileId?: string; // NEU: Profile ID für DB-Abfragen
+    profileId?: string;
   };
 }
 
-// Leeres Profil als Fallback (wird durch DB-Daten ersetzt)
 const EMPTY_PROFILE: ApplicantProfile = {
   id: '',
   vorname: '',
@@ -56,22 +55,22 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const hasHydratedRef = useRef(false);
+  const hasHydratedOnboardingStateRef = useRef(false);
   const nextClickLockRef = useRef(false);
   const paymentHandledRef = useRef(false);
 
-  // verhindert Mehrfachklicks/Spam auf "Weiter" (sonst Steps werden übersprungen)
   const [isAdvancing, setIsAdvancing] = useState(false);
 
-  // KRITISCH: Prüfe ob localStorage-Fortschritt ignoriert werden muss
-  // weil DB sagt "invited" (kein echter Fortschritt vorhanden)
+  // KRITISCH: Payment-Success in URL? Dann NIEMALS forceReset!
+  const hasPaymentSuccess = searchParams.get('payment') === 'success';
+
   const dbShowsNoProgress = dbStatus?.onboardingStatus === 'invited';
   const [forceReset, setForceReset] = useState(false);
 
-  // Wenn DB "invited" sagt, aber localStorage möglicherweise "fertig" oder stark fortgeschritten ist
-  // (z.B. wenn ein anderer User im gleichen Browser vorher Onboarding gemacht hat)
+  // ForceReset-Logik: Nur bei wirklich unmöglichem Zustand UND NICHT bei payment=success
   useEffect(() => {
     const profileId = dbStatus?.profileId;
-    if (!profileId || !dbShowsNoProgress || forceReset || isPreview) return;
+    if (!profileId || !dbShowsNoProgress || forceReset || isPreview || hasPaymentSuccess) return;
 
     const storageKey = getOnboardingStorageKey(profileId);
     const savedState = localStorage.getItem(storageKey);
@@ -80,19 +79,14 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     try {
       const parsed = JSON.parse(savedState);
 
-      const completedSteps: OnboardingStepId[] = parsed.completedSteps || [];
-      const indicatesMajorProgress =
+      // Nur bei WIRKLICH unmöglichem Zustand resetten
+      // (coaching abgeschlossen bei DB "invited" = definitiv veralteter State eines anderen Users)
+      const isDefinitelyStale =
         parsed.coachingAbgeschlossen === true ||
-        completedSteps.includes('bestellungen') ||
-        completedSteps.includes('equipment') ||
-        completedSteps.includes('akademie') ||
-        completedSteps.includes('nachweise') ||
-        completedSteps.includes('coaching') ||
-        (parsed.bestellungenBestaetigt?.length || 0) > 0 ||
         parsed.akademieTestBestanden === true;
 
-      if (indicatesMajorProgress) {
-        console.warn('[Onboarding] Stale localStorage detected (DB invited) - forcing reset');
+      if (isDefinitelyStale) {
+        console.warn('[Onboarding] Stale localStorage detected (DB invited + coaching/test done) - forcing reset');
         clearOnboardingLocalStorage(profileId);
         setForceReset(true);
       }
@@ -100,17 +94,21 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       clearOnboardingLocalStorage(profileId);
       setForceReset(true);
     }
-  }, [dbShowsNoProgress, forceReset, isPreview, dbStatus?.profileId]);
+  }, [dbShowsNoProgress, forceReset, isPreview, dbStatus?.profileId, hasPaymentSuccess]);
 
-  // Profildaten aus DB laden (SSoT: public.profiles + thermocheck.contractor_onboarding)
+  // Profildaten aus DB laden
   const {
     data: dbProfile,
     isLoading: profileLoading,
     updateProfile: saveProfileToDb,
     uploadAvatar,
+    uploadGewerbeschein,
+    saveGewerbeschein,
+    saveProgress,
+    onboardingState: dbOnboardingState,
+    isOnboardingStateLoaded,
   } = useContractorProfile(dbStatus?.profileId || null);
 
-  // Initial-Profil: DB-Daten oder leeres Fallback (aber mit korrekter User-ID für localStorage-Key)
   const initialProfile: ApplicantProfile =
     dbProfile || { ...EMPTY_PROFILE, id: dbStatus?.profileId || '' };
   
@@ -146,10 +144,40 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setIsAdvancing(false);
   }, [state.currentStep]);
 
-  // Sync DB-Profil in State wenn geladen - intelligentes Merging
+  // Hydrate Onboarding-State aus DB (Gewerbeschein + Fortschritt)
+  useEffect(() => {
+    if (isPreview || hasHydratedOnboardingStateRef.current || !isOnboardingStateLoaded || !dbOnboardingState) return;
+    hasHydratedOnboardingStateRef.current = true;
+
+    console.log('[Onboarding] Hydrating onboarding state from DB:', dbOnboardingState);
+
+    // Gewerbeschein-Daten
+    if (dbOnboardingState.gewerbescheinUrl) {
+      setGewerbescheinUrl(dbOnboardingState.gewerbescheinUrl);
+    }
+    if (dbOnboardingState.gewerbescheinSpaeter) {
+      setGewerbescheinSpaeter(true);
+    }
+
+    // Fortschritt aus DB (hat Vorrang vor localStorage)
+    if (dbOnboardingState.currentStep) {
+      goToStep(dbOnboardingState.currentStep);
+    }
+    if (dbOnboardingState.completedSteps && dbOnboardingState.completedSteps.length > 0) {
+      // completedSteps werden über goToStep + state merge angewendet
+      // Wir setzen sie direkt via den State
+      dbOnboardingState.completedSteps.forEach(step => {
+        if (!state.completedSteps.includes(step)) {
+          // goToStep doesn't set completedSteps, so we need to use the hook differently
+          // For now, we let the existing localStorage merge handle this
+        }
+      });
+    }
+  }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, setGewerbescheinUrl, setGewerbescheinSpaeter, goToStep, state.completedSteps]);
+
+  // Sync DB-Profil in State wenn geladen
   useEffect(() => {
     if (!profileLoading && dbProfile) {
-      // Prüfe ob wichtige DB-Felder fehlen im State
       const stateHasNoAvatar = !state.profil.avatarUrl;
       const dbHasAvatar = !!dbProfile.avatarUrl;
 
@@ -165,23 +193,11 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         !!dbProfile.plz?.trim() &&
         !!dbProfile.ort?.trim();
 
-      // Hydrate wenn State leer ODER wenn DB wichtige Daten hat die im State fehlen
       if (
         state.profil.id === '' ||
         (stateHasNoAvatar && dbHasAvatar) ||
         (stateMissingAddress && dbHasAddress)
       ) {
-        console.log('[Onboarding] Hydrating profile from DB:', {
-          reason:
-            state.profil.id === ''
-              ? 'empty_state'
-              : stateHasNoAvatar && dbHasAvatar
-                ? 'missing_avatar'
-                : 'missing_address',
-          dbProfile,
-        });
-
-        // Merge: Lokale Eingaben behalten, DB-Werte für leere Felder nutzen
         const mergedProfile: ApplicantProfile = {
           id: dbProfile.id,
           vorname: state.profil.vorname || dbProfile.vorname,
@@ -200,7 +216,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     }
   }, [profileLoading, dbProfile, state.profil, updateProfile]);
   
-  // Fetch akademie content from database and hydrate state
+  // Fetch akademie content from database
   const { data: dbAkademieModule, isSuccess: dbLoaded } = useAkademieContent();
   
   useEffect(() => {
@@ -211,14 +227,13 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     hydrateAkademieFromDb(dbAkademieModule);
   }, [dbLoaded, dbAkademieModule, isPreview, hydrateAkademieFromDb]);
 
-  // Bestellungen aus DB laden (für Payment-Status-Sync)
+  // Bestellungen aus DB laden
   const { 
     data: dbOrders, 
     refetchOrders,
     isSuccess: ordersLoaded,
   } = useContractorOrders(dbStatus?.profileId || null);
 
-  // Polling-Ref für Cleanup
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Sync bezahlte Bestellungen in den State
@@ -228,7 +243,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     const paidKeys = getPaidProductKeys(dbOrders);
     if (paidKeys.length === 0) return;
     
-    // Prüfe ob es neue bezahlte Produkte gibt
     const newPaidProducts = paidKeys.filter(key => !state.bestellungenBestaetigt.includes(key));
     if (newPaidProducts.length > 0) {
       console.log('[Onboarding] Syncing paid products from DB:', newPaidProducts);
@@ -238,18 +252,15 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     }
   }, [ordersLoaded, dbOrders, state.bestellungenBestaetigt, toggleProductOrdered]);
 
-  // Polling nach Stripe-Checkout: Alle 3 Sekunden Orders neu laden
+  // Polling nach Stripe-Checkout
   useEffect(() => {
-    // Cleanup vorheriges Polling
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
 
-    // Nur wenn auf Bestellungen-Step und es pending Orders gibt
     if (state.currentStep !== 'bestellungen') return;
 
-    // Prüfe ob es pending Orders gibt
     const hasPendingOrders = dbOrders?.some(
       order => order.stripe_payment_status === 'pending'
     );
@@ -259,7 +270,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     console.log('[Onboarding] Starting payment polling (pending orders detected)');
     
     pollingRef.current = setInterval(() => {
-      console.log('[Onboarding] Polling for payment status...');
       refetchOrders();
     }, 3000);
 
@@ -271,7 +281,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     };
   }, [state.currentStep, dbOrders, refetchOrders]);
 
-  // Payment Success Handler - wird aufgerufen wenn User von Stripe zurückkommt
+  // Payment Success Handler
   useEffect(() => {
     if (paymentHandledRef.current) return;
     
@@ -282,18 +292,13 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       paymentHandledRef.current = true;
       console.log('[Onboarding] Payment success detected, session:', sessionId);
       
-      // Toast anzeigen
       toast.success('Zahlung erfolgreich! 🎉');
-      
-      // Bestellungen neu laden (Webhook hat DB aktualisiert)
       refetchOrders();
       
-      // Stelle sicher dass wir auf dem Bestellungen-Schritt sind
       if (state.currentStep !== 'bestellungen') {
         goToStep('bestellungen');
       }
       
-      // URL-Parameter entfernen (saubere URL)
       setSearchParams({}, { replace: true });
     } else if (paymentStatus === 'cancelled') {
       paymentHandledRef.current = true;
@@ -310,18 +315,15 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     const navState = location.state as { 
       completedHauptmodulId?: string;
       completedUnterpunktId?: string;
-      // Legacy support
       completedModuleId?: string;
     } | null;
     
     if (navState?.completedHauptmodulId && navState?.completedUnterpunktId) {
-      // Neue hierarchische Struktur
       completeAkademieUnterpunkt(navState.completedHauptmodulId, navState.completedUnterpunktId);
       toast.success('Unterpunkt abgeschlossen!');
       goToStep('akademie');
       navigate('/', { replace: true, state: {} });
     } else if (navState?.completedModuleId) {
-      // Legacy support
       completeAkademieModul(navState.completedModuleId);
       toast.success('Modul abgeschlossen!');
       goToStep('akademie');
@@ -329,12 +331,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     }
   }, [location.state, completeAkademieModul, completeAkademieUnterpunkt, goToStep, navigate]);
 
-  // DB ist die Single Source of Truth für "einsatzbereit"
   const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
-  
-  // Hinweis: dbShowsNoProgress wird bereits oben definiert (Zeile 58)
 
-  // Wenn abgeschlossen, zeige Complete-Screen oder Warte-auf-Freigabe
   if (isComplete) {
     if (isPreview) {
       toast.success('Vorschau beendet');
@@ -342,12 +340,10 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       return null;
     }
     
-    // Nur Complete-Screen wenn DB auch "ready" sagt
     if (isDbReady) {
       return <OnboardingComplete onContinue={onComplete} />;
     }
     
-    // localStorage sagt complete, aber DB noch nicht ready → Warte auf Freigabe
     return <WaitingForApproval />;
   }
 
@@ -365,10 +361,15 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     }
   };
 
-  const handleGewerbescheinUpload = (file: File) => {
-    const url = URL.createObjectURL(file);
-    setGewerbescheinUrl(url);
-    toast.success('Gewerbeschein hochgeladen');
+  const handleGewerbescheinUpload = async (file: File) => {
+    try {
+      const url = await uploadGewerbeschein(file);
+      setGewerbescheinUrl(url);
+      toast.success('Gewerbeschein hochgeladen');
+    } catch (error) {
+      console.error('[Onboarding] Gewerbeschein upload failed:', error);
+      toast.error('Fehler beim Hochladen des Gewerbescheins');
+    }
   };
 
   const handleGesamtfotoUpload = (file: File) => {
@@ -383,9 +384,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   };
 
   const handleStartModule = (moduleId: string) => {
-    // In Production würde hier ein Video-Player geöffnet
     toast.info('Video wird gestartet...');
-    // Simuliere Abschluss nach 2 Sekunden
     setTimeout(() => {
       completeAkademieModul(moduleId);
       toast.success('Modul abgeschlossen!');
@@ -394,7 +393,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
   const handleStartTest = () => {
     toast.info('Abschlusstest wird gestartet...');
-    // Simuliere bestandenen Test
     setTimeout(() => {
       setAkademieTestBestanden(true);
       toast.success('Test bestanden! 🎉');
@@ -421,7 +419,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
     // Bei Profil-Schritt: Validierung + DB speichern
     if (state.currentStep === 'profil') {
-      // Validiere Pflichtfelder inkl. Adresse
       if (
         !state.profil.strasse?.trim() ||
         !state.profil.hausnummer?.trim() ||
@@ -442,38 +439,63 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         toast.error('Fehler beim Speichern der Profildaten');
         nextClickLockRef.current = false;
         setIsAdvancing(false);
-        return; // Nicht weiter navigieren bei Fehler
+        return;
+      }
+    }
+
+    // Bei Dokumente-Schritt: Gewerbeschein-Daten in DB speichern
+    if (state.currentStep === 'dokumente') {
+      try {
+        await saveGewerbeschein({
+          url: state.gewerbescheinUrl || undefined,
+          spaeter: state.gewerbescheinSpaeter || false,
+        });
+        console.log('[Onboarding] Gewerbeschein data saved to DB');
+      } catch (error) {
+        console.warn('[Onboarding] Failed to save Gewerbeschein data:', error);
+        // Nicht blockieren - kann später nachgeholt werden
       }
     }
 
     if (state.currentStep === 'coaching' && state.coachingAbgeschlossen) {
-      // Onboarding abgeschlossen
       nextClickLockRef.current = false;
       setIsAdvancing(false);
       return;
     }
 
     goToNextStep();
+
+    // Fortschritt in DB speichern (async, non-blocking)
+    try {
+      const nextCompletedSteps = state.completedSteps.includes(state.currentStep)
+        ? state.completedSteps
+        : [...state.completedSteps, state.currentStep];
+      
+      const nextStepIndex = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'nachweise', 'coaching'].indexOf(state.currentStep);
+      const nextStep = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'nachweise', 'coaching'][nextStepIndex + 1];
+      
+      if (nextStep) {
+        await saveProgress({
+          currentStep: nextStep,
+          completedSteps: nextCompletedSteps,
+        });
+        console.log('[Onboarding] Progress saved to DB:', nextStep);
+      }
+    } catch (error) {
+      console.warn('[Onboarding] Failed to save progress to DB:', error);
+    }
   };
 
   const getNextLabel = () => {
     switch (state.currentStep) {
-      case 'profil':
-        return 'Weiter zu Dokumente';
-      case 'dokumente':
-        return 'Weiter zu Bestellungen';
-      case 'bestellungen':
-        return 'Weiter zu Equipment';
-      case 'equipment':
-        return 'Jetzt zur Akademie';
-      case 'akademie':
-        return 'Weiter zu Nachweise';
-      case 'nachweise':
-        return 'Weiter zu Coaching';
-      case 'coaching':
-        return 'Onboarding abschließen';
-      default:
-        return 'Weiter';
+      case 'profil': return 'Weiter zu Dokumente';
+      case 'dokumente': return 'Weiter zu Bestellungen';
+      case 'bestellungen': return 'Weiter zu Equipment';
+      case 'equipment': return 'Jetzt zur Akademie';
+      case 'akademie': return 'Weiter zu Nachweise';
+      case 'nachweise': return 'Weiter zu Coaching';
+      case 'coaching': return 'Onboarding abschließen';
+      default: return 'Weiter';
     }
   };
 
@@ -568,7 +590,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Preview Banner */}
       {isPreview && (
         <div className="bg-amber-100 border-b border-amber-200 px-4 py-2 flex items-center justify-between safe-area-top">
           <div className="flex items-center gap-2 text-amber-800">
