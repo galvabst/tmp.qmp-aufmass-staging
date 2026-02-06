@@ -269,6 +269,7 @@ const Index = () => {
           trainerFreigabe: onboardingRecord.trainer_freigabe || false,
           profileId: onboardingRecord.profile_id || undefined,
           erstelltAm: onboardingRecord.erstellt_am || undefined,
+          onboardingId: onboardingRecord.id || undefined,
         } : undefined}
         onComplete={() => {
           if (isPreviewMode) {

@@ -16,6 +16,7 @@ import { useOnboardingState, clearOnboardingLocalStorage } from '@/hooks/useOnbo
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useContractorProfile } from '@/hooks/useContractorProfile';
 import { useContractorOrders, getPaidProductKeys } from '@/hooks/useContractorOrders';
+import { useAkademieFortschritt } from '@/hooks/useAkademieFortschritt';
 import {
   MOCK_PRODUCTS,
   MOCK_COACHING_SLOTS,
@@ -36,6 +37,7 @@ interface OnboardingScreenProps {
     trainerFreigabe: boolean;
     profileId?: string;
     erstelltAm?: string;
+    onboardingId?: string;
   };
 }
 
@@ -148,7 +150,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setIsAdvancing(false);
   }, [state.currentStep]);
 
-  // Hydrate Onboarding-State aus DB (Gewerbeschein + Fortschritt + Equipment)
+  // Hydrate Onboarding-State aus DB (Gewerbeschein + Fortschritt + Equipment + Akademie-Test)
   useEffect(() => {
     if (isPreview || hasHydratedOnboardingStateRef.current || !isOnboardingStateLoaded || !dbOnboardingState) return;
     hasHydratedOnboardingStateRef.current = true;
@@ -171,6 +173,12 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       console.log('[Onboarding] Equipment status hydrated from DB:', dbOnboardingState.equipmentStatus);
     }
 
+    // Akademie-Test-Status aus DB hydrieren
+    if (dbOnboardingState.akademieTestBestanden) {
+      setAkademieTestBestanden(true);
+      console.log('[Onboarding] Akademie test bestanden hydrated from DB');
+    }
+
     // Fortschritt aus DB (hat Vorrang vor localStorage)
     if (dbOnboardingState.currentStep) {
       goToStep(dbOnboardingState.currentStep);
@@ -181,7 +189,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         }
       });
     }
-  }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, setGewerbescheinUrl, setGewerbescheinSpaeter, goToStep, state.completedSteps, updateEquipmentStatus]);
+  }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, setGewerbescheinUrl, setGewerbescheinSpaeter, goToStep, state.completedSteps, updateEquipmentStatus, setAkademieTestBestanden]);
 
   // Sync DB-Profil in State wenn geladen
   useEffect(() => {
@@ -235,14 +243,17 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   
   // Fetch akademie content from database
   const { data: dbAkademieModule, isSuccess: dbLoaded } = useAkademieContent();
+
+  // Akademie-Fortschritt aus DB laden
+  const { data: completedLektionIds } = useAkademieFortschritt(dbStatus?.onboardingId || null);
   
   useEffect(() => {
     if (isPreview || hasHydratedRef.current) return;
     if (!dbLoaded || !dbAkademieModule || dbAkademieModule.length === 0) return;
     
     hasHydratedRef.current = true;
-    hydrateAkademieFromDb(dbAkademieModule);
-  }, [dbLoaded, dbAkademieModule, isPreview, hydrateAkademieFromDb]);
+    hydrateAkademieFromDb(dbAkademieModule, completedLektionIds);
+  }, [dbLoaded, dbAkademieModule, isPreview, hydrateAkademieFromDb, completedLektionIds]);
 
   // Bestellungen aus DB laden
   const { 

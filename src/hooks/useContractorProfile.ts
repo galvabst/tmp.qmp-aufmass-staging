@@ -11,6 +11,7 @@ interface ContractorOnboardingData {
   current_step?: string | null;
   completed_steps?: string[] | null;
   equipment_status?: Record<string, unknown> | null;
+  akademie_test_bestanden?: boolean | null;
 }
 
 export interface EquipmentItemStatus {
@@ -24,6 +25,7 @@ export interface ContractorOnboardingState {
   currentStep?: OnboardingStepId;
   completedSteps: OnboardingStepId[];
   equipmentStatus?: Record<string, EquipmentItemStatus>;
+  akademieTestBestanden: boolean;
 }
 
 /**
@@ -127,6 +129,7 @@ export function useContractorProfile(profileId: string | null) {
           currentStep: (row.current_step as OnboardingStepId) || undefined,
           completedSteps: (row.completed_steps as OnboardingStepId[]) || [],
           equipmentStatus: (row.equipment_status as Record<string, EquipmentItemStatus>) || undefined,
+          akademieTestBestanden: row.akademie_test_bestanden || false,
         };
       } catch {
         return null;

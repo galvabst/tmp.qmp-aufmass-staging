@@ -9497,6 +9497,7 @@ export type Database = {
       get_contractor_onboarding_state: {
         Args: { p_profile_id: string }
         Returns: {
+          akademie_test_bestanden: boolean
           anschrift_ort: string
           anschrift_plz: string
           anschrift_strasse: string
