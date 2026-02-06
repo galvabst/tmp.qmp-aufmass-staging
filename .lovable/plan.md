@@ -1,36 +1,59 @@
 
+# Akademie-Fortschritt aus DB synchronisieren
 
-# Dummy-Daten fuer Test-User: Onboarding komplett
+Aktuell wird der Akademie-Fortschritt (welche Lektionen abgeschlossen, ob Test bestanden) **nur im localStorage** gespeichert. Die Tabelle `contractor_akademie_lektions_fortschritt` wird zwar befuellt, aber nie vom Frontend gelesen. Dadurch zeigt die App den Akademie-Schritt nicht als "fertig" an, obwohl die DB-Daten vorhanden sind.
 
-User: **loloy47164@azeriom.com** (Anton, thc test)
-Onboarding-ID: `17ef2646-e455-4d99-88ad-443b44ed9594`
-Profile-ID: `e9e3e91a-bf72-4350-b110-8526292fb6a8`
+## Aenderungen
 
-## Was wird gemacht (3 SQL-Statements, reine Daten-Updates)
+### 1. Neuer Hook: `useAkademieFortschritt`
 
-### 1. Onboarding-Record auf "ready" setzen
+Neuer Hook, der die abgeschlossenen Lektions-IDs aus `contractor_akademie_lektions_fortschritt` laedt (direkt via `thermocheckClient`, wie `useAkademieContent` es auch tut).
 
-- `onboarding_status` → `ready`
-- `trainer_freigabe` → `true`
-- `trainer_freigabe_am` → `now()`
-- `current_step` → `coaching` (letzter Schritt)
-- `completed_steps` → alle 7 Schritte
+Liefert: `Set<string>` mit allen `lektion_id`s die `status = 'completed'` haben.
 
-### 2. Bestellungen: Bestehende auf "paid" setzen + fehlende anlegen
+### 2. Neues DB-Feld: `akademie_test_bestanden` auf `contractor_onboarding`
 
-Aktuell existiert nur 1 Bestellung (tshirt/pending). Es werden:
-- Die bestehende auf `paid` gesetzt
-- 5 weitere Pflichtprodukte als bezahlt eingefuegt: `schlappen`, `pullover`, `ausweiskarte`, `scanner-lizenz`, `google-workspace`
+Eine neue Spalte `akademie_test_bestanden boolean DEFAULT false` auf `thermocheck.contractor_onboarding`, damit der Test-Status persistent ist. Fuer Anton wird sie direkt auf `true` gesetzt.
 
-### 3. Akademie-Fortschritt: Alle 53 Lektionen als "completed"
+### 3. RPC erweitern: `get_contractor_onboarding_state`
 
-Fuer jede aktive Lektion in `contractor_akademie_lektionen` wird ein Eintrag in `contractor_akademie_lektions_fortschritt` mit `status = 'completed'` erstellt. Der `contractor_id` ist die Onboarding-ID.
+Die RPC-Funktion wird um `akademie_test_bestanden` erweitert, sodass der Wert beim Laden des Onboarding-States mitkommt.
 
-### Ergebnis
+### 4. `OnboardingScreen` hydration erweitern
 
-Nach Ausfuehrung und Browser-Refresh:
-- Onboarding zeigt "Abgeschlossen" / leitet zur Haupt-App weiter
-- Alle Bestellungen als bezahlt
-- Alle Akademie-Lektionen als abgeschlossen
-- Trainer-Freigabe erteilt
+Nach dem Laden der Akademie-Module und des Fortschritts aus der DB:
+- Alle Lektionen, deren IDs im Fortschritts-Set sind, werden als `abgeschlossen: true` markiert
+- `akademieTestBestanden` wird aus dem DB-State geladen
 
+### 5. Test-User: `akademie_test_bestanden = true` setzen
+
+Migration setzt `akademie_test_bestanden = true` fuer Antons Onboarding-Record.
+
+## Technische Details
+
+```text
+Datenfluss (neu):
+  DB: contractor_akademie_lektions_fortschritt
+    |
+    v
+  useAkademieFortschritt() --> Set<lektion_id>
+    |
+    v
+  OnboardingScreen: hydrateAkademieFromDb() 
+    merge mit completedLektionIds --> abgeschlossen: true
+    
+  DB: contractor_onboarding.akademie_test_bestanden
+    |
+    v  
+  useContractorProfile --> onboardingState.akademieTestBestanden
+    |
+    v
+  OnboardingScreen: setAkademieTestBestanden(true)
+```
+
+### Dateien die geaendert werden:
+- **Neue Datei**: `src/hooks/useAkademieFortschritt.ts` - Hook zum Laden der Fortschrittsdaten
+- **Migration**: Spalte `akademie_test_bestanden` + Update fuer Anton
+- **`src/hooks/useContractorProfile.ts`** - `akademieTestBestanden` aus RPC-Response mappen
+- **`src/components/OnboardingScreen.tsx`** - Fortschritt aus DB in Akademie-State hydrieren + `akademieTestBestanden` aus DB laden
+- **RPC** `get_contractor_onboarding_state` - Neues Feld zurueckgeben
