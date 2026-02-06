@@ -11,12 +11,12 @@ export function useStripeCheckout() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const startCheckout = useCallback(async (produktKey: string, groesse?: string): Promise<boolean> => {
+  const startCheckout = useCallback(async (produktKey: string, groesse?: string, menge?: number): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log(`[useStripeCheckout] Starting checkout for: ${produktKey}, groesse: ${groesse}`);
+      console.log(`[useStripeCheckout] Starting checkout for: ${produktKey}, groesse: ${groesse}, menge: ${menge || 1}`);
 
       const { data, error: invokeError } = await supabase.functions.invoke<CheckoutResult>(
         "create-checkout-session",
@@ -24,6 +24,7 @@ export function useStripeCheckout() {
           body: { 
             produkt_key: produktKey, 
             groesse: groesse || undefined,
+            menge: menge || 1,
           },
         }
       );
