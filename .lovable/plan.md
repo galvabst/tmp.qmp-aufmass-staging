@@ -1,50 +1,80 @@
 
 
-# Neue Akademie-Lektion 6.3.2 anlegen
+# Akademie-Architektur Fix: Nummerierung und Hierarchie
 
-## Was passiert
+## Probleme
 
-Eine weitere Lektion wird in Modul 6 eingefuegt -- direkt nach der gerade angelegten 6.3.1.
+1. **Nummerierung off-by-one**: Modul 0 ("Willkommen & Orientierung") wird als "1" angezeigt, dadurch verschiebt sich alles um 1. Modul 6 (Datenerhebung) zeigt als "7".
+2. **Fehlende Code-basierte Nummerierung**: Das Frontend nutzt `hauptmodulIndex + 1` statt den tatsaechlichen `code` aus der Datenbank (z.B. `modul-6-datenerhebung` -> Nummer 6).
+3. **Keine Hierarchie-Darstellung**: Lektionen wie 6-3-1 und 6-3-2 sind Unterpunkte von 6-3, werden aber flach neben den anderen angezeigt.
 
-## Aktuelle Struktur Modul 6 (nach letzter Aenderung)
+## Loesung
 
-| Code  | Reihenfolge | Titel |
-|-------|-------------|-------|
-| 6-1   | 1           | Prinzipien guter Datenerhebung |
-| 6-2   | 2           | Mess- & Aufnahme-Grundregeln |
-| 6-3   | 3           | Dokumentationsstandard |
-| 6-3-1 | 4           | Raumweise Gebaeude Daten in der Software kurz erklaert |
-| 6-4   | 5           | Belegstandard: Foto-Qualitaet |
-| 6-5   | 6           | Umgang mit fehlenden Informationen |
+### Schritt 1: Typen erweitern
 
-## Neue Struktur nach Aenderung
+**Datei: `src/types/onboarding.ts`**
 
-| Code  | Reihenfolge | Titel |
-|-------|-------------|-------|
-| 6-1   | 1           | Prinzipien guter Datenerhebung |
-| 6-2   | 2           | Mess- & Aufnahme-Grundregeln |
-| 6-3   | 3           | Dokumentationsstandard |
-| 6-3-1 | 4           | Raumweise Gebaeude Daten in der Software kurz erklaert |
-| **6-3-2** | **5** | **Heizlastberechnung: Allgemeine Standards und Grundlagen** |
-| 6-4   | 6           | Belegstandard: Foto-Qualitaet |
-| 6-5   | 7           | Umgang mit fehlenden Informationen |
+`AkademieHauptmodul` und `AkademieUnterpunkt` bekommen ein `code`-Feld:
 
-## Technische Umsetzung
+```text
+AkademieHauptmodul {
+  ...
+  code: string;        // z.B. "modul-6-datenerhebung"
+  displayNummer: number; // Extrahiert: 6
+}
 
-Eine SQL-Datenoperation (kein Schema-Change):
+AkademieUnterpunkt {
+  ...
+  code: string;        // z.B. "6-3-1"
+}
+```
 
-**Schritt 1**: Bestehende Lektionen ab Reihenfolge 5 um 1 nach hinten verschieben.
+### Schritt 2: Hook anpassen (useAkademieContent)
 
-**Schritt 2**: Neue Lektion einfuegen mit:
-- `modul_id`: `a4cb8918-c503-4b7d-8c0c-84daca3aac65` (Modul 6)
-- `code`: `6-3-2`
-- `titel`: "Heizlastberechnung: Allgemeine Standards und Grundlagen"
-- `reihenfolge`: 5
-- `video_url`: `https://iframe.mediadelivery.net/play/591760/338cc614-9947-4e96-aae3-a5a524f47779`
-- `video_dauer_minuten`: 5 (Schaetzwert -- bei Bedarf anpassbar)
-- `ist_aktiv`: true
+**Datei: `src/hooks/useAkademieContent.ts`**
 
-## Kein Frontend-Code betroffen
+- `code` aus der DB in die App-Typen durchreichen
+- `displayNummer` aus dem Modul-Code extrahieren (z.B. `modul-6-datenerhebung` -> `6`)
+- Modul 0 bekommt `displayNummer = 0`
 
-Gleicher Mechanismus wie bei 6.3.1: Der Hook laedt alle aktiven Lektionen nach Reihenfolge sortiert, die neue erscheint automatisch.
+### Schritt 3: Nummerierung im UI fixen
+
+**Datei: `src/components/onboarding/steps/AcademyStep.tsx`**
+
+Zeile 159: Statt `hauptmodulIndex + 1` den extrahierten `displayNummer`-Wert verwenden:
+
+```text
+Vorher:  hauptmodulIndex + 1
+Nachher: hauptmodul.displayNummer
+```
+
+Dies loest das Off-by-one-Problem sofort -- Modul 0 zeigt "0", Modul 6 zeigt "6".
+
+### Schritt 4: Sub-Lektionen visuell gruppieren (optional aber empfohlen)
+
+Lektionen mit Code-Pattern `X-Y-Z` (z.B. 6-3-1, 6-3-2) werden als Unterpunkte der Parent-Lektion (6-3) erkannt und leicht eingerueckt dargestellt. Dies nutzt die bereits existierende `parent_lektion_id`-Spalte in der DB oder alternativ das Code-Pattern.
+
+Konkret:
+- Lektion 6-3 ("Dokumentationsstandard") wird zur Gruppen-Ueberschrift
+- 6-3-1 und 6-3-2 werden darunter eingerueckt angezeigt
+- Eine Gruppen-Lektion gilt als abgeschlossen wenn alle Kinder fertig sind
+
+## Betroffene Dateien
+
+| Datei | Aenderung |
+|-------|-----------|
+| `src/types/onboarding.ts` | `code` und `displayNummer` Felder hinzufuegen |
+| `src/hooks/useAkademieContent.ts` | `code` durchreichen, `displayNummer` extrahieren |
+| `src/components/onboarding/steps/AcademyStep.tsx` | Nummerierung auf `displayNummer` umstellen |
+| `src/hooks/useOnboardingState.ts` | `code` in Hydration-Logik beruecksichtigen |
+
+## Kein DB-Change noetig
+
+Alle Daten (`code`, `reihenfolge`) sind bereits korrekt in der Datenbank. Es handelt sich rein um Frontend-Fixes.
+
+## Risiken
+
+- **Gering**: Reine UI-Aenderung, keine Daten-Migration
+- **Hydration**: Der `useOnboardingState`-Hook muss das neue `code`-Feld beim Merge von DB-Daten und localStorage beruecksichtigen -- wird mitgemacht
+- **Abschlusstest-Logik**: Modul 0 zaehlt weiterhin zum Gesamtfortschritt (alle Module muessen abgeschlossen werden) -- falls Modul 0 NICHT zum Test zaehlen soll, bitte Bescheid geben
 
