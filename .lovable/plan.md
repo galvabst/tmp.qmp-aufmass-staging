@@ -1,49 +1,79 @@
 
-# Fix: Timer soll echte Video-Dauer nutzen statt DB-Schaetzung
 
-## Problem
+# Einheitliche Accordion-Lektionen + Abschlusspruefung beibehalten
 
-Der Timer "X:XX verbleibend" basiert auf `video_dauer_minuten` aus der Datenbank (z.B. 5 Min). Wenn das Video tatsaechlich kuerzer ist (z.B. 47 Sekunden wie im Screenshot), muss der User sinnlos warten. Der Bunny Player liefert die echte Dauer bereits im `timeupdate`-Event (`data.duration`), aber der Code ignoriert sie.
+## Was der User will
 
-## Loesung
+Aktuell gibt es zwei verschiedene Darstellungen innerhalb eines Moduls:
+- **Einzel-Lektionen** (6.1, 6.2, 6.4, 6.5): Flache Zeilen mit Play-Button, direkt sichtbar
+- **Gruppen-Lektionen** (6.3): Aufklappbares Accordion mit Kindern drin
 
-**Eine Datei, eine Aenderung:** `src/hooks/useVideoProgress.ts`
+Der User will: **ALLE Lektionen einheitlich als aufklappbare Zeilen**, genau wie 6.3 es schon macht. Auch wenn eine Lektion keine Kinder hat, wird sie trotzdem als Accordion dargestellt -- beim Aufklappen sieht man dann die eine Lerneinheit darin.
 
-Im `useBunnyPlayerProgress`-Hook:
+Zusaetzlich: Die **Abschlusspruefung** (globaler Test + "bestanden"-Anzeige) wurde im letzten Refactor beibehalten (Zeilen 324-342), ist aber im Screenshot nicht sichtbar -- moeglicherweise scrollt der User nicht weit genug. Sie bleibt auf jeden Fall erhalten.
 
-1. `totalDurationSeconds` wird von `const` zu einem `useState` -- initial auf den DB-Wert gesetzt
-2. Im `timeupdate`-Event (Zeile 244) wird `data.duration` ausgelesen und uebernimmt den DB-Wert, sobald der Player die echte Dauer liefert
-3. `requiredSeconds` und alle abgeleiteten Werte (Timer, Prozent, canUnlockTabs) passen sich automatisch an
+## Aenderungen
+
+**Nur eine Datei:** `src/components/onboarding/steps/AcademyStep.tsx`
+
+### A) Einzel-Lektionen werden zu Mini-Accordions
+
+Statt `LektionRow` direkt zu rendern, wird JEDE Lektion (ob Gruppe oder Einzel) als aufklappbare Zeile dargestellt:
 
 ```text
-Vorher:
-  const totalDurationSeconds = Math.round(videoDurationMinutes * 60);  // statisch aus DB
-  
-  player.on('timeupdate', (data) => {
-    // data.duration wird IGNORIERT
-  });
+Vorher (Modul 6 aufgeklappt):
+  [Play] 6.1 Prinzipien guter Datenerhebung  8 Min.  [>]    ← flache Zeile
+  [Play] 6.2 Mess- & Aufnahme-Grundregeln   10 Min.  [>]    ← flache Zeile
+  [v]   6.3 Dokumentationsstandard            1/2  [v]       ← Accordion
+  [Play] 6.4 Belegstandard                    8 Min.  [>]    ← flache Zeile
 
-Nachher:
-  const [totalDurationSeconds, setTotalDurationSeconds] = useState(Math.round(videoDurationMinutes * 60));
-  
-  player.on('timeupdate', (data) => {
-    if (data.duration > 0 && data.duration !== totalDurationSeconds) {
-      setTotalDurationSeconds(Math.round(data.duration));  // echte Dauer uebernehmen
-    }
-  });
+Nachher (Modul 6 aufgeklappt):
+  [v]   6.1 Prinzipien guter Datenerhebung          0/1 [v]  ← Accordion
+  [v]   6.2 Mess- & Aufnahme-Grundregeln             0/1 [v]  ← Accordion
+  [v]   6.3 Dokumentationsstandard                    0/2 [v]  ← Accordion (wie bisher)
+  [v]   6.4 Belegstandard: Foto-Qualitaet            0/1 [v]  ← Accordion
+  [v]   6.5 Umgang mit fehlenden Informationen        0/1 [v]  ← Accordion
 ```
 
-Das `ended`-Event (Zeile 241) muss ebenfalls den dynamischen State nutzen statt die alte Konstante.
+Beim Aufklappen einer Einzel-Lektion (z.B. 6.1) erscheint darin die eine Lerneinheit als klickbare Zeile (mit Dauer, Play-Icon, Navigations-Link).
 
-## Warum nur diese eine Aenderung reicht
+### B) Vereinheitlichte Komponente
 
-- Alle abgeleiteten Werte (`requiredSeconds`, `canUnlockTabs`, `percentComplete`, `timeRemainingFormatted`) werden bereits reaktiv aus `totalDurationSeconds` berechnet -- sobald der State sich aendert, aktualisiert sich alles automatisch
-- Kein DB-Change noetig
-- Kein UI-Change noetig
+Die bisherige Trennung `LektionRow` vs. `GruppenLektion` wird zusammengefuehrt zu einer einzigen `LektionAccordion`-Komponente:
 
-## Edge Cases
+- Zeigt immer: Code (Punkt-Notation), Titel, Fortschritts-Badge (x/y), Aufklapp-Chevron
+- Aufgeklappt: Zeigt Kind-Lektionen (bei Gruppen) ODER sich selbst als einzelne klickbare Lerneinheit (bei Einzel-Lektionen)
+- Einheitliche Farben: Orange Icon-Kreis (offen), gruener Haken (abgeschlossen)
 
-- Video laenger als DB-Wert: Timer passt sich nach oben an -- korrekt
-- Video kuerzer als DB-Wert: Timer passt sich nach unten an -- genau der Fix
-- Player.js ladt nicht: Fallback bleibt der DB-Wert (bisheriges Verhalten)
-- `data.duration` ist 0 oder undefined: Guard-Clause verhindert Uebernahme
+### C) Farbvereinheitlichung
+
+- Alle Lektions-Accordions: Gleicher Rahmen (`border`), gleicher Hintergrund (weiss/card)
+- Status-Icon links: Einheitlich orange Kreis (offen) oder gruen (abgeschlossen)
+- Badge rechts: Einheitlich `0/1` oder `0/2` Format
+
+### D) Abschlusspruefung bleibt
+
+Die globale Abschlusspruefung (Zeilen 324-342) bleibt exakt wie sie ist:
+- Erscheint wenn `allModulesComplete && !testBestanden`
+- "Test starten"-Button
+- Gruene "bestanden"-Anzeige nach Bestehen
+
+Kein Change an dieser Logik.
+
+## Technische Details
+
+| Was | Wie |
+|-----|-----|
+| `LektionRow` | Wird zur internen Darstellung innerhalb eines aufgeklappten Accordions (nur Klick-Zeile mit Play + Dauer) |
+| `GruppenLektion` | Wird zur generischen `LektionAccordion`-Komponente die sowohl Gruppen als auch Einzel-Lektionen handelt |
+| Einzel-Lektion ohne Kinder | Accordion mit einer einzelnen `LektionRow` darin (die Lektion selbst) |
+| Gruppen-Lektion mit Kindern | Accordion mit mehreren `LektionRow` darin (wie bisher bei 6.3) |
+| Rendering im Hauptmodul | Alle `unterpunkte` werden einheitlich als `LektionAccordion` gerendert -- kein `if/else` mehr |
+| Abschlusspruefung | Keine Aenderung, bleibt nach dem Modul-Accordion |
+
+## Betroffene Dateien
+
+Nur **eine Datei**: `src/components/onboarding/steps/AcademyStep.tsx`
+
+Keine Logik-, Hook- oder DB-Aenderungen noetig.
+
