@@ -361,9 +361,10 @@ export function useOnboardingState(
         if (isPreview) return true;
         const drohne = state.equipmentStatus['drohne'];
         const iphone = state.equipmentStatus['iphone-lidar'];
+        const massband = state.equipmentStatus['massband'];
         return !!(
           (drohne?.hatEigenes && drohne?.nachweisUrl) || (drohne?.hatEigenes === false)
-        ) && !!(iphone?.hatEigenes);
+        ) && !!(iphone?.hatEigenes) && massband?.hatEigenes !== undefined;
       case 'akademie':
         if (isPreview) return true;
         // Prüfe ob alle Unterpunkte aller Hauptmodule abgeschlossen sind UND Test bestanden
