@@ -16,6 +16,7 @@ export interface ContractorProdukt {
   verfuegbare_groessen: string[] | null;
   bild_url: string | null;
   ist_pflicht: boolean;
+  erlaubt_mehrfach: boolean;
 }
 
 export function useContractorProducts() {

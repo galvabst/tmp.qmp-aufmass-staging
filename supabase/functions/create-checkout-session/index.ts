@@ -10,6 +10,7 @@ const corsHeaders = {
 interface CheckoutRequest {
   produkt_key: string;
   groesse?: string;
+  menge?: number;
 }
 
 Deno.serve(async (req) => {
@@ -56,6 +57,7 @@ Deno.serve(async (req) => {
     // 4. Parse request body
     const body: CheckoutRequest = await req.json();
     const { produkt_key, groesse } = body;
+    const menge = Math.max(1, Math.min(10, Math.floor(body.menge || 1)));
 
     if (!produkt_key) {
       return new Response(
@@ -116,7 +118,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[create-checkout-session] Creating checkout for product: ${produkt_key}, price: ${produkt.stripe_price_id}`);
+    // Validate menge against erlaubt_mehrfach
+    if (menge > 1 && !produkt.erlaubt_mehrfach) {
+      console.error(`[create-checkout-session] Product ${produkt_key} does not allow multiple quantities`);
+      return new Response(
+        JSON.stringify({ error: "Dieses Produkt kann nur einzeln bestellt werden" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[create-checkout-session] Creating checkout for product: ${produkt_key}, price: ${produkt.stripe_price_id}, menge: ${menge}`);
 
     // 8. Initialize Stripe
     const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -174,7 +185,7 @@ Deno.serve(async (req) => {
       line_items: [
         {
           price: produkt.stripe_price_id,
-          quantity: 1,
+          quantity: menge,
         },
       ],
       success_url: successUrl,
@@ -184,6 +195,7 @@ Deno.serve(async (req) => {
         onboarding_id: onboarding.id,
         produkt_key,
         groesse: groesse || "",
+        menge: String(menge),
       },
       locale: "de",
     };
@@ -191,36 +203,11 @@ Deno.serve(async (req) => {
     const session = await stripe.checkout.sessions.create(sessionParams);
     console.log(`[create-checkout-session] Created session: ${session.id}`);
 
-    // 13. Create or update pending order in contractor_bestellungen (UPSERT for re-checkout safety)
-    // First check if a pending order exists for this product
-    const { data: existingOrder } = await supabaseAdmin
-      .schema("thermocheck")
-      .from("contractor_bestellungen")
-      .select("id, stripe_payment_status")
-      .eq("onboarding_id", onboarding.id)
-      .eq("produkt_key", produkt_key)
-      .eq("stripe_payment_status", "pending")
-      .maybeSingle();
-
-    if (existingOrder) {
-      // Update existing pending order with new session
-      const { error: updateError } = await supabaseAdmin
-        .schema("thermocheck")
-        .from("contractor_bestellungen")
-        .update({
-          stripe_session_id: session.id,
-          stripe_customer_id: customerId,
-          groesse: groesse || null,
-        })
-        .eq("id", existingOrder.id);
-
-      if (updateError) {
-        console.error("[create-checkout-session] Failed to update order:", updateError);
-      } else {
-        console.log(`[create-checkout-session] Updated pending order ${existingOrder.id} with new session: ${session.id}`);
-      }
-    } else {
-      // Create new order
+    // 13. Create or update pending order in contractor_bestellungen
+    // For multi-order products: always insert new row
+    // For single-order products: upsert on existing pending order
+    if (produkt.erlaubt_mehrfach) {
+      // Multi-order: always create new order
       const { error: insertError } = await supabaseAdmin
         .schema("thermocheck")
         .from("contractor_bestellungen")
@@ -234,13 +221,64 @@ Deno.serve(async (req) => {
           betrag_netto: produkt.preis_netto,
           betrag_brutto: produkt.preis_brutto,
           groesse: groesse || null,
+          menge,
         });
 
       if (insertError) {
         console.error("[create-checkout-session] Failed to create order:", insertError);
-        // Don't fail - the webhook will handle it as a fallback
       } else {
-        console.log(`[create-checkout-session] Created pending order for session: ${session.id}`);
+        console.log(`[create-checkout-session] Created pending order (multi) for session: ${session.id}, menge: ${menge}`);
+      }
+    } else {
+      // Single-order: check for existing pending order
+      const { data: existingOrder } = await supabaseAdmin
+        .schema("thermocheck")
+        .from("contractor_bestellungen")
+        .select("id, stripe_payment_status")
+        .eq("onboarding_id", onboarding.id)
+        .eq("produkt_key", produkt_key)
+        .eq("stripe_payment_status", "pending")
+        .maybeSingle();
+
+      if (existingOrder) {
+        const { error: updateError } = await supabaseAdmin
+          .schema("thermocheck")
+          .from("contractor_bestellungen")
+          .update({
+            stripe_session_id: session.id,
+            stripe_customer_id: customerId,
+            groesse: groesse || null,
+            menge: 1,
+          })
+          .eq("id", existingOrder.id);
+
+        if (updateError) {
+          console.error("[create-checkout-session] Failed to update order:", updateError);
+        } else {
+          console.log(`[create-checkout-session] Updated pending order ${existingOrder.id} with new session: ${session.id}`);
+        }
+      } else {
+        const { error: insertError } = await supabaseAdmin
+          .schema("thermocheck")
+          .from("contractor_bestellungen")
+          .insert({
+            onboarding_id: onboarding.id,
+            produkt_typ: produkt.produkt_typ,
+            produkt_key: produkt_key,
+            stripe_session_id: session.id,
+            stripe_payment_status: "pending",
+            stripe_customer_id: customerId,
+            betrag_netto: produkt.preis_netto,
+            betrag_brutto: produkt.preis_brutto,
+            groesse: groesse || null,
+            menge: 1,
+          });
+
+        if (insertError) {
+          console.error("[create-checkout-session] Failed to create order:", insertError);
+        } else {
+          console.log(`[create-checkout-session] Created pending order for session: ${session.id}`);
+        }
       }
     }
 

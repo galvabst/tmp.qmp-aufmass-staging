@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { ProductImageSlideshow } from '../ProductImageSlideshow';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { SizeSelector } from '../SizeSelector';
+import { QuantitySelector } from '../QuantitySelector';
 import { useOnboardingSizes } from '@/hooks/useOnboardingSizes';
 import { brauchtGroessenauswahl } from '@/lib/onboarding-sizes';
 import { useStripeCheckout } from '@/hooks/useStripeCheckout';
@@ -66,6 +67,7 @@ export function OrdersStep({
   
   // Größenauswahl State
   const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const { updateSize, isUpdating } = useOnboardingSizes();
   
   // Stripe Checkout Hook
@@ -121,6 +123,13 @@ export function OrdersStep({
     }
   };
 
+  // Helper: Ist Produkt mehrfach bestellbar?
+  const isMultiOrder = (produktId: string): boolean => {
+    return ['tshirt', 'poloshirt', 'pullover', 'schlappen'].includes(produktId);
+  };
+
+  const getQuantity = (produktId: string): number => quantities[produktId] || 1;
+
   // Stripe Checkout starten statt externem Link
   const handleOrderClick = async (product: OnboardingProduct) => {
     const sizeType = brauchtGroessenauswahl(product.id);
@@ -130,8 +139,8 @@ export function OrdersStep({
       return; // Button sollte disabled sein, aber sicherheitshalber
     }
     
-    // Starte Stripe Checkout - Redirect erfolgt automatisch
-    await startCheckout(product.id, selectedSizes[product.id]);
+    // Starte Stripe Checkout mit Menge
+    await startCheckout(product.id, selectedSizes[product.id], getQuantity(product.id));
   };
 
   // Stripe Checkout für Oberteil-Varianten
@@ -143,8 +152,8 @@ export function OrdersStep({
       return; // Button sollte disabled sein
     }
     
-    // Starte Stripe Checkout - Redirect erfolgt automatisch
-    await startCheckout(variant.id, selectedSizes[variant.id]);
+    // Starte Stripe Checkout mit Menge
+    await startCheckout(variant.id, selectedSizes[variant.id], getQuantity(variant.id));
   };
 
   // Wenn alle bestellt sind
@@ -286,8 +295,17 @@ export function OrdersStep({
               <Badge variant="secondary">Preis im Shop (einmalig)</Badge>
             </div>
 
+            {/* Mengenauswahl für Oberteil-Variante */}
+            <div className="mt-4">
+              <QuantitySelector
+                value={getQuantity(nextVariant.id)}
+                onChange={(v) => setQuantities(prev => ({ ...prev, [nextVariant.id]: v }))}
+                disabled={isUpdating || isCheckoutLoading}
+              />
+            </div>
+
             {/* Größenauswahl für Oberteil-Variante */}
-            <div className="mt-6">
+            <div className="mt-4">
               <SizeSelector
                 type="kleidung"
                 selectedSize={selectedSizes[nextVariant.id] || null}
@@ -429,6 +447,17 @@ export function OrdersStep({
               selectedSize={selectedSizes[currentProduct.id] || null}
               onSizeSelect={(size) => handleSizeSelect(currentProduct.id, size)}
               disabled={isUpdating || isCheckoutLoading}
+            />
+          </div>
+        )}
+
+        {/* Mengenauswahl für Kleidungsprodukte */}
+        {isMultiOrder(currentProduct.id) && (
+          <div className="mt-6">
+            <QuantitySelector
+              value={getQuantity(currentProduct.id)}
+              onChange={(v) => setQuantities(prev => ({ ...prev, [currentProduct.id]: v }))}
+              disabled={isCheckoutLoading}
             />
           </div>
         )}
