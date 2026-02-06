@@ -10,6 +10,7 @@ export interface ContractorOnboardingRecord {
   trainer_freigabe_am: string | null;
   trainer_freigabe_von: string | null;
   ag_domain_email: string | null;
+  erstellt_am: string | null;
   // Aggregated data
   lektionen_abgeschlossen: number;
   bestellungen_bezahlt: number;
@@ -105,6 +106,7 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
           trainer_freigabe_am: record.trainer_freigabe_am,
           trainer_freigabe_von: record.trainer_freigabe_von,
           ag_domain_email: record.ag_domain_email,
+          erstellt_am: record.erstellt_am,
           lektionen_abgeschlossen: record.lektionen_abgeschlossen || 0,
           bestellungen_bezahlt: record.bestellungen_bezahlt || 0,
         },

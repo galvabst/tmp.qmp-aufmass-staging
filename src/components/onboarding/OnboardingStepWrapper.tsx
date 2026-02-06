@@ -10,6 +10,7 @@ import {
   isStepCompleted,
 } from '@/types/onboarding';
 import { ONBOARDING_STEPS } from '@/lib/onboarding-config';
+import { OnboardingCountdown } from './OnboardingCountdown';
 
 interface OnboardingStepWrapperProps {
   currentStep: OnboardingStepId;
@@ -23,6 +24,7 @@ interface OnboardingStepWrapperProps {
   nextDisabled?: boolean;
   showBack?: boolean;
   progress: number;
+  erstelltAm?: string;
 }
 
 export function OnboardingStepWrapper({
@@ -37,12 +39,18 @@ export function OnboardingStepWrapper({
   nextDisabled = false,
   showBack = true,
   progress,
+  erstelltAm,
 }: OnboardingStepWrapperProps) {
   const currentIndex = getStepIndex(currentStep);
   const totalSteps = STEP_ORDER.length;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Countdown-Banner */}
+      {erstelltAm && (
+        <OnboardingCountdown erstelltAm={erstelltAm} />
+      )}
+
       {/* Header mit Schritt-Indikator */}
       <header className="bg-primary text-primary-foreground safe-area-top">
         <div className="p-4">
