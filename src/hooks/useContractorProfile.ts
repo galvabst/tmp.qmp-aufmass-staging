@@ -10,6 +10,12 @@ interface ContractorOnboardingData {
   gewerbeschein_spaeter?: boolean | null;
   current_step?: string | null;
   completed_steps?: string[] | null;
+  equipment_status?: Record<string, unknown> | null;
+}
+
+export interface EquipmentItemStatus {
+  hatEigenes: boolean;
+  nachweisUrl?: string;
 }
 
 export interface ContractorOnboardingState {
@@ -17,6 +23,7 @@ export interface ContractorOnboardingState {
   gewerbescheinSpaeter: boolean;
   currentStep?: OnboardingStepId;
   completedSteps: OnboardingStepId[];
+  equipmentStatus?: Record<string, EquipmentItemStatus>;
 }
 
 /**
@@ -119,6 +126,7 @@ export function useContractorProfile(profileId: string | null) {
           gewerbescheinSpaeter: row.gewerbeschein_spaeter || false,
           currentStep: (row.current_step as OnboardingStepId) || undefined,
           completedSteps: (row.completed_steps as OnboardingStepId[]) || [],
+          equipmentStatus: (row.equipment_status as Record<string, EquipmentItemStatus>) || undefined,
         };
       } catch {
         return null;
@@ -264,6 +272,21 @@ export function useContractorProfile(profileId: string | null) {
       });
     },
   });
+
+  // Equipment-Status in DB speichern
+  const saveEquipmentStatusMutation = useMutation({
+    mutationFn: async (equipmentStatus: Record<string, EquipmentItemStatus>) => {
+      await (supabase.rpc as unknown as (
+        fn: string,
+        params: Record<string, unknown>
+      ) => Promise<{ error: Error | null }>)('update_contractor_equipment_status', {
+        p_equipment: equipmentStatus,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
+    },
+  });
   
   return {
     data: query.data,
@@ -281,6 +304,7 @@ export function useContractorProfile(profileId: string | null) {
     uploadGewerbeschein: gewerbescheinMutation.mutateAsync,
     saveGewerbeschein: saveGewerbescheinMutation.mutateAsync,
     saveProgress: saveProgressMutation.mutateAsync,
+    saveEquipmentStatus: saveEquipmentStatusMutation.mutateAsync,
     
     // Mutation states
     isUpdating: updateMutation.isPending,

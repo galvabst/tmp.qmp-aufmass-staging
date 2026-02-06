@@ -106,6 +106,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     uploadGewerbeschein,
     saveGewerbeschein,
     saveProgress,
+    saveEquipmentStatus,
     onboardingState: dbOnboardingState,
     isOnboardingStateLoaded,
   } = useContractorProfile(dbStatus?.profileId || null);
@@ -146,7 +147,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setIsAdvancing(false);
   }, [state.currentStep]);
 
-  // Hydrate Onboarding-State aus DB (Gewerbeschein + Fortschritt)
+  // Hydrate Onboarding-State aus DB (Gewerbeschein + Fortschritt + Equipment)
   useEffect(() => {
     if (isPreview || hasHydratedOnboardingStateRef.current || !isOnboardingStateLoaded || !dbOnboardingState) return;
     hasHydratedOnboardingStateRef.current = true;
@@ -161,21 +162,25 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       setGewerbescheinSpaeter(true);
     }
 
+    // Equipment-Status aus DB hydrieren
+    if (dbOnboardingState.equipmentStatus) {
+      Object.entries(dbOnboardingState.equipmentStatus).forEach(([equipId, status]) => {
+        updateEquipmentStatus(equipId, status);
+      });
+      console.log('[Onboarding] Equipment status hydrated from DB:', dbOnboardingState.equipmentStatus);
+    }
+
     // Fortschritt aus DB (hat Vorrang vor localStorage)
     if (dbOnboardingState.currentStep) {
       goToStep(dbOnboardingState.currentStep);
     }
     if (dbOnboardingState.completedSteps && dbOnboardingState.completedSteps.length > 0) {
-      // completedSteps werden über goToStep + state merge angewendet
-      // Wir setzen sie direkt via den State
       dbOnboardingState.completedSteps.forEach(step => {
         if (!state.completedSteps.includes(step)) {
-          // goToStep doesn't set completedSteps, so we need to use the hook differently
-          // For now, we let the existing localStorage merge handle this
         }
       });
     }
-  }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, setGewerbescheinUrl, setGewerbescheinSpaeter, goToStep, state.completedSteps]);
+  }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, setGewerbescheinUrl, setGewerbescheinSpaeter, goToStep, state.completedSteps, updateEquipmentStatus]);
 
   // Sync DB-Profil in State wenn geladen
   useEffect(() => {
@@ -455,7 +460,16 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         console.log('[Onboarding] Gewerbeschein data saved to DB');
       } catch (error) {
         console.warn('[Onboarding] Failed to save Gewerbeschein data:', error);
-        // Nicht blockieren - kann später nachgeholt werden
+      }
+    }
+
+    // Bei Equipment-Schritt: Equipment-Status in DB speichern
+    if (state.currentStep === 'equipment') {
+      try {
+        await saveEquipmentStatus(state.equipmentStatus);
+        console.log('[Onboarding] Equipment status saved to DB:', state.equipmentStatus);
+      } catch (error) {
+        console.warn('[Onboarding] Failed to save equipment status:', error);
       }
     }
 
