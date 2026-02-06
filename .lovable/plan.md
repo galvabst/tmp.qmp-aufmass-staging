@@ -1,108 +1,49 @@
 
+# Fix: Timer soll echte Video-Dauer nutzen statt DB-Schaetzung
 
-# Akademie UI: 3-stufiges Accordion + Kritische Bug-Fixes
+## Problem
 
-## Identifizierte Probleme (durch Reverse Engineering)
+Der Timer "X:XX verbleibend" basiert auf `video_dauer_minuten` aus der Datenbank (z.B. 5 Min). Wenn das Video tatsaechlich kuerzer ist (z.B. 47 Sekunden wie im Screenshot), muss der User sinnlos warten. Der Bunny Player liefert die echte Dauer bereits im `timeupdate`-Event (`data.duration`), aber der Code ignoriert sie.
 
-### Bug 1: Sub-Lektionen koennen NICHT abgeschlossen werden (KRITISCH)
-`completeAkademieUnterpunkt()` in `useOnboardingState.ts` durchsucht nur `hm.unterpunkte` -- NICHT `up.children`. Wenn ein User Lektion 6.3.1 oder 6.3.2 abschliesst, wird die ID nicht gefunden und der Fortschritt geht verloren. Der User bleibt in der Akademie stecken.
+## Loesung
 
-### Bug 2: findUnterpunktInHauptmodule ignoriert Kinder
-In `useAkademieContent.ts` sucht `findUnterpunktInHauptmodule()` nur in der obersten Ebene. Kinder-Lektionen werden nie gefunden.
+**Eine Datei, eine Aenderung:** `src/hooks/useVideoProgress.ts`
 
-### Bug 3: Code-Darstellung mit Bindestrichen statt Punkten
-Codes werden als `6-3-1` angezeigt statt `6.3.1`.
+Im `useBunnyPlayerProgress`-Hook:
 
-### Bug 4: GruppenLektion ist immer offen
-Die Kinder einer Gruppen-Lektion (6-3) werden immer angezeigt statt aufklappbar zu sein. Das ueberladene UI ist das Problem aus den Screenshots.
-
-### Bug 5: Modul-Nummern korrekt aber nicht optimal sichtbar
-Die `displayNummer` wird korrekt gerendert (Zeile 258), aber bei Modul 0 steht nur "0" im Kreis. Das ist technisch korrekt aber visuell unauffaellig.
-
-## Kein DB-Change noetig
-Die Datenbank-Struktur ist verifiziert und korrekt:
-- 12 Module (0-10 + modul-11 falls vorhanden)
-- Modul 6 hat korrekt: 6-1, 6-2, 6-3, 6-3-1, 6-3-2, 6-4, 6-5
-- `buildHierarchicalUnterpunkte()` gruppiert korrekt nach Code-Pattern
-
-## Kein RLS/IAM-Change noetig
-- Die Akademie-Inhalte sind read-only fuer alle authentifizierten User (`auth.uid() IS NOT NULL`)
-- Fortschritt wird lokal (localStorage) + in `contractor_onboarding` (eigener Record) gespeichert
-- Keine neuen Tabellen, keine neuen Policies
-
-## Betroffene Dateien und Aenderungen
-
-### Datei 1: `src/hooks/useOnboardingState.ts`
-
-**Fix A -- completeAkademieUnterpunkt muss Kinder durchsuchen (Zeile 307-323)**
-
-Aktuell durchsucht die Funktion nur `hm.unterpunkte.map()`. Kinder von Gruppen-Lektionen werden nicht erreicht.
-
-Loesung: Rekursiv auch `up.children` durchsuchen und dort `abgeschlossen` setzen:
+1. `totalDurationSeconds` wird von `const` zu einem `useState` -- initial auf den DB-Wert gesetzt
+2. Im `timeupdate`-Event (Zeile 244) wird `data.duration` ausgelesen und uebernimmt den DB-Wert, sobald der Player die echte Dauer liefert
+3. `requiredSeconds` und alle abgeleiteten Werte (Timer, Prozent, canUnlockTabs) passen sich automatisch an
 
 ```text
-completeAkademieUnterpunkt(hauptmodulId, unterpunktId):
-  Fuer jedes Hauptmodul:
-    Fuer jeden Unterpunkt:
-      Wenn unterpunktId == up.id -> markiere abgeschlossen
-      Wenn up.children existieren:
-        Fuer jedes Kind:
-          Wenn unterpunktId == child.id -> markiere abgeschlossen
+Vorher:
+  const totalDurationSeconds = Math.round(videoDurationMinutes * 60);  // statisch aus DB
+  
+  player.on('timeupdate', (data) => {
+    // data.duration wird IGNORIERT
+  });
+
+Nachher:
+  const [totalDurationSeconds, setTotalDurationSeconds] = useState(Math.round(videoDurationMinutes * 60));
+  
+  player.on('timeupdate', (data) => {
+    if (data.duration > 0 && data.duration !== totalDurationSeconds) {
+      setTotalDurationSeconds(Math.round(data.duration));  // echte Dauer uebernehmen
+    }
+  });
 ```
 
-### Datei 2: `src/hooks/useAkademieContent.ts`
+Das `ended`-Event (Zeile 241) muss ebenfalls den dynamischen State nutzen statt die alte Konstante.
 
-**Fix B -- findUnterpunktInHauptmodule muss Kinder durchsuchen (Zeile 286-297)**
+## Warum nur diese eine Aenderung reicht
 
-Aktuell: `hauptmodul.unterpunkte.find(up => up.id === lektionId)` -- findet keine Kinder.
-
-Loesung: Auch `up.children` durchsuchen:
-```text
-Fuer jedes Hauptmodul:
-  Fuer jeden Unterpunkt:
-    Wenn up.id == lektionId -> return
-    Fuer jedes Kind in up.children:
-      Wenn child.id == lektionId -> return
-```
-
-### Datei 3: `src/components/onboarding/steps/AcademyStep.tsx`
-
-**Aenderung C -- GruppenLektion wird zum verschachtelten Accordion**
-
-Die `GruppenLektion`-Komponente wird umgebaut: Statt die Kinder immer sichtbar anzuzeigen, wird ein inneres `Accordion` verwendet. Die Eltern-Lektion (z.B. 6.3 Dokumentationsstandard) wird zur aufklappbaren Zeile. Erst beim Aufklappen erscheinen die Kind-Lektionen.
-
-Radix UI unterstuetzt verschachtelte Accordions nativ -- kein neues Package noetig.
-
-**Aenderung D -- Code als Punkt-Notation anzeigen**
-
-Ueberall wo `unterpunkt.code` oder `parent.code` gerendert wird, wird `code.replace(/-/g, '.')` angewendet. Aus `6-3-1` wird `6.3.1`.
-
-Betrifft:
-- `LektionRow` Zeile 104
-- `GruppenLektion` Zeile 154
-
-**Aenderung E -- Modul-Nummer weiterhin korrekt (kein Change)**
-
-Zeile 258 zeigt bereits `hauptmodul.displayNummer`. Das ist korrekt. Modul 0 zeigt "0", Modul 6 zeigt "6". Kein Aenderungsbedarf.
-
-### Zusammenfassung betroffene Dateien
-
-| Datei | Aenderung | Risiko |
-|-------|-----------|--------|
-| `useOnboardingState.ts` | completeAkademieUnterpunkt: Kinder-Suche | Gering -- additive Logik |
-| `useAkademieContent.ts` | findUnterpunktInHauptmodule: Kinder-Suche | Gering -- additive Logik |
-| `AcademyStep.tsx` | Nested Accordion + Punkt-Notation | Mittel -- UI-Refactor |
+- Alle abgeleiteten Werte (`requiredSeconds`, `canUnlockTabs`, `percentComplete`, `timeRemainingFormatted`) werden bereits reaktiv aus `totalDurationSeconds` berechnet -- sobald der State sich aendert, aktualisiert sich alles automatisch
+- Kein DB-Change noetig
+- Kein UI-Change noetig
 
 ## Edge Cases
 
-1. **Lektion ohne Kinder**: Wird wie bisher als klickbare Zeile gerendert (LektionRow). Kein Change.
-2. **Gruppen-Lektion mit 0 Kindern**: Wird als normale Lektion gerendert (isGroup wuerde false sein, da buildHierarchicalUnterpunkte nur isGroup=true setzt wenn children.length > 0).
-3. **Fortschritt nach Code-Aenderung**: Bestehender localStorage-Progress wird korrekt migriert, da `hydrateAkademieFromDb` nach ID matcht (UUIDs), nicht nach Code.
-4. **Alle Kinder einer Gruppe abgeschlossen**: Die Gruppen-Lektion zeigt einen gruenen Haken und Badge "2/2".
-5. **Modul 0 im Abschlusstest**: Zaehlt weiterhin zum Gesamtfortschritt (wie bisher). Falls gewuenscht, kann das spaeter geaendert werden.
-6. **Mobile Touch-Targets**: Nested Accordion-Trigger haben mindestens 44px Hoehe fuer Touch.
-
-## Keine Migration noetig
-- Keine DB-Schema-Aenderungen
-- localStorage-Struktur bleibt identisch (IDs sind UUIDs, Progress-Map matcht korrekt)
-- Keine neuen Spalten, Tabellen oder ENUMs
+- Video laenger als DB-Wert: Timer passt sich nach oben an -- korrekt
+- Video kuerzer als DB-Wert: Timer passt sich nach unten an -- genau der Fix
+- Player.js ladt nicht: Fallback bleibt der DB-Wert (bisheriges Verhalten)
+- `data.duration` ist 0 oder undefined: Guard-Clause verhindert Uebernahme
