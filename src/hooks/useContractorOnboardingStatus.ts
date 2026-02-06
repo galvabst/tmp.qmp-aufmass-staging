@@ -14,6 +14,10 @@ export interface ContractorOnboardingRecord {
   // Aggregated data
   lektionen_abgeschlossen: number;
   bestellungen_bezahlt: number;
+  // Internal admin checks
+  vertrag_geprueft_intern: boolean | null;
+  kleidung_bestellt_intern: boolean | null;
+  lizenzen_bereitgestellt_intern: boolean | null;
 }
 
 interface UseContractorOnboardingStatusResult {
