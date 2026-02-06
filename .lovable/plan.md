@@ -1,46 +1,61 @@
 
-# Fix: Ausweiskarte-Bestellung + Mehrfachbestellungen
 
-## Problem 1: Ausweiskarte wird nicht registriert
-
-Die Edge Function `create-checkout-session` erstellt zwar erfolgreich eine Stripe-Session, aber beim Speichern der Bestellung in der DB scheitert der INSERT mit:
-
-```
-invalid input value for enum contractor_bestellung_produkt_typ_enum: "zubehoer"
-```
-
-**Ursache:** Die Ausweiskarte ist in `contractor_produkte` als Typ `zubehoer` konfiguriert, aber das Enum `contractor_bestellung_produkt_typ_enum` kennt nur `kleidung`, `lizenz`, `coaching`.
-
-**Loesung:** Das Enum um den Wert `zubehoer` erweitern.
-
-## Problem 2: Keine Mehrfachbestellungen moeglich
-
-Ein `UNIQUE(onboarding_id, produkt_key)` Constraint verhindert, dass dasselbe Produkt mehrfach bestellt werden kann. Fuer Kleidung (z.B. 2x T-Shirt) ist das ein Problem.
-
-**Loesung:** Den Unique Constraint entfernen. Die Eindeutigkeit wird stattdessen ueber die `stripe_session_id` sichergestellt (jede Checkout-Session ist ohnehin einzigartig). Die Edge Function muss angepasst werden, damit sie bei Pflichtprodukten eine bestehende pending-Bestellung wiederverwendet, aber bei optionalen Nachbestellungen eine neue anlegt.
-
-Da im aktuellen Onboarding-Flow aber erstmal jedes Produkt genau einmal bestellt werden muss (Pflichtbestellungen), wuerde ich die Mehrfachbestellungen als separates Feature betrachten. Fuer jetzt konzentrieren wir uns darauf, dass alle Pflichtprodukte ueberhaupt bestellt werden koennen.
+# ENUM fuer `braucht_groesse` + T-Shirt Test-Preis
 
 ## Aenderungen
 
-### Datenbank-Migration
+### 1. Datenbank-Migration: TEXT zu ENUM
 
-```sql
-ALTER TYPE thermocheck.contractor_bestellung_produkt_typ_enum ADD VALUE IF NOT EXISTS 'zubehoer';
+Neuen ENUM-Typ `thermocheck.contractor_groesse_typ` mit den Werten `kleidung` und `schuhe` erstellen. Danach die Spalte `braucht_groesse` in `contractor_produkte` von TEXT auf diesen ENUM umstellen.
+
+```text
+braucht_groesse (vorher):  TEXT     -> 'kleidung', 'schuhe', NULL
+braucht_groesse (nachher):  ENUM    -> 'kleidung', 'schuhe', NULL (nullable)
 ```
 
-Das ist alles. Kein Code-Change noetig -- die Edge Function funktioniert bereits korrekt, nur der Enum-Wert fehlt.
+### 2. T-Shirt Test-Preis eintragen
 
-### Zusammenfassung
+Den aktuellen Live-Preis des T-Shirts in `stripe_test_price_id` sichern und den neuen Test-Preis `price_1SxlelLnjPqrEfxxwdrSMrZ6` als aktiven `stripe_price_id` setzen.
+
+### 3. Kein Code-Change noetig
+
+Die Frontend-Funktion `brauchtGroessenauswahl()` gibt bereits die Strings `'kleidung'` und `'schuhe'` zurueck -- identisch mit den ENUM-Werten. Keine Anpassung erforderlich.
+
+## Technische Details
+
+### SQL-Migration (Schema-Aenderung)
+
+```sql
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON t.typnamespace = n.oid
+    WHERE t.typname = 'contractor_groesse_typ' AND n.nspname = 'thermocheck'
+  ) THEN
+    CREATE TYPE thermocheck.contractor_groesse_typ AS ENUM ('kleidung', 'schuhe');
+  END IF;
+END $$;
+
+ALTER TABLE thermocheck.contractor_produkte
+  ALTER COLUMN braucht_groesse TYPE thermocheck.contractor_groesse_typ
+  USING braucht_groesse::thermocheck.contractor_groesse_typ;
+```
+
+### Daten-Update (T-Shirt Preis)
+
+```sql
+UPDATE thermocheck.contractor_produkte
+SET stripe_test_price_id = stripe_price_id,
+    stripe_price_id = 'price_1SxlelLnjPqrEfxxwdrSMrZ6'
+WHERE produkt_key = 'tshirt';
+```
+
+## Zusammenfassung
 
 | Bereich | Aenderung |
 |---------|-----------|
-| DB-Migration | Enum `contractor_bestellung_produkt_typ_enum` um `zubehoer` erweitern |
+| DB-Schema | Neuer ENUM `contractor_groesse_typ` (kleidung, schuhe) |
+| DB-Schema | Spalte `braucht_groesse` von TEXT zu ENUM |
+| DB-Daten | T-Shirt: Test-Preis eintragen, Live-Preis sichern |
+| Frontend | Keine Aenderung noetig |
 
-### Ergebnis
-
-Nach der Migration wird die Ausweiskarte korrekt als Bestellung gespeichert und der Stripe-Webhook kann den Zahlungsstatus aktualisieren. Die bereits erstellten Stripe-Sessions (die der User bezahlt hat) werden beim naechsten Webhook-Event ebenfalls korrekt verarbeitet.
-
-### Mehrfachbestellungen (spaeter)
-
-Das Thema "mehrere T-Shirts kaufen" ist ein separates Feature, das nach dem Basis-Onboarding angegangen werden kann. Es erfordert Aenderungen am Unique Constraint, an der Edge Function und an der UI.
