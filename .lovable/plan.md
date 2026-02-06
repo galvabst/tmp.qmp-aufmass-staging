@@ -1,61 +1,74 @@
 
+# Webhook-Zuverlaessigkeit absichern
 
-# ENUM fuer `braucht_groesse` + T-Shirt Test-Preis
+## Problem
 
-## Aenderungen
+Die Edge Function `stripe-webhook` war nicht synchron mit dem Repo-Code deployed. Dadurch hat eine aeltere Version die Ausweiskarte-Zahlung nicht korrekt verarbeitet. Das darf nie wieder passieren.
 
-### 1. Datenbank-Migration: TEXT zu ENUM
+## Massnahmen
 
-Neuen ENUM-Typ `thermocheck.contractor_groesse_typ` mit den Werten `kleidung` und `schuhe` erstellen. Danach die Spalte `braucht_groesse` in `contractor_produkte` von TEXT auf diesen ENUM umstellen.
+### 1. Sofort: Webhook redeployen + Ausweiskarte fixen
+
+- Edge Function `stripe-webhook` neu deployen (Code ist korrekt, nur nicht live)
+- Ausweiskarte-Bestellung manuell auf `paid` setzen (SQL im Supabase Dashboard)
+
+### 2. Webhook-Code absichern: Besseres Logging + Error Recovery
+
+Erweiterungen am `stripe-webhook/index.ts`:
+
+- **Versionskennung**: Eine Konstante `WEBHOOK_VERSION` in die Response einbauen, damit man in Stripe sofort sieht welche Code-Version deployed ist
+- **Fallback-Logging**: Wenn die Bestellung nicht gefunden wird, explizite Warnung mit allen relevanten Daten loggen
+
+Konkret:
 
 ```text
-braucht_groesse (vorher):  TEXT     -> 'kleidung', 'schuhe', NULL
-braucht_groesse (nachher):  ENUM    -> 'kleidung', 'schuhe', NULL (nullable)
+Response vorher:  { received: true, event_type: "checkout.session.completed" }
+Response nachher: { received: true, event_type: "checkout.session.completed", version: "2024-02-06-v2", order_updated: true }
 ```
 
-### 2. T-Shirt Test-Preis eintragen
+So siehst du in Stripe auf einen Blick:
+- Welche Version laeuft (`version`)
+- Ob die Bestellung gefunden und aktualisiert wurde (`order_updated`)
+- Den Event-Type (`event_type`)
 
-Den aktuellen Live-Preis des T-Shirts in `stripe_test_price_id` sichern und den neuen Test-Preis `price_1SxlelLnjPqrEfxxwdrSMrZ6` als aktiven `stripe_price_id` setzen.
+### 3. Kein Code-Change am Frontend
 
-### 3. Kein Code-Change noetig
-
-Die Frontend-Funktion `brauchtGroessenauswahl()` gibt bereits die Strings `'kleidung'` und `'schuhe'` zurueck -- identisch mit den ENUM-Werten. Keine Anpassung erforderlich.
+Keine Aenderungen noetig.
 
 ## Technische Details
 
-### SQL-Migration (Schema-Aenderung)
+### Edge Function Aenderungen (`stripe-webhook/index.ts`)
+
+1. **Versionsstring** als Konstante am Anfang der Datei:
+   ```text
+   const WEBHOOK_VERSION = "2026-02-06-v2";
+   ```
+
+2. **Tracking-Variable** `orderUpdated` die mitlaeuft ob die DB-Operation erfolgreich war
+
+3. **Erweiterte Response** am Ende:
+   ```text
+   { received: true, event_type: event.type, version: WEBHOOK_VERSION, order_updated: orderUpdated }
+   ```
+
+4. **Keine strukturellen Aenderungen** an der Webhook-Logik selbst -- die ist korrekt
+
+### SQL fuer Ausweiskarte-Fix (manuell im Dashboard)
 
 ```sql
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON t.typnamespace = n.oid
-    WHERE t.typname = 'contractor_groesse_typ' AND n.nspname = 'thermocheck'
-  ) THEN
-    CREATE TYPE thermocheck.contractor_groesse_typ AS ENUM ('kleidung', 'schuhe');
-  END IF;
-END $$;
-
-ALTER TABLE thermocheck.contractor_produkte
-  ALTER COLUMN braucht_groesse TYPE thermocheck.contractor_groesse_typ
-  USING braucht_groesse::thermocheck.contractor_groesse_typ;
-```
-
-### Daten-Update (T-Shirt Preis)
-
-```sql
-UPDATE thermocheck.contractor_produkte
-SET stripe_test_price_id = stripe_price_id,
-    stripe_price_id = 'price_1SxlelLnjPqrEfxxwdrSMrZ6'
-WHERE produkt_key = 'tshirt';
+UPDATE thermocheck.contractor_bestellungen
+SET stripe_payment_status = 'paid',
+    paid_at = now(),
+    webhook_received_at = now()
+WHERE produkt_key = 'ausweiskarte'
+  AND stripe_session_id = 'cs_live_a1oaUvGnDsTwYM3Jh793diS1oin79vbGKal3LyAtMStH6BtV01WTX9qbRk'
+  AND stripe_payment_status = 'pending';
 ```
 
 ## Zusammenfassung
 
-| Bereich | Aenderung |
-|---------|-----------|
-| DB-Schema | Neuer ENUM `contractor_groesse_typ` (kleidung, schuhe) |
-| DB-Schema | Spalte `braucht_groesse` von TEXT zu ENUM |
-| DB-Daten | T-Shirt: Test-Preis eintragen, Live-Preis sichern |
-| Frontend | Keine Aenderung noetig |
-
+| Aktion | Was | Warum |
+|--------|-----|-------|
+| Redeploy | `stripe-webhook` neu deployen | Sicherstellen dass aktueller Code live ist |
+| DB-Fix | Ausweiskarte auf `paid` setzen | Zahlung war bei Stripe erfolgreich |
+| Code | Versionskennung + `order_updated` Flag | Sofort sichtbar welche Version laeuft und ob DB-Update geklappt hat |
