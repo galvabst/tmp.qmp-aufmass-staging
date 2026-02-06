@@ -148,7 +148,7 @@ export const MOCK_EQUIPMENT: EquipmentItem[] = [
     hatEigenes: false,
     nachweisPflicht: true,
     mietLink: 'https://drohnen-mieten.de', // Placeholder - später anpassen
-    kaufLink: 'https://amzn.to/4tkCQpV',
+    kaufLink: 'https://amzn.to/46kuuoo',
   },
   {
     id: 'iphone-lidar',

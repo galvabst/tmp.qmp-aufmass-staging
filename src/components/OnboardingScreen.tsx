@@ -104,6 +104,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     updateProfile: saveProfileToDb,
     uploadAvatar,
     uploadGewerbeschein,
+    uploadEquipmentNachweis,
     saveGewerbeschein,
     saveProgress,
     saveEquipmentStatus,
@@ -556,6 +557,19 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         const drohneItem = MOCK_EQUIPMENT.find(e => e.id === 'drohne');
         const iPhoneItem = MOCK_EQUIPMENT.find(e => e.id === 'iphone-lidar');
         const massbandItem = MOCK_EQUIPMENT.find(e => e.id === 'massband');
+
+        const handleEquipmentFileUpload = async (equipId: string, file: File): Promise<string> => {
+          try {
+            const url = await uploadEquipmentNachweis(equipId, file);
+            toast.success('Nachweis hochgeladen');
+            return url;
+          } catch (error) {
+            console.error('[Onboarding] Equipment nachweis upload failed:', error);
+            toast.error('Fehler beim Hochladen des Nachweises');
+            throw error;
+          }
+        };
+
         return (
           <EquipmentStep
             drohneStatus={state.equipmentStatus['drohne'] || { hatEigenes: false }}
@@ -564,6 +578,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             onDrohneChange={(status) => updateEquipmentStatus('drohne', status)}
             onIphoneChange={(status) => updateEquipmentStatus('iphone-lidar', status)}
             onMassbandChange={(status) => updateEquipmentStatus('massband', status)}
+            onFileUpload={handleEquipmentFileUpload}
             drohneMietLink={drohneItem?.mietLink}
             drohneKaufLink={drohneItem?.kaufLink}
             iPhoneMietLink={iPhoneItem?.mietLink}
