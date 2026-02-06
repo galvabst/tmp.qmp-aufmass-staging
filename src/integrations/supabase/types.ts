@@ -9524,6 +9524,8 @@ export type Database = {
           erstellt_am: string
           erstellt_von: string
           id: string
+          kleidung_bestellt_intern: boolean
+          lizenzen_bereitgestellt_intern: boolean
           nachname: string
           notizen_intern: string
           onboarding_status: string
@@ -9531,6 +9533,7 @@ export type Database = {
           profile_id: string
           telefon: string
           trainer_freigabe: boolean
+          vertrag_geprueft_intern: boolean
           vertrag_pdf_url: string
           vertragsbeginn: string
           verzugstage: number
