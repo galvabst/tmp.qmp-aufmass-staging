@@ -10,8 +10,6 @@ interface CheckoutResult {
 export function useStripeCheckout() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isWaitingForPayment, setIsWaitingForPayment] = useState(false);
-  const [waitingForProductKey, setWaitingForProductKey] = useState<string | null>(null);
 
   const startCheckout = useCallback(async (produktKey: string, groesse?: string): Promise<boolean> => {
     setIsLoading(true);
@@ -45,15 +43,10 @@ export function useStripeCheckout() {
         return false;
       }
 
-      console.log(`[useStripeCheckout] Redirecting to Stripe: ${data.checkout_url}`);
+      console.log(`[useStripeCheckout] Redirecting to Stripe (same tab): ${data.checkout_url}`);
       
-      // Stripe Checkout in neuem Tab öffnen - App bleibt im Hintergrund
-      window.open(data.checkout_url, '_blank');
-      
-      // Polling-Modus aktivieren
-      setIsWaitingForPayment(true);
-      setWaitingForProductKey(produktKey);
-      toast.info('Zahlung wird in neuem Tab geöffnet – warte auf Bestätigung...');
+      // Gleicher Tab: User wird zu Stripe weitergeleitet und kommt nach Zahlung zurück
+      window.location.href = data.checkout_url;
       
       return true;
 
@@ -68,17 +61,9 @@ export function useStripeCheckout() {
     }
   }, []);
 
-  const stopWaiting = useCallback(() => {
-    setIsWaitingForPayment(false);
-    setWaitingForProductKey(null);
-  }, []);
-
   return {
     startCheckout,
     isLoading,
     error,
-    isWaitingForPayment,
-    waitingForProductKey,
-    stopWaiting,
   };
 }

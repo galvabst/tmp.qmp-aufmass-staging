@@ -9356,6 +9356,18 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_contractor_onboarding_state: {
+        Args: { p_profile_id: string }
+        Returns: {
+          anschrift_ort: string
+          anschrift_plz: string
+          anschrift_strasse: string
+          completed_steps: string[]
+          current_step: string
+          gewerbeschein_spaeter: boolean
+          gewerbeschein_url: string
+        }[]
+      }
       get_contractors: {
         Args: never
         Returns: unknown[]
@@ -10776,8 +10788,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_contractor_gewerbeschein: {
+        Args: {
+          p_gewerbeschein_spaeter?: boolean
+          p_gewerbeschein_url?: string
+        }
+        Returns: undefined
+      }
       update_contractor_onboarding_address: {
         Args: { p_ort: string; p_plz: string; p_strasse: string }
+        Returns: undefined
+      }
+      update_contractor_onboarding_progress: {
+        Args: { p_completed_steps: string[]; p_current_step: string }
         Returns: undefined
       }
       update_kpi_nachweis_validation: {

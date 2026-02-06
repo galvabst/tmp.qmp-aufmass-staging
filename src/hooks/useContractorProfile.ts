@@ -1,21 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ApplicantProfile } from '@/types/onboarding';
+import { ApplicantProfile, OnboardingStepId } from '@/types/onboarding';
 
 interface ContractorOnboardingData {
   anschrift_strasse?: string | null;
   anschrift_plz?: string | null;
   anschrift_ort?: string | null;
+  gewerbeschein_url?: string | null;
+  gewerbeschein_spaeter?: boolean | null;
+  current_step?: string | null;
+  completed_steps?: string[] | null;
+}
+
+export interface ContractorOnboardingState {
+  gewerbescheinUrl?: string;
+  gewerbescheinSpaeter: boolean;
+  currentStep?: OnboardingStepId;
+  completedSteps: OnboardingStepId[];
 }
 
 /**
  * Hook für Contractor-Profildaten aus der Datenbank
- * 
- * SSoT gemäß LOVABLE_BEHAVIOUR.txt Regel 1:
- * - public.profiles = SSoT für User-Identität (Name, Email, Telefon, Avatar)
- * - thermocheck.contractor_onboarding = Adressdaten für Lieferung
- * 
- * @param profileId - Die Profile-ID (auth.uid())
  */
 export function useContractorProfile(profileId: string | null) {
   const queryClient = useQueryClient();
@@ -26,7 +31,6 @@ export function useContractorProfile(profileId: string | null) {
     queryFn: async (): Promise<ApplicantProfile | null> => {
       if (!profileId) return null;
       
-      // 1. Profile-Daten aus public.profiles
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id, vorname, nachname, email, telefon, avatar_url')
@@ -38,32 +42,39 @@ export function useContractorProfile(profileId: string | null) {
         throw profileError;
       }
       
-      // 2. Adress-Daten aus thermocheck.contractor_onboarding via RPC
+      // Adress- und Onboarding-Daten via neue RPC laden
       let onboardingData: ContractorOnboardingData | null = null;
-
-      // Die RPC get_contractor_address lädt Adressdaten aus thermocheck.contractor_onboarding
       try {
         const { data, error } = await (supabase.rpc as unknown as (
           fn: string,
           params: { p_profile_id: string }
         ) => Promise<{ data: ContractorOnboardingData[] | null; error: Error | null }>)(
-          'get_contractor_address',
+          'get_contractor_onboarding_state',
           { p_profile_id: profileId }
         );
 
         if (error) {
-          console.warn('[useContractorProfile] get_contractor_address RPC failed:', error);
+          console.warn('[useContractorProfile] get_contractor_onboarding_state RPC failed, falling back:', error);
+          // Fallback to old RPC
+          const { data: fallbackData, error: fallbackError } = await (supabase.rpc as unknown as (
+            fn: string,
+            params: { p_profile_id: string }
+          ) => Promise<{ data: ContractorOnboardingData[] | null; error: Error | null }>)(
+            'get_contractor_address',
+            { p_profile_id: profileId }
+          );
+          if (!fallbackError && fallbackData && fallbackData.length > 0) {
+            onboardingData = fallbackData[0];
+          }
         } else if (data && data.length > 0) {
           onboardingData = data[0];
-          console.log('[useContractorProfile] Address loaded via RPC:', onboardingData);
+          console.log('[useContractorProfile] Onboarding state loaded via RPC:', onboardingData);
         }
       } catch (e) {
-        console.warn('[useContractorProfile] Failed to call get_contractor_address:', e);
+        console.warn('[useContractorProfile] Failed to call onboarding state RPC:', e);
       }
       
-      // Straße und Hausnummer aus kombiniertem Feld extrahieren (falls vorhanden)
       const anschriftStrasse = onboardingData?.anschrift_strasse || '';
-      // Versuche Hausnummer zu extrahieren (letztes Wort wenn es mit Zahl beginnt)
       const strasseMatch = anschriftStrasse.match(/^(.+?)\s+(\d+\s*\w*)$/);
       const strasse = strasseMatch ? strasseMatch[1] : anschriftStrasse;
       const hausnummer = strasseMatch ? strasseMatch[2] : '';
@@ -82,7 +93,39 @@ export function useContractorProfile(profileId: string | null) {
       };
     },
     enabled: !!profileId,
-    staleTime: 1000 * 60 * 5, // 5 Minuten Cache
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Onboarding-State separat laden (Gewerbeschein + Fortschritt)
+  const onboardingStateQuery = useQuery({
+    queryKey: ['contractor-onboarding-state', profileId],
+    queryFn: async (): Promise<ContractorOnboardingState | null> => {
+      if (!profileId) return null;
+
+      try {
+        const { data, error } = await (supabase.rpc as unknown as (
+          fn: string,
+          params: { p_profile_id: string }
+        ) => Promise<{ data: ContractorOnboardingData[] | null; error: Error | null }>)(
+          'get_contractor_onboarding_state',
+          { p_profile_id: profileId }
+        );
+
+        if (error || !data || data.length === 0) return null;
+
+        const row = data[0];
+        return {
+          gewerbescheinUrl: row.gewerbeschein_url || undefined,
+          gewerbescheinSpaeter: row.gewerbeschein_spaeter || false,
+          currentStep: (row.current_step as OnboardingStepId) || undefined,
+          completedSteps: (row.completed_steps as OnboardingStepId[]) || [],
+        };
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!profileId,
+    staleTime: 1000 * 60 * 2,
   });
   
   // Mutation für Profile-Updates
@@ -91,8 +134,6 @@ export function useContractorProfile(profileId: string | null) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
       
-      // 1. public.profiles updaten (Name, Telefon)
-      // Email ist auth-gebunden und kann nicht direkt geändert werden
       if (profile.vorname !== undefined || profile.nachname !== undefined || profile.telefon !== undefined) {
         const { error } = await supabase
           .from('profiles')
@@ -106,8 +147,6 @@ export function useContractorProfile(profileId: string | null) {
         if (error) throw error;
       }
       
-      // 2. thermocheck.contractor_onboarding updaten (Adresse) via RPC
-      // Da wir thermocheck Schema nicht direkt in Types haben, nutzen wir RPC
       if (profile.strasse !== undefined || profile.hausnummer !== undefined || 
           profile.plz !== undefined || profile.ort !== undefined) {
         const anschriftStrasse = [profile.strasse, profile.hausnummer]
@@ -115,8 +154,6 @@ export function useContractorProfile(profileId: string | null) {
           .join(' ')
           .trim();
         
-        // Update via RPC (Funktion existiert, aber Types noch nicht regeneriert)
-        // Daher als any casten
         const { error } = await (supabase.rpc as unknown as (
           fn: string, 
           params: Record<string, string | null>
@@ -128,14 +165,12 @@ export function useContractorProfile(profileId: string | null) {
         
         if (error) {
           console.warn('[useContractorProfile] Address update via RPC failed:', error);
-          // Nicht als Fehler behandeln - vielleicht existiert die RPC nicht
         }
       }
       
       console.log('[useContractorProfile] Profile updated successfully');
     },
     onSuccess: () => {
-      // Cache invalidieren
       queryClient.invalidateQueries({ queryKey: ['contractor-profile'] });
     },
     onError: (error) => {
@@ -152,40 +187,81 @@ export function useContractorProfile(profileId: string | null) {
       const fileExt = file.name.split('.').pop() || 'jpg';
       const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
       
-      // 1. Upload zu Storage
       const { error: uploadError } = await supabase.storage
         .from('contractor-avatars')
         .upload(fileName, file, { upsert: true });
       
-      if (uploadError) {
-        console.error('[useContractorProfile] Avatar upload failed:', uploadError);
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
       
-      // 2. Public URL holen
       const { data: urlData } = supabase.storage
         .from('contractor-avatars')
         .getPublicUrl(fileName);
       
       const publicUrl = urlData.publicUrl;
       
-      // 3. URL in profiles speichern
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
         .eq('id', user.id);
       
-      if (updateError) {
-        console.error('[useContractorProfile] Avatar URL update failed:', updateError);
-        throw updateError;
-      }
+      if (updateError) throw updateError;
       
-      console.log('[useContractorProfile] Avatar uploaded:', publicUrl);
       return publicUrl;
     },
     onSuccess: () => {
-      // Cache invalidieren
       queryClient.invalidateQueries({ queryKey: ['contractor-profile'] });
+    },
+  });
+
+  // Gewerbeschein Upload
+  const gewerbescheinMutation = useMutation({
+    mutationFn: async (file: File): Promise<string> => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const fileExt = file.name.split('.').pop() || 'pdf';
+      const fileName = `${user.id}/gewerbeschein-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('contractor-documents')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('contractor-documents')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    },
+  });
+
+  // Gewerbeschein-Daten in DB speichern
+  const saveGewerbescheinMutation = useMutation({
+    mutationFn: async (params: { url?: string; spaeter: boolean }) => {
+      await (supabase.rpc as unknown as (
+        fn: string,
+        params: Record<string, unknown>
+      ) => Promise<{ error: Error | null }>)('update_contractor_gewerbeschein', {
+        p_gewerbeschein_url: params.url || null,
+        p_gewerbeschein_spaeter: params.spaeter,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
+    },
+  });
+
+  // Fortschritt in DB speichern
+  const saveProgressMutation = useMutation({
+    mutationFn: async (params: { currentStep: string; completedSteps: string[] }) => {
+      await (supabase.rpc as unknown as (
+        fn: string,
+        params: Record<string, unknown>
+      ) => Promise<{ error: Error | null }>)('update_contractor_onboarding_progress', {
+        p_current_step: params.currentStep,
+        p_completed_steps: params.completedSteps,
+      });
     },
   });
   
@@ -195,9 +271,16 @@ export function useContractorProfile(profileId: string | null) {
     isError: query.isError,
     error: query.error,
     
+    // Onboarding state (Gewerbeschein + Fortschritt)
+    onboardingState: onboardingStateQuery.data,
+    isOnboardingStateLoaded: onboardingStateQuery.isSuccess,
+    
     // Methoden
     updateProfile: updateMutation.mutateAsync,
     uploadAvatar: avatarMutation.mutateAsync,
+    uploadGewerbeschein: gewerbescheinMutation.mutateAsync,
+    saveGewerbeschein: saveGewerbescheinMutation.mutateAsync,
+    saveProgress: saveProgressMutation.mutateAsync,
     
     // Mutation states
     isUpdating: updateMutation.isPending,
