@@ -1,6 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import Stripe from "https://esm.sh/stripe@17.7.0?target=deno&no-check";
 
+const WEBHOOK_VERSION = "2026-02-06-v2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -84,6 +86,7 @@ Deno.serve(async (req) => {
     // 6. Process event based on type
     let bestellungId: string | null = null;
     let actionType = "webhook_received";
+    let orderUpdated = false;
 
     switch (event.type) {
       case "checkout.session.completed": {
@@ -125,12 +128,13 @@ Deno.serve(async (req) => {
           if (updateError) {
             console.error("[stripe-webhook] Error updating order:", updateError);
           } else {
+            orderUpdated = true;
             console.log(`[stripe-webhook] Updated order ${bestellung.id} to paid`);
           }
         } else {
           // Order not found - create it from metadata
-          console.log("[stripe-webhook] Order not found, creating from metadata");
-          
+          console.warn("[stripe-webhook] Order NOT FOUND by stripe_session_id, creating from metadata");
+          console.warn(`[stripe-webhook] session.id=${session.id}, metadata=${JSON.stringify(session.metadata)}`);
           const metadata = session.metadata || {};
           const onboardingId = metadata.onboarding_id;
           const produktKey = metadata.produkt_key;
@@ -172,6 +176,7 @@ Deno.serve(async (req) => {
                 console.error("[stripe-webhook] Error creating order:", insertError);
               } else {
                 bestellungId = newOrder?.id || null;
+                orderUpdated = true;
                 console.log(`[stripe-webhook] Created new order: ${bestellungId}`);
               }
             }
@@ -283,7 +288,7 @@ Deno.serve(async (req) => {
 
     // 8. Return success (Stripe expects 200)
     return new Response(
-      JSON.stringify({ received: true, event_type: event.type }),
+      JSON.stringify({ received: true, event_type: event.type, version: WEBHOOK_VERSION, order_updated: orderUpdated }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
