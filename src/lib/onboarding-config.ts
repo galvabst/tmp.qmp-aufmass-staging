@@ -143,21 +143,29 @@ export const MOCK_PRODUCTS: OnboardingProduct[] = [
 export const MOCK_EQUIPMENT: EquipmentItem[] = [
   {
     id: 'drohne',
-    name: 'Drohne mit Kamera',
+    name: 'Drohne mit 4K Kamera',
     beschreibung: 'Für Dachaufnahmen und Luftbilder',
     hatEigenes: false,
     nachweisPflicht: true,
     mietLink: 'https://drohnen-mieten.de', // Placeholder - später anpassen
-    kaufLink: 'https://drohnen-kaufen.de', // Placeholder - später anpassen
+    kaufLink: 'https://amzn.to/4tkCQpV',
   },
   {
     id: 'iphone-lidar',
     name: 'iPhone mit LiDAR',
     beschreibung: 'iPhone 12 Pro oder neuer für 3D-Scans',
     hatEigenes: false,
-    nachweisPflicht: false, // Nur Bestätigung
+    nachweisPflicht: false,
     mietLink: 'https://iphone-mieten.de', // Placeholder - später anpassen
     kaufLink: 'https://apple.com/de/shop/buy-iphone', // Placeholder - später anpassen
+  },
+  {
+    id: 'massband',
+    name: 'Maßband',
+    beschreibung: 'Empfohlene Länge: mindestens 5m',
+    hatEigenes: false,
+    nachweisPflicht: false,
+    kaufLink: 'https://amzn.to/4afYToT',
   },
 ];
 

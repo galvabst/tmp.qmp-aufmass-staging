@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plane, Smartphone, Upload, ExternalLink, CheckCircle2, X, ShoppingCart } from 'lucide-react';
+import { Plane, Smartphone, Upload, ExternalLink, CheckCircle2, X, ShoppingCart, Ruler, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -13,28 +13,33 @@ interface EquipmentStatus {
 interface EquipmentStepProps {
   drohneStatus: EquipmentStatus;
   iphoneStatus: EquipmentStatus;
+  massbandStatus: EquipmentStatus;
   onDrohneChange: (status: EquipmentStatus) => void;
   onIphoneChange: (status: EquipmentStatus) => void;
+  onMassbandChange: (status: EquipmentStatus) => void;
   drohneMietLink?: string;
   drohneKaufLink?: string;
   iPhoneMietLink?: string;
   iPhoneKaufLink?: string;
+  massbandKaufLink?: string;
 }
 
 export function EquipmentStep({
   drohneStatus,
   iphoneStatus,
+  massbandStatus,
   onDrohneChange,
   onIphoneChange,
+  onMassbandChange,
   drohneMietLink = 'https://drohnen-mieten.de',
-  drohneKaufLink = 'https://drohnen-kaufen.de',
+  drohneKaufLink = 'https://amzn.to/4tkCQpV',
   iPhoneMietLink = 'https://iphone-mieten.de',
   iPhoneKaufLink = 'https://apple.com/de/shop/buy-iphone',
+  massbandKaufLink = 'https://amzn.to/4afYToT',
 }: EquipmentStepProps) {
   const [drohneDragActive, setDrohneDragActive] = useState(false);
 
   const handleDrohneFileUpload = (file: File) => {
-    // Mock URL - in production würde hier ein echter Upload stattfinden
     const mockUrl = URL.createObjectURL(file);
     onDrohneChange({ ...drohneStatus, nachweisUrl: mockUrl });
   };
@@ -59,7 +64,7 @@ export function EquipmentStep({
             <Plane className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground">Drohne mit Kamera</h3>
+            <h3 className="font-semibold text-foreground">Drohne mit 4K Kamera</h3>
             <p className="text-sm text-muted-foreground">Für Dachaufnahmen erforderlich</p>
           </div>
         </div>
@@ -141,7 +146,7 @@ export function EquipmentStep({
         {!drohneStatus.hatEigenes && (
           <div className="mt-4 pt-4 border-t">
             <p className="text-sm text-muted-foreground mb-3">
-              Du benötigst eine Drohne mit Kamera für Dachaufnahmen.
+              Du benötigst eine Drohne mit 4K Kamera für Dachaufnahmen.
             </p>
             <div className="flex gap-3">
               <Button
@@ -154,11 +159,15 @@ export function EquipmentStep({
               </Button>
               <Button
                 variant="default"
-                className="flex-1"
+                className="flex-1 relative"
                 onClick={() => openExternalLink(drohneKaufLink)}
               >
                 <ShoppingCart className="w-4 h-4 mr-2" />
                 Drohne kaufen
+                <span className="absolute -top-2.5 -right-1 bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  <Star className="w-2.5 h-2.5" />
+                  Bessere Wahl
+                </span>
               </Button>
             </div>
           </div>
@@ -203,7 +212,6 @@ export function EquipmentStep({
           </div>
         </RadioGroup>
 
-        {/* Miet- und Kauf-Links wenn kein iPhone */}
         {!iphoneStatus.hatEigenes && (
           <div className="mt-4 pt-4 border-t">
             <p className="text-sm text-muted-foreground mb-3">
@@ -240,10 +248,74 @@ export function EquipmentStep({
         )}
       </div>
 
+      {/* Maßband */}
+      <div className="bg-card rounded-xl p-4 shadow-card">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <Ruler className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">Maßband</h3>
+            <p className="text-sm text-muted-foreground">Empfohlene Länge: mindestens 5m</p>
+          </div>
+        </div>
+
+        <RadioGroup
+          value={massbandStatus.hatEigenes ? 'ja' : 'nein'}
+          onValueChange={(value) => onMassbandChange({ hatEigenes: value === 'ja' })}
+          className="space-y-3"
+        >
+          <div className={cn(
+            'flex items-center space-x-3 border rounded-lg p-3 cursor-pointer transition-colors',
+            massbandStatus.hatEigenes ? 'border-primary bg-primary/5' : 'border-border'
+          )}>
+            <RadioGroupItem value="ja" id="massband-ja" />
+            <Label htmlFor="massband-ja" className="flex-1 cursor-pointer">
+              Ja, ich habe bereits ein Maßband
+            </Label>
+          </div>
+          
+          <div className={cn(
+            'flex items-center space-x-3 border rounded-lg p-3 cursor-pointer transition-colors',
+            !massbandStatus.hatEigenes ? 'border-primary bg-primary/5' : 'border-border'
+          )}>
+            <RadioGroupItem value="nein" id="massband-nein" />
+            <Label htmlFor="massband-nein" className="flex-1 cursor-pointer">
+              Nein, ich brauche ein Maßband
+            </Label>
+          </div>
+        </RadioGroup>
+
+        {massbandStatus.hatEigenes && (
+          <div className="mt-4 pt-4 border-t">
+            <div className="flex items-center gap-3 p-3 bg-status-accepted/5 border border-status-accepted rounded-lg">
+              <CheckCircle2 className="w-5 h-5 text-status-accepted" />
+              <span className="text-sm text-foreground">Maßband bestätigt</span>
+            </div>
+          </div>
+        )}
+
+        {!massbandStatus.hatEigenes && (
+          <div className="mt-4 pt-4 border-t">
+            <p className="text-sm text-muted-foreground mb-3">
+              Empfohlene Länge: mindestens 5m
+            </p>
+            <Button
+              variant="default"
+              className="w-full"
+              onClick={() => openExternalLink(massbandKaufLink)}
+            >
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Unser empfohlenes Modell kaufen
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* Info */}
       <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
         <p className="text-sm text-foreground">
-          <strong>💡 Tipp:</strong> Die Drohne und das iPhone kannst du auch steuerlich absetzen!
+          <strong>💡 Tipp:</strong> Die Drohne, das iPhone und das Maßband kannst du auch steuerlich absetzen!
         </p>
       </div>
     </div>

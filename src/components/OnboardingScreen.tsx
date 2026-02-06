@@ -555,16 +555,20 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       case 'equipment': {
         const drohneItem = MOCK_EQUIPMENT.find(e => e.id === 'drohne');
         const iPhoneItem = MOCK_EQUIPMENT.find(e => e.id === 'iphone-lidar');
+        const massbandItem = MOCK_EQUIPMENT.find(e => e.id === 'massband');
         return (
           <EquipmentStep
             drohneStatus={state.equipmentStatus['drohne'] || { hatEigenes: false }}
             iphoneStatus={state.equipmentStatus['iphone-lidar'] || { hatEigenes: false }}
+            massbandStatus={state.equipmentStatus['massband'] || { hatEigenes: false }}
             onDrohneChange={(status) => updateEquipmentStatus('drohne', status)}
             onIphoneChange={(status) => updateEquipmentStatus('iphone-lidar', status)}
+            onMassbandChange={(status) => updateEquipmentStatus('massband', status)}
             drohneMietLink={drohneItem?.mietLink}
             drohneKaufLink={drohneItem?.kaufLink}
             iPhoneMietLink={iPhoneItem?.mietLink}
             iPhoneKaufLink={iPhoneItem?.kaufLink}
+            massbandKaufLink={massbandItem?.kaufLink}
           />
         );
       }
