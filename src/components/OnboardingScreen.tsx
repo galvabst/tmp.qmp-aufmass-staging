@@ -125,6 +125,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setGewerbescheinUrl,
     setGewerbescheinSpaeter,
     toggleProductOrdered,
+    setBestellungenFromDb,
     setOberteilAuswahl,
     updateEquipmentStatus,
     completeAkademieModul,
@@ -236,21 +237,21 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Sync bezahlte Bestellungen in den State
+  // Sync bezahlte Bestellungen in den State (DB ist SSOT)
   useEffect(() => {
-    if (!ordersLoaded || !dbOrders || dbOrders.length === 0) return;
+    if (!ordersLoaded || !dbOrders) return;
     
     const paidKeys = getPaidProductKeys(dbOrders);
-    if (paidKeys.length === 0) return;
     
-    const newPaidProducts = paidKeys.filter(key => !state.bestellungenBestaetigt.includes(key));
-    if (newPaidProducts.length > 0) {
-      console.log('[Onboarding] Syncing paid products from DB:', newPaidProducts);
-      newPaidProducts.forEach(productId => {
-        toggleProductOrdered(productId);
-      });
+    // Replace komplett – DB ist die einzige Wahrheitsquelle
+    const currentKeys = state.bestellungenBestaetigt.slice().sort().join(',');
+    const dbKeysStr = paidKeys.slice().sort().join(',');
+    
+    if (currentKeys !== dbKeysStr) {
+      console.log('[Onboarding] Replacing bestellungenBestaetigt with DB values:', paidKeys);
+      setBestellungenFromDb(paidKeys);
     }
-  }, [ordersLoaded, dbOrders, state.bestellungenBestaetigt, toggleProductOrdered]);
+  }, [ordersLoaded, dbOrders, state.bestellungenBestaetigt, setBestellungenFromDb]);
 
   // Polling nach Stripe-Checkout
   useEffect(() => {
