@@ -101,7 +101,7 @@ function LektionRow({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <p className={cn('text-sm font-medium text-foreground', indented && 'text-xs')}>
-          <span className="text-muted-foreground mr-1.5">{unterpunkt.code}</span>
+          <span className="text-muted-foreground mr-1.5">{unterpunkt.code?.replace(/-/g, '.')}</span>
           {unterpunkt.titel}
         </p>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -133,38 +133,46 @@ function GruppenLektion({
   const allComplete = children.length > 0 && completedCount === children.length;
 
   return (
-    <div className="space-y-1.5">
-      {/* Group header */}
-      <div className={cn(
-        'flex items-center gap-3 p-3 rounded-lg border',
-        allComplete && 'bg-status-accepted/10 border-status-accepted/30',
-      )}>
-        <div className={cn(
-          'w-6 h-6 rounded-full flex items-center justify-center shrink-0',
-          allComplete ? 'bg-status-accepted text-white' : 'bg-muted text-muted-foreground'
-        )}>
-          {allComplete ? (
-            <CheckCircle2 className="w-4 h-4" />
-          ) : (
-            <ChevronRight className="w-3 h-3" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground">
-            <span className="text-muted-foreground mr-1.5">{parent.code}</span>
-            {parent.titel}
-          </p>
-        </div>
-        <Badge variant={allComplete ? 'default' : 'secondary'} className={cn('shrink-0', allComplete && 'bg-status-accepted')}>
-          {completedCount}/{children.length}
-        </Badge>
-      </div>
-
-      {/* Children */}
-      {children.map(child => (
-        <LektionRow key={child.id} unterpunkt={child} indented onStart={onStart} />
-      ))}
-    </div>
+    <Accordion type="single" collapsible>
+      <AccordionItem
+        value={parent.id}
+        className={cn(
+          'border rounded-lg overflow-hidden',
+          allComplete && 'bg-status-accepted/10 border-status-accepted/30',
+        )}
+      >
+        <AccordionTrigger className="px-3 py-2.5 hover:no-underline">
+          <div className="flex items-center gap-3 flex-1">
+            <div className={cn(
+              'w-6 h-6 rounded-full flex items-center justify-center shrink-0',
+              allComplete ? 'bg-status-accepted text-white' : 'bg-muted text-muted-foreground'
+            )}>
+              {allComplete ? (
+                <CheckCircle2 className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-3 h-3" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-sm font-medium text-foreground">
+                <span className="text-muted-foreground mr-1.5">{parent.code?.replace(/-/g, '.')}</span>
+                {parent.titel}
+              </p>
+            </div>
+            <Badge variant={allComplete ? 'default' : 'secondary'} className={cn('shrink-0', allComplete && 'bg-status-accepted')}>
+              {completedCount}/{children.length}
+            </Badge>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-3 pb-3 pt-1">
+          <div className="space-y-1.5">
+            {children.map(child => (
+              <LektionRow key={child.id} unterpunkt={child} indented onStart={onStart} />
+            ))}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 }
 

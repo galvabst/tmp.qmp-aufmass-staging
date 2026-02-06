@@ -311,11 +311,27 @@ export function useOnboardingState(
         hm.id === hauptmodulId
           ? {
               ...hm,
-              unterpunkte: hm.unterpunkte.map(up =>
-                up.id === unterpunktId
-                  ? { ...up, abgeschlossen: true, abgeschlossenAt: new Date().toISOString() }
-                  : up
-              ),
+              unterpunkte: hm.unterpunkte.map(up => {
+                // Direct match
+                if (up.id === unterpunktId) {
+                  return { ...up, abgeschlossen: true, abgeschlossenAt: new Date().toISOString() };
+                }
+                // Search in children (for sub-lessons like 6.3.1)
+                if (up.isGroup && up.children?.length) {
+                  const hasChild = up.children.some(c => c.id === unterpunktId);
+                  if (hasChild) {
+                    return {
+                      ...up,
+                      children: up.children.map(c =>
+                        c.id === unterpunktId
+                          ? { ...c, abgeschlossen: true, abgeschlossenAt: new Date().toISOString() }
+                          : c
+                      ),
+                    };
+                  }
+                }
+                return up;
+              }),
             }
           : hm
       ),
