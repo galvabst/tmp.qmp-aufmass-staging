@@ -1,57 +1,93 @@
 
-# Equipment-Status in der Datenbank persistieren
 
-## Ziel
-Die Angaben zu Drohne und iPhone (ob eigenes vorhanden) gehen beim Geraetewechsel verloren, da sie nur im localStorage stehen. DB wird zur SSoT.
+# Equipment-Schritt erweitern: Echte Links + Massband
 
-## 1. Datenbank-Migration
+## Zusammenfassung
 
-Neue JSONB-Spalte + zwei RPCs (thermocheck-Schema + public Wrapper):
+Der Equipment-Schritt bekommt echte Amazon-Affiliate-Links fuer die Drohne, ein neues drittes Equipment-Item "Massband" mit eigener Auswahl-Logik, und der Kauf-Button der Drohne wird als "Bessere Wahl" hervorgehoben.
 
-**Spalte:**
+## Aenderungen im Detail
+
+### 1. Konfiguration: `src/lib/onboarding-config.ts`
+
+**Drohne** - echten Kauf-Link setzen:
 ```text
-ALTER TABLE thermocheck.contractor_onboarding
-ADD COLUMN equipment_status JSONB DEFAULT '{}';
+kaufLink: 'https://amzn.to/4tkCQpV'
+```
+(Miet-Link bleibt vorerst Placeholder)
+
+**Neues Equipment-Item "Massband"** hinzufuegen:
+```text
+{
+  id: 'massband',
+  name: 'Massband',
+  beschreibung: 'Empfohlene Laenge: mindestens 5m',
+  hatEigenes: false,
+  nachweisPflicht: false,
+  kaufLink: 'https://amzn.to/4afYToT',
+}
 ```
 
-**RPC zum Speichern (SECURITY DEFINER, auth.uid()-basiert):**
+### 2. UI-Komponente: `src/components/onboarding/steps/EquipmentStep.tsx`
+
+**Props erweitern** um Massband-Status und -Handler:
+- `massbandStatus: EquipmentStatus`
+- `onMassbandChange: (status) => void`
+- `massbandKaufLink?: string`
+
+**Drohne-Kauf-Button aufwerten:**
+- Badge/Label "Langfristig guenstiger" oder "Bessere Wahl" am Kauf-Button
+- Visuell hervorgehobener als der Miet-Button (z.B. gruener Akzent oder Badge)
+
+**Neuer Massband-Block** (nach iPhone, vor Tipp-Box):
+- Icon: `Ruler` (aus lucide-react)
+- Titel: "Massband"
+- Untertitel: "Empfohlene Laenge: mindestens 5m"
+- Radio-Auswahl:
+  - "Ja, ich habe bereits ein Massband" --> Bestaetigung (gruener Haken)
+  - "Nein, ich brauche ein Massband" --> Kauf-Button "Unser empfohlenes Modell kaufen" mit Amazon-Link
+- Hinweistext: "Empfohlene Laenge: mindestens 5m"
+
+### 3. Integration: `src/components/OnboardingScreen.tsx`
+
+Im `equipment`-Case des `renderStep()`:
+- `massbandItem` aus MOCK_EQUIPMENT extrahieren
+- `massbandStatus` aus `state.equipmentStatus['massband']` lesen
+- `onMassbandChange` via `updateEquipmentStatus('massband', ...)` anschliessen
+- `massbandKaufLink` durchreichen
+
+### 4. canProceed-Logik: `src/hooks/useOnboardingState.ts`
+
+Equipment-Schritt kann weitergehen wenn Drohne + iPhone + Massband alle einen definierten Status haben (entweder "habe ich" oder "brauche ich"):
+
 ```text
-thermocheck.update_contractor_equipment_status(p_equipment JSONB) RETURNS void
-  UPDATE thermocheck.contractor_onboarding
-  SET equipment_status = p_equipment, aktualisiert_am = now()
-  WHERE profile_id = auth.uid();
+case 'equipment':
+  const drohne = state.equipmentStatus['drohne'];
+  const iphone = state.equipmentStatus['iphone-lidar'];
+  const massband = state.equipmentStatus['massband'];
+  return !!(
+    (drohne?.hatEigenes && drohne?.nachweisUrl) || (drohne?.hatEigenes === false)
+  ) && !!(iphone?.hatEigenes) && !!(massband?.hatEigenes !== undefined);
 ```
 
-**Public Wrapper (gleicher Pattern wie Gewerbeschein/Progress):**
+Hinweis: Das Massband blockiert nicht hart - sobald eine Auswahl getroffen wurde (ja/nein), kann weiter geklickt werden.
+
+### 5. Tipp-Text anpassen
+
+Den bestehenden Tipp am Ende erweitern:
 ```text
-public.update_contractor_equipment_status(p_equipment JSONB) RETURNS void
-  RETURN thermocheck.update_contractor_equipment_status(p_equipment);
+"Die Drohne, das iPhone und das Massband kannst du auch steuerlich absetzen!"
 ```
 
-**get_contractor_onboarding_state erweitern:**
-`equipment_status` zum Rueckgabetyp hinzufuegen (DROP + RECREATE der Funktion).
+## Nicht betroffen / offen
 
-## 2. Hook: `src/hooks/useContractorProfile.ts`
-
-- `ContractorOnboardingData`-Interface: neues Feld `equipment_status?: Record<string, unknown> | null`
-- `ContractorOnboardingState`-Interface: neues Feld `equipmentStatus?: Record<string, { hatEigenes: boolean; nachweisUrl?: string }>`
-- Mapping in `onboardingStateQuery`: `equipment_status` aus DB-Row mappen
-- Neue Mutation `saveEquipmentStatusMutation` (analog zu `saveGewerbescheinMutation`)
-- Im Return-Objekt: `saveEquipmentStatus` exponieren
-
-## 3. Hydration: `src/components/OnboardingScreen.tsx`
-
-Im bestehenden Hydrations-useEffect (wo Gewerbeschein + Fortschritt geladen werden):
-- Wenn `dbOnboardingState.equipmentStatus` vorhanden, via `updateEquipmentStatus` in den lokalen State uebernehmen (pro Equipment-ID)
-
-## 4. Speichern: `src/components/OnboardingScreen.tsx`
-
-In `handleNext`, wenn `state.currentStep === 'equipment'`:
-- `saveEquipmentStatus(state.equipmentStatus)` aufrufen (non-blocking, analog zum Gewerbeschein-Pattern)
-- Console-Log bei Erfolg/Fehler
+- **iPhone-Links**: Du hast gesagt, die muessen noch rausgesucht werden. Die Placeholder-Links bleiben vorerst. Sobald du die Affiliate-Links hast, pflege ich sie ein.
+- **DB-Persistierung**: Der Massband-Status wird automatisch ueber das bestehende `equipmentStatus`-JSONB-Feld in der DB gespeichert (gleicher Mechanismus wie Drohne/iPhone - wurde gerade implementiert).
+- **Drohne Miet-Link**: Bleibt Placeholder bis ein passender Link vorliegt.
 
 ## Betroffene Dateien
 
-1. **Neue SQL-Migration** - Spalte + 3 Funktionen (thermocheck RPC, public Wrapper, get_state erweitern)
-2. `src/hooks/useContractorProfile.ts` - Interface + Mutation + Mapping
-3. `src/components/OnboardingScreen.tsx` - Hydration + Speichern bei "Weiter"
+1. `src/lib/onboarding-config.ts` - Massband-Item + Drohne-Kauf-Link
+2. `src/components/onboarding/steps/EquipmentStep.tsx` - Massband-Block + Drohne "Bessere Wahl" Badge
+3. `src/components/OnboardingScreen.tsx` - Massband-Props durchreichen
+4. `src/hooks/useOnboardingState.ts` - canProceed um Massband erweitern
