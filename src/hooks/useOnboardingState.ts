@@ -142,28 +142,53 @@ export function useOnboardingState(
       const currentHauptmodule = prev.akademieHauptmodule || [];
       const hasValidIds = hasValidAkademieIds(currentHauptmodule);
       
-      // Only hydrate if: empty, or IDs mismatch (schema changed)
-      const dbIds = dbModules.flatMap(m => [m.id, ...m.unterpunkte.map(u => u.id)]).sort().join(',');
-      const stateIds = currentHauptmodule.flatMap(m => [m.id, ...(m.unterpunkte || []).map(u => u.id)]).sort().join(',');
+      // Collect all leaf IDs (including children of groups)
+      const collectLeafIds = (modules: AkademieHauptmodul[]) =>
+        modules.flatMap(m => [
+          m.id,
+          ...m.unterpunkte.flatMap(u => [
+            u.id,
+            ...(u.children || []).map(c => c.id),
+          ]),
+        ]).sort().join(',');
+
+      const dbIds = collectLeafIds(dbModules);
+      const stateIds = collectLeafIds(currentHauptmodule);
       
       if (currentHauptmodule.length === 0 || !hasValidIds || dbIds !== stateIds) {
         console.log('[Onboarding] Hydrating akademie from database...');
         
+        // Build a flat lookup of existing progress by ID
+        const progressMap = new Map<string, { abgeschlossen: boolean; abgeschlossenAt?: string }>();
+        for (const hm of currentHauptmodule) {
+          for (const up of (hm.unterpunkte || [])) {
+            if (up.abgeschlossen) progressMap.set(up.id, { abgeschlossen: true, abgeschlossenAt: up.abgeschlossenAt });
+            for (const child of (up.children || [])) {
+              if (child.abgeschlossen) progressMap.set(child.id, { abgeschlossen: true, abgeschlossenAt: child.abgeschlossenAt });
+            }
+          }
+        }
+
         // Merge: use DB structure but preserve local progress
-        const mergedModules = dbModules.map(dbHm => {
-          const existingHm = currentHauptmodule.find(h => h.id === dbHm.id);
-          return {
-            ...dbHm,
-            unterpunkte: dbHm.unterpunkte.map(dbUp => {
-              const existingUp = existingHm?.unterpunkte?.find(u => u.id === dbUp.id);
-              return {
-                ...dbUp,
-                abgeschlossen: existingUp?.abgeschlossen || false,
-                abgeschlossenAt: existingUp?.abgeschlossenAt,
-              };
-            }),
-          };
-        });
+        const mergedModules = dbModules.map(dbHm => ({
+          ...dbHm,
+          unterpunkte: dbHm.unterpunkte.map(dbUp => {
+            const existingProgress = progressMap.get(dbUp.id);
+            return {
+              ...dbUp,
+              abgeschlossen: existingProgress?.abgeschlossen || false,
+              abgeschlossenAt: existingProgress?.abgeschlossenAt,
+              children: dbUp.children?.map(child => {
+                const childProgress = progressMap.get(child.id);
+                return {
+                  ...child,
+                  abgeschlossen: childProgress?.abgeschlossen || false,
+                  abgeschlossenAt: childProgress?.abgeschlossenAt,
+                };
+              }),
+            };
+          }),
+        }));
         
         return {
           ...prev,
@@ -369,12 +394,17 @@ export function useOnboardingState(
           && itemValid(state.equipmentStatus['massband']);
       case 'akademie':
         if (isPreview) return true;
-        // Prüfe ob alle Unterpunkte aller Hauptmodule abgeschlossen sind UND Test bestanden
+        // Prüfe ob alle Leaf-Unterpunkte aller Hauptmodule abgeschlossen sind UND Test bestanden
         const hauptmodule = state.akademieHauptmodule || [];
-        const allUnterpunkteComplete = hauptmodule.length > 0 && hauptmodule.every(hm =>
-          (hm.unterpunkte || []).every(up => up.abgeschlossen)
+        const allLeafsComplete = hauptmodule.length > 0 && hauptmodule.every(hm =>
+          (hm.unterpunkte || []).every(up => {
+            if (up.isGroup && up.children?.length) {
+              return up.children.every(c => c.abgeschlossen);
+            }
+            return up.abgeschlossen;
+          })
         );
-        return allUnterpunkteComplete && state.akademieTestBestanden;
+        return allLeafsComplete && state.akademieTestBestanden;
       case 'nachweise':
         if (isPreview) return true;
         return !!(

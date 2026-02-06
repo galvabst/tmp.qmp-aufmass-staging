@@ -8107,6 +8107,93 @@ export type Database = {
         }
         Relationships: []
       }
+      wp_wirtschaftlichkeitsanalysen: {
+        Row: {
+          aktuelle_heizkosten_monat: number | null
+          altanlage_austausch: boolean | null
+          baujahr_kategorie: string | null
+          berechnete_amortisation_jahre: number | null
+          berechnete_ersparnis_10_jahre: number | null
+          berechnete_foerderquote: number | null
+          berechneter_foerderbetrag: number | null
+          created_at: string
+          einkommen_unter_40k: boolean | null
+          gebaeude_typ: string | null
+          heizmedium: string | null
+          heizsystem: string | null
+          id: string
+          ist_selbstnutzend: boolean | null
+          jaz_profil: string | null
+          lead_id: string
+          updated_at: string
+          warmwasser_ueber_heizung: boolean | null
+          wohnflaeche_qm: number | null
+          wp_hat_effizienzbonus: boolean | null
+          wp_invest_brutto: number | null
+        }
+        Insert: {
+          aktuelle_heizkosten_monat?: number | null
+          altanlage_austausch?: boolean | null
+          baujahr_kategorie?: string | null
+          berechnete_amortisation_jahre?: number | null
+          berechnete_ersparnis_10_jahre?: number | null
+          berechnete_foerderquote?: number | null
+          berechneter_foerderbetrag?: number | null
+          created_at?: string
+          einkommen_unter_40k?: boolean | null
+          gebaeude_typ?: string | null
+          heizmedium?: string | null
+          heizsystem?: string | null
+          id?: string
+          ist_selbstnutzend?: boolean | null
+          jaz_profil?: string | null
+          lead_id: string
+          updated_at?: string
+          warmwasser_ueber_heizung?: boolean | null
+          wohnflaeche_qm?: number | null
+          wp_hat_effizienzbonus?: boolean | null
+          wp_invest_brutto?: number | null
+        }
+        Update: {
+          aktuelle_heizkosten_monat?: number | null
+          altanlage_austausch?: boolean | null
+          baujahr_kategorie?: string | null
+          berechnete_amortisation_jahre?: number | null
+          berechnete_ersparnis_10_jahre?: number | null
+          berechnete_foerderquote?: number | null
+          berechneter_foerderbetrag?: number | null
+          created_at?: string
+          einkommen_unter_40k?: boolean | null
+          gebaeude_typ?: string | null
+          heizmedium?: string | null
+          heizsystem?: string | null
+          id?: string
+          ist_selbstnutzend?: boolean | null
+          jaz_profil?: string | null
+          lead_id?: string
+          updated_at?: string
+          warmwasser_ueber_heizung?: boolean | null
+          wohnflaeche_qm?: number | null
+          wp_hat_effizienzbonus?: boolean | null
+          wp_invest_brutto?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_wirtschaftlichkeitsanalysen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_wirtschaftlichkeitsanalysen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       "zoho-credentials": {
         Row: {
           access_token: string | null
@@ -9397,26 +9484,20 @@ export type Database = {
             | "deaktiviert"
           onboarding_substatus:
             | "neu_angelegt"
-            | "vertrag_per_mail_versendet"
-            | "vertrag_per_post_versendet"
+            | "vertrag_versendet"
             | "vertrag_geprueft"
             | "stammdaten_erfasst"
-            | "bestellungen_checken"
+            | "on_hold"
             | "kleidung_bestellen"
             | "lizenzen_bereitstellen"
-            | "zugaenge_einrichten"
-            | "dokument_fehlt"
-            | "rueckmeldung_ausstehend"
-            | "alle_schritte_abgeschlossen"
-            | "vertrag_versendet"
             | "akademie_gestartet"
             | "deadline_ueberschritten"
-            | "vertrag_abgelehnt"
             | "akademie_abgeschlossen"
             | "vertragsstrafe"
           profile_id: string
           telefon: string
           trainer_freigabe: boolean
+          vertrag_pdf_url: string
           vertragsbeginn: string
           verzugstage: number
           vorname: string
@@ -9638,21 +9719,14 @@ export type Database = {
             | "deaktiviert"
           onboarding_substatus:
             | "neu_angelegt"
-            | "vertrag_per_mail_versendet"
-            | "vertrag_per_post_versendet"
+            | "vertrag_versendet"
             | "vertrag_geprueft"
             | "stammdaten_erfasst"
-            | "bestellungen_checken"
+            | "on_hold"
             | "kleidung_bestellen"
             | "lizenzen_bereitstellen"
-            | "zugaenge_einrichten"
-            | "dokument_fehlt"
-            | "rueckmeldung_ausstehend"
-            | "alle_schritte_abgeschlossen"
-            | "vertrag_versendet"
             | "akademie_gestartet"
             | "deadline_ueberschritten"
-            | "vertrag_abgelehnt"
             | "akademie_abgeschlossen"
             | "vertragsstrafe"
           profile_id: string

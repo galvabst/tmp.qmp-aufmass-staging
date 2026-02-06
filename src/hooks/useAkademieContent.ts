@@ -40,24 +40,77 @@ interface DbModulWithLektionen extends DbModul {
   lektionen: DbLektion[];
 }
 
-// Transforms DB data to app types
+/**
+ * Extracts display number from module code.
+ * "modul-6-datenerhebung" → 6, "modul-0-willkommen" → 0
+ */
+function extractDisplayNummer(moduleCode: string): number {
+  const match = moduleCode.match(/^modul-(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Builds hierarchical unterpunkte from flat lektionen list.
+ * Lektionen with code pattern X-Y-Z are nested under parent X-Y.
+ * Parent becomes a group (isGroup=true) whose completion depends on children.
+ */
+function buildHierarchicalUnterpunkte(lektionen: DbLektion[]): AkademieUnterpunkt[] {
+  const sorted = [...lektionen].sort((a, b) => a.reihenfolge - b.reihenfolge);
+
+  const toUnterpunkt = (lek: DbLektion): AkademieUnterpunkt => ({
+    id: lek.id,
+    code: lek.code,
+    titel: lek.titel,
+    beschreibung: lek.beschreibung || '',
+    videoUrl: lek.video_url || '',
+    dauerMinuten: lek.video_dauer_minuten || 5,
+    reihenfolge: lek.reihenfolge,
+    abgeschlossen: false,
+  });
+
+  // Identify parent-child by code pattern: "6-3" is parent of "6-3-1", "6-3-2"
+  const parentMap = new Map<string, AkademieUnterpunkt>();
+  const childMap = new Map<string, AkademieUnterpunkt[]>();
+
+  // First pass: create all items and identify parents
+  for (const lek of sorted) {
+    const parts = lek.code.split('-');
+    if (parts.length === 3) {
+      // This is a child (e.g. 6-3-1) → parent code is "6-3"
+      const parentCode = `${parts[0]}-${parts[1]}`;
+      if (!childMap.has(parentCode)) childMap.set(parentCode, []);
+      childMap.get(parentCode)!.push(toUnterpunkt(lek));
+    }
+  }
+
+  // Second pass: build result with nesting
+  const result: AkademieUnterpunkt[] = [];
+  for (const lek of sorted) {
+    const parts = lek.code.split('-');
+    if (parts.length === 3) continue; // Skip children, they're nested
+
+    const item = toUnterpunkt(lek);
+    const children = childMap.get(lek.code);
+    if (children && children.length > 0) {
+      item.isGroup = true;
+      item.children = children;
+    }
+    result.push(item);
+  }
+
+  return result;
+}
+
+// Transforms DB data to app types (unused legacy - kept for reference)
 function transformToAppTypes(dbData: DbModulWithLektionen[]): AkademieHauptmodul[] {
   return dbData.map((modul) => ({
     id: modul.id,
+    code: modul.code,
+    displayNummer: extractDisplayNummer(modul.code),
     titel: modul.titel,
     beschreibung: modul.beschreibung || '',
     reihenfolge: modul.reihenfolge,
-    unterpunkte: (modul.lektionen || [])
-      .sort((a, b) => a.reihenfolge - b.reihenfolge)
-      .map((lektion): AkademieUnterpunkt => ({
-        id: lektion.id,
-        titel: lektion.titel,
-        beschreibung: lektion.beschreibung || '',
-        videoUrl: lektion.video_url || '',
-        dauerMinuten: lektion.video_dauer_minuten || 5,
-        reihenfolge: lektion.reihenfolge,
-        abgeschlossen: false, // Will be merged with user progress
-      })),
+    unterpunkte: buildHierarchicalUnterpunkte(modul.lektionen || []),
   }));
 }
 
@@ -147,25 +200,19 @@ export function useAkademieContent() {
           throw lekError;
         }
 
-        // Transform to app types
-        const result: AkademieHauptmodul[] = module.map((mod: any) => ({
-          id: mod.id,
-          titel: mod.titel,
-          beschreibung: mod.beschreibung || '',
-          reihenfolge: mod.reihenfolge,
-          unterpunkte: (lektionen || [])
-            .filter((lek: any) => lek.modul_id === mod.id)
-            .sort((a: any, b: any) => a.reihenfolge - b.reihenfolge)
-            .map((lek: any): AkademieUnterpunkt => ({
-              id: lek.id,
-              titel: lek.titel,
-              beschreibung: lek.beschreibung || '',
-              videoUrl: lek.video_url || '',
-              dauerMinuten: lek.video_dauer_minuten || 5,
-              reihenfolge: lek.reihenfolge,
-              abgeschlossen: false,
-            })),
-        }));
+        // Transform to app types with hierarchy
+        const result: AkademieHauptmodul[] = module.map((mod: any) => {
+          const modulLektionen = (lektionen || []).filter((lek: any) => lek.modul_id === mod.id);
+          return {
+            id: mod.id,
+            code: mod.code,
+            displayNummer: extractDisplayNummer(mod.code),
+            titel: mod.titel,
+            beschreibung: mod.beschreibung || '',
+            reihenfolge: mod.reihenfolge,
+            unterpunkte: buildHierarchicalUnterpunkte(modulLektionen),
+          };
+        });
 
         console.log(`[Akademie] Loaded ${result.length} modules from thermocheck schema`);
         return result;

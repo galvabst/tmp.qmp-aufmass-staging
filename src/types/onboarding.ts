@@ -96,6 +96,7 @@ export interface AkademieModul {
 // NEU: Hierarchische Akademie-Struktur
 export interface AkademieUnterpunkt {
   id: string;
+  code: string;           // z.B. "6-3", "6-3-1"
   titel: string;
   beschreibung: string;
   videoUrl: string;
@@ -103,10 +104,14 @@ export interface AkademieUnterpunkt {
   reihenfolge: number;
   abgeschlossen: boolean;
   abgeschlossenAt?: string;
+  isGroup?: boolean;       // true wenn Kinder vorhanden (z.B. 6-3 hat 6-3-1, 6-3-2)
+  children?: AkademieUnterpunkt[]; // Sub-Lektionen
 }
 
 export interface AkademieHauptmodul {
   id: string;
+  code: string;            // z.B. "modul-6-datenerhebung"
+  displayNummer: number;   // Extrahiert: 6 (aus code)
   titel: string;
   beschreibung: string;
   reihenfolge: number;
