@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useRef, useLayoutEffect, useState, useEffect } from 'react';
-import { ArrowLeft, Check, Clock, BookOpen, FileText, ExternalLink, AlertTriangle, RefreshCw, Lock, Pause, Play } from 'lucide-react';
+import { ArrowLeft, Check, Clock, BookOpen, FileText, AlertTriangle, RefreshCw, Lock, Pause, Play, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -315,7 +315,7 @@ function AkademieModulContent({
           {/* Tabs: Lerninhalt / Zusammenfassung / Material */}
           <div className="p-4">
             <Tabs defaultValue="inhalt" className="w-full">
-              <TabsList className="w-full grid grid-cols-3 mb-4">
+              <TabsList className="w-full grid grid-cols-2 mb-4">
                 <TabsTrigger value="inhalt" className="gap-1.5" disabled={!canUnlockTabs}>
                   <BookOpen className="w-4 h-4" />
                   <span className="hidden sm:inline">Lerninhalt</span>
@@ -325,10 +325,6 @@ function AkademieModulContent({
                   <FileText className="w-4 h-4" />
                   <span className="hidden sm:inline">Zusammenfassung</span>
                   {!canUnlockTabs && <Lock className="w-3 h-3 ml-1 opacity-50" />}
-                </TabsTrigger>
-                <TabsTrigger value="material" className="gap-1.5" disabled={!hasZusatzmaterial}>
-                  <ExternalLink className="w-4 h-4" />
-                  <span className="hidden sm:inline">Material</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -342,9 +338,11 @@ function AkademieModulContent({
                     <p className="text-sm">Schaue das Video zu Ende, um freizuschalten.</p>
                   </div>
                 ) : hasTextContent ? (
-                  // Unlocked with content
-                  <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-li:text-muted-foreground">
-                    <ReactMarkdown>{unterpunkt.textInhalt!}</ReactMarkdown>
+                  // Unlocked with content - styled card with accent headings
+                  <div className="bg-muted/30 rounded-xl p-4 sm:p-5 border border-border shadow-sm">
+                    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-headings:border-l-4 prose-headings:border-primary prose-headings:pl-3 prose-headings:py-1 prose-headings:mt-6 prose-headings:mb-3 prose-headings:first:mt-0 prose-p:text-muted-foreground prose-p:leading-relaxed prose-strong:text-foreground prose-li:text-muted-foreground prose-ul:space-y-1 prose-ol:space-y-1">
+                      <ReactMarkdown>{unterpunkt.textInhalt!}</ReactMarkdown>
+                    </div>
                   </div>
                 ) : (
                   // Unlocked but no content
@@ -365,13 +363,15 @@ function AkademieModulContent({
                     <p className="text-sm">Schaue das Video zu Ende, um freizuschalten.</p>
                   </div>
                 ) : unterpunkt.textZusammenfassung ? (
-                  // Unlocked with content
-                  <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
-                    <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-primary" />
+                  // Unlocked with content - enhanced card with gradient + accent border
+                  <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl p-4 sm:p-5 border-l-4 border-primary shadow-sm">
+                    <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2.5">
+                      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/15">
+                        <Lightbulb className="w-4 h-4 text-primary" />
+                      </span>
                       Key Takeaways
                     </h3>
-                    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-li:text-muted-foreground">
+                    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-headings:border-l-4 prose-headings:border-primary prose-headings:pl-3 prose-headings:py-1 prose-headings:mt-5 prose-headings:mb-2 prose-p:text-muted-foreground prose-p:leading-relaxed prose-strong:text-foreground prose-li:text-muted-foreground prose-ul:space-y-1 prose-ol:space-y-1">
                       <ReactMarkdown>{unterpunkt.textZusammenfassung}</ReactMarkdown>
                     </div>
                   </div>
@@ -384,32 +384,6 @@ function AkademieModulContent({
                 )}
               </TabsContent>
 
-              {/* Material Tab */}
-              <TabsContent value="material" className="mt-0">
-                {hasZusatzmaterial ? (
-                  <div className="space-y-2">
-                    {unterpunkt.zusatzmaterialUrls.map((url, index) => (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                      >
-                        <ExternalLink className="w-5 h-5 text-primary shrink-0" />
-                        <span className="text-sm text-foreground truncate">
-                          {url}
-                        </span>
-                      </a>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <ExternalLink className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                    <p>Kein Zusatzmaterial verfügbar.</p>
-                  </div>
-                )}
-              </TabsContent>
             </Tabs>
           </div>
         </div>
