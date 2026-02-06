@@ -8111,19 +8111,23 @@ export type Database = {
         Row: {
           aktuelle_heizkosten_monat: number | null
           altanlage_austausch: boolean | null
-          baujahr_kategorie: string | null
+          baujahr_kategorie:
+            | Database["public"]["Enums"]["wp_baujahr_kategorie_enum"]
+            | null
           berechnete_amortisation_jahre: number | null
           berechnete_ersparnis_10_jahre: number | null
           berechnete_foerderquote: number | null
           berechneter_foerderbetrag: number | null
           created_at: string
           einkommen_unter_40k: boolean | null
-          gebaeude_typ: string | null
-          heizmedium: string | null
-          heizsystem: string | null
+          gebaeude_typ:
+            | Database["public"]["Enums"]["wp_gebaeude_typ_enum"]
+            | null
+          heizmedium: Database["public"]["Enums"]["wp_heizmedium_enum"] | null
+          heizsystem: Database["public"]["Enums"]["wp_heizsystem_enum"] | null
           id: string
           ist_selbstnutzend: boolean | null
-          jaz_profil: string | null
+          jaz_profil: Database["public"]["Enums"]["wp_jaz_profil_enum"] | null
           lead_id: string
           updated_at: string
           warmwasser_ueber_heizung: boolean | null
@@ -8134,19 +8138,23 @@ export type Database = {
         Insert: {
           aktuelle_heizkosten_monat?: number | null
           altanlage_austausch?: boolean | null
-          baujahr_kategorie?: string | null
+          baujahr_kategorie?:
+            | Database["public"]["Enums"]["wp_baujahr_kategorie_enum"]
+            | null
           berechnete_amortisation_jahre?: number | null
           berechnete_ersparnis_10_jahre?: number | null
           berechnete_foerderquote?: number | null
           berechneter_foerderbetrag?: number | null
           created_at?: string
           einkommen_unter_40k?: boolean | null
-          gebaeude_typ?: string | null
-          heizmedium?: string | null
-          heizsystem?: string | null
+          gebaeude_typ?:
+            | Database["public"]["Enums"]["wp_gebaeude_typ_enum"]
+            | null
+          heizmedium?: Database["public"]["Enums"]["wp_heizmedium_enum"] | null
+          heizsystem?: Database["public"]["Enums"]["wp_heizsystem_enum"] | null
           id?: string
           ist_selbstnutzend?: boolean | null
-          jaz_profil?: string | null
+          jaz_profil?: Database["public"]["Enums"]["wp_jaz_profil_enum"] | null
           lead_id: string
           updated_at?: string
           warmwasser_ueber_heizung?: boolean | null
@@ -8157,19 +8165,23 @@ export type Database = {
         Update: {
           aktuelle_heizkosten_monat?: number | null
           altanlage_austausch?: boolean | null
-          baujahr_kategorie?: string | null
+          baujahr_kategorie?:
+            | Database["public"]["Enums"]["wp_baujahr_kategorie_enum"]
+            | null
           berechnete_amortisation_jahre?: number | null
           berechnete_ersparnis_10_jahre?: number | null
           berechnete_foerderquote?: number | null
           berechneter_foerderbetrag?: number | null
           created_at?: string
           einkommen_unter_40k?: boolean | null
-          gebaeude_typ?: string | null
-          heizmedium?: string | null
-          heizsystem?: string | null
+          gebaeude_typ?:
+            | Database["public"]["Enums"]["wp_gebaeude_typ_enum"]
+            | null
+          heizmedium?: Database["public"]["Enums"]["wp_heizmedium_enum"] | null
+          heizsystem?: Database["public"]["Enums"]["wp_heizsystem_enum"] | null
           id?: string
           ist_selbstnutzend?: boolean | null
-          jaz_profil?: string | null
+          jaz_profil?: Database["public"]["Enums"]["wp_jaz_profil_enum"] | null
           lead_id?: string
           updated_at?: string
           warmwasser_ueber_heizung?: boolean | null
@@ -9474,26 +9486,8 @@ export type Database = {
           id: string
           nachname: string
           notizen_intern: string
-          onboarding_status:
-            | "angelegt"
-            | "invited"
-            | "started"
-            | "in_progress"
-            | "blocked"
-            | "ready"
-            | "deaktiviert"
-          onboarding_substatus:
-            | "neu_angelegt"
-            | "vertrag_versendet"
-            | "vertrag_geprueft"
-            | "stammdaten_erfasst"
-            | "on_hold"
-            | "kleidung_bestellen"
-            | "lizenzen_bereitstellen"
-            | "akademie_gestartet"
-            | "deadline_ueberschritten"
-            | "akademie_abgeschlossen"
-            | "vertragsstrafe"
+          onboarding_status: string
+          onboarding_substatus: string
           profile_id: string
           telefon: string
           trainer_freigabe: boolean
@@ -11414,6 +11408,16 @@ export type Database = {
         | "user_management"
       werbung_status: "Eingestellt" | "ErsterVerkauf" | "ProbezeitBestanden"
       widerruf_status_enum: "Laufend" | "Abgelaufen" | "Widerrufen"
+      wp_baujahr_kategorie_enum: "vor_1979" | "1979_2001" | "ab_2002"
+      wp_gebaeude_typ_enum: "efh" | "zfh" | "mfh"
+      wp_heizmedium_enum:
+        | "gas"
+        | "oel"
+        | "fernwaerme"
+        | "nachtspeicher"
+        | "sonstige"
+      wp_heizsystem_enum: "heizkoerper" | "fussbodenheizung" | "gemischt"
+      wp_jaz_profil_enum: "konservativ" | "realistisch" | "optimiert"
       zahlungsart:
         | "Barzahlung"
         | "Bees and Bears"
@@ -11990,6 +11994,17 @@ export const Constants = {
       ],
       werbung_status: ["Eingestellt", "ErsterVerkauf", "ProbezeitBestanden"],
       widerruf_status_enum: ["Laufend", "Abgelaufen", "Widerrufen"],
+      wp_baujahr_kategorie_enum: ["vor_1979", "1979_2001", "ab_2002"],
+      wp_gebaeude_typ_enum: ["efh", "zfh", "mfh"],
+      wp_heizmedium_enum: [
+        "gas",
+        "oel",
+        "fernwaerme",
+        "nachtspeicher",
+        "sonstige",
+      ],
+      wp_heizsystem_enum: ["heizkoerper", "fussbodenheizung", "gemischt"],
+      wp_jaz_profil_enum: ["konservativ", "realistisch", "optimiert"],
       zahlungsart: [
         "Barzahlung",
         "Bees and Bears",

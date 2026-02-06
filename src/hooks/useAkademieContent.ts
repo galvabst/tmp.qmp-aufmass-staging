@@ -288,9 +288,17 @@ export function findUnterpunktInHauptmodule(
   hauptmodule: AkademieHauptmodul[]
 ): { hauptmodul: AkademieHauptmodul; unterpunkt: AkademieUnterpunkt } | null {
   for (const hauptmodul of hauptmodule) {
-    const unterpunkt = hauptmodul.unterpunkte.find(up => up.id === lektionId);
-    if (unterpunkt) {
-      return { hauptmodul, unterpunkt };
+    for (const up of hauptmodul.unterpunkte) {
+      if (up.id === lektionId) {
+        return { hauptmodul, unterpunkt: up };
+      }
+      // Search in children (sub-lessons like 6.3.1)
+      if (up.isGroup && up.children?.length) {
+        const child = up.children.find(c => c.id === lektionId);
+        if (child) {
+          return { hauptmodul, unterpunkt: child };
+        }
+      }
     }
   }
   return null;
