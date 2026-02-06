@@ -9353,6 +9353,18 @@ export type Database = {
           vorname: string
         }[]
       }
+      get_all_contractor_bestellungen_summary: {
+        Args: never
+        Returns: {
+          kleidung_paid: number
+          kleidung_total: number
+          lizenz_paid: number
+          lizenz_total: number
+          onboarding_id: string
+          zubehoer_paid: number
+          zubehoer_total: number
+        }[]
+      }
       get_app_roles: { Args: { _app_id: string }; Returns: Json }
       get_assignable_reviewers_sales_training: {
         Args: never
