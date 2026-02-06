@@ -282,7 +282,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     };
   }, [state.currentStep, dbOrders, refetchOrders]);
 
-  // Payment Success Handler
+  // Payment Success Handler – IMMER Priorität über DB-Hydration
   useEffect(() => {
     if (paymentHandledRef.current) return;
     
@@ -296,17 +296,17 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       toast.success('Zahlung erfolgreich! 🎉');
       refetchOrders();
       
-      if (state.currentStep !== 'bestellungen') {
-        goToStep('bestellungen');
-      }
+      // IMMER auf bestellungen setzen – egal was DB-Hydration sagt
+      goToStep('bestellungen');
       
       setSearchParams({}, { replace: true });
     } else if (paymentStatus === 'cancelled') {
       paymentHandledRef.current = true;
       toast.info('Zahlung abgebrochen');
+      goToStep('bestellungen');
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams, refetchOrders, state.currentStep, goToStep]);
+  }, [searchParams, setSearchParams, refetchOrders, goToStep]);
 
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
   const [coachingSlots, setCoachingSlots] = useState<CoachingSlot[]>(MOCK_COACHING_SLOTS);
