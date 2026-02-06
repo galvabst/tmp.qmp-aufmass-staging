@@ -9364,6 +9364,7 @@ export type Database = {
           anschrift_strasse: string
           completed_steps: string[]
           current_step: string
+          equipment_status: Json
           gewerbeschein_spaeter: boolean
           gewerbeschein_url: string
         }[]
@@ -10813,6 +10814,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_contractor_equipment_status: {
+        Args: { p_equipment: Json }
+        Returns: undefined
       }
       update_contractor_gewerbeschein: {
         Args: {
