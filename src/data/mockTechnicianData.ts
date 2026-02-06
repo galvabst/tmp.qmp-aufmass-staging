@@ -1,45 +1,5 @@
-import { TechnicianOrder, TechnicianProfile, OnboardingProgress, QuartalKontingent, Certificate } from '@/types/technician';
-
-export const mockOnboardingProgress: OnboardingProgress = {
-  isCompleted: false,
-  currentStep: 'pflichtutensilien',
-  progressPercent: 40,
-  steps: [
-    { id: 'gewerbeschein', label: 'Gewerbeschein hochladen', status: 'completed', completedAt: '2026-01-10' },
-    { id: 'pflichtutensilien', label: 'Pflichtutensilien-Nachweise', status: 'in_progress' },
-    { id: 'drohne', label: 'Drohnen-Nachweis', status: 'pending' },
-    { id: 'kleidung', label: 'Arbeitskleidung bestellt', status: 'pending' },
-    { id: 'akademie_zertifikat', label: 'Akademie-Schulungszertifikat', status: 'pending' },
-  ],
-};
-
-export const mockKontingent: QuartalKontingent = {
-  quartal: 'Q1/2026',
-  abgenommen: 12,
-  minimum: 24,
-};
-
-export const mockCertificates: Certificate[] = [
-  { type: 'thermocheck', name: 'Thermocheck-Zertifikat', completedAt: '2025-06-15' },
-  { type: 'pv', name: 'PV-Zertifikat', completedAt: '2025-07-20' },
-];
-
-export const mockTechnicianProfile: TechnicianProfile = {
-  id: '1',
-  name: 'Max Mustermann',
-  email: 'max.mustermann@email.de',
-  phone: '+49 151 12345678',
-  region: 'Bayern',
-  memberSince: '2024-01',
-  stats: {
-    totalOrders: 127,
-    acceptanceRate: 98,
-    rating: 4.9,
-  },
-  certificates: mockCertificates,
-  onboarding: mockOnboardingProgress,
-  kontingent: mockKontingent,
-};
+import { TechnicianOrder } from '@/types/technician';
+import { ObjectOrderStatusEnum } from '@/lib/enums';
 
 export const mockTechnicianOrders: TechnicianOrder[] = [
   // Pool orders (published) - nur PLZ + Stadt sichtbar
@@ -97,7 +57,6 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     lng: 11.7489,
     billableAmount: 100,
   },
-  // Booked orders - volle Details sichtbar
   {
     id: '4',
     customerName: 'Familie Bauer',
@@ -134,7 +93,6 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     lng: 11.4342,
     billableAmount: 200,
   },
-  // Active orders (in_progress) - Vor-Ort phase
   {
     id: '6',
     customerName: 'Frau Schneider',
@@ -155,7 +113,6 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     checkinPhase: 'vor_ort',
     vorOrtCheckinAt: '2026-01-20T08:55:00Z',
   },
-  // Active orders - Nachbearbeitung phase
   {
     id: '7',
     customerName: 'Familie Huber',
@@ -178,7 +135,6 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     vorOrtCheckoutAt: '2026-01-19T13:30:00Z',
     nachbearbeitungCheckinAt: '2026-01-20T09:00:00Z',
   },
-  // Submitted/In Review
   {
     id: '8',
     customerName: 'Herr Braun',
@@ -215,7 +171,6 @@ export const mockTechnicianOrders: TechnicianOrder[] = [
     billableAmount: 100,
     submittedAt: '2026-01-17T15:00:00Z',
   },
-  // Approved
   {
     id: '10',
     customerName: 'Herr Wagner',

@@ -54,8 +54,9 @@ export function ProfileView({ profile, onSave, onStartOnboarding, onStartOnboard
 
   const onboarding = profile.onboarding;
   const kontingent = profile.kontingent;
-  const kontingentPercent = Math.min((kontingent.abgenommen / kontingent.minimum) * 100, 100);
+  const kontingentPercent = kontingent.minimum > 0 ? Math.min((kontingent.abgenommen / kontingent.minimum) * 100, 100) : 0;
   const kontingentRemaining = Math.max(kontingent.minimum - kontingent.abgenommen, 0);
+  const hasStats = profile.stats.totalOrders > 0 || profile.stats.rating > 0;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -133,15 +134,15 @@ export function ProfileView({ profile, onSave, onStartOnboarding, onStartOnboard
         <div className="bg-card rounded-lg shadow-card p-4">
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold text-foreground">{profile.stats.totalOrders}</p>
+              <p className="text-2xl font-bold text-foreground">{hasStats ? profile.stats.totalOrders : '–'}</p>
               <p className="text-xs text-muted-foreground">Aufträge</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-green-600">{profile.stats.acceptanceRate}%</p>
+              <p className="text-2xl font-bold text-foreground">{hasStats ? `${profile.stats.acceptanceRate}%` : '–'}</p>
               <p className="text-xs text-muted-foreground">Annahmerate</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{profile.stats.rating}</p>
+              <p className="text-2xl font-bold text-foreground">{hasStats ? profile.stats.rating : '–'}</p>
               <p className="text-xs text-muted-foreground">Bewertung</p>
             </div>
           </div>
