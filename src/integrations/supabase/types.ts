@@ -9010,6 +9010,10 @@ export type Database = {
       check_user_is_superadmin: { Args: { _user_id: string }; Returns: boolean }
       cleanup_old_audio_files: { Args: never; Returns: undefined }
       cleanup_orphan_transcripts: { Args: never; Returns: number }
+      complete_app_onboarding: {
+        Args: { _app_code: string }
+        Returns: undefined
+      }
       complete_arbeitspaket_and_advance:
         | {
             Args: {
@@ -9363,6 +9367,12 @@ export type Database = {
           onboarding_id: string
           zubehoer_paid: number
           zubehoer_total: number
+        }[]
+      }
+      get_app_onboarding_status: {
+        Args: { _app_code: string }
+        Returns: {
+          onboarding_completed_at: string
         }[]
       }
       get_app_roles: { Args: { _app_id: string }; Returns: Json }
