@@ -1,80 +1,108 @@
 
 
-# Akademie-Architektur Fix: Nummerierung und Hierarchie
+# Akademie UI: 3-stufiges Accordion + Kritische Bug-Fixes
 
-## Probleme
+## Identifizierte Probleme (durch Reverse Engineering)
 
-1. **Nummerierung off-by-one**: Modul 0 ("Willkommen & Orientierung") wird als "1" angezeigt, dadurch verschiebt sich alles um 1. Modul 6 (Datenerhebung) zeigt als "7".
-2. **Fehlende Code-basierte Nummerierung**: Das Frontend nutzt `hauptmodulIndex + 1` statt den tatsaechlichen `code` aus der Datenbank (z.B. `modul-6-datenerhebung` -> Nummer 6).
-3. **Keine Hierarchie-Darstellung**: Lektionen wie 6-3-1 und 6-3-2 sind Unterpunkte von 6-3, werden aber flach neben den anderen angezeigt.
+### Bug 1: Sub-Lektionen koennen NICHT abgeschlossen werden (KRITISCH)
+`completeAkademieUnterpunkt()` in `useOnboardingState.ts` durchsucht nur `hm.unterpunkte` -- NICHT `up.children`. Wenn ein User Lektion 6.3.1 oder 6.3.2 abschliesst, wird die ID nicht gefunden und der Fortschritt geht verloren. Der User bleibt in der Akademie stecken.
 
-## Loesung
+### Bug 2: findUnterpunktInHauptmodule ignoriert Kinder
+In `useAkademieContent.ts` sucht `findUnterpunktInHauptmodule()` nur in der obersten Ebene. Kinder-Lektionen werden nie gefunden.
 
-### Schritt 1: Typen erweitern
+### Bug 3: Code-Darstellung mit Bindestrichen statt Punkten
+Codes werden als `6-3-1` angezeigt statt `6.3.1`.
 
-**Datei: `src/types/onboarding.ts`**
+### Bug 4: GruppenLektion ist immer offen
+Die Kinder einer Gruppen-Lektion (6-3) werden immer angezeigt statt aufklappbar zu sein. Das ueberladene UI ist das Problem aus den Screenshots.
 
-`AkademieHauptmodul` und `AkademieUnterpunkt` bekommen ein `code`-Feld:
-
-```text
-AkademieHauptmodul {
-  ...
-  code: string;        // z.B. "modul-6-datenerhebung"
-  displayNummer: number; // Extrahiert: 6
-}
-
-AkademieUnterpunkt {
-  ...
-  code: string;        // z.B. "6-3-1"
-}
-```
-
-### Schritt 2: Hook anpassen (useAkademieContent)
-
-**Datei: `src/hooks/useAkademieContent.ts`**
-
-- `code` aus der DB in die App-Typen durchreichen
-- `displayNummer` aus dem Modul-Code extrahieren (z.B. `modul-6-datenerhebung` -> `6`)
-- Modul 0 bekommt `displayNummer = 0`
-
-### Schritt 3: Nummerierung im UI fixen
-
-**Datei: `src/components/onboarding/steps/AcademyStep.tsx`**
-
-Zeile 159: Statt `hauptmodulIndex + 1` den extrahierten `displayNummer`-Wert verwenden:
-
-```text
-Vorher:  hauptmodulIndex + 1
-Nachher: hauptmodul.displayNummer
-```
-
-Dies loest das Off-by-one-Problem sofort -- Modul 0 zeigt "0", Modul 6 zeigt "6".
-
-### Schritt 4: Sub-Lektionen visuell gruppieren (optional aber empfohlen)
-
-Lektionen mit Code-Pattern `X-Y-Z` (z.B. 6-3-1, 6-3-2) werden als Unterpunkte der Parent-Lektion (6-3) erkannt und leicht eingerueckt dargestellt. Dies nutzt die bereits existierende `parent_lektion_id`-Spalte in der DB oder alternativ das Code-Pattern.
-
-Konkret:
-- Lektion 6-3 ("Dokumentationsstandard") wird zur Gruppen-Ueberschrift
-- 6-3-1 und 6-3-2 werden darunter eingerueckt angezeigt
-- Eine Gruppen-Lektion gilt als abgeschlossen wenn alle Kinder fertig sind
-
-## Betroffene Dateien
-
-| Datei | Aenderung |
-|-------|-----------|
-| `src/types/onboarding.ts` | `code` und `displayNummer` Felder hinzufuegen |
-| `src/hooks/useAkademieContent.ts` | `code` durchreichen, `displayNummer` extrahieren |
-| `src/components/onboarding/steps/AcademyStep.tsx` | Nummerierung auf `displayNummer` umstellen |
-| `src/hooks/useOnboardingState.ts` | `code` in Hydration-Logik beruecksichtigen |
+### Bug 5: Modul-Nummern korrekt aber nicht optimal sichtbar
+Die `displayNummer` wird korrekt gerendert (Zeile 258), aber bei Modul 0 steht nur "0" im Kreis. Das ist technisch korrekt aber visuell unauffaellig.
 
 ## Kein DB-Change noetig
+Die Datenbank-Struktur ist verifiziert und korrekt:
+- 12 Module (0-10 + modul-11 falls vorhanden)
+- Modul 6 hat korrekt: 6-1, 6-2, 6-3, 6-3-1, 6-3-2, 6-4, 6-5
+- `buildHierarchicalUnterpunkte()` gruppiert korrekt nach Code-Pattern
 
-Alle Daten (`code`, `reihenfolge`) sind bereits korrekt in der Datenbank. Es handelt sich rein um Frontend-Fixes.
+## Kein RLS/IAM-Change noetig
+- Die Akademie-Inhalte sind read-only fuer alle authentifizierten User (`auth.uid() IS NOT NULL`)
+- Fortschritt wird lokal (localStorage) + in `contractor_onboarding` (eigener Record) gespeichert
+- Keine neuen Tabellen, keine neuen Policies
 
-## Risiken
+## Betroffene Dateien und Aenderungen
 
-- **Gering**: Reine UI-Aenderung, keine Daten-Migration
-- **Hydration**: Der `useOnboardingState`-Hook muss das neue `code`-Feld beim Merge von DB-Daten und localStorage beruecksichtigen -- wird mitgemacht
-- **Abschlusstest-Logik**: Modul 0 zaehlt weiterhin zum Gesamtfortschritt (alle Module muessen abgeschlossen werden) -- falls Modul 0 NICHT zum Test zaehlen soll, bitte Bescheid geben
+### Datei 1: `src/hooks/useOnboardingState.ts`
 
+**Fix A -- completeAkademieUnterpunkt muss Kinder durchsuchen (Zeile 307-323)**
+
+Aktuell durchsucht die Funktion nur `hm.unterpunkte.map()`. Kinder von Gruppen-Lektionen werden nicht erreicht.
+
+Loesung: Rekursiv auch `up.children` durchsuchen und dort `abgeschlossen` setzen:
+
+```text
+completeAkademieUnterpunkt(hauptmodulId, unterpunktId):
+  Fuer jedes Hauptmodul:
+    Fuer jeden Unterpunkt:
+      Wenn unterpunktId == up.id -> markiere abgeschlossen
+      Wenn up.children existieren:
+        Fuer jedes Kind:
+          Wenn unterpunktId == child.id -> markiere abgeschlossen
+```
+
+### Datei 2: `src/hooks/useAkademieContent.ts`
+
+**Fix B -- findUnterpunktInHauptmodule muss Kinder durchsuchen (Zeile 286-297)**
+
+Aktuell: `hauptmodul.unterpunkte.find(up => up.id === lektionId)` -- findet keine Kinder.
+
+Loesung: Auch `up.children` durchsuchen:
+```text
+Fuer jedes Hauptmodul:
+  Fuer jeden Unterpunkt:
+    Wenn up.id == lektionId -> return
+    Fuer jedes Kind in up.children:
+      Wenn child.id == lektionId -> return
+```
+
+### Datei 3: `src/components/onboarding/steps/AcademyStep.tsx`
+
+**Aenderung C -- GruppenLektion wird zum verschachtelten Accordion**
+
+Die `GruppenLektion`-Komponente wird umgebaut: Statt die Kinder immer sichtbar anzuzeigen, wird ein inneres `Accordion` verwendet. Die Eltern-Lektion (z.B. 6.3 Dokumentationsstandard) wird zur aufklappbaren Zeile. Erst beim Aufklappen erscheinen die Kind-Lektionen.
+
+Radix UI unterstuetzt verschachtelte Accordions nativ -- kein neues Package noetig.
+
+**Aenderung D -- Code als Punkt-Notation anzeigen**
+
+Ueberall wo `unterpunkt.code` oder `parent.code` gerendert wird, wird `code.replace(/-/g, '.')` angewendet. Aus `6-3-1` wird `6.3.1`.
+
+Betrifft:
+- `LektionRow` Zeile 104
+- `GruppenLektion` Zeile 154
+
+**Aenderung E -- Modul-Nummer weiterhin korrekt (kein Change)**
+
+Zeile 258 zeigt bereits `hauptmodul.displayNummer`. Das ist korrekt. Modul 0 zeigt "0", Modul 6 zeigt "6". Kein Aenderungsbedarf.
+
+### Zusammenfassung betroffene Dateien
+
+| Datei | Aenderung | Risiko |
+|-------|-----------|--------|
+| `useOnboardingState.ts` | completeAkademieUnterpunkt: Kinder-Suche | Gering -- additive Logik |
+| `useAkademieContent.ts` | findUnterpunktInHauptmodule: Kinder-Suche | Gering -- additive Logik |
+| `AcademyStep.tsx` | Nested Accordion + Punkt-Notation | Mittel -- UI-Refactor |
+
+## Edge Cases
+
+1. **Lektion ohne Kinder**: Wird wie bisher als klickbare Zeile gerendert (LektionRow). Kein Change.
+2. **Gruppen-Lektion mit 0 Kindern**: Wird als normale Lektion gerendert (isGroup wuerde false sein, da buildHierarchicalUnterpunkte nur isGroup=true setzt wenn children.length > 0).
+3. **Fortschritt nach Code-Aenderung**: Bestehender localStorage-Progress wird korrekt migriert, da `hydrateAkademieFromDb` nach ID matcht (UUIDs), nicht nach Code.
+4. **Alle Kinder einer Gruppe abgeschlossen**: Die Gruppen-Lektion zeigt einen gruenen Haken und Badge "2/2".
+5. **Modul 0 im Abschlusstest**: Zaehlt weiterhin zum Gesamtfortschritt (wie bisher). Falls gewuenscht, kann das spaeter geaendert werden.
+6. **Mobile Touch-Targets**: Nested Accordion-Trigger haben mindestens 44px Hoehe fuer Touch.
+
+## Keine Migration noetig
+- Keine DB-Schema-Aenderungen
+- localStorage-Struktur bleibt identisch (IDs sind UUIDs, Progress-Map matcht korrekt)
+- Keine neuen Spalten, Tabellen oder ENUMs
