@@ -1,34 +1,53 @@
 
 
-# T-Shirt Test-Preis (0 EUR) temporaer setzen
+# Fix: Webhook DB-Fehler + Polling fuer Zahlungsstatus
 
-## Aenderung
+## Problem-Analyse
 
-Ein einfaches SQL-Update in der Datenbank: Die `stripe_price_id` des T-Shirt-Produkts wird auf den kostenlosen Test-Preis geaendert.
+Der Webhook empfaengt das Event korrekt, aber scheitert an **zwei DB-Schema-Fehlern**:
 
-```sql
-UPDATE thermocheck.contractor_produkte
-SET stripe_price_id = 'price_1SxlelLnjPqrEfxxwdrSMrZ6'
-WHERE produkt_key = 'tshirt';
-```
+1. `contractor_admin_tasks.titel` existiert nicht - der Webhook oder ein Trigger versucht dort zu schreiben
+2. `contractor_audit_log.bestellung_id` existiert nicht - der Insert in die Audit-Tabelle nutzt einen falschen Spaltennamen
 
-## Was sich aendert
+Zusaetzlich: Da Stripe jetzt in einem neuen Tab laeuft, erkennt die App im Hintergrund nicht, dass gezahlt wurde. Es fehlt ein **Polling-Mechanismus**.
 
-- Beim Klick auf "Jetzt bestellen" fuer das T-Shirt wird die Stripe Checkout Session mit dem 0-EUR-Preis erstellt
-- Der gesamte Flow (Checkout, Webhook, Bestellstatus-Update) wird identisch durchlaufen - nur eben kostenlos
-- Kein Code wird geaendert, nur ein DB-Wert
+## Schritt 1: DB-Schema pruefen und fixen
 
-## Spaeter zuruecksetzen
+Zuerst muss ich die tatsaechlichen Spalten der betroffenen Tabellen pruefen und dann:
 
-Wenn der Test abgeschlossen ist, wird der originale Stripe Price-ID (`price_1SvgcrLnjPqrEfxxgvConSYk`) wieder eingesetzt:
+- `contractor_audit_log`: Den Webhook-Code anpassen, damit er die korrekten Spaltennamen nutzt (kein `bestellung_id`, stattdessen den richtigen FK-Namen)
+- `contractor_admin_tasks`: Pruefen ob ein DB-Trigger existiert der bei Zahlungseingang automatisch einen Admin-Task anlegt - dort stimmt der Spaltenname `titel` nicht
 
-```sql
-UPDATE thermocheck.contractor_produkte
-SET stripe_price_id = 'price_1SvgcrLnjPqrEfxxgvConSYk'
-WHERE produkt_key = 'tshirt';
-```
+## Schritt 2: Webhook Edge Function korrigieren
+
+In `supabase/functions/stripe-webhook/index.ts`:
+- Audit-Log Insert mit korrekten Spaltennamen
+
+## Schritt 3: Polling nach Checkout-Start
+
+Da der Stripe-Tab separat laeuft, muss die App aktiv pruefen:
+
+**`src/hooks/useStripeCheckout.ts`:**
+- Neuer State `isWaitingForPayment` + `waitingForProductKey`
+- Nach `window.open()` den Warte-Modus aktivieren
+
+**`src/components/OnboardingScreen.tsx`:**
+- Polling-Intervall (alle 3 Sekunden) das `refetchOrders()` aufruft wenn `isWaitingForPayment` aktiv ist
+- Sobald das Produkt als "paid" erkannt wird, Polling stoppen und UI aktualisieren
 
 ## Betroffene Dateien
 
-Keine Code-Aenderungen noetig - nur eine Datenbank-Migration.
+| Datei | Aenderung |
+|-------|----------|
+| DB-Migration | `contractor_audit_log` und `contractor_admin_tasks` Schema-Fix |
+| `supabase/functions/stripe-webhook/index.ts` | Audit-Log Insert mit korrekten Spalten |
+| `src/hooks/useStripeCheckout.ts` | `isWaitingForPayment` State hinzufuegen |
+| `src/components/OnboardingScreen.tsx` | Polling-Intervall nach Checkout-Start |
 
+## Erwartetes Ergebnis
+
+1. User klickt "Jetzt bestellen" -> neuer Tab mit Stripe
+2. App zeigt "Warte auf Zahlung..." im Hintergrund
+3. User zahlt -> Webhook verarbeitet korrekt -> DB auf "paid"
+4. App-Polling erkennt "paid" -> naechstes Produkt wird angezeigt
+5. Alle Produkte bezahlt -> "Weiter zu Equipment" wird aktiv
