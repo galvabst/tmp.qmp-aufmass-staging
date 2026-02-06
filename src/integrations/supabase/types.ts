@@ -9457,6 +9457,33 @@ export type Database = {
           template_name: string
         }[]
       }
+      get_contractor_bestellungen: {
+        Args: { p_onboarding_id: string }
+        Returns: {
+          betrag_brutto: number
+          betrag_netto: number
+          created_at: string
+          empfang_confirmed_at: string
+          empfangsfoto_url: string
+          groesse: string
+          id: string
+          idempotency_key: string
+          intern_abgeschlossen: boolean
+          intern_abgeschlossen_am: string
+          intern_abgeschlossen_von: string
+          menge: number
+          onboarding_id: string
+          paid_at: string
+          produkt_key: string
+          produkt_typ: string
+          stripe_customer_id: string
+          stripe_payment_intent_id: string
+          stripe_payment_status: string
+          stripe_session_id: string
+          stripe_subscription_id: string
+          webhook_received_at: string
+        }[]
+      }
       get_contractor_by_id: {
         Args: { p_id: string }
         Returns: unknown[]
@@ -10940,6 +10967,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_contractor_bestellung_intern_status: {
+        Args: { p_abgeschlossen: boolean; p_bestellung_id: string }
+        Returns: undefined
       }
       update_contractor_equipment_status: {
         Args: { p_equipment: Json }

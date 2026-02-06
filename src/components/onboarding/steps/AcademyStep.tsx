@@ -58,84 +58,63 @@ function isUnterpunktUnlocked(): boolean {
   return true;
 }
 
-/** Renders a single lesson row (used for top-level and children) */
-function LektionRow({
+/** Renders a single clickable lesson inside an expanded accordion */
+function LektionInnerRow({
   unterpunkt,
-  indented = false,
   onStart,
 }: {
   unterpunkt: AkademieUnterpunkt;
-  indented?: boolean;
   onStart: (up: AkademieUnterpunkt) => void;
 }) {
-  const isUPUnlocked = isUnterpunktUnlocked();
-  const isUPComplete = unterpunkt.abgeschlossen;
+  const isComplete = unterpunkt.abgeschlossen;
 
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-3 rounded-lg border transition-colors',
-        indented && 'ml-6 border-dashed',
-        isUPComplete && 'bg-status-accepted/10 border-status-accepted/30',
-        !isUPUnlocked && 'opacity-50',
-        isUPUnlocked && !isUPComplete && 'hover:bg-muted/50 cursor-pointer'
+        'flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer',
+        isComplete
+          ? 'bg-status-accepted/10 border-status-accepted/30'
+          : 'hover:bg-muted/50 border-border/50'
       )}
-      onClick={() => isUPUnlocked && onStart(unterpunkt)}
+      onClick={() => onStart(unterpunkt)}
     >
-      {/* Status */}
       <div className={cn(
         'w-6 h-6 rounded-full flex items-center justify-center shrink-0',
-        isUPComplete ? 'bg-status-accepted text-white' :
-        !isUPUnlocked ? 'bg-muted text-muted-foreground' :
-        'bg-primary/20 text-primary'
+        isComplete ? 'bg-status-accepted text-white' : 'bg-primary/20 text-primary'
       )}>
-        {isUPComplete ? (
-          <CheckCircle2 className="w-4 h-4" />
-        ) : !isUPUnlocked ? (
-          <Lock className="w-3 h-3" />
-        ) : (
-          <Play className="w-3 h-3 ml-0.5" />
-        )}
+        {isComplete ? <CheckCircle2 className="w-4 h-4" /> : <Play className="w-3 h-3 ml-0.5" />}
       </div>
-
-      {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className={cn('text-sm font-medium text-foreground', indented && 'text-xs')}>
+        <p className="text-sm font-medium text-foreground">
           <span className="text-muted-foreground mr-1.5">{unterpunkt.code?.replace(/-/g, '.')}</span>
           {unterpunkt.titel}
         </p>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="w-3 h-3" />
-          <span>{unterpunkt.dauerMinuten} Min.</span>
-        </div>
       </div>
-
-      {/* Action */}
-      {isUPUnlocked && !isUPComplete && (
-        <Button size="sm" variant="ghost" className="shrink-0 text-primary">
-          <Play className="w-4 h-4" />
-        </Button>
-      )}
+      <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+        <Clock className="w-3 h-3" />
+        <span>{unterpunkt.dauerMinuten} Min.</span>
+      </div>
     </div>
   );
 }
 
-/** Renders a group parent with its children */
-function GruppenLektion({
-  parent,
+/** Unified accordion for every lesson — single or group */
+function LektionAccordion({
+  unterpunkt,
   onStart,
 }: {
-  parent: AkademieUnterpunkt;
+  unterpunkt: AkademieUnterpunkt;
   onStart: (up: AkademieUnterpunkt) => void;
 }) {
-  const children = parent.children || [];
+  const isGroup = unterpunkt.isGroup && unterpunkt.children?.length;
+  const children = isGroup ? unterpunkt.children! : [unterpunkt];
   const completedCount = children.filter(c => c.abgeschlossen).length;
   const allComplete = children.length > 0 && completedCount === children.length;
 
   return (
     <Accordion type="single" collapsible>
       <AccordionItem
-        value={parent.id}
+        value={unterpunkt.id}
         className={cn(
           'border rounded-lg overflow-hidden',
           allComplete && 'bg-status-accepted/10 border-status-accepted/30',
@@ -145,7 +124,7 @@ function GruppenLektion({
           <div className="flex items-center gap-3 flex-1">
             <div className={cn(
               'w-6 h-6 rounded-full flex items-center justify-center shrink-0',
-              allComplete ? 'bg-status-accepted text-white' : 'bg-muted text-muted-foreground'
+              allComplete ? 'bg-status-accepted text-white' : 'bg-primary/20 text-primary'
             )}>
               {allComplete ? (
                 <CheckCircle2 className="w-4 h-4" />
@@ -155,8 +134,8 @@ function GruppenLektion({
             </div>
             <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-medium text-foreground">
-                <span className="text-muted-foreground mr-1.5">{parent.code?.replace(/-/g, '.')}</span>
-                {parent.titel}
+                <span className="text-muted-foreground mr-1.5">{unterpunkt.code?.replace(/-/g, '.')}</span>
+                {unterpunkt.titel}
               </p>
             </div>
             <Badge variant={allComplete ? 'default' : 'secondary'} className={cn('shrink-0', allComplete && 'bg-status-accepted')}>
@@ -167,7 +146,7 @@ function GruppenLektion({
         <AccordionContent className="px-3 pb-3 pt-1">
           <div className="space-y-1.5">
             {children.map(child => (
-              <LektionRow key={child.id} unterpunkt={child} indented onStart={onStart} />
+              <LektionInnerRow key={child.id} unterpunkt={child} onStart={onStart} />
             ))}
           </div>
         </AccordionContent>
@@ -251,7 +230,6 @@ export function AcademyStep({
                 disabled={!isUnlocked}
               >
                 <div className="flex items-center gap-3 flex-1">
-                  {/* Modul-Nummer aus DB-Code */}
                   <div className={cn(
                     'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
                     isComplete ? 'bg-status-accepted text-white' :
@@ -287,24 +265,13 @@ export function AcademyStep({
 
               <AccordionContent className="px-4 pb-4">
                 <div className="space-y-2 pt-2">
-                  {hauptmodul.unterpunkte.map((unterpunkt) => {
-                    if (unterpunkt.isGroup && unterpunkt.children?.length) {
-                      return (
-                        <GruppenLektion
-                          key={unterpunkt.id}
-                          parent={unterpunkt}
-                          onStart={handleStartUnterpunkt}
-                        />
-                      );
-                    }
-                    return (
-                      <LektionRow
-                        key={unterpunkt.id}
-                        unterpunkt={unterpunkt}
-                        onStart={handleStartUnterpunkt}
-                      />
-                    );
-                  })}
+                  {hauptmodul.unterpunkte.map((unterpunkt) => (
+                    <LektionAccordion
+                      key={unterpunkt.id}
+                      unterpunkt={unterpunkt}
+                      onStart={handleStartUnterpunkt}
+                    />
+                  ))}
                 </div>
 
                 {/* Abschlusstest */}
