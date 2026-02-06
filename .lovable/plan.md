@@ -1,93 +1,79 @@
 
 
-# Equipment-Schritt erweitern: Echte Links + Massband
+# Nachweis-Upload fuer alle Equipment-Items + DB-Persistierung
 
 ## Zusammenfassung
 
-Der Equipment-Schritt bekommt echte Amazon-Affiliate-Links fuer die Drohne, ein neues drittes Equipment-Item "Massband" mit eigener Auswahl-Logik, und der Kauf-Button der Drohne wird als "Bessere Wahl" hervorgehoben.
+Wenn ein Bewerber bei Drohne, iPhone oder Massband "Ja, ich habe eins" auswaehlt, muss er einen Nachweis (Foto/Kaufbeleg) hochladen. Ohne Upload ist "Weiter" blockiert. Nachweise werden dauerhaft im Supabase Storage gespeichert und ueber das bestehende `equipment_status` JSONB-Feld persistiert.
 
-## Aenderungen im Detail
+## Aktualisierter Drohnen-Link
+
+Der Kauf-Link fuer die Drohne wird auf den neuen Link aktualisiert:
+```text
+https://amzn.to/46kuuoo
+```
+(ersetzt den bisherigen `https://amzn.to/4tkCQpV`)
+
+## Aenderungen
 
 ### 1. Konfiguration: `src/lib/onboarding-config.ts`
 
-**Drohne** - echten Kauf-Link setzen:
-```text
-kaufLink: 'https://amzn.to/4tkCQpV'
-```
-(Miet-Link bleibt vorerst Placeholder)
+Drohne `kaufLink` aktualisieren auf `https://amzn.to/46kuuoo`.
 
-**Neues Equipment-Item "Massband"** hinzufuegen:
-```text
-{
-  id: 'massband',
-  name: 'Massband',
-  beschreibung: 'Empfohlene Laenge: mindestens 5m',
-  hatEigenes: false,
-  nachweisPflicht: false,
-  kaufLink: 'https://amzn.to/4afYToT',
-}
-```
+### 2. Hook: `src/hooks/useContractorProfile.ts`
 
-### 2. UI-Komponente: `src/components/onboarding/steps/EquipmentStep.tsx`
+Neue Funktion `uploadEquipmentNachweis`:
+- Upload in Bucket `contractor-documents` unter Pfad `{userId}/equipment-{equipId}-{timestamp}.{ext}`
+- Gibt permanente `publicUrl` zurueck
+- Im Return-Objekt exponieren
 
-**Props erweitern** um Massband-Status und -Handler:
-- `massbandStatus: EquipmentStatus`
-- `onMassbandChange: (status) => void`
-- `massbandKaufLink?: string`
+### 3. UI: `src/components/onboarding/steps/EquipmentStep.tsx`
 
-**Drohne-Kauf-Button aufwerten:**
-- Badge/Label "Langfristig guenstiger" oder "Bessere Wahl" am Kauf-Button
-- Visuell hervorgehobener als der Miet-Button (z.B. gruener Akzent oder Badge)
+**Props erweitern:**
+- `onFileUpload: (equipId: string, file: File) => Promise<string>` -- zentraler Upload-Handler
 
-**Neuer Massband-Block** (nach iPhone, vor Tipp-Box):
-- Icon: `Ruler` (aus lucide-react)
-- Titel: "Massband"
-- Untertitel: "Empfohlene Laenge: mindestens 5m"
-- Radio-Auswahl:
-  - "Ja, ich habe bereits ein Massband" --> Bestaetigung (gruener Haken)
-  - "Nein, ich brauche ein Massband" --> Kauf-Button "Unser empfohlenes Modell kaufen" mit Amazon-Link
-- Hinweistext: "Empfohlene Laenge: mindestens 5m"
+**Drohne:** `URL.createObjectURL` ersetzen durch Aufruf von `onFileUpload('drohne', file)` mit permanenter URL.
 
-### 3. Integration: `src/components/OnboardingScreen.tsx`
+**iPhone-Block:** Statischen "bestaetigt"-Haken ersetzen durch Upload-Zone mit Drag-and-Drop (gleicher Pattern wie Drohne):
+- Upload-Zone wenn kein Nachweis vorhanden
+- Gruene Bestaetigung + Loeschen-Button wenn Nachweis vorhanden
 
-Im `equipment`-Case des `renderStep()`:
-- `massbandItem` aus MOCK_EQUIPMENT extrahieren
-- `massbandStatus` aus `state.equipmentStatus['massband']` lesen
-- `onMassbandChange` via `updateEquipmentStatus('massband', ...)` anschliessen
-- `massbandKaufLink` durchreichen
+**Massband-Block:** Gleiche Aenderung wie iPhone.
 
-### 4. canProceed-Logik: `src/hooks/useOnboardingState.ts`
+**Eigene Drag-States** fuer iPhone und Massband hinzufuegen.
 
-Equipment-Schritt kann weitergehen wenn Drohne + iPhone + Massband alle einen definierten Status haben (entweder "habe ich" oder "brauche ich"):
+**Radio-Change Handler:** Bei Wechsel auf "Nein" wird `nachweisUrl` zurueckgesetzt.
+
+### 4. Integration: `src/components/OnboardingScreen.tsx`
+
+Neuer `handleEquipmentFileUpload`-Handler:
+- Ruft `uploadEquipmentNachweis(equipId, file)` auf
+- Gibt permanente URL zurueck
+- Wird als `onFileUpload`-Prop an `EquipmentStep` durchgereicht
+
+### 5. Validierung: `src/hooks/useOnboardingState.ts`
+
+`canProceed` fuer Equipment vereinheitlichen:
 
 ```text
-case 'equipment':
-  const drohne = state.equipmentStatus['drohne'];
-  const iphone = state.equipmentStatus['iphone-lidar'];
-  const massband = state.equipmentStatus['massband'];
-  return !!(
-    (drohne?.hatEigenes && drohne?.nachweisUrl) || (drohne?.hatEigenes === false)
-  ) && !!(iphone?.hatEigenes) && !!(massband?.hatEigenes !== undefined);
+const itemValid = (item) =>
+  item && (
+    (item.hatEigenes === true && !!item.nachweisUrl) ||
+    item.hatEigenes === false
+  );
+
+return itemValid(drohne) && itemValid(iphone) && itemValid(massband);
 ```
 
-Hinweis: Das Massband blockiert nicht hart - sobald eine Auswahl getroffen wurde (ja/nein), kann weiter geklickt werden.
+### 6. DB-Persistierung
 
-### 5. Tipp-Text anpassen
-
-Den bestehenden Tipp am Ende erweitern:
-```text
-"Die Drohne, das iPhone und das Massband kannst du auch steuerlich absetzen!"
-```
-
-## Nicht betroffen / offen
-
-- **iPhone-Links**: Du hast gesagt, die muessen noch rausgesucht werden. Die Placeholder-Links bleiben vorerst. Sobald du die Affiliate-Links hast, pflege ich sie ein.
-- **DB-Persistierung**: Der Massband-Status wird automatisch ueber das bestehende `equipmentStatus`-JSONB-Feld in der DB gespeichert (gleicher Mechanismus wie Drohne/iPhone - wurde gerade implementiert).
-- **Drohne Miet-Link**: Bleibt Placeholder bis ein passender Link vorliegt.
+Keine Schema-Aenderung noetig. Die `nachweisUrl` (permanente Storage-URL) wird als Teil des `equipmentStatus`-Objekts beim Klick auf "Weiter" via `saveEquipmentStatus()` in die JSONB-Spalte geschrieben und beim naechsten Login zurueckgelesen.
 
 ## Betroffene Dateien
 
-1. `src/lib/onboarding-config.ts` - Massband-Item + Drohne-Kauf-Link
-2. `src/components/onboarding/steps/EquipmentStep.tsx` - Massband-Block + Drohne "Bessere Wahl" Badge
-3. `src/components/OnboardingScreen.tsx` - Massband-Props durchreichen
-4. `src/hooks/useOnboardingState.ts` - canProceed um Massband erweitern
+1. `src/lib/onboarding-config.ts` -- Drohne kaufLink aktualisieren
+2. `src/hooks/useContractorProfile.ts` -- `uploadEquipmentNachweis` hinzufuegen
+3. `src/components/onboarding/steps/EquipmentStep.tsx` -- Upload-Zonen fuer alle drei Items
+4. `src/components/OnboardingScreen.tsx` -- Upload-Handler + Prop durchreichen
+5. `src/hooks/useOnboardingState.ts` -- `canProceed` vereinheitlichen
+
