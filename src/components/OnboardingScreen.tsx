@@ -218,6 +218,9 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     isSuccess: ordersLoaded,
   } = useContractorOrders(dbStatus?.profileId || null);
 
+  // Polling-Ref für Cleanup
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Sync bezahlte Bestellungen in den State
   useEffect(() => {
     if (!ordersLoaded || !dbOrders || dbOrders.length === 0) return;
@@ -234,6 +237,39 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       });
     }
   }, [ordersLoaded, dbOrders, state.bestellungenBestaetigt, toggleProductOrdered]);
+
+  // Polling nach Stripe-Checkout: Alle 3 Sekunden Orders neu laden
+  useEffect(() => {
+    // Cleanup vorheriges Polling
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
+    // Nur wenn auf Bestellungen-Step und es pending Orders gibt
+    if (state.currentStep !== 'bestellungen') return;
+
+    // Prüfe ob es pending Orders gibt
+    const hasPendingOrders = dbOrders?.some(
+      order => order.stripe_payment_status === 'pending'
+    );
+
+    if (!hasPendingOrders) return;
+
+    console.log('[Onboarding] Starting payment polling (pending orders detected)');
+    
+    pollingRef.current = setInterval(() => {
+      console.log('[Onboarding] Polling for payment status...');
+      refetchOrders();
+    }, 3000);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [state.currentStep, dbOrders, refetchOrders]);
 
   // Payment Success Handler - wird aufgerufen wenn User von Stripe zurückkommt
   useEffect(() => {
