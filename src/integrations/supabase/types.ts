@@ -9748,40 +9748,6 @@ export type Database = {
           rechnung_status: string
         }[]
       }
-      get_my_contractor_onboarding: {
-        Args: never
-        Returns: {
-          ag_domain_email: string
-          bestellungen_bezahlt: number
-          erstellt_am: string
-          id: string
-          lektionen_abgeschlossen: number
-          onboarding_status:
-            | "angelegt"
-            | "invited"
-            | "started"
-            | "in_progress"
-            | "blocked"
-            | "ready"
-            | "deaktiviert"
-          onboarding_substatus:
-            | "neu_angelegt"
-            | "vertrag_versendet"
-            | "vertrag_geprueft"
-            | "stammdaten_erfasst"
-            | "on_hold"
-            | "kleidung_bestellen"
-            | "lizenzen_bereitstellen"
-            | "akademie_gestartet"
-            | "deadline_ueberschritten"
-            | "akademie_abgeschlossen"
-            | "vertragsstrafe"
-          profile_id: string
-          trainer_freigabe: boolean
-          trainer_freigabe_am: string
-          trainer_freigabe_von: string
-        }[]
-      }
       get_my_kpi_eligible_leads: {
         Args: { p_mitarbeiter_id: string }
         Returns: {
