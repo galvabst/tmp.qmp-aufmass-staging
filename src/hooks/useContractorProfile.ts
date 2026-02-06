@@ -244,6 +244,29 @@ export function useContractorProfile(profileId: string | null) {
     },
   });
 
+  // Equipment-Nachweis Upload (Foto/Kaufbeleg)
+  const equipmentNachweisMutation = useMutation({
+    mutationFn: async ({ equipId, file }: { equipId: string; file: File }): Promise<string> => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileName = `${user.id}/equipment-${equipId}-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('contractor-documents')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('contractor-documents')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    },
+  });
+
   // Gewerbeschein-Daten in DB speichern
   const saveGewerbescheinMutation = useMutation({
     mutationFn: async (params: { url?: string; spaeter: boolean }) => {
@@ -302,6 +325,8 @@ export function useContractorProfile(profileId: string | null) {
     updateProfile: updateMutation.mutateAsync,
     uploadAvatar: avatarMutation.mutateAsync,
     uploadGewerbeschein: gewerbescheinMutation.mutateAsync,
+    uploadEquipmentNachweis: async (equipId: string, file: File) => 
+      equipmentNachweisMutation.mutateAsync({ equipId, file }),
     saveGewerbeschein: saveGewerbescheinMutation.mutateAsync,
     saveProgress: saveProgressMutation.mutateAsync,
     saveEquipmentStatus: saveEquipmentStatusMutation.mutateAsync,

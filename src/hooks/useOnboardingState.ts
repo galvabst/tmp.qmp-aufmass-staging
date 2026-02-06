@@ -359,12 +359,14 @@ export function useOnboardingState(
         return state.bestellungenBestaetigt.length >= requiredCount;
       case 'equipment':
         if (isPreview) return true;
-        const drohne = state.equipmentStatus['drohne'];
-        const iphone = state.equipmentStatus['iphone-lidar'];
-        const massband = state.equipmentStatus['massband'];
-        return !!(
-          (drohne?.hatEigenes && drohne?.nachweisUrl) || (drohne?.hatEigenes === false)
-        ) && !!(iphone?.hatEigenes) && massband?.hatEigenes !== undefined;
+        const itemValid = (item: { hatEigenes: boolean; nachweisUrl?: string } | undefined) =>
+          !!item && (
+            (item.hatEigenes === true && !!item.nachweisUrl) ||
+            item.hatEigenes === false
+          );
+        return itemValid(state.equipmentStatus['drohne']) 
+          && itemValid(state.equipmentStatus['iphone-lidar']) 
+          && itemValid(state.equipmentStatus['massband']);
       case 'akademie':
         if (isPreview) return true;
         // Prüfe ob alle Unterpunkte aller Hauptmodule abgeschlossen sind UND Test bestanden
