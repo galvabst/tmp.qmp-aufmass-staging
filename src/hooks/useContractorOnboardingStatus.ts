@@ -113,6 +113,9 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
           erstellt_am: record.erstellt_am,
           lektionen_abgeschlossen: record.lektionen_abgeschlossen || 0,
           bestellungen_bezahlt: record.bestellungen_bezahlt || 0,
+          vertrag_geprueft_intern: record.vertrag_geprueft_intern ?? null,
+          kleidung_bestellt_intern: record.kleidung_bestellt_intern ?? null,
+          lizenzen_bereitgestellt_intern: record.lizenzen_bereitgestellt_intern ?? null,
         },
         errorMessage: null,
       };
@@ -131,7 +134,10 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
   const isReady = !!(
     onboardingRecord &&
     onboardingRecord.onboarding_status === 'ready' &&
-    onboardingRecord.trainer_freigabe === true
+    onboardingRecord.trainer_freigabe === true &&
+    onboardingRecord.vertrag_geprueft_intern === true &&
+    onboardingRecord.kleidung_bestellt_intern === true &&
+    onboardingRecord.lizenzen_bereitgestellt_intern === true
   );
 
   return {
