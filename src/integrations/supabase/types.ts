@@ -9371,13 +9371,56 @@ export type Database = {
       }
       get_contractors: {
         Args: never
-        Returns: unknown[]
-        SetofOptions: {
-          from: "*"
-          to: "contractor_onboarding"
-          isOneToOne: false
-          isSetofReturn: true
-        }
+        Returns: {
+          ag_domain_email: string
+          aktivierungszeitpunkt: string
+          aktualisiert_am: string
+          anschrift_land: string
+          anschrift_ort: string
+          anschrift_plz: string
+          anschrift_strasse: string
+          avatar_url: string
+          deadline_aktivierung: string
+          email: string
+          erstellt_am: string
+          erstellt_von: string
+          id: string
+          nachname: string
+          notizen_intern: string
+          onboarding_status:
+            | "angelegt"
+            | "invited"
+            | "started"
+            | "in_progress"
+            | "blocked"
+            | "ready"
+            | "deaktiviert"
+          onboarding_substatus:
+            | "neu_angelegt"
+            | "vertrag_per_mail_versendet"
+            | "vertrag_per_post_versendet"
+            | "vertrag_geprueft"
+            | "stammdaten_erfasst"
+            | "bestellungen_checken"
+            | "kleidung_bestellen"
+            | "lizenzen_bereitstellen"
+            | "zugaenge_einrichten"
+            | "dokument_fehlt"
+            | "rueckmeldung_ausstehend"
+            | "alle_schritte_abgeschlossen"
+            | "vertrag_versendet"
+            | "akademie_gestartet"
+            | "deadline_ueberschritten"
+            | "vertrag_abgelehnt"
+            | "akademie_abgeschlossen"
+            | "vertragsstrafe"
+          profile_id: string
+          telefon: string
+          trainer_freigabe: boolean
+          vertragsbeginn: string
+          verzugstage: number
+          vorname: string
+        }[]
       }
       get_enum_values: { Args: { enum_name: string }; Returns: string[] }
       get_group_permissions: { Args: { _group_id: string }; Returns: Json }
@@ -9637,10 +9680,13 @@ export type Database = {
         Returns: {
           beschreibung: string
           content_typ: string
+          erstellt_am: string
           externe_url: string
           id: string
           is_mandatory: boolean
+          is_mandatory_for_user: boolean
           kategorie: string
+          nur_fuer_neue: boolean
           reihenfolge: number
           storage_pfad: string
           titel: string
