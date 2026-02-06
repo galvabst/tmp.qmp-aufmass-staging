@@ -1,54 +1,26 @@
 
-# Profil-Tab: Dummy-Daten durch echte DB-Daten ersetzen
+# Interne Admin-Checks als Zugangsvoraussetzung
 
-Das Profil-Tab zeigt aktuell hartcodierte Mock-Daten ("Max Mustermann", 127 Auftraege, 98% Annahmerate, etc.). Diese sollen durch echte Daten aus der Datenbank ersetzt werden.
+Die drei internen Spalten `vertrag_geprueft_intern`, `kleidung_bestellt_intern` und `lizenzen_bereitgestellt_intern` muessen alle `true` sein, damit ein Techniker Auftraege annehmen kann. Aktuell werden sie weder vom RPC zurueckgegeben noch im Frontend geprueft.
 
-## Was sich aendert
+## Aenderungen
 
-### 1. Profildaten aus DB laden (Name, Email, Telefon, Avatar, Region)
+### 1. DB-Migration: Anton auf true setzen + RPC erweitern
 
-Die Daten kommen aus:
-- `public.profiles` (Vorname, Nachname, Email, Telefon, Avatar)
-- `thermocheck.contractor_onboarding` via `get_contractor_onboarding_state` RPC (Adresse/Region)
-- `contractor_onboarding.erstellt_am` fuer "Techniker seit"
+- `vertrag_geprueft_intern`, `kleidung_bestellt_intern`, `lizenzen_bereitgestellt_intern` fuer Anton (ID `17ef2646-e455-4d99-88ad-443b44ed9594`) auf `true` setzen
+- Die RPC-Funktion `thermocheck.get_my_contractor_onboarding()` und den Public-Wrapper erweitern, sodass die drei Spalten im Ergebnis enthalten sind
 
-Der bestehende `useContractorProfile` Hook liefert diese Daten bereits.
+### 2. Hook: `useContractorOnboardingStatus.ts`
 
-### 2. Statistiken (Auftraege, Annahmerate, Bewertung)
+- `ContractorOnboardingRecord` Interface um die drei neuen Felder erweitern
+- `isReady`-Berechnung anpassen: Zusaetzlich zu `onboarding_status === 'ready'` und `trainer_freigabe === true` muessen auch alle drei intern-Felder `true` sein
+- Die drei Felder aus der RPC-Response mappen
 
-Aktuell gibt es keine echten Auftrags-Statistiken in der DB. Da diese Daten noch nicht existieren, werden die Stats-Werte auf **0 / 0% / -** gesetzt (statt falsche Dummy-Werte anzuzeigen). Spaeter koennen echte Aggregate ergaenzt werden.
+### 3. Keine UI-Aenderungen noetig
 
-### 3. Kontingent (Quartal Q1/2026)
+Wenn `isReady` false ist, zeigt die App bereits den Onboarding-Screen bzw. "Waiting for Approval". Es ist kein neuer Lockscreen noetig -- der bestehende Gate-Mechanismus greift automatisch.
 
-Auch hier gibt es keine echte DB-Tabelle. Die Werte werden auf 0/24 gesetzt, um keine falschen Daten anzuzeigen.
+## Dateien
 
-### 4. Onboarding-Fortschritt aus DB
-
-Der Onboarding-Status kommt bereits aus `useContractorOnboardingStatus`. Statt Mock-Steps wird der echte Fortschritt (completed_steps, current_step) aus der DB angezeigt.
-
-### 5. Zertifikate
-
-Aktuell keine echte Zertifikat-Tabelle. Leeres Array statt Fake-Zertifikate.
-
-## Technische Umsetzung
-
-### Datei: `src/pages/Index.tsx`
-- `useContractorProfile` Hook importieren und verwenden
-- Profil-State aus DB-Daten aufbauen statt aus `mockTechnicianProfile`
-- Onboarding-Record Daten (completed_steps, current_step) fuer Fortschrittsanzeige nutzen
-- `loadOnboardingProfile()` und `loadOnboardingStatus()` Hilfsfunktionen entfernen
-
-### Datei: `src/components/ProfileView.tsx`
-- Onboarding-Steps aus den echten `completed_steps` des DB-Records ableiten
-- "Techniker seit" aus `erstellt_am` berechnen (Format: "2026-01")
-
-### Datei: `src/data/mockTechnicianData.ts`
-- `mockTechnicianProfile`, `mockOnboardingProgress`, `mockKontingent`, `mockCertificates` entfernen (die Mock-Orders bleiben vorerst fuer die anderen Tabs)
-
-### Datei: `src/types/technician.ts`
-- Keine Aenderungen noetig, das Interface passt bereits
-
-## Was NICHT geaendert wird
-
-- Die anderen Tabs (Pool, Bookings, Active, Review) nutzen weiterhin `mockTechnicianOrders` - das ist ein separates Thema
-- Keine neuen DB-Tabellen - wir zeigen nur an, was die DB bereits hat
+- **Migration**: RPC-Update + Antons Daten
+- **`src/hooks/useContractorOnboardingStatus.ts`**: Interface + isReady-Logik erweitern
