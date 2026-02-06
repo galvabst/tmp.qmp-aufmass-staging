@@ -18,44 +18,25 @@ interface TimeLeft {
 function calculateTimeLeft(erstelltAm: string, deadlineDays: number): TimeLeft {
   const deadline = new Date(erstelltAm);
   deadline.setDate(deadline.getDate() + deadlineDays);
-  
-  const now = new Date();
-  const totalMs = deadline.getTime() - now.getTime();
-  
-  if (totalMs <= 0) {
-    return { days: 0, hours: 0, minutes: 0, seconds: 0, totalMs: 0 };
-  }
-  
-  const days = Math.floor(totalMs / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((totalMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((totalMs % (1000 * 60)) / 1000);
-  
+  const totalMs = Math.max(0, deadline.getTime() - Date.now());
+
+  const days = Math.floor(totalMs / 86400000);
+  const hours = Math.floor((totalMs % 86400000) / 3600000);
+  const minutes = Math.floor((totalMs % 3600000) / 60000);
+  const seconds = Math.floor((totalMs % 60000) / 1000);
+
   return { days, hours, minutes, seconds, totalMs };
 }
 
-function getDeadlineDate(erstelltAm: string, deadlineDays: number): string {
-  const deadline = new Date(erstelltAm);
-  deadline.setDate(deadline.getDate() + deadlineDays);
-  return deadline.toLocaleDateString('de-DE', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+function getDeadlineLabel(erstelltAm: string, deadlineDays: number): string {
+  const d = new Date(erstelltAm);
+  d.setDate(d.getDate() + deadlineDays);
+  return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function getElapsedPercent(erstelltAm: string, deadlineDays: number): number {
-  const start = new Date(erstelltAm).getTime();
-  const totalDuration = deadlineDays * 24 * 60 * 60 * 1000;
-  const elapsed = Date.now() - start;
-  return Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-}
-
-function getUrgencyMessage(days: number, isExpired: boolean): string {
-  if (isExpired) return 'Frist abgelaufen – bitte kontaktiere deinen Ansprechpartner!';
-  if (days < 1) return '⚠️ LETZTE CHANCE – Frist läuft heute ab!';
-  if (days < 3) return `Nur noch ${days} Tag${days > 1 ? 'e' : ''}! Bitte beeile dich.`;
-  return 'Schließe dein Onboarding rechtzeitig ab';
+  const elapsed = Date.now() - new Date(erstelltAm).getTime();
+  return Math.min(100, Math.max(0, (elapsed / (deadlineDays * 86400000)) * 100));
 }
 
 type Urgency = 'relaxed' | 'warning' | 'critical' | 'expired';
@@ -78,67 +59,51 @@ export function OnboardingCountdown({ erstelltAm, deadlineDays = 7 }: Onboarding
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calculateTimeLeft(erstelltAm, deadlineDays));
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft(erstelltAm, deadlineDays));
-    }, 1000);
+    const timer = setInterval(() => setTimeLeft(calculateTimeLeft(erstelltAm, deadlineDays)), 1000);
     return () => clearInterval(timer);
   }, [erstelltAm, deadlineDays]);
 
   const isExpired = timeLeft.totalMs <= 0;
   const urgency = getUrgency(timeLeft.days, isExpired);
-  const deadlineDate = getDeadlineDate(erstelltAm, deadlineDays);
   const elapsed = getElapsedPercent(erstelltAm, deadlineDays);
-  const message = getUrgencyMessage(timeLeft.days, isExpired);
   const pad = (n: number) => String(n).padStart(2, '0');
 
-  const tiles: { value: string; label: string }[] = [
-    { value: pad(timeLeft.days), label: 'Tage' },
-    { value: pad(timeLeft.hours), label: 'Std' },
-    { value: pad(timeLeft.minutes), label: 'Min' },
-    { value: pad(timeLeft.seconds), label: 'Sek' },
+  if (isExpired) {
+    return (
+      <div className="bg-red-900 text-white px-4 py-2 flex items-center justify-center gap-2 text-sm font-semibold">
+        <AlertTriangle className="w-4 h-4" />
+        <span>Frist abgelaufen – bitte kontaktiere deinen Ansprechpartner!</span>
+      </div>
+    );
+  }
+
+  const tiles = [
+    { v: pad(timeLeft.days), l: 'T' },
+    { v: pad(timeLeft.hours), l: 'h' },
+    { v: pad(timeLeft.minutes), l: 'm' },
+    { v: pad(timeLeft.seconds), l: 's' },
   ];
 
   return (
-    <div
-      className={cn(
-        'bg-slate-900 text-white px-4 py-4',
-        urgency === 'critical' && 'animate-pulse',
-      )}
-    >
-      {/* Urgency message + deadline */}
-      <div className="text-center mb-3">
-        <p className={cn(
-          'text-sm font-semibold',
-          urgency === 'expired' && 'text-red-400',
-          urgency === 'critical' && 'text-red-400',
-          urgency === 'warning' && 'text-amber-400',
-        )}>
-          {isExpired && <AlertTriangle className="w-4 h-4 inline mr-1 -mt-0.5" />}
-          {message}
-        </p>
-        {!isExpired && (
-          <p className="text-xs text-slate-400 mt-0.5">
-            Deadline: {deadlineDate}
-          </p>
-        )}
-      </div>
-
-      {/* Flip-clock tiles */}
-      {!isExpired && (
-        <div className="flex justify-center gap-2 mb-3">
-          {tiles.map((tile, i) => (
-            <div key={tile.label} className="flex flex-col items-center">
-              <div className="bg-slate-800 rounded-lg w-14 h-14 flex items-center justify-center border border-slate-700">
-                <span className="text-2xl font-bold font-mono tabular-nums">{tile.value}</span>
-              </div>
-              <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">{tile.label}</span>
+    <div className={cn('bg-slate-900 text-white px-4 py-2', urgency === 'critical' && 'animate-pulse')}>
+      <div className="flex items-center justify-between gap-3 mb-1.5">
+        <div className="flex items-center gap-1.5 text-xs min-w-0">
+          <Clock className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+          <span className="text-slate-300 truncate">bis {getDeadlineLabel(erstelltAm, deadlineDays)}</span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {tiles.map((t, i) => (
+            <div key={t.l} className="flex items-center">
+              <span className="bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-sm font-bold font-mono tabular-nums">
+                {t.v}
+              </span>
+              <span className="text-[10px] text-slate-500 ml-0.5">{t.l}</span>
+              {i < tiles.length - 1 && <span className="text-slate-600 mx-0.5 text-xs">:</span>}
             </div>
           ))}
         </div>
-      )}
-
-      {/* Progress bar */}
-      <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+      </div>
+      <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
         <div
           className={cn('h-full rounded-full transition-all duration-1000', BAR_COLORS[urgency])}
           style={{ width: `${100 - elapsed}%` }}
