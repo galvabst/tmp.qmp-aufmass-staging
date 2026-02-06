@@ -3,9 +3,7 @@ import { Clock, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface OnboardingCountdownProps {
-  /** ISO timestamp when the onboarding record was created */
   erstelltAm: string;
-  /** Deadline in days from creation */
   deadlineDays?: number;
 }
 
@@ -36,6 +34,46 @@ function calculateTimeLeft(erstelltAm: string, deadlineDays: number): TimeLeft {
   return { days, hours, minutes, seconds, totalMs };
 }
 
+function getDeadlineDate(erstelltAm: string, deadlineDays: number): string {
+  const deadline = new Date(erstelltAm);
+  deadline.setDate(deadline.getDate() + deadlineDays);
+  return deadline.toLocaleDateString('de-DE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function getElapsedPercent(erstelltAm: string, deadlineDays: number): number {
+  const start = new Date(erstelltAm).getTime();
+  const totalDuration = deadlineDays * 24 * 60 * 60 * 1000;
+  const elapsed = Date.now() - start;
+  return Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+}
+
+function getUrgencyMessage(days: number, isExpired: boolean): string {
+  if (isExpired) return 'Frist abgelaufen – bitte kontaktiere deinen Ansprechpartner!';
+  if (days < 1) return '⚠️ LETZTE CHANCE – Frist läuft heute ab!';
+  if (days < 3) return `Nur noch ${days} Tag${days > 1 ? 'e' : ''}! Bitte beeile dich.`;
+  return 'Schließe dein Onboarding rechtzeitig ab';
+}
+
+type Urgency = 'relaxed' | 'warning' | 'critical' | 'expired';
+
+function getUrgency(days: number, isExpired: boolean): Urgency {
+  if (isExpired) return 'expired';
+  if (days < 1) return 'critical';
+  if (days < 3) return 'warning';
+  return 'relaxed';
+}
+
+const BAR_COLORS: Record<Urgency, string> = {
+  relaxed: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  critical: 'bg-red-500',
+  expired: 'bg-red-600',
+};
+
 export function OnboardingCountdown({ erstelltAm, deadlineDays = 7 }: OnboardingCountdownProps) {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calculateTimeLeft(erstelltAm, deadlineDays));
 
@@ -43,46 +81,69 @@ export function OnboardingCountdown({ erstelltAm, deadlineDays = 7 }: Onboarding
     const timer = setInterval(() => {
       setTimeLeft(calculateTimeLeft(erstelltAm, deadlineDays));
     }, 1000);
-
     return () => clearInterval(timer);
   }, [erstelltAm, deadlineDays]);
 
-  const isUrgent = timeLeft.days < 2;
   const isExpired = timeLeft.totalMs <= 0;
-
+  const urgency = getUrgency(timeLeft.days, isExpired);
+  const deadlineDate = getDeadlineDate(erstelltAm, deadlineDays);
+  const elapsed = getElapsedPercent(erstelltAm, deadlineDays);
+  const message = getUrgencyMessage(timeLeft.days, isExpired);
   const pad = (n: number) => String(n).padStart(2, '0');
+
+  const tiles: { value: string; label: string }[] = [
+    { value: pad(timeLeft.days), label: 'Tage' },
+    { value: pad(timeLeft.hours), label: 'Std' },
+    { value: pad(timeLeft.minutes), label: 'Min' },
+    { value: pad(timeLeft.seconds), label: 'Sek' },
+  ];
 
   return (
     <div
       className={cn(
-        'flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold',
-        isExpired
-          ? 'bg-destructive text-destructive-foreground'
-          : isUrgent
-            ? 'bg-destructive/90 text-destructive-foreground animate-pulse'
-            : 'bg-amber-500 text-white'
+        'bg-slate-900 text-white px-4 py-4',
+        urgency === 'critical' && 'animate-pulse',
       )}
     >
-      {isExpired ? (
-        <>
-          <AlertTriangle className="w-4 h-4" />
-          <span>Frist abgelaufen – bitte kontaktiere deinen Ansprechpartner!</span>
-        </>
-      ) : (
-        <>
-          <Clock className="w-4 h-4 shrink-0" />
-          <span>Verbleibende Zeit:</span>
-          <div className="flex items-center gap-1 font-mono tabular-nums">
-            <span className="bg-black/20 rounded px-1.5 py-0.5">{timeLeft.days}T</span>
-            <span>:</span>
-            <span className="bg-black/20 rounded px-1.5 py-0.5">{pad(timeLeft.hours)}h</span>
-            <span>:</span>
-            <span className="bg-black/20 rounded px-1.5 py-0.5">{pad(timeLeft.minutes)}m</span>
-            <span>:</span>
-            <span className="bg-black/20 rounded px-1.5 py-0.5">{pad(timeLeft.seconds)}s</span>
-          </div>
-        </>
+      {/* Urgency message + deadline */}
+      <div className="text-center mb-3">
+        <p className={cn(
+          'text-sm font-semibold',
+          urgency === 'expired' && 'text-red-400',
+          urgency === 'critical' && 'text-red-400',
+          urgency === 'warning' && 'text-amber-400',
+        )}>
+          {isExpired && <AlertTriangle className="w-4 h-4 inline mr-1 -mt-0.5" />}
+          {message}
+        </p>
+        {!isExpired && (
+          <p className="text-xs text-slate-400 mt-0.5">
+            Deadline: {deadlineDate}
+          </p>
+        )}
+      </div>
+
+      {/* Flip-clock tiles */}
+      {!isExpired && (
+        <div className="flex justify-center gap-2 mb-3">
+          {tiles.map((tile, i) => (
+            <div key={tile.label} className="flex flex-col items-center">
+              <div className="bg-slate-800 rounded-lg w-14 h-14 flex items-center justify-center border border-slate-700">
+                <span className="text-2xl font-bold font-mono tabular-nums">{tile.value}</span>
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">{tile.label}</span>
+            </div>
+          ))}
+        </div>
       )}
+
+      {/* Progress bar */}
+      <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all duration-1000', BAR_COLORS[urgency])}
+          style={{ width: `${100 - elapsed}%` }}
+        />
+      </div>
     </div>
   );
 }
