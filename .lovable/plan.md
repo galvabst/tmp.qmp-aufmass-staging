@@ -1,48 +1,48 @@
 
-# Video-Layout wie YouTube: Keine schwarzen Balken
 
-## Problem
+# Akademie-Tabs: Besseres Design + unnoetigen Button entfernen
 
-Aktuell nutzt der Video-Player den `hero`-Modus, der den gesamten verfuegbaren Bildschirm (100svh minus Header/Footer) ausfuellt. Da die meisten Videos 16:9 sind, aber Smartphones viel hoeher (z.B. 19.5:9), entstehen oben und unten schwarze Balken (Letterboxing).
+## Probleme (aus Screenshots)
 
-## Loesung: YouTube-Layout
+1. **Lerninhalt-Tab**: Reiner Plain-Text ohne visuelle Struktur. Nummerierte Abschnitte, Fettschrift und Aufzaehlungen gehen in einer Textwand unter.
+2. **Key Takeaways (Zusammenfassung)**: Hat eine leichte Karte, wirkt aber trotzdem sehr farblos und "nackt".
+3. **Dritter Tab-Button (Material/ExternalLink-Icon)**: Hat keinen Inhalt/Funktion, verwirrt den User.
 
-Wie bei YouTube Mobile: Das Video nimmt die volle Breite ein und behaelt sein natuerliches Seitenverhaeltnis (16:9). Der restliche Content (Tabs, Abschluss-Button) scrollt darunter. Kein erzwungenes Fuellen des Viewports mehr.
+## Loesung
 
-Bei Klick auf Fullscreen (im Player selbst) wird das Video dann wirklich bildschirmfuellend - das uebernimmt der Browser/Bunny-Player automatisch.
+### 1. Material-Tab entfernen
 
-## Aenderungen
+- `grid-cols-3` auf `grid-cols-2` aendern
+- Den dritten `TabsTrigger` (Material) und den zugehoerigen `TabsContent` komplett entfernen
+- Import von `ExternalLink` entfernen (wenn sonst nicht verwendet)
 
-### 1. `src/components/akademie/MultiSourceVideoPlayer.tsx`
+### 2. Lerninhalt-Tab visuell aufwerten
 
-- Den `hero`-Modus aendern: Statt fester Hoehe (`calc(100svh - ...)`) auf `aspect-ratio: 16/9` mit voller Breite umstellen
-- Der `contained`-Modus bleibt gleich (wird anderswo evtl. genutzt)
-- `minHeight` und die CSS-Variable-Abhaengigkeit entfallen fuer `hero`
-- Schwarzer Hintergrund bleibt fuer den Fall, dass ein Video etwas schmaler ist
-- `maxHeight` optional begrenzen (z.B. 70vh auf Desktop), damit auf grossen Bildschirmen das Video nicht ueberdimensioniert wird
+Den Markdown-Container mit strukturierten Styles versehen:
 
-Konkret:
+- Uebergeordnete Abschnitte (H2/H3 Headings) bekommen einen farbigen Akzent-Balken links (border-l-4 in Primary-Orange)
+- Nummerierte Top-Level-Punkte in Cards mit leichtem Hintergrund und Schatten
+- Bessere Prose-Styles: groessere Zeilenhoehe, klare Trennung zwischen Abschnitten
+- Bold-Text bekommt `text-foreground` statt grau, damit er sich deutlich abhebt
+- Listen bekommen Einrueckung und Abstand
+
+Konkret: Die bestehende `prose`-Klasse erweitern um:
 ```text
-// Vorher (hero):
-height: 'calc(100svh - var(--akademie-header-h) - var(--akademie-footer-h))'
-
-// Nachher (hero):
-aspectRatio: '16/9'
-width: '100%'
-maxHeight: '70vh'  // Begrenzung auf Desktop
+prose-headings:border-l-4 prose-headings:border-primary prose-headings:pl-3
+prose-headings:py-1 prose-headings:mt-6 prose-headings:mb-3
+prose-p:leading-relaxed prose-ul:space-y-1
 ```
 
-### 2. `src/pages/AkademieModul.tsx`
+Zusaetzlich den gesamten Inhalt in eine Karte mit leichtem Hintergrund und Padding packen (aehnlich wie Zusammenfassung).
 
-- Die CSS-Variable-Messung (`--akademie-header-h`, `--akademie-footer-h`) und den `cssVarsReady`-Guard koennen vereinfacht werden, da der Player die Variablen nicht mehr braucht
-- Der `cssVarsReady`-Guard vor dem Player-Render kann entfallen (Player haengt nicht mehr von gemessenen Hoehen ab)
-- Footer bleibt `sticky bottom-0` - funktioniert weiterhin korrekt
+### 3. Key Takeaways visuell aufwerten
 
-### 3. Kein Einfluss auf Fullscreen
+- Staerkerer Hintergrund: von `bg-primary/5` auf `bg-gradient-to-br from-primary/10 to-primary/5`
+- Dickere linke Akzent-Border: `border-l-4 border-primary` statt `border border-primary/20`
+- Icon bekommt volle Primary-Farbe und leichten Hintergrund-Kreis
+- Etwas mehr Padding und Schatten (`shadow-sm`)
+- Markdown-Content erbt die gleichen verbesserten Prose-Styles
 
-Der Fullscreen-Button im Bunny-Player/YouTube-iframe nutzt die native Browser Fullscreen API. Das funktioniert unabhaengig vom Container-Layout und wird weiterhin echtes Vollbild sein.
+## Betroffene Datei
 
-## Betroffene Dateien
-
-1. `src/components/akademie/MultiSourceVideoPlayer.tsx` -- Layout-Logik aendern
-2. `src/pages/AkademieModul.tsx` -- cssVarsReady-Guard vereinfachen
+`src/pages/AkademieModul.tsx` -- Tabs vereinfachen + Styling aufwerten
