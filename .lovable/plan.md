@@ -1,79 +1,36 @@
 
 
-# Einheitliche Accordion-Lektionen + Abschlusspruefung beibehalten
+# Dummy-Daten fuer Test-User: Onboarding komplett
 
-## Was der User will
+User: **loloy47164@azeriom.com** (Anton, thc test)
+Onboarding-ID: `17ef2646-e455-4d99-88ad-443b44ed9594`
+Profile-ID: `e9e3e91a-bf72-4350-b110-8526292fb6a8`
 
-Aktuell gibt es zwei verschiedene Darstellungen innerhalb eines Moduls:
-- **Einzel-Lektionen** (6.1, 6.2, 6.4, 6.5): Flache Zeilen mit Play-Button, direkt sichtbar
-- **Gruppen-Lektionen** (6.3): Aufklappbares Accordion mit Kindern drin
+## Was wird gemacht (3 SQL-Statements, reine Daten-Updates)
 
-Der User will: **ALLE Lektionen einheitlich als aufklappbare Zeilen**, genau wie 6.3 es schon macht. Auch wenn eine Lektion keine Kinder hat, wird sie trotzdem als Accordion dargestellt -- beim Aufklappen sieht man dann die eine Lerneinheit darin.
+### 1. Onboarding-Record auf "ready" setzen
 
-Zusaetzlich: Die **Abschlusspruefung** (globaler Test + "bestanden"-Anzeige) wurde im letzten Refactor beibehalten (Zeilen 324-342), ist aber im Screenshot nicht sichtbar -- moeglicherweise scrollt der User nicht weit genug. Sie bleibt auf jeden Fall erhalten.
+- `onboarding_status` → `ready`
+- `trainer_freigabe` → `true`
+- `trainer_freigabe_am` → `now()`
+- `current_step` → `coaching` (letzter Schritt)
+- `completed_steps` → alle 7 Schritte
 
-## Aenderungen
+### 2. Bestellungen: Bestehende auf "paid" setzen + fehlende anlegen
 
-**Nur eine Datei:** `src/components/onboarding/steps/AcademyStep.tsx`
+Aktuell existiert nur 1 Bestellung (tshirt/pending). Es werden:
+- Die bestehende auf `paid` gesetzt
+- 5 weitere Pflichtprodukte als bezahlt eingefuegt: `schlappen`, `pullover`, `ausweiskarte`, `scanner-lizenz`, `google-workspace`
 
-### A) Einzel-Lektionen werden zu Mini-Accordions
+### 3. Akademie-Fortschritt: Alle 53 Lektionen als "completed"
 
-Statt `LektionRow` direkt zu rendern, wird JEDE Lektion (ob Gruppe oder Einzel) als aufklappbare Zeile dargestellt:
+Fuer jede aktive Lektion in `contractor_akademie_lektionen` wird ein Eintrag in `contractor_akademie_lektions_fortschritt` mit `status = 'completed'` erstellt. Der `contractor_id` ist die Onboarding-ID.
 
-```text
-Vorher (Modul 6 aufgeklappt):
-  [Play] 6.1 Prinzipien guter Datenerhebung  8 Min.  [>]    ← flache Zeile
-  [Play] 6.2 Mess- & Aufnahme-Grundregeln   10 Min.  [>]    ← flache Zeile
-  [v]   6.3 Dokumentationsstandard            1/2  [v]       ← Accordion
-  [Play] 6.4 Belegstandard                    8 Min.  [>]    ← flache Zeile
+### Ergebnis
 
-Nachher (Modul 6 aufgeklappt):
-  [v]   6.1 Prinzipien guter Datenerhebung          0/1 [v]  ← Accordion
-  [v]   6.2 Mess- & Aufnahme-Grundregeln             0/1 [v]  ← Accordion
-  [v]   6.3 Dokumentationsstandard                    0/2 [v]  ← Accordion (wie bisher)
-  [v]   6.4 Belegstandard: Foto-Qualitaet            0/1 [v]  ← Accordion
-  [v]   6.5 Umgang mit fehlenden Informationen        0/1 [v]  ← Accordion
-```
-
-Beim Aufklappen einer Einzel-Lektion (z.B. 6.1) erscheint darin die eine Lerneinheit als klickbare Zeile (mit Dauer, Play-Icon, Navigations-Link).
-
-### B) Vereinheitlichte Komponente
-
-Die bisherige Trennung `LektionRow` vs. `GruppenLektion` wird zusammengefuehrt zu einer einzigen `LektionAccordion`-Komponente:
-
-- Zeigt immer: Code (Punkt-Notation), Titel, Fortschritts-Badge (x/y), Aufklapp-Chevron
-- Aufgeklappt: Zeigt Kind-Lektionen (bei Gruppen) ODER sich selbst als einzelne klickbare Lerneinheit (bei Einzel-Lektionen)
-- Einheitliche Farben: Orange Icon-Kreis (offen), gruener Haken (abgeschlossen)
-
-### C) Farbvereinheitlichung
-
-- Alle Lektions-Accordions: Gleicher Rahmen (`border`), gleicher Hintergrund (weiss/card)
-- Status-Icon links: Einheitlich orange Kreis (offen) oder gruen (abgeschlossen)
-- Badge rechts: Einheitlich `0/1` oder `0/2` Format
-
-### D) Abschlusspruefung bleibt
-
-Die globale Abschlusspruefung (Zeilen 324-342) bleibt exakt wie sie ist:
-- Erscheint wenn `allModulesComplete && !testBestanden`
-- "Test starten"-Button
-- Gruene "bestanden"-Anzeige nach Bestehen
-
-Kein Change an dieser Logik.
-
-## Technische Details
-
-| Was | Wie |
-|-----|-----|
-| `LektionRow` | Wird zur internen Darstellung innerhalb eines aufgeklappten Accordions (nur Klick-Zeile mit Play + Dauer) |
-| `GruppenLektion` | Wird zur generischen `LektionAccordion`-Komponente die sowohl Gruppen als auch Einzel-Lektionen handelt |
-| Einzel-Lektion ohne Kinder | Accordion mit einer einzelnen `LektionRow` darin (die Lektion selbst) |
-| Gruppen-Lektion mit Kindern | Accordion mit mehreren `LektionRow` darin (wie bisher bei 6.3) |
-| Rendering im Hauptmodul | Alle `unterpunkte` werden einheitlich als `LektionAccordion` gerendert -- kein `if/else` mehr |
-| Abschlusspruefung | Keine Aenderung, bleibt nach dem Modul-Accordion |
-
-## Betroffene Dateien
-
-Nur **eine Datei**: `src/components/onboarding/steps/AcademyStep.tsx`
-
-Keine Logik-, Hook- oder DB-Aenderungen noetig.
+Nach Ausfuehrung und Browser-Refresh:
+- Onboarding zeigt "Abgeschlossen" / leitet zur Haupt-App weiter
+- Alle Bestellungen als bezahlt
+- Alle Akademie-Lektionen als abgeschlossen
+- Trainer-Freigabe erteilt
 
