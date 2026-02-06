@@ -1,32 +1,57 @@
 
+# Equipment-Status in der Datenbank persistieren
 
-# Fixes: Sticky Countdown + Produkt-Flackern
+## Ziel
+Die Angaben zu Drohne und iPhone (ob eigenes vorhanden) gehen beim Geraetewechsel verloren, da sie nur im localStorage stehen. DB wird zur SSoT.
 
-## Problem 1: Countdown scrollt mit
+## 1. Datenbank-Migration
 
-Der Countdown ist im normalen Dokument-Flow und verschwindet beim Scrollen. Er muss `sticky` werden, damit er immer oben sichtbar bleibt.
+Neue JSONB-Spalte + zwei RPCs (thermocheck-Schema + public Wrapper):
 
-**Aenderung in `src/components/onboarding/OnboardingCountdown.tsx`:**
-- `sticky top-0 z-50` zum aeusseren Container hinzufuegen
-- Der Countdown klebt dann am oberen Bildschirmrand, egal wie weit gescrollt wird
+**Spalte:**
+```text
+ALTER TABLE thermocheck.contractor_onboarding
+ADD COLUMN equipment_status JSONB DEFAULT '{}';
+```
 
-## Problem 2: Produkt-Bild "switcht"
+**RPC zum Speichern (SECURITY DEFINER, auth.uid()-basiert):**
+```text
+thermocheck.update_contractor_equipment_status(p_equipment JSONB) RETURNS void
+  UPDATE thermocheck.contractor_onboarding
+  SET equipment_status = p_equipment, aktualisiert_am = now()
+  WHERE profile_id = auth.uid();
+```
 
-Das ist kein Bild-Problem, sondern ein **Produkt-Wechsel**: Beim ersten Render sind die Bestellungen aus der DB noch nicht geladen (`orderedProducts` ist leer). Dadurch zeigt die Seite zunaechst das erste Produkt (Oberteil/T-Shirt) an. Sobald die DB-Daten ankommen und alle Kleidungs-Bestellungen als "bezahlt" erkannt werden, springt die Ansicht ploetzlich zum naechsten offenen Produkt (z.B. Google Workspace).
+**Public Wrapper (gleicher Pattern wie Gewerbeschein/Progress):**
+```text
+public.update_contractor_equipment_status(p_equipment JSONB) RETURNS void
+  RETURN thermocheck.update_contractor_equipment_status(p_equipment);
+```
 
-**Loesung: Loading-State waehrend Orders laden**
+**get_contractor_onboarding_state erweitern:**
+`equipment_status` zum Rueckgabetyp hinzufuegen (DROP + RECREATE der Funktion).
 
-**Aenderung in `src/components/onboarding/steps/OrdersStep.tsx`:**
-- Neue Prop `isLoadingOrders` hinzufuegen
-- Solange Orders aus der DB laden, einen Skeleton/Spinner anzeigen statt ein falsches Produkt
-- Erst wenn die DB-Daten da sind, das korrekte aktuelle Produkt anzeigen
+## 2. Hook: `src/hooks/useContractorProfile.ts`
 
-**Aenderung in `src/components/OnboardingScreen.tsx`:**
-- `ordersLoaded`-Status als `isLoadingOrders`-Prop an `OrdersStep` durchreichen
+- `ContractorOnboardingData`-Interface: neues Feld `equipment_status?: Record<string, unknown> | null`
+- `ContractorOnboardingState`-Interface: neues Feld `equipmentStatus?: Record<string, { hatEigenes: boolean; nachweisUrl?: string }>`
+- Mapping in `onboardingStateQuery`: `equipment_status` aus DB-Row mappen
+- Neue Mutation `saveEquipmentStatusMutation` (analog zu `saveGewerbescheinMutation`)
+- Im Return-Objekt: `saveEquipmentStatus` exponieren
+
+## 3. Hydration: `src/components/OnboardingScreen.tsx`
+
+Im bestehenden Hydrations-useEffect (wo Gewerbeschein + Fortschritt geladen werden):
+- Wenn `dbOnboardingState.equipmentStatus` vorhanden, via `updateEquipmentStatus` in den lokalen State uebernehmen (pro Equipment-ID)
+
+## 4. Speichern: `src/components/OnboardingScreen.tsx`
+
+In `handleNext`, wenn `state.currentStep === 'equipment'`:
+- `saveEquipmentStatus(state.equipmentStatus)` aufrufen (non-blocking, analog zum Gewerbeschein-Pattern)
+- Console-Log bei Erfolg/Fehler
 
 ## Betroffene Dateien
 
-1. `src/components/onboarding/OnboardingCountdown.tsx` - sticky positioning
-2. `src/components/onboarding/steps/OrdersStep.tsx` - Loading-State hinzufuegen
-3. `src/components/OnboardingScreen.tsx` - Loading-Prop durchreichen
-
+1. **Neue SQL-Migration** - Spalte + 3 Funktionen (thermocheck RPC, public Wrapper, get_state erweitern)
+2. `src/hooks/useContractorProfile.ts` - Interface + Mutation + Mapping
+3. `src/components/OnboardingScreen.tsx` - Hydration + Speichern bei "Weiter"
