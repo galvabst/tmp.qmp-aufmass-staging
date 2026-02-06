@@ -183,11 +183,9 @@ export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceV
     if (!videoUrl || videoUrl.trim() === '') {
       return (
         <div className="relative w-full bg-black overflow-hidden" style={{ 
-          height: heightMode === 'hero' 
-            ? 'calc(100svh - var(--akademie-header-h, 60px) - var(--akademie-footer-h, 72px))' 
-            : undefined,
-          aspectRatio: heightMode === 'contained' ? '16/9' : undefined,
-          maxHeight: heightMode === 'hero' ? '75vh' : undefined,
+          aspectRatio: '16/9',
+          width: '100%',
+          maxHeight: heightMode === 'hero' ? '70vh' : undefined,
         }}>
           <NoVideoPlaceholder />
         </div>
@@ -216,11 +214,9 @@ export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceV
         <div 
           className="relative w-full bg-black"
           style={{ 
-            height: heightMode === 'hero' 
-              ? 'calc(100svh - var(--akademie-header-h, 60px) - var(--akademie-footer-h, 72px))' 
-              : undefined,
-            aspectRatio: heightMode === 'contained' ? '16/9' : undefined,
-            minHeight: heightMode === 'hero' ? '300px' : undefined,
+            aspectRatio: '16/9',
+            width: '100%',
+            maxHeight: heightMode === 'hero' ? '70vh' : undefined,
           }}
         >
           {renderPlayer()}

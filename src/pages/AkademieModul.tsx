@@ -38,7 +38,7 @@ export default function AkademieModul() {
   const footerRef = useRef<HTMLElement>(null);
   const videoPlayerRef = useRef<VideoPlayerHandle>(null);
   const [iframeRef, setIframeRef] = useState<HTMLIFrameElement | null>(null);
-  const [cssVarsReady, setCssVarsReady] = useState(false);
+  const [cssVarsReady, setCssVarsReady] = useState(true);
   
   // Guard: Check if modulId is a valid UUID before making API call
   const isValidUuid = isUuid(modulId);
@@ -304,13 +304,11 @@ function AkademieModulContent({
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
         {/* Video Container - Full Width Hero (edge-to-edge, fills available space) */}
-        {cssVarsReady && (
-          <MultiSourceVideoPlayer 
-            ref={videoPlayerRef}
-            videoUrl={unterpunkt.videoUrl} 
-            heightMode="hero" 
-          />
-        )}
+        <MultiSourceVideoPlayer 
+          ref={videoPlayerRef}
+          videoUrl={unterpunkt.videoUrl} 
+          heightMode="hero" 
+        />
 
         {/* Content Container - Constrained for readability */}
         <div className="w-full max-w-3xl mx-auto">
