@@ -1,59 +1,54 @@
 
-# Akademie-Fortschritt aus DB synchronisieren
+# Profil-Tab: Dummy-Daten durch echte DB-Daten ersetzen
 
-Aktuell wird der Akademie-Fortschritt (welche Lektionen abgeschlossen, ob Test bestanden) **nur im localStorage** gespeichert. Die Tabelle `contractor_akademie_lektions_fortschritt` wird zwar befuellt, aber nie vom Frontend gelesen. Dadurch zeigt die App den Akademie-Schritt nicht als "fertig" an, obwohl die DB-Daten vorhanden sind.
+Das Profil-Tab zeigt aktuell hartcodierte Mock-Daten ("Max Mustermann", 127 Auftraege, 98% Annahmerate, etc.). Diese sollen durch echte Daten aus der Datenbank ersetzt werden.
 
-## Aenderungen
+## Was sich aendert
 
-### 1. Neuer Hook: `useAkademieFortschritt`
+### 1. Profildaten aus DB laden (Name, Email, Telefon, Avatar, Region)
 
-Neuer Hook, der die abgeschlossenen Lektions-IDs aus `contractor_akademie_lektions_fortschritt` laedt (direkt via `thermocheckClient`, wie `useAkademieContent` es auch tut).
+Die Daten kommen aus:
+- `public.profiles` (Vorname, Nachname, Email, Telefon, Avatar)
+- `thermocheck.contractor_onboarding` via `get_contractor_onboarding_state` RPC (Adresse/Region)
+- `contractor_onboarding.erstellt_am` fuer "Techniker seit"
 
-Liefert: `Set<string>` mit allen `lektion_id`s die `status = 'completed'` haben.
+Der bestehende `useContractorProfile` Hook liefert diese Daten bereits.
 
-### 2. Neues DB-Feld: `akademie_test_bestanden` auf `contractor_onboarding`
+### 2. Statistiken (Auftraege, Annahmerate, Bewertung)
 
-Eine neue Spalte `akademie_test_bestanden boolean DEFAULT false` auf `thermocheck.contractor_onboarding`, damit der Test-Status persistent ist. Fuer Anton wird sie direkt auf `true` gesetzt.
+Aktuell gibt es keine echten Auftrags-Statistiken in der DB. Da diese Daten noch nicht existieren, werden die Stats-Werte auf **0 / 0% / -** gesetzt (statt falsche Dummy-Werte anzuzeigen). Spaeter koennen echte Aggregate ergaenzt werden.
 
-### 3. RPC erweitern: `get_contractor_onboarding_state`
+### 3. Kontingent (Quartal Q1/2026)
 
-Die RPC-Funktion wird um `akademie_test_bestanden` erweitert, sodass der Wert beim Laden des Onboarding-States mitkommt.
+Auch hier gibt es keine echte DB-Tabelle. Die Werte werden auf 0/24 gesetzt, um keine falschen Daten anzuzeigen.
 
-### 4. `OnboardingScreen` hydration erweitern
+### 4. Onboarding-Fortschritt aus DB
 
-Nach dem Laden der Akademie-Module und des Fortschritts aus der DB:
-- Alle Lektionen, deren IDs im Fortschritts-Set sind, werden als `abgeschlossen: true` markiert
-- `akademieTestBestanden` wird aus dem DB-State geladen
+Der Onboarding-Status kommt bereits aus `useContractorOnboardingStatus`. Statt Mock-Steps wird der echte Fortschritt (completed_steps, current_step) aus der DB angezeigt.
 
-### 5. Test-User: `akademie_test_bestanden = true` setzen
+### 5. Zertifikate
 
-Migration setzt `akademie_test_bestanden = true` fuer Antons Onboarding-Record.
+Aktuell keine echte Zertifikat-Tabelle. Leeres Array statt Fake-Zertifikate.
 
-## Technische Details
+## Technische Umsetzung
 
-```text
-Datenfluss (neu):
-  DB: contractor_akademie_lektions_fortschritt
-    |
-    v
-  useAkademieFortschritt() --> Set<lektion_id>
-    |
-    v
-  OnboardingScreen: hydrateAkademieFromDb() 
-    merge mit completedLektionIds --> abgeschlossen: true
-    
-  DB: contractor_onboarding.akademie_test_bestanden
-    |
-    v  
-  useContractorProfile --> onboardingState.akademieTestBestanden
-    |
-    v
-  OnboardingScreen: setAkademieTestBestanden(true)
-```
+### Datei: `src/pages/Index.tsx`
+- `useContractorProfile` Hook importieren und verwenden
+- Profil-State aus DB-Daten aufbauen statt aus `mockTechnicianProfile`
+- Onboarding-Record Daten (completed_steps, current_step) fuer Fortschrittsanzeige nutzen
+- `loadOnboardingProfile()` und `loadOnboardingStatus()` Hilfsfunktionen entfernen
 
-### Dateien die geaendert werden:
-- **Neue Datei**: `src/hooks/useAkademieFortschritt.ts` - Hook zum Laden der Fortschrittsdaten
-- **Migration**: Spalte `akademie_test_bestanden` + Update fuer Anton
-- **`src/hooks/useContractorProfile.ts`** - `akademieTestBestanden` aus RPC-Response mappen
-- **`src/components/OnboardingScreen.tsx`** - Fortschritt aus DB in Akademie-State hydrieren + `akademieTestBestanden` aus DB laden
-- **RPC** `get_contractor_onboarding_state` - Neues Feld zurueckgeben
+### Datei: `src/components/ProfileView.tsx`
+- Onboarding-Steps aus den echten `completed_steps` des DB-Records ableiten
+- "Techniker seit" aus `erstellt_am` berechnen (Format: "2026-01")
+
+### Datei: `src/data/mockTechnicianData.ts`
+- `mockTechnicianProfile`, `mockOnboardingProgress`, `mockKontingent`, `mockCertificates` entfernen (die Mock-Orders bleiben vorerst fuer die anderen Tabs)
+
+### Datei: `src/types/technician.ts`
+- Keine Aenderungen noetig, das Interface passt bereits
+
+## Was NICHT geaendert wird
+
+- Die anderen Tabs (Pool, Bookings, Active, Review) nutzen weiterhin `mockTechnicianOrders` - das ist ein separates Thema
+- Keine neuen DB-Tabellen - wir zeigen nur an, was die DB bereits hat
