@@ -45,13 +45,8 @@ export function useStripeCheckout() {
 
       console.log(`[useStripeCheckout] Redirecting to Stripe: ${data.checkout_url}`);
       
-      // Redirect to Stripe Checkout - use window.top for iframe compatibility
-      // window.location.href doesn't work reliably in Lovable preview iframe
-      if (window.top) {
-        window.top.location.href = data.checkout_url;
-      } else {
-        window.location.replace(data.checkout_url);
-      }
+      // Stripe Checkout in neuem Tab öffnen - App bleibt im Hintergrund
+      window.open(data.checkout_url, '_blank');
       return true;
 
     } catch (err) {
