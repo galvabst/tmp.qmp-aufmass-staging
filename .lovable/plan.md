@@ -1,74 +1,108 @@
 
-# Webhook-Zuverlaessigkeit absichern
 
-## Problem
+# Mehrfachbestellungen fuer Kleidung + Nachbestellung nach Onboarding
 
-Die Edge Function `stripe-webhook` war nicht synchron mit dem Repo-Code deployed. Dadurch hat eine aeltere Version die Ausweiskarte-Zahlung nicht korrekt verarbeitet. Das darf nie wieder passieren.
+## Uebersicht
 
-## Massnahmen
+Contractors sollen bei Kleidungsprodukten (T-Shirt, Poloshirt, Pullover, Schlappen) eine Menge waehlen koennen. Lizenzen und Ausweiskarte bleiben immer Einzelstueck. Nachbestellungen sollen auch nach dem Onboarding moeglich sein.
 
-### 1. Sofort: Webhook redeployen + Ausweiskarte fixen
+## Was sich aendern muss
 
-- Edge Function `stripe-webhook` neu deployen (Code ist korrekt, nur nicht live)
-- Ausweiskarte-Bestellung manuell auf `paid` setzen (SQL im Supabase Dashboard)
+### 1. Datenbank
 
-### 2. Webhook-Code absichern: Besseres Logging + Error Recovery
+**Problem**: Es gibt einen `UNIQUE(onboarding_id, produkt_key)` Constraint auf `contractor_bestellungen`. Damit kann ein Contractor pro Produkt nur EINE Zeile haben. Fuer Mehrfachbestellungen (z.B. 3 T-Shirts) muss das angepasst werden.
 
-Erweiterungen am `stripe-webhook/index.ts`:
+**Loesung**:
+- `UNIQUE(onboarding_id, produkt_key)` entfernen
+- Neue Spalte `menge` (integer, default 1) auf `contractor_bestellungen`
+- Neue Spalte `erlaubt_mehrfach` (boolean, default false) auf `contractor_produkte`
+- `erlaubt_mehrfach = true` setzen fuer: tshirt, poloshirt, pullover, schlappen
+- `erlaubt_mehrfach = false` bleibt fuer: ausweiskarte, scanner-lizenz, google-workspace
 
-- **Versionskennung**: Eine Konstante `WEBHOOK_VERSION` in die Response einbauen, damit man in Stripe sofort sieht welche Code-Version deployed ist
-- **Fallback-Logging**: Wenn die Bestellung nicht gefunden wird, explizite Warnung mit allen relevanten Daten loggen
+### 2. Edge Function: `create-checkout-session`
 
-Konkret:
+- Neues Feld `menge` im Request Body akzeptieren (optional, default 1)
+- Validierung: Wenn Produkt `erlaubt_mehrfach = false` hat, muss `menge = 1` sein
+- Validierung: `menge` muss zwischen 1 und 10 liegen (sinnvolle Obergrenze)
+- `quantity` in Stripe Checkout Session dynamisch setzen statt hardcoded `1`
+- `menge` in `contractor_bestellungen` speichern
+- Bei Nicht-Mehrfach-Produkten: Bestehende Logik beibehalten (nur pending Order updaten)
+- Bei Mehrfach-Produkten: Immer neue Bestellung anlegen (kein Upsert auf pending)
 
-```text
-Response vorher:  { received: true, event_type: "checkout.session.completed" }
-Response nachher: { received: true, event_type: "checkout.session.completed", version: "2024-02-06-v2", order_updated: true }
-```
+### 3. Frontend: Onboarding OrdersStep
 
-So siehst du in Stripe auf einen Blick:
-- Welche Version laeuft (`version`)
-- Ob die Bestellung gefunden und aktualisiert wurde (`order_updated`)
-- Den Event-Type (`event_type`)
+- Mengenfeld (+/- Stepper) fuer Produkte mit `erlaubt_mehrfach = true`
+- Lizenzen und Ausweiskarte: Kein Mengenfeld, weiterhin 1 Stueck
+- Oberteil-Varianten (T-Shirt/Poloshirt): Mengenfeld pro Variante
+- `useStripeCheckout` Hook erweitern um `menge` Parameter
 
-### 3. Kein Code-Change am Frontend
+### 4. Nach-Onboarding: Nachbestell-Seite (spaetere Phase)
 
-Keine Aenderungen noetig.
+Eine separate Seite/Bereich fuer fertige Contractors, wo sie erneut Kleidung bestellen koennen. Das ist ein eigenstaendiges Feature, das NACH der Mengen-Logik gebaut wird.
+
+**Empfehlung**: Erstmal nur die Mengenauswahl im Onboarding implementieren. Die Nachbestell-Seite als zweiten Schritt, da sie eigene UI, Navigation und Zugangslogik braucht.
 
 ## Technische Details
 
-### Edge Function Aenderungen (`stripe-webhook/index.ts`)
+### Migration SQL
 
-1. **Versionsstring** als Konstante am Anfang der Datei:
-   ```text
-   const WEBHOOK_VERSION = "2026-02-06-v2";
-   ```
+```text
+-- 1. Menge-Spalte auf contractor_bestellungen
+ALTER TABLE thermocheck.contractor_bestellungen
+ADD COLUMN menge integer NOT NULL DEFAULT 1;
 
-2. **Tracking-Variable** `orderUpdated` die mitlaeuft ob die DB-Operation erfolgreich war
+-- 2. UNIQUE Constraint entfernen (erlaubt mehrere Bestellungen pro Produkt)
+ALTER TABLE thermocheck.contractor_bestellungen
+DROP CONSTRAINT unique_onboarding_product;
 
-3. **Erweiterte Response** am Ende:
-   ```text
-   { received: true, event_type: event.type, version: WEBHOOK_VERSION, order_updated: orderUpdated }
-   ```
+-- 3. Neuer UNIQUE Constraint auf stripe_session_id (1 Bestellung pro Checkout)
+ALTER TABLE thermocheck.contractor_bestellungen
+ADD CONSTRAINT unique_stripe_session UNIQUE (stripe_session_id);
 
-4. **Keine strukturellen Aenderungen** an der Webhook-Logik selbst -- die ist korrekt
+-- 4. Mehrfach-Flag auf contractor_produkte
+ALTER TABLE thermocheck.contractor_produkte
+ADD COLUMN erlaubt_mehrfach boolean NOT NULL DEFAULT false;
 
-### SQL fuer Ausweiskarte-Fix (manuell im Dashboard)
-
-```sql
-UPDATE thermocheck.contractor_bestellungen
-SET stripe_payment_status = 'paid',
-    paid_at = now(),
-    webhook_received_at = now()
-WHERE produkt_key = 'ausweiskarte'
-  AND stripe_session_id = 'cs_live_a1oaUvGnDsTwYM3Jh793diS1oin79vbGKal3LyAtMStH6BtV01WTX9qbRk'
-  AND stripe_payment_status = 'pending';
+-- 5. Kleidung als mehrfach bestellbar markieren
+UPDATE thermocheck.contractor_produkte
+SET erlaubt_mehrfach = true
+WHERE produkt_key IN ('tshirt', 'poloshirt', 'pullover', 'schlappen');
 ```
 
-## Zusammenfassung
+### Edge Function Aenderungen (`create-checkout-session/index.ts`)
 
-| Aktion | Was | Warum |
-|--------|-----|-------|
-| Redeploy | `stripe-webhook` neu deployen | Sicherstellen dass aktueller Code live ist |
-| DB-Fix | Ausweiskarte auf `paid` setzen | Zahlung war bei Stripe erfolgreich |
-| Code | Versionskennung + `order_updated` Flag | Sofort sichtbar welche Version laeuft und ob DB-Update geklappt hat |
+1. Interface erweitern: `menge?: number` im `CheckoutRequest`
+2. Validierung: `menge` aus Body lesen, default 1, Bereich 1-10
+3. Produkt-Check: Wenn `erlaubt_mehrfach = false` und `menge > 1` -> Fehler 400
+4. Stripe Session: `quantity: menge` statt `quantity: 1`
+5. DB-Insert: `menge` Spalte befuellen
+6. Upsert-Logik anpassen: Bei `erlaubt_mehrfach`-Produkten immer INSERT (kein Update auf pending)
+
+### Frontend Aenderungen
+
+1. **`useStripeCheckout` Hook**: `startCheckout(produktKey, groesse, menge)` Signatur
+2. **`OrdersStep` Komponente**: Mengen-Stepper UI fuer Kleidungsprodukte
+3. **Neues UI-Element**: `QuantitySelector` Komponente (einfacher +/- Stepper mit Min 1 / Max 10)
+4. **`useContractorProducts` Hook**: `erlaubt_mehrfach` Feld aus DB laden (falls noch nicht vorhanden)
+
+### Webhook: Keine Aenderungen noetig
+
+Der Webhook verarbeitet bereits jede Checkout-Session einzeln per `stripe_session_id`. Durch den neuen UNIQUE Constraint auf `stripe_session_id` bleibt die Idempotenz gewahrt.
+
+## Reihenfolge der Implementation
+
+1. DB-Migration (Spalten + Constraints)
+2. Edge Function `create-checkout-session` erweitern
+3. Frontend: QuantitySelector Komponente
+4. Frontend: OrdersStep + useStripeCheckout anpassen
+5. Testen mit Kleidungsprodukten
+6. (Spaeter) Nachbestell-Seite fuer fertige Contractors
+
+## Risiken und Massnahmen
+
+| Risiko | Massnahme |
+|--------|-----------|
+| Bestehende Bestellungen ohne `menge` | Default 1 in Migration, kein Breaking Change |
+| Doppelte Bestellungen bei Nicht-Mehrfach-Produkten | Validierung in Edge Function: `erlaubt_mehrfach = false` -> pruefen ob bereits `paid` Order existiert |
+| `stripe_session_id` NULL bei alten Eintraegen | UNIQUE Constraint erlaubt NULL (PostgreSQL Default), kein Problem |
+
