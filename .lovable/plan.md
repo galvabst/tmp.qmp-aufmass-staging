@@ -1,108 +1,63 @@
 
 
-# Mehrfachbestellungen fuer Kleidung + Nachbestellung nach Onboarding
+# Countdown-Redesign: Von Info-Leiste zu Druck-Element
 
-## Uebersicht
+## Problem
 
-Contractors sollen bei Kleidungsprodukten (T-Shirt, Poloshirt, Pullover, Schlappen) eine Menge waehlen koennen. Lizenzen und Ausweiskarte bleiben immer Einzelstueck. Nachbestellungen sollen auch nach dem Onboarding moeglich sein.
+Der aktuelle Countdown ist eine schmale orange Leiste, die farblich mit dem Header verschmilzt. Es fehlt der visuelle "Alarm-Effekt" - er wirkt wie ein normales UI-Element statt wie eine Deadline.
 
-## Was sich aendern muss
+## Design-Konzept
 
-### 1. Datenbank
+Statt einer einfachen Zeile wird der Countdown ein eigenstaendiger, visuell abgesetzter Block mit:
 
-**Problem**: Es gibt einen `UNIQUE(onboarding_id, produkt_key)` Constraint auf `contractor_bestellungen`. Damit kann ein Contractor pro Produkt nur EINE Zeile haben. Fuer Mehrfachbestellungen (z.B. 3 T-Shirts) muss das angepasst werden.
+1. **Dunkler Hintergrund** (slate-900/schwarz) - sticht sofort gegen den orangen Header hervor
+2. **Grosse Countdown-Ziffern** in einzelnen "Flip-Clock"-Kacheln (wie bei Countdowns auf Landingpages)
+3. **Fortschrittsbalken** der zeigt wie viel der 7 Tage bereits verstrichen sind (visueller Druck)
+4. **Kontexttext** der sich aendert je nach verbleibender Zeit:
+   - Ab 7 Tagen: "Schliesse dein Onboarding in X Tagen ab"
+   - Ab 3 Tagen: "Nur noch X Tage! Bitte beeile dich."
+   - Ab 1 Tag: "LETZTE CHANCE - Frist laeuft morgen ab!"
+   - Abgelaufen: "Frist abgelaufen - kontaktiere deinen Ansprechpartner"
+5. **Farbstufen**: Balken und Akzente wechseln von gruen (viel Zeit) ueber gelb/orange (wenig) zu rot (kritisch)
 
-**Loesung**:
-- `UNIQUE(onboarding_id, produkt_key)` entfernen
-- Neue Spalte `menge` (integer, default 1) auf `contractor_bestellungen`
-- Neue Spalte `erlaubt_mehrfach` (boolean, default false) auf `contractor_produkte`
-- `erlaubt_mehrfach = true` setzen fuer: tshirt, poloshirt, pullover, schlappen
-- `erlaubt_mehrfach = false` bleibt fuer: ausweiskarte, scanner-lizenz, google-workspace
-
-### 2. Edge Function: `create-checkout-session`
-
-- Neues Feld `menge` im Request Body akzeptieren (optional, default 1)
-- Validierung: Wenn Produkt `erlaubt_mehrfach = false` hat, muss `menge = 1` sein
-- Validierung: `menge` muss zwischen 1 und 10 liegen (sinnvolle Obergrenze)
-- `quantity` in Stripe Checkout Session dynamisch setzen statt hardcoded `1`
-- `menge` in `contractor_bestellungen` speichern
-- Bei Nicht-Mehrfach-Produkten: Bestehende Logik beibehalten (nur pending Order updaten)
-- Bei Mehrfach-Produkten: Immer neue Bestellung anlegen (kein Upsert auf pending)
-
-### 3. Frontend: Onboarding OrdersStep
-
-- Mengenfeld (+/- Stepper) fuer Produkte mit `erlaubt_mehrfach = true`
-- Lizenzen und Ausweiskarte: Kein Mengenfeld, weiterhin 1 Stueck
-- Oberteil-Varianten (T-Shirt/Poloshirt): Mengenfeld pro Variante
-- `useStripeCheckout` Hook erweitern um `menge` Parameter
-
-### 4. Nach-Onboarding: Nachbestell-Seite (spaetere Phase)
-
-Eine separate Seite/Bereich fuer fertige Contractors, wo sie erneut Kleidung bestellen koennen. Das ist ein eigenstaendiges Feature, das NACH der Mengen-Logik gebaut wird.
-
-**Empfehlung**: Erstmal nur die Mengenauswahl im Onboarding implementieren. Die Nachbestell-Seite als zweiten Schritt, da sie eigene UI, Navigation und Zugangslogik braucht.
-
-## Technische Details
-
-### Migration SQL
+## Visueller Aufbau (vereinfacht)
 
 ```text
--- 1. Menge-Spalte auf contractor_bestellungen
-ALTER TABLE thermocheck.contractor_bestellungen
-ADD COLUMN menge integer NOT NULL DEFAULT 1;
-
--- 2. UNIQUE Constraint entfernen (erlaubt mehrere Bestellungen pro Produkt)
-ALTER TABLE thermocheck.contractor_bestellungen
-DROP CONSTRAINT unique_onboarding_product;
-
--- 3. Neuer UNIQUE Constraint auf stripe_session_id (1 Bestellung pro Checkout)
-ALTER TABLE thermocheck.contractor_bestellungen
-ADD CONSTRAINT unique_stripe_session UNIQUE (stripe_session_id);
-
--- 4. Mehrfach-Flag auf contractor_produkte
-ALTER TABLE thermocheck.contractor_produkte
-ADD COLUMN erlaubt_mehrfach boolean NOT NULL DEFAULT false;
-
--- 5. Kleidung als mehrfach bestellbar markieren
-UPDATE thermocheck.contractor_produkte
-SET erlaubt_mehrfach = true
-WHERE produkt_key IN ('tshirt', 'poloshirt', 'pullover', 'schlappen');
+┌──────────────────────────────────────────────────────┐
+│  (dunkler Hintergrund, slate-900)                    │
+│                                                      │
+│  Schliesse dein Onboarding ab bis zum 13. Feb 2026   │
+│                                                      │
+│   ┌────┐   ┌────┐   ┌────┐   ┌────┐                 │
+│   │ 05 │   │ 22 │   │ 14 │   │ 33 │                 │
+│   │Tage│   │ Std│   │ Min│   │ Sek│                 │
+│   └────┘   └────┘   └────┘   └────┘                 │
+│                                                      │
+│  ████████████░░░░░░░  (Fortschritt: 17% verbraucht)  │
+│                                                      │
+└──────────────────────────────────────────────────────┘
 ```
 
-### Edge Function Aenderungen (`create-checkout-session/index.ts`)
+## Technische Aenderungen
 
-1. Interface erweitern: `menge?: number` im `CheckoutRequest`
-2. Validierung: `menge` aus Body lesen, default 1, Bereich 1-10
-3. Produkt-Check: Wenn `erlaubt_mehrfach = false` und `menge > 1` -> Fehler 400
-4. Stripe Session: `quantity: menge` statt `quantity: 1`
-5. DB-Insert: `menge` Spalte befuellen
-6. Upsert-Logik anpassen: Bei `erlaubt_mehrfach`-Produkten immer INSERT (kein Update auf pending)
+Nur eine Datei betroffen: `src/components/onboarding/OnboardingCountdown.tsx`
 
-### Frontend Aenderungen
+### Aenderungen im Detail:
 
-1. **`useStripeCheckout` Hook**: `startCheckout(produktKey, groesse, menge)` Signatur
-2. **`OrdersStep` Komponente**: Mengen-Stepper UI fuer Kleidungsprodukte
-3. **Neues UI-Element**: `QuantitySelector` Komponente (einfacher +/- Stepper mit Min 1 / Max 10)
-4. **`useContractorProducts` Hook**: `erlaubt_mehrfach` Feld aus DB laden (falls noch nicht vorhanden)
+1. **Layout**: Von einzeiliger Leiste zu mehrzeiligem Block mit padding
+2. **Hintergrund**: `bg-slate-900` (dunkel) statt `bg-amber-500` - kontrastreicher gegen den orangen Header
+3. **Countdown-Kacheln**: Vier separate Boxen (Tage, Stunden, Minuten, Sekunden) mit `bg-slate-800` Hintergrund, groessere Schrift (`text-2xl font-bold`)
+4. **Labels unter den Zahlen**: "Tage", "Std", "Min", "Sek" in kleiner Schrift
+5. **Fortschrittsbalken**: Berechnet aus `(verstrichene Zeit / 7 Tage) * 100`, zeigt visuell wie viel Zeit schon weg ist
+6. **Dynamischer Text**: Wechselt basierend auf `timeLeft.days` (motivierend -> warnend -> alarmierend)
+7. **Farb-Eskalation**:
+   - Mehr als 3 Tage: Balken gruen (`bg-emerald-500`), Text weiss
+   - 1-3 Tage: Balken orange (`bg-amber-500`), leichtes Pulsieren
+   - Unter 1 Tag: Balken rot (`bg-red-500`), staerkeres Pulsieren
+   - Abgelaufen: Komplett rot mit Warnsymbol
+8. **Deadline-Datum anzeigen**: Berechnet aus `erstelltAm + 7 Tage`, als lesbares Datum ("bis zum 13. Februar 2026")
 
-### Webhook: Keine Aenderungen noetig
+### Keine weiteren Dateien betroffen
 
-Der Webhook verarbeitet bereits jede Checkout-Session einzeln per `stripe_session_id`. Durch den neuen UNIQUE Constraint auf `stripe_session_id` bleibt die Idempotenz gewahrt.
-
-## Reihenfolge der Implementation
-
-1. DB-Migration (Spalten + Constraints)
-2. Edge Function `create-checkout-session` erweitern
-3. Frontend: QuantitySelector Komponente
-4. Frontend: OrdersStep + useStripeCheckout anpassen
-5. Testen mit Kleidungsprodukten
-6. (Spaeter) Nachbestell-Seite fuer fertige Contractors
-
-## Risiken und Massnahmen
-
-| Risiko | Massnahme |
-|--------|-----------|
-| Bestehende Bestellungen ohne `menge` | Default 1 in Migration, kein Breaking Change |
-| Doppelte Bestellungen bei Nicht-Mehrfach-Produkten | Validierung in Edge Function: `erlaubt_mehrfach = false` -> pruefen ob bereits `paid` Order existiert |
-| `stripe_session_id` NULL bei alten Eintraegen | UNIQUE Constraint erlaubt NULL (PostgreSQL Default), kein Problem |
+Die Prop-Schnittstelle (`erstelltAm`, `deadlineDays`) bleibt identisch. Nur das interne Rendering aendert sich.
 
