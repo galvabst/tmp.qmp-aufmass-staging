@@ -9581,10 +9581,36 @@ export type Database = {
         Returns: {
           ag_domain_email: string
           bestellungen_bezahlt: number
+          erstellt_am: string
           id: string
           lektionen_abgeschlossen: number
-          onboarding_status: string
-          onboarding_substatus: string
+          onboarding_status:
+            | "angelegt"
+            | "invited"
+            | "started"
+            | "in_progress"
+            | "blocked"
+            | "ready"
+            | "deaktiviert"
+          onboarding_substatus:
+            | "neu_angelegt"
+            | "vertrag_per_mail_versendet"
+            | "vertrag_per_post_versendet"
+            | "vertrag_geprueft"
+            | "stammdaten_erfasst"
+            | "bestellungen_checken"
+            | "kleidung_bestellen"
+            | "lizenzen_bereitstellen"
+            | "zugaenge_einrichten"
+            | "dokument_fehlt"
+            | "rueckmeldung_ausstehend"
+            | "alle_schritte_abgeschlossen"
+            | "vertrag_versendet"
+            | "akademie_gestartet"
+            | "deadline_ueberschritten"
+            | "vertrag_abgelehnt"
+            | "akademie_abgeschlossen"
+            | "vertragsstrafe"
           profile_id: string
           trainer_freigabe: boolean
           trainer_freigabe_am: string

@@ -35,6 +35,7 @@ interface OnboardingScreenProps {
     onboardingStatus: string;
     trainerFreigabe: boolean;
     profileId?: string;
+    erstelltAm?: string;
   };
 }
 
@@ -620,6 +621,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         nextLabel={getNextLabel()}
         nextDisabled={!canProceed || isAdvancing}
         progress={progress}
+        erstelltAm={isPreview ? undefined : dbStatus?.erstelltAm}
       >
         {renderStep()}
       </OnboardingStepWrapper>
