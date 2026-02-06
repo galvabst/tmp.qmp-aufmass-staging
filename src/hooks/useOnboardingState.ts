@@ -241,6 +241,13 @@ export function useOnboardingState(
     });
   }, []);
 
+  const setBestellungenFromDb = useCallback((paidKeys: string[]) => {
+    setState(prev => ({
+      ...prev,
+      bestellungenBestaetigt: paidKeys,
+    }));
+  }, []);
+
   const setOberteilAuswahl = useCallback((auswahl: OberteilAuswahl) => {
     setState(prev => ({ ...prev, oberteilAuswahl: auswahl }));
   }, []);
@@ -404,6 +411,7 @@ export function useOnboardingState(
     
     // Schritt 3
     toggleProductOrdered,
+    setBestellungenFromDb,
     setOberteilAuswahl,
     
     // Schritt 4
