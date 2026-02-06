@@ -189,6 +189,14 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       const stateHasNoAvatar = !state.profil.avatarUrl;
       const dbHasAvatar = !!dbProfile.avatarUrl;
 
+      const stateMissingName =
+        !state.profil.vorname?.trim() ||
+        !state.profil.nachname?.trim();
+
+      const dbHasName =
+        !!dbProfile.vorname?.trim() &&
+        !!dbProfile.nachname?.trim();
+
       const stateMissingAddress =
         !state.profil.strasse?.trim() ||
         !state.profil.hausnummer?.trim() ||
@@ -204,7 +212,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       if (
         state.profil.id === '' ||
         (stateHasNoAvatar && dbHasAvatar) ||
-        (stateMissingAddress && dbHasAddress)
+        (stateMissingAddress && dbHasAddress) ||
+        (stateMissingName && dbHasName)
       ) {
         const mergedProfile: ApplicantProfile = {
           id: dbProfile.id,
