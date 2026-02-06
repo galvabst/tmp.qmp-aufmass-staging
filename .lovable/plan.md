@@ -1,53 +1,119 @@
 
 
-# Fix: Webhook DB-Fehler + Polling fuer Zahlungsstatus
+# Root Cause Fix: DB Trigger blockiert Zahlungsstatus-Update
 
-## Problem-Analyse
+## Problem-Analyse (verifiziert durch DB-Inspektion)
 
-Der Webhook empfaengt das Event korrekt, aber scheitert an **zwei DB-Schema-Fehlern**:
+Der Webhook funktioniert korrekt und empfaengt das Stripe-Event. Aber beim UPDATE auf `contractor_bestellungen` (Zeile `stripe_payment_status = 'paid'`) feuert ein **BEFORE-Trigger** namens `trigger_bestellung_paid`, der die Funktion `thermocheck.on_bestellung_paid()` aufruft.
 
-1. `contractor_admin_tasks.titel` existiert nicht - der Webhook oder ein Trigger versucht dort zu schreiben
-2. `contractor_audit_log.bestellung_id` existiert nicht - der Insert in die Audit-Tabelle nutzt einen falschen Spaltennamen
+Diese Trigger-Funktion versucht, in `contractor_admin_tasks` zu schreiben - aber mit **falschen Spaltennamen**:
 
-Zusaetzlich: Da Stripe jetzt in einem neuen Tab laeuft, erkennt die App im Hintergrund nicht, dass gezahlt wurde. Es fehlt ein **Polling-Mechanismus**.
+```text
+Trigger schreibt:              Tabelle hat tatsaechlich:
+--------------------------------------------------
+titel                    -->   task_label
+beschreibung             -->   (existiert nicht)
+status                   -->   erledigt (boolean)
+bestellung_details       -->   (existiert nicht)
+NEW.groessen_info        -->   NEW.groesse
+```
 
-## Schritt 1: DB-Schema pruefen und fixen
+Da es ein BEFORE-Trigger ist, wird bei Fehler die **gesamte UPDATE-Transaktion zurueckgerollt**. Das bedeutet: Die Bestellung bleibt auf `pending`, obwohl Stripe die Zahlung bestaetigt hat.
 
-Zuerst muss ich die tatsaechlichen Spalten der betroffenen Tabellen pruefen und dann:
+**Beweis aus den Logs:**
+- `[stripe-webhook] Error updating order: column "titel" of relation "contractor_admin_tasks" does not exist`
+- DB zeigt: Beide Bestellungen (T-Shirt + Poloshirt) stehen noch auf `pending`, `paid_at = null`
 
-- `contractor_audit_log`: Den Webhook-Code anpassen, damit er die korrekten Spaltennamen nutzt (kein `bestellung_id`, stattdessen den richtigen FK-Namen)
-- `contractor_admin_tasks`: Pruefen ob ein DB-Trigger existiert der bei Zahlungseingang automatisch einen Admin-Task anlegt - dort stimmt der Spaltenname `titel` nicht
+## Loesung
 
-## Schritt 2: Webhook Edge Function korrigieren
+### Schritt 1: Trigger-Funktion korrigieren (DB-Migration)
 
-In `supabase/functions/stripe-webhook/index.ts`:
-- Audit-Log Insert mit korrekten Spaltennamen
+Die Funktion `thermocheck.on_bestellung_paid()` wird neu geschrieben mit den **korrekten Spaltennamen** der `contractor_admin_tasks`-Tabelle:
 
-## Schritt 3: Polling nach Checkout-Start
+```sql
+CREATE OR REPLACE FUNCTION thermocheck.on_bestellung_paid()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'thermocheck'
+AS $$
+DECLARE
+  v_task_label text;
+BEGIN
+  IF NEW.stripe_payment_status = 'paid' 
+     AND (OLD.stripe_payment_status IS NULL OR OLD.stripe_payment_status != 'paid') THEN
+    
+    CASE NEW.produkt_typ
+      WHEN 'kleidung' THEN v_task_label := 'Kleidung versenden: ' || NEW.produkt_key;
+      WHEN 'lizenz' THEN v_task_label := 'Lizenz einrichten: ' || NEW.produkt_key;
+      WHEN 'coaching' THEN v_task_label := 'Coaching koordinieren';
+      ELSE v_task_label := 'Bestellung: ' || NEW.produkt_key;
+    END CASE;
+    
+    INSERT INTO thermocheck.contractor_admin_tasks (
+      contractor_id,
+      task_key,
+      task_label,
+      notiz,
+      erledigt,
+      reihenfolge
+    ) VALUES (
+      NEW.onboarding_id,
+      'bestellung_' || NEW.produkt_key,
+      v_task_label,
+      'Bezahlt am ' || to_char(COALESCE(NEW.paid_at, now()), 'DD.MM.YYYY HH24:MI')
+        || CASE WHEN NEW.groesse IS NOT NULL THEN ' | Groesse: ' || NEW.groesse ELSE '' END,
+      false,
+      0
+    );
+    
+    IF NEW.paid_at IS NULL THEN
+      NEW.paid_at := now();
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+```
 
-Da der Stripe-Tab separat laeuft, muss die App aktiv pruefen:
+### Schritt 2: Bestehende pending-Bestellungen auf "paid" setzen (Daten-Migration)
 
-**`src/hooks/useStripeCheckout.ts`:**
-- Neuer State `isWaitingForPayment` + `waitingForProductKey`
-- Nach `window.open()` den Warte-Modus aktivieren
+Die T-Shirt-Bestellung (`cs_live_a1Livloc1Ctu2SOWQLpPHR50QkLft3unclkRpviXy0yDGoxYil7kurqaTg`) wurde tatsaechlich bei Stripe bezahlt, aber der DB-Status haengt auf `pending`. Nach dem Trigger-Fix wird diese manuell korrigiert:
 
-**`src/components/OnboardingScreen.tsx`:**
-- Polling-Intervall (alle 3 Sekunden) das `refetchOrders()` aufruft wenn `isWaitingForPayment` aktiv ist
-- Sobald das Produkt als "paid" erkannt wird, Polling stoppen und UI aktualisieren
+```sql
+UPDATE thermocheck.contractor_bestellungen
+SET stripe_payment_status = 'paid',
+    paid_at = '2026-02-06T10:25:03Z',
+    webhook_received_at = now()
+WHERE stripe_session_id = 'cs_live_a1Livloc1Ctu2SOWQLpPHR50QkLft3unclkRpviXy0yDGoxYil7kurqaTg'
+  AND stripe_payment_status = 'pending';
+```
+
+### Schritt 3: Keine Code-Aenderungen noetig
+
+Der Webhook-Code (`stripe-webhook/index.ts`) ist korrekt. Das Polling in `OnboardingScreen.tsx` ist ebenfalls bereits implementiert. Das einzige Problem war der defekte DB-Trigger.
 
 ## Betroffene Dateien
 
 | Datei | Aenderung |
 |-------|----------|
-| DB-Migration | `contractor_audit_log` und `contractor_admin_tasks` Schema-Fix |
-| `supabase/functions/stripe-webhook/index.ts` | Audit-Log Insert mit korrekten Spalten |
-| `src/hooks/useStripeCheckout.ts` | `isWaitingForPayment` State hinzufuegen |
-| `src/components/OnboardingScreen.tsx` | Polling-Intervall nach Checkout-Start |
+| DB-Migration | Trigger-Funktion `on_bestellung_paid()` korrigieren |
+| DB-Migration | Bezahlte T-Shirt-Bestellung auf "paid" setzen |
 
-## Erwartetes Ergebnis
+Kein Frontend- oder Edge-Function-Code wird geaendert.
 
-1. User klickt "Jetzt bestellen" -> neuer Tab mit Stripe
-2. App zeigt "Warte auf Zahlung..." im Hintergrund
-3. User zahlt -> Webhook verarbeitet korrekt -> DB auf "paid"
-4. App-Polling erkennt "paid" -> naechstes Produkt wird angezeigt
-5. Alle Produkte bezahlt -> "Weiter zu Equipment" wird aktiv
+## Erwartetes Ergebnis nach Fix
+
+1. Webhook empfaengt `checkout.session.completed`
+2. UPDATE auf `contractor_bestellungen` setzt Status auf `paid`
+3. Trigger erstellt korrekten Admin-Task in `contractor_admin_tasks`
+4. Transaktion committed erfolgreich
+5. Frontend-Polling erkennt `paid` -> UI springt zum naechsten Produkt
+
+## Validierung
+
+- T-Shirt-Bestellung wird sofort als "paid" erkannt (Daten-Migration)
+- Naechster Checkout (Poloshirt/Schlappen) wird den korrekten Trigger durchlaufen
+- Admin-Tasks werden korrekt mit `task_label` und `notiz` angelegt
+
