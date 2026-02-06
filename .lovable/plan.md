@@ -1,61 +1,44 @@
 
 
-# Fix: Profildaten (Name, Email, Telefon) werden nicht aus DB geladen
+# Akademie-Module 12 und 13 entfernen
 
 ## Problem
 
-Die Merge-Logik in `OnboardingScreen.tsx` prueft nur drei Faelle fuer die DB-Hydration:
-1. `state.profil.id === ''` (ID leer)
-2. State hat kein Avatar, DB schon
-3. State hat keine Adresse, DB schon
+In der Akademie gibt es zwei Module, die nicht dorthin gehören:
+- **Modul 12** ("Praxisphase: Training on the Job") - gehört zum Coaching-Schritt (Schritt 7 im Onboarding)
+- **Modul 13** ("Prüfung & Zertifizierung") - ist bereits durch den Abschlusstest in der Akademie abgedeckt
 
-Es fehlt die Pruefung: **State hat keinen Namen/Email/Telefon, aber DB schon.** Wenn ein neuer User sich anmeldet und der localStorage noch keine Profildaten hat (aber bereits eine ID), werden Vorname, Nachname, Email und Telefon nicht aus der DB uebernommen.
+## Lösung
 
-## Loesung
+Die Module werden in der Datenbank deaktiviert (`ist_aktiv = false`). Dadurch werden sie vom `useAkademieContent`-Hook automatisch nicht mehr geladen, da dieser nur `ist_aktiv = true` abfragt.
 
-Die Merge-Bedingung in `OnboardingScreen.tsx` (ca. Zeile 195) um eine weitere Pruefung erweitern:
+Es ist **keine Frontend-Änderung** nötig.
 
-```text
-Aktuelle Bedingung:
-  id === '' || (kein Avatar && DB hat Avatar) || (keine Adresse && DB hat Adresse)
+## Betroffene DB-Einträge
 
-Neue Bedingung (zusaetzlich):
-  || (kein Vorname/Nachname im State && DB hat Vorname/Nachname)
+| Modul | ID | Aktion |
+|---|---|---|
+| Praxisphase: Training on the Job (reihenfolge 11) | `c9715b06-9638-4dc4-8837-bebbc66be074` | `ist_aktiv = false` |
+| Prüfung & Zertifizierung (reihenfolge 12) | `68ea9e78-ab4f-4684-9c9e-1e497fce006a` | `ist_aktiv = false` |
+
+## Technische Umsetzung
+
+Eine einzelne SQL-Migration:
+
+```sql
+UPDATE thermocheck.contractor_akademie_module
+SET ist_aktiv = false, updated_at = now()
+WHERE id IN (
+  'c9715b06-9638-4dc4-8837-bebbc66be074',
+  '68ea9e78-ab4f-4684-9c9e-1e497fce006a'
+);
 ```
 
-### Konkrete Aenderung
+## Warum kein Frontend-Code betroffen ist
 
-In der Datei `src/components/OnboardingScreen.tsx`, im useEffect das die DB-Profildaten merged:
+Der Hook `useAkademieContent` filtert bereits mit `.eq('ist_aktiv', true)` - deaktivierte Module werden automatisch nicht mehr angezeigt. Auch zugehörige Lektionen dieser Module werden nicht mehr geladen, da sie über `modul_id` verknüpft sind und nur Lektionen aktiver Module im UI erscheinen.
 
-Eine neue Variable `stateMissingName` hinzufuegen:
+## Risiken
 
-```
-const stateMissingName =
-  !state.profil.vorname?.trim() ||
-  !state.profil.nachname?.trim();
+Keine. Die Daten bleiben erhalten und können jederzeit durch `ist_aktiv = true` reaktiviert werden. Bestehender Lernfortschritt von Usern für diese Module bleibt in der DB gespeichert.
 
-const dbHasName =
-  !!dbProfile.vorname?.trim() &&
-  !!dbProfile.nachname?.trim();
-```
-
-Und die if-Bedingung erweitern:
-
-```
-if (
-  state.profil.id === '' ||
-  (stateHasNoAvatar && dbHasAvatar) ||
-  (stateMissingAddress && dbHasAddress) ||
-  (stateMissingName && dbHasName)        // NEU
-) {
-```
-
-## Betroffene Datei
-
-| Datei | Aenderung |
-|---|---|
-| `src/components/OnboardingScreen.tsx` | Merge-Bedingung um Name-Check erweitern (ca. 4 Zeilen) |
-
-## Erwartetes Ergebnis
-
-Wenn ein Contractor den Onboarding-Profil-Schritt oeffnet, werden Vorname, Nachname, Email und Telefon sofort aus der Datenbank vorausgefuellt - genau wie es vorher funktioniert hat.
