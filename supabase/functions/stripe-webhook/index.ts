@@ -83,14 +83,14 @@ Deno.serve(async (req) => {
 
     // 6. Process event based on type
     let bestellungId: string | null = null;
-    let auditEventType: string = "admin_action";
+    let actionType = "webhook_received";
 
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         console.log(`[stripe-webhook] Processing checkout.session.completed: ${session.id}`);
         
-        auditEventType = "checkout_completed";
+        actionType = "checkout_completed";
         
         // Find the order by stripe_session_id
         const { data: bestellung, error: findError } = await supabase
@@ -184,9 +184,8 @@ Deno.serve(async (req) => {
         const session = event.data.object as Stripe.Checkout.Session;
         console.log(`[stripe-webhook] Processing checkout.session.expired: ${session.id}`);
         
-        auditEventType = "checkout_expired";
+        actionType = "checkout_expired";
         
-        // Find and update the order
         const { data: bestellung } = await supabase
           .schema("thermocheck")
           .from("contractor_bestellungen")
@@ -197,7 +196,6 @@ Deno.serve(async (req) => {
         if (bestellung) {
           bestellungId = bestellung.id;
           
-          // Update to failed (expired)
           await supabase
             .schema("thermocheck")
             .from("contractor_bestellungen")
@@ -217,9 +215,8 @@ Deno.serve(async (req) => {
         const invoice = event.data.object as Stripe.Invoice;
         console.log(`[stripe-webhook] Processing invoice.paid: ${invoice.id}`);
         
-        auditEventType = "subscription_renewed";
+        actionType = "subscription_renewed";
         
-        // This is for subscription renewals
         if (invoice.subscription) {
           const { data: bestellung } = await supabase
             .schema("thermocheck")
@@ -240,7 +237,7 @@ Deno.serve(async (req) => {
         const invoice = event.data.object as Stripe.Invoice;
         console.log(`[stripe-webhook] Processing invoice.payment_failed: ${invoice.id}`);
         
-        auditEventType = "payment_failed";
+        actionType = "payment_failed";
         
         if (invoice.subscription) {
           const { data: bestellung } = await supabase
@@ -262,17 +259,19 @@ Deno.serve(async (req) => {
         console.log(`[stripe-webhook] Unhandled event type: ${event.type}`);
     }
 
-    // 7. Write to audit log (ALWAYS, for all processed events)
-    // Schema: bestellung_id, event_type (ENUM), event_data (JSONB), stripe_event_id, actor_type
+    // 7. Write to audit log with CORRECT column names
+    // Actual schema: id, timestamp, actor_type, actor_id, actor_name, action_type, object_type, object_id, payload, ip_address, user_agent, stripe_event_id
     const { error: auditError } = await supabase
       .schema("thermocheck")
       .from("contractor_audit_log")
       .insert({
-        bestellung_id: bestellungId,
-        event_type: auditEventType,
-        event_data: event.data.object,
-        stripe_event_id: event.id,
+        action_type: actionType,
+        object_type: "contractor_bestellung",
+        object_id: bestellungId,
+        payload: event.data.object,
         actor_type: "system",
+        actor_name: "stripe-webhook",
+        stripe_event_id: event.id,
       });
 
     if (auditError) {
@@ -290,7 +289,6 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error("[stripe-webhook] Unexpected error:", error);
-    // Return 500 so Stripe will retry
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
