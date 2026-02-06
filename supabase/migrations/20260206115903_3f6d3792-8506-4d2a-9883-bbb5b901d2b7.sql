@@ -1,0 +1,1 @@
+ALTER TYPE thermocheck.contractor_bestellung_produkt_typ_enum ADD VALUE IF NOT EXISTS 'zubehoer';
