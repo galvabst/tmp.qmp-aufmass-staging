@@ -158,7 +158,9 @@ export function useBunnyPlayerProgress(
   const lastUpdateTimeRef = useRef(0);
   const playerRef = useRef<playerjs.Player | null>(null);
   
-  const totalDurationSeconds = Math.round(videoDurationMinutes * 60);
+  const [totalDurationSeconds, setTotalDurationSeconds] = useState(
+    Math.round(videoDurationMinutes * 60)
+  );
   const requiredSeconds = Math.round(totalDurationSeconds * requiredWatchPercent);
   
   // Two-phase logic: tabs unlock at 90%, completion at 100%
@@ -245,6 +247,12 @@ export function useBunnyPlayerProgress(
           const currentTime = data.seconds;
           const lastTime = lastUpdateTimeRef.current;
           const maxReached = maxReachedTimeRef.current;
+          
+          // Sync real duration from player (overrides DB estimate)
+          if (data.duration > 0) {
+            const realDuration = Math.round(data.duration);
+            setTotalDurationSeconds(prev => prev !== realDuration ? realDuration : prev);
+          }
           
           // Normal playback: small forward jumps (< 2 sec)
           if (currentTime > lastTime && currentTime - lastTime < 2) {
