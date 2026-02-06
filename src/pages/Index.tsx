@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav, Tab } from '@/components/BottomNav';
 import { PoolView } from '@/components/PoolView';
@@ -8,58 +8,23 @@ import { ReviewView } from '@/components/ReviewView';
 import { ProfileView } from '@/components/ProfileView';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { TechnicianOrderDetail } from '@/components/TechnicianOrderDetail';
-import { mockTechnicianOrders, mockTechnicianProfile } from '@/data/mockTechnicianData';
-import { TechnicianOrder, CheckinPhase } from '@/types/technician';
+import { mockTechnicianOrders } from '@/data/mockTechnicianData';
+import { TechnicianOrder, TechnicianProfile, CheckinPhase } from '@/types/technician';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
 import { useContractorOnboardingStatus } from '@/hooks/useContractorOnboardingStatus';
+import { useContractorProfile } from '@/hooks/useContractorProfile';
 import { useIsAdmin } from '@/hooks/useIAM';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { OnboardingLoadingScreen } from '@/components/ui/OnboardingLoadingScreen';
 import { NoContractorAccessScreen } from '@/components/ui/NoContractorAccessScreen';
 import { AuthRequiredScreen } from '@/components/ui/AuthRequiredScreen';
 import { TechnicalErrorScreen } from '@/components/ui/TechnicalErrorScreen';
-
-const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
-
-// Load profile data from onboarding state (localStorage)
-const loadOnboardingProfile = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const state = JSON.parse(saved);
-      return state.profil;
-    }
-  } catch (e) {
-    console.warn('Failed to load onboarding profile', e);
-  }
-  return null;
-};
-
-// Load onboarding completion status from localStorage
-const loadOnboardingStatus = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const state = JSON.parse(saved);
-      return {
-        isCompleted: state.coachingAbgeschlossen || false,
-        completedSteps: state.completedSteps || [],
-        currentStep: state.currentStep,
-      };
-    }
-  } catch (e) {
-    console.warn('Failed to load onboarding status', e);
-  }
-  return null;
-};
+import { ONBOARDING_STEPS } from '@/lib/onboarding-config';
 
 const Index = () => {
   const navigate = useNavigate();
   
-  // ============================================
-  // SESSION + DB-FIRST ONBOARDING STATUS CHECK + IAM
-  // ============================================
   const { session, isLoading: isSessionLoading } = useSupabaseSession();
   
   const { 
@@ -74,39 +39,76 @@ const Index = () => {
   
   const isAdmin = useIsAdmin();
 
+  // Load real profile data from DB
+  const profileId = onboardingRecord?.profile_id || null;
+  const { data: dbProfile } = useContractorProfile(profileId);
+
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
   const [orders, setOrders] = useState<TechnicianOrder[]>(mockTechnicianOrders);
   
-  // Merge onboarding profile with mock data
-  const [profile, setProfile] = useState(() => {
-    const onboardingProfile = loadOnboardingProfile();
-    const onboardingStatus = loadOnboardingStatus();
-    
-    // If onboarding is completed, mark it as such
-    const onboarding = onboardingStatus?.isCompleted 
-      ? { ...mockTechnicianProfile.onboarding, isCompleted: true, progressPercent: 100 }
-      : mockTechnicianProfile.onboarding;
-    
+  // Build profile from DB data
+  const profile = useMemo((): TechnicianProfile => {
+    const name = dbProfile 
+      ? `${dbProfile.vorname || ''} ${dbProfile.nachname || ''}`.trim() || '–'
+      : '–';
+
+    // Derive onboarding steps from DB record
+    const completedSteps: string[] = (onboardingRecord as any)?.completed_steps || [];
+    const currentStep: string | null = (onboardingRecord as any)?.current_step || null;
+    const isOnboardingCompleted = onboardingRecord?.onboarding_status === 'ready';
+
+    const onboardingSteps = ONBOARDING_STEPS.map(step => {
+      const isCompleted = completedSteps.includes(step.id);
+      const isCurrent = step.id === currentStep;
+      return {
+        id: step.id as any,
+        label: step.label,
+        status: (isCompleted ? 'completed' : isCurrent ? 'in_progress' : 'pending') as 'completed' | 'in_progress' | 'pending',
+      };
+    });
+
+    const completedCount = onboardingSteps.filter(s => s.status === 'completed').length;
+    const progressPercent = onboardingSteps.length > 0 
+      ? Math.round((completedCount / onboardingSteps.length) * 100) 
+      : 0;
+
+    // "Techniker seit" from erstellt_am
+    const erstelltAm = onboardingRecord?.erstellt_am;
+    const memberSince = erstelltAm 
+      ? new Date(erstelltAm).toISOString().slice(0, 7) // "2026-01"
+      : '–';
+
     return {
-      ...mockTechnicianProfile,
-      name: onboardingProfile 
-        ? `${onboardingProfile.vorname} ${onboardingProfile.nachname}` 
-        : mockTechnicianProfile.name,
-      avatarUrl: onboardingProfile?.avatarUrl || mockTechnicianProfile.avatarUrl,
-      email: onboardingProfile?.email || mockTechnicianProfile.email,
-      phone: onboardingProfile?.telefon || mockTechnicianProfile.phone,
-      onboarding,
+      id: profileId || '',
+      name,
+      email: dbProfile?.email || '–',
+      phone: dbProfile?.telefon || '–',
+      region: dbProfile?.ort || '–',
+      avatarUrl: dbProfile?.avatarUrl,
+      memberSince,
+      stats: {
+        totalOrders: 0,
+        acceptanceRate: 0,
+        rating: 0,
+      },
+      certificates: [],
+      onboarding: {
+        isCompleted: isOnboardingCompleted,
+        currentStep: (currentStep as any) || 'gewerbeschein',
+        steps: onboardingSteps,
+        progressPercent: isOnboardingCompleted ? 100 : progressPercent,
+      },
+      kontingent: {
+        quartal: 'Q1/2026',
+        abgenommen: 0,
+        minimum: 24,
+      },
     };
-  });
+  }, [dbProfile, onboardingRecord, profileId]);
   
   // Preview mode for testing the onboarding flow
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  
-  // NOTE: We no longer use a local "onboardingComplete" state.
-  // The DB (isDbReady) is the SINGLE SOURCE OF TRUTH.
-  // Local state was causing bugs where localStorage said "complete" 
-  // but DB said "not ready".
 
   // Count orders per tab
   const poolCount = orders.filter(o => o.status === 'published').length;
@@ -184,7 +186,6 @@ const Index = () => {
         if (phase === 'vor_ort') {
           return { ...order, vorOrtCheckoutAt: now };
         } else {
-          // Both phases complete -> submit for review
           return { 
             ...order, 
             nachbearbeitungCheckoutAt: now,
@@ -203,60 +204,39 @@ const Index = () => {
     }
   };
 
-  // ============================================
-  // ADMIN REDIRECT EFFECT (before early returns!)
-  // ============================================
+  // Admin redirect
   useEffect(() => {
     if (isAdmin === true && !hasContractorRecord && !isDbLoading && session) {
       navigate('/admin', { replace: true });
     }
   }, [isAdmin, hasContractorRecord, isDbLoading, navigate, session]);
 
-  // ============================================
-  // DB-FIRST RENDERING LOGIC + AUTH
-  // ============================================
-  
-  // 0. Show loading screen while checking session
+  // Early returns for auth/loading states
   if (isSessionLoading) {
     return <OnboardingLoadingScreen message="Prüfe Anmeldung..." />;
   }
   
-  // 1. If no session exists, show auth required screen
   if (!session) {
     return <AuthRequiredScreen />;
   }
   
-  // 2. Show loading screen while checking DB status OR IAM roles
   if (isDbLoading || isAdmin === undefined) {
     return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
   }
 
-  // 2.5 If there was a technical error fetching onboarding status, show error screen
   if (isDbError && dbErrorMessage) {
     return <TechnicalErrorScreen errorMessage={dbErrorMessage} onRetry={refetchOnboardingStatus} />;
   }
 
-  // 3. If no contractor record exists AND not admin, show access denied
-  // (Admins get redirected by the useEffect above)
   if (!hasContractorRecord && !isAdmin) {
     return <NoContractorAccessScreen userEmail={onboardingRecord?.ag_domain_email || session.user.email || undefined} />;
   }
   
-  // 4. Admin without contractor record - show brief loading while redirect happens
   if (!hasContractorRecord && isAdmin) {
     return <OnboardingLoadingScreen message="Weiterleitung zum Admin-Bereich..." />;
   }
 
-  // 4. If DB says NOT ready (not 'ready' status OR no trainer approval), show onboarding
-  // DB is the SINGLE SOURCE OF TRUTH - localStorage does NOT determine ready status!
-  // Preview mode bypasses this check for testing purposes
   if (!isDbReady || isPreviewMode) {
-    console.log('[Index] Showing onboarding:', { 
-      isDbReady, 
-      isPreviewMode,
-      dbStatus: onboardingRecord?.onboarding_status,
-      trainerFreigabe: onboardingRecord?.trainer_freigabe,
-    });
     return (
       <OnboardingScreen 
         isPreview={isPreviewMode}
@@ -276,24 +256,6 @@ const Index = () => {
             setIsPreviewMode(false);
             return;
           }
-          
-          // NOTE: We don't set any local "complete" state anymore.
-          // The DB status is the SSOT - onComplete just syncs profile data
-          // and shows a success message. The actual ready-check happens 
-          // on next render via isDbReady from the DB.
-          
-          // Sync profile with onboarding data
-          const onboardingProfile = loadOnboardingProfile();
-          if (onboardingProfile) {
-            setProfile(prev => ({
-              ...prev,
-              name: `${onboardingProfile.vorname} ${onboardingProfile.nachname}`,
-              avatarUrl: onboardingProfile.avatarUrl,
-              email: onboardingProfile.email,
-              phone: onboardingProfile.telefon,
-            }));
-          }
-          
           toast.success('Onboarding abgeschlossen – bitte warte auf Trainer-Freigabe! 🎓');
         }}
       />
@@ -317,10 +279,8 @@ const Index = () => {
     toast.info('Nacharbeit gestartet');
   };
 
-  // Show order detail if selected
   if (selectedOrder) {
     const currentOrder = orders.find(o => o.id === selectedOrder.id) || selectedOrder;
-    // Pool-Auftraege zeigen keine vollen Details
     const showFullDetails = currentOrder.status !== 'published';
     return (
       <TechnicianOrderDetail
@@ -372,11 +332,8 @@ const Index = () => {
         <ProfileView 
           profile={profile} 
           onSave={(updatedData) => {
-            // For now, just show a toast - later this would persist to Supabase
             toast.success('Profil aktualisiert');
-            console.log('Profile update:', updatedData);
           }}
-          // NOTE: onStartOnboarding removed - DB controls onboarding state now
           onStartOnboardingPreview={() => {
             setIsPreviewMode(true);
             toast.info('Vorschau-Modus gestartet');
