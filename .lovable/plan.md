@@ -1,48 +1,87 @@
 
 
-# Akademie-Tabs: Besseres Design + unnoetigen Button entfernen
+# Stripe Webhook Robustheit - Nachhaltige Loesung
 
-## Probleme (aus Screenshots)
+## Problem-Zusammenfassung
 
-1. **Lerninhalt-Tab**: Reiner Plain-Text ohne visuelle Struktur. Nummerierte Abschnitte, Fettschrift und Aufzaehlungen gehen in einer Textwand unter.
-2. **Key Takeaways (Zusammenfassung)**: Hat eine leichte Karte, wirkt aber trotzdem sehr farblos und "nackt".
-3. **Dritter Tab-Button (Material/ExternalLink-Icon)**: Hat keinen Inhalt/Funktion, verwirrt den User.
+Bei Single-Order-Produkten (Ausweiskarte, Scanner-Lizenz, Google Workspace) wird bei erneutem Klick auf "Kaufen" die `stripe_session_id` im bestehenden DB-Eintrag ueberschrieben. Trifft dann der Webhook fuer die alte Session ein, findet er keinen Eintrag und meldet `order_updated: false`.
 
-## Loesung
+Bei Multi-Quantity-Produkten (T-Shirt etc.) gibt es dieses Problem nicht, da jeder Klick eine neue Zeile erzeugt.
 
-### 1. Material-Tab entfernen
+Zusaetzlich: Stripe SDK v17.7.0 verursacht `Deno.core.runMicrotasks()`-Fehler in Edge Functions.
 
-- `grid-cols-3` auf `grid-cols-2` aendern
-- Den dritten `TabsTrigger` (Material) und den zugehoerigen `TabsContent` komplett entfernen
-- Import von `ExternalLink` entfernen (wenn sonst nicht verwendet)
+## Loesung in 3 Schritten
 
-### 2. Lerninhalt-Tab visuell aufwerten
+### Schritt 1: Stripe SDK Downgrade (beide Edge Functions)
 
-Den Markdown-Container mit strukturierten Styles versehen:
+Downgrade von `stripe@17.7.0` auf `stripe@14.21.0` - die letzte stabile Version mit nativer Deno-Unterstuetzung ohne Node.js-Polyfills.
 
-- Uebergeordnete Abschnitte (H2/H3 Headings) bekommen einen farbigen Akzent-Balken links (border-l-4 in Primary-Orange)
-- Nummerierte Top-Level-Punkte in Cards mit leichtem Hintergrund und Schatten
-- Bessere Prose-Styles: groessere Zeilenhoehe, klare Trennung zwischen Abschnitten
-- Bold-Text bekommt `text-foreground` statt grau, damit er sich deutlich abhebt
-- Listen bekommen Einrueckung und Abstand
+Betrifft:
+- `supabase/functions/stripe-webhook/index.ts` (Zeile 2)
+- `supabase/functions/create-checkout-session/index.ts` (Zeile 2)
 
-Konkret: Die bestehende `prose`-Klasse erweitern um:
+### Schritt 2: Webhook - Metadata-Fallback bei Session-ID-Miss
+
+Wenn die Suche via `stripe_session_id` fehlschlaegt, soll der Webhook NICHT sofort einen neuen Eintrag erstellen, sondern zuerst via Metadata (`onboarding_id` + `produkt_key`) nach einem existierenden pending-Eintrag suchen und diesen updaten.
+
+Ablauf im Webhook bei `checkout.session.completed`:
+
 ```text
-prose-headings:border-l-4 prose-headings:border-primary prose-headings:pl-3
-prose-headings:py-1 prose-headings:mt-6 prose-headings:mb-3
-prose-p:leading-relaxed prose-ul:space-y-1
+1. Suche via stripe_session_id
+   |
+   +-- Gefunden? -> Update auf "paid" (wie bisher)
+   |
+   +-- Nicht gefunden?
+       |
+       2. Suche via Metadata: onboarding_id + produkt_key + status "pending"
+          |
+          +-- Gefunden? -> Update auf "paid" + session_id korrigieren
+          |              (lookup_method: "metadata_fallback")
+          |
+          +-- Nicht gefunden?
+              |
+              3. 2 Sekunden warten, dann Schritt 1+2 wiederholen
+                 |
+                 +-- Immer noch nicht gefunden?
+                     |
+                     4. Neuen Eintrag aus Metadata erstellen (bestehender Fallback)
 ```
 
-Zusaetzlich den gesamten Inhalt in eine Karte mit leichtem Hintergrund und Padding packen (aehnlich wie Zusammenfassung).
+Aenderung in: `supabase/functions/stripe-webhook/index.ts`
 
-### 3. Key Takeaways visuell aufwerten
+### Schritt 3: Verbessertes Response-Logging
 
-- Staerkerer Hintergrund: von `bg-primary/5` auf `bg-gradient-to-br from-primary/10 to-primary/5`
-- Dickere linke Akzent-Border: `border-l-4 border-primary` statt `border border-primary/20`
-- Icon bekommt volle Primary-Farbe und leichten Hintergrund-Kreis
-- Etwas mehr Padding und Schatten (`shadow-sm`)
-- Markdown-Content erbt die gleichen verbesserten Prose-Styles
+Jeder Webhook-Response enthaelt `lookup_method` und `order_id`, damit in Stripe sofort sichtbar ist, welcher Pfad gegriffen hat:
 
-## Betroffene Datei
+```text
+{
+  "received": true,
+  "event_type": "checkout.session.completed",
+  "version": "2026-02-06-v3",
+  "order_updated": true,
+  "lookup_method": "session_id" | "metadata_fallback" | "retry_session_id" | "created_from_metadata",
+  "order_id": "uuid..."
+}
+```
 
-`src/pages/AkademieModul.tsx` -- Tabs vereinfachen + Styling aufwerten
+## Warum KEIN DB-Write-First?
+
+Die urspruenglich geplante Umkehrung (erst DB schreiben, dann Stripe-Session erstellen) wird NICHT umgesetzt, weil:
+- Multi-Quantity-Produkte brauchen es nicht (eigene Zeile pro Klick)
+- Single-Produkte: Der Metadata-Fallback loest das Problem einfacher
+- Weniger Komplexitaet = weniger Fehlerquellen
+
+## Betroffene Dateien
+
+| Datei | Aenderung |
+|---|---|
+| `supabase/functions/stripe-webhook/index.ts` | SDK Downgrade + Multi-Step Lookup + Retry + Logging |
+| `supabase/functions/create-checkout-session/index.ts` | SDK Downgrade |
+
+## Erwartetes Ergebnis
+
+- Kein `Deno.core.runMicrotasks()`-Fehler mehr (SDK Fix)
+- `order_updated: true` auch bei Mehrfach-Klicks (Metadata-Fallback)
+- `order_updated: true` auch bei 0-EUR-Preisen (Retry-Logik)
+- Transparentes Logging zeigt exakt den Lookup-Pfad in Stripe
+
