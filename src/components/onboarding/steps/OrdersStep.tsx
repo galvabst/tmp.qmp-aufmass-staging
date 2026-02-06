@@ -53,6 +53,7 @@ interface OrdersStepProps {
   onProductOrder: (productId: string) => void;
   oberteilAuswahl: OberteilAuswahl;
   onOberteilAuswahl: (auswahl: OberteilAuswahl) => void;
+  isLoadingOrders?: boolean;
 }
 
 export function OrdersStep({ 
@@ -61,6 +62,7 @@ export function OrdersStep({
   onProductOrder,
   oberteilAuswahl,
   onOberteilAuswahl,
+  isLoadingOrders = false,
 }: OrdersStepProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ClothingVariant | null>(OBERTEIL_VARIANTEN[0]);
@@ -72,6 +74,22 @@ export function OrdersStep({
   
   // Stripe Checkout Hook
   const { startCheckout, isLoading: isCheckoutLoading } = useStripeCheckout();
+
+  // Loading-State: Zeige Skeleton bis DB-Bestellungen geladen sind
+  if (isLoadingOrders) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-card rounded-2xl p-6 shadow-card animate-pulse">
+          <div className="aspect-[3/4] max-w-xs mx-auto rounded-xl bg-muted mb-6" />
+          <div className="space-y-3 text-center">
+            <div className="h-7 bg-muted rounded w-48 mx-auto" />
+            <div className="h-4 bg-muted rounded w-64 mx-auto" />
+            <div className="h-8 bg-muted rounded w-32 mx-auto" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Sortiere Produkte nach Reihenfolge
   const sortedProducts = [...products].sort((a, b) => a.reihenfolge - b.reihenfolge);

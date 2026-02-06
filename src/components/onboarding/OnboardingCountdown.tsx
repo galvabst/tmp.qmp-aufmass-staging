@@ -70,7 +70,7 @@ export function OnboardingCountdown({ erstelltAm, deadlineDays = 7 }: Onboarding
 
   if (isExpired) {
     return (
-      <div className="bg-red-900 text-white px-4 py-2 flex items-center justify-center gap-2 text-sm font-semibold">
+      <div className="sticky top-0 z-50 bg-red-900 text-white px-4 py-2 flex items-center justify-center gap-2 text-sm font-semibold">
         <AlertTriangle className="w-4 h-4" />
         <span>Frist abgelaufen – bitte kontaktiere deinen Ansprechpartner!</span>
       </div>
@@ -85,7 +85,7 @@ export function OnboardingCountdown({ erstelltAm, deadlineDays = 7 }: Onboarding
   ];
 
   return (
-    <div className={cn('bg-slate-900 text-white px-4 py-2', urgency === 'critical' && 'animate-pulse')}>
+    <div className={cn('sticky top-0 z-50 bg-slate-900 text-white px-4 py-2', urgency === 'critical' && 'animate-pulse')}>
       <div className="flex items-center justify-between gap-3 mb-1.5">
         <div className="flex items-center gap-1.5 text-xs min-w-0">
           <Clock className="w-3.5 h-3.5 shrink-0 text-slate-400" />

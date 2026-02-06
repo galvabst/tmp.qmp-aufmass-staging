@@ -534,6 +534,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             onProductOrder={handleProductOrder}
             oberteilAuswahl={state.oberteilAuswahl}
             onOberteilAuswahl={setOberteilAuswahl}
+            isLoadingOrders={!ordersLoaded}
           />
         );
 
