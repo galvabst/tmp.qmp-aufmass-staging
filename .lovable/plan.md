@@ -1,68 +1,46 @@
 
-# Fix: "Alle Bestellungen abgeschlossen" wird falsch angezeigt
+# Fix: Ausweiskarte-Bestellung + Mehrfachbestellungen
 
-## Problem
+## Problem 1: Ausweiskarte wird nicht registriert
 
-Die App zeigt "Alle Bestellungen abgeschlossen!", obwohl laut Datenbank:
-- **Bezahlt (paid):** T-Shirt, Poloshirt, Schlappen (3 Produkte)
-- **Ausstehend (pending):** Pullover
-- **Nicht bestellt:** Ausweiskarte, Scanner-Lizenz, Google Workspace
-
-Das Problem: `state.bestellungenBestaetigt` im localStorage enthaelt veraltete Eintraege aus frueheren Test-Sessions. Die kuerzlich reparierte forceReset-Logik verhindert jetzt korrekterweise ein Loeschen bei payment=success, aber dadurch bleiben auch alte falsche Daten bestehen.
-
-## Ursache
-
-1. `bestellungenBestaetigt` wird im localStorage gespeichert und beim naechsten Laden wiederhergestellt
-2. Fruehere Tests haben Produkte manuell als "bestellt" markiert (via `toggleProductOrdered`)
-3. Die DB-Sync-Logik (OnboardingScreen Zeile ~180) fuegt nur **neue** paid-Keys hinzu, entfernt aber nie falsche Eintraege
-4. Resultat: localStorage sagt "alles bestellt", DB sagt "3 von 7 bezahlt"
-
-## Loesung
-
-Die Datenbank muss die einzige Wahrheitsquelle fuer Bestellungen sein. Aenderungen:
-
-### 1. DB-Sync als "Replace" statt "Append" (OnboardingScreen.tsx)
-
-Der bestehende Sync-Effekt (ca. Zeile 180-190) fuegt nur neue paid-Keys hinzu. Stattdessen soll er `bestellungenBestaetigt` komplett durch die DB-Werte **ersetzen**:
+Die Edge Function `create-checkout-session` erstellt zwar erfolgreich eine Stripe-Session, aber beim Speichern der Bestellung in der DB scheitert der INSERT mit:
 
 ```
-// VORHER: Nur neue hinzufuegen
-const newPaidProducts = paidKeys.filter(key => !state.bestellungenBestaetigt.includes(key));
-newPaidProducts.forEach(productId => toggleProductOrdered(productId));
-
-// NACHHER: Komplett durch DB-Werte ersetzen
-setBestellungenFromDb(paidKeys);
+invalid input value for enum contractor_bestellung_produkt_typ_enum: "zubehoer"
 ```
 
-### 2. Neue Funktion `setBestellungenFromDb` im Hook (useOnboardingState.ts)
+**Ursache:** Die Ausweiskarte ist in `contractor_produkte` als Typ `zubehoer` konfiguriert, aber das Enum `contractor_bestellung_produkt_typ_enum` kennt nur `kleidung`, `lizenz`, `coaching`.
 
-Eine neue Setter-Funktion, die `bestellungenBestaetigt` direkt auf die uebergebenen Werte setzt (kein Toggle, kein Append):
+**Loesung:** Das Enum um den Wert `zubehoer` erweitern.
 
+## Problem 2: Keine Mehrfachbestellungen moeglich
+
+Ein `UNIQUE(onboarding_id, produkt_key)` Constraint verhindert, dass dasselbe Produkt mehrfach bestellt werden kann. Fuer Kleidung (z.B. 2x T-Shirt) ist das ein Problem.
+
+**Loesung:** Den Unique Constraint entfernen. Die Eindeutigkeit wird stattdessen ueber die `stripe_session_id` sichergestellt (jede Checkout-Session ist ohnehin einzigartig). Die Edge Function muss angepasst werden, damit sie bei Pflichtprodukten eine bestehende pending-Bestellung wiederverwendet, aber bei optionalen Nachbestellungen eine neue anlegt.
+
+Da im aktuellen Onboarding-Flow aber erstmal jedes Produkt genau einmal bestellt werden muss (Pflichtbestellungen), wuerde ich die Mehrfachbestellungen als separates Feature betrachten. Fuer jetzt konzentrieren wir uns darauf, dass alle Pflichtprodukte ueberhaupt bestellt werden koennen.
+
+## Aenderungen
+
+### Datenbank-Migration
+
+```sql
+ALTER TYPE thermocheck.contractor_bestellung_produkt_typ_enum ADD VALUE IF NOT EXISTS 'zubehoer';
 ```
-const setBestellungenFromDb = useCallback((paidKeys: string[]) => {
-  setState(prev => ({
-    ...prev,
-    bestellungenBestaetigt: paidKeys,
-  }));
-}, []);
-```
 
-### 3. `isStepComplete('bestellungen')` anpassen (useOnboardingState.ts)
+Das ist alles. Kein Code-Change noetig -- die Edge Function funktioniert bereits korrekt, nur der Enum-Wert fehlt.
 
-Die Validierung prueft nur die Anzahl, nicht welche Produkte bezahlt sind. Besser: explizit pruefen, ob alle Pflicht-Produkte bezahlt sind. Da die Produkte aus MOCK_PRODUCTS kommen, muss die Logik pruefen:
+### Zusammenfassung
 
-- Oberteil (tshirt und/oder poloshirt je nach Auswahl) -- bezahlt
-- schlappen -- bezahlt
-- pullover -- bezahlt (ist in MOCK_PRODUCTS als pflicht:true)
-- ausweiskarte -- bezahlt
-- scanner-lizenz -- bezahlt
-- google-workspace -- bezahlt
+| Bereich | Aenderung |
+|---------|-----------|
+| DB-Migration | Enum `contractor_bestellung_produkt_typ_enum` um `zubehoer` erweitern |
 
-Die `requiredCount`-Logik bleibt, aber das Ergebnis wird korrekt sein, sobald `bestellungenBestaetigt` nur echte DB-Werte enthaelt.
+### Ergebnis
 
-## Betroffene Dateien
+Nach der Migration wird die Ausweiskarte korrekt als Bestellung gespeichert und der Stripe-Webhook kann den Zahlungsstatus aktualisieren. Die bereits erstellten Stripe-Sessions (die der User bezahlt hat) werden beim naechsten Webhook-Event ebenfalls korrekt verarbeitet.
 
-| Datei | Aenderung |
-|-------|-----------|
-| `src/hooks/useOnboardingState.ts` | Neue Funktion `setBestellungenFromDb` |
-| `src/components/OnboardingScreen.tsx` | Sync-Effekt: Replace statt Append |
+### Mehrfachbestellungen (spaeter)
+
+Das Thema "mehrere T-Shirts kaufen" ist ein separates Feature, das nach dem Basis-Onboarding angegangen werden kann. Es erfordert Aenderungen am Unique Constraint, an der Edge Function und an der UI.
