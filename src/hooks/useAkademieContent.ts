@@ -98,7 +98,8 @@ function buildHierarchicalUnterpunkte(lektionen: DbLektion[]): AkademieUnterpunk
     result.push(item);
   }
 
-  return result;
+  // Remove groups whose children were all filtered out
+  return result.filter(item => !(item.isGroup && item.children?.length === 0));
 }
 
 // Transforms DB data to app types (unused legacy - kept for reference)
@@ -202,7 +203,9 @@ export function useAkademieContent() {
 
         // Transform to app types with hierarchy
         const result: AkademieHauptmodul[] = module.map((mod: any) => {
-          const modulLektionen = (lektionen || []).filter((lek: any) => lek.modul_id === mod.id);
+          const modulLektionen = (lektionen || [])
+            .filter((lek: any) => lek.modul_id === mod.id)
+            .filter((lek: any) => lek.video_url || lek.text_inhalt);
           return {
             id: mod.id,
             code: mod.code,
@@ -214,8 +217,9 @@ export function useAkademieContent() {
           };
         });
 
-        console.log(`[Akademie] Loaded ${result.length} modules from thermocheck schema`);
-        return result;
+        const filtered = result.filter(mod => mod.unterpunkte.length > 0);
+        console.log(`[Akademie] Loaded ${filtered.length} modules (${result.length - filtered.length} empty hidden)`);
+        return filtered;
       } catch (error) {
         console.warn('[Akademie] Thermocheck schema query failed:', error);
         // No legacy fallback - thermocheck is SSOT

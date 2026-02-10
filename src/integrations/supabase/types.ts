@@ -1520,6 +1520,36 @@ export type Database = {
           },
         ]
       }
+      cron_job_log: {
+        Row: {
+          created_at: string
+          executed_at: string
+          id: string
+          job_name: string
+          response_body: Json | null
+          response_code: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          executed_at?: string
+          id?: string
+          job_name: string
+          response_body?: Json | null
+          response_code?: number | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          executed_at?: string
+          id?: string
+          job_name?: string
+          response_body?: Json | null
+          response_code?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
       cron_run_cache: {
         Row: {
           cached_at: string
