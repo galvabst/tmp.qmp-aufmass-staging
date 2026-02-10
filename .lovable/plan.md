@@ -1,22 +1,67 @@
 
 
-# Neue Unter-Lektion 7-1-2: Praxisbeispiel Autark
+# Modul 7 umstrukturieren und Minutenanzeige entfernen
 
-## Aenderung
+## Was sich aendert
 
-Eine neue Unter-Lektion **7-1-2** wird in die Datenbank eingefuegt:
+### 1. Minutenanzeige im UI entfernen
+Die Uhr-Icons mit "X Min." werden aus der Lektionsliste entfernt — sowohl in der inneren Zeile (LektionInnerRow) als auch ueberall sonst, wo die Dauer angezeigt wird. Die Dauer bleibt in der Datenbank fuer spaetere Nutzung, wird aber nicht mehr im UI gezeigt.
 
-- **Code**: `7-1-2`
-- **Titel**: Praxisbeispiel: Autark
-- **Beschreibung**: Ein Praxisbeispiel fuer die Arbeit mit dem Autark-System.
-- **Video-URL**: `https://iframe.mediadelivery.net/play/591760/65eea87d-b480-45d9-87fa-33fb7de4cceb`
-- **Modul**: 7 - Tool- und Dokumentationsworkflow (gleicher `modul_id` wie 7-1 und 7-1-1)
-- **Reihenfolge**: 12 (nach 7-1-1 mit Reihenfolge 11)
-- **Dauer**: 10 Minuten (Schaetzwert, wird zur Laufzeit durch die tatsaechliche Videodauer ueberschrieben)
+**Datei:** `src/components/onboarding/steps/AcademyStep.tsx`
+- Clock-Icon und Daueranzeige aus `LektionInnerRow` entfernen (Zeilen 93-96)
 
-## Technischer Kontext
+### 2. Modul 7 in der Datenbank umstrukturieren
 
-- Die bestehende Hierarchie-Logik erkennt den 3-teiligen Code `7-1-1` und `7-1-2` automatisch als Kinder von `7-1` ("Datenerfassung im System")
-- `7-1` wird dadurch zur Gruppe mit zwei Unter-Lektionen
-- Kein Code-Aenderung noetig — nur ein Datenbank-INSERT
+Aktuelle Struktur:
+- 7-1 "Datenerfassung im System" (Gruppe, kein Video)
+  - 7-1-1 "Praxisbeispiel: Zoho Forms" (Video)
+  - 7-1-2 "Praxisbeispiel: Raumscann APP" (Video)
+- 7-2 bis 7-4 (kein Video, werden ausgeblendet)
+
+Neue flache Struktur — alle direkt unter dem Modul, ohne Nummerierung:
+- "Praxis: Raeume scannen" (neues Video: `3d205096-...`)
+- "Praxis: Zoho Forms" (bestehendes Video von 7-1-1)
+- "Praxis: Raumscann APP" (bestehendes Video von 7-1-2)
+
+**Datenbank-Aenderungen (Migration):**
+1. Bestehende Lektionen 7-1-1 und 7-1-2 umcodieren zu eigenstaendigen Codes (z.B. `7-1`, `7-2`) und umbenennen
+2. Neue Lektion einfuegen fuer "Praxis: Raeume scannen" mit dem neuen Video
+3. Alte leere Lektionen (7-1 bis 7-4 ohne Video) deaktivieren (`ist_aktiv = false`)
+4. Reihenfolge anpassen, damit die Sortierung stimmt
+
+**Konkrete SQL-Schritte:**
+
+```text
+-- Alte leere Lektionen deaktivieren
+UPDATE thermocheck.contractor_akademie_lektionen
+SET ist_aktiv = false, updated_at = now()
+WHERE code IN ('7-1', '7-2', '7-3', '7-4')
+  AND video_url IS NULL;
+
+-- 7-1-1 (Zoho Forms) -> eigenstaendig, neue Reihenfolge
+UPDATE thermocheck.contractor_akademie_lektionen
+SET code = '7-b', titel = 'Praxis: Zoho Forms', reihenfolge = 2, updated_at = now()
+WHERE id = '7e450a86-8d49-4a5c-84f2-2a11347b9551';
+
+-- 7-1-2 (Raumscann APP) -> eigenstaendig, neue Reihenfolge
+UPDATE thermocheck.contractor_akademie_lektionen
+SET code = '7-c', titel = 'Praxis: Raumscann APP', reihenfolge = 3, updated_at = now()
+WHERE id = 'e34ef996-6c92-489f-bbb4-7f40ebd793a4';
+
+-- Neue Lektion: Praxis Raeume scannen (als erstes Video)
+INSERT INTO thermocheck.contractor_akademie_lektionen
+  (modul_id, code, titel, reihenfolge, video_url, video_dauer_minuten, ist_aktiv)
+VALUES
+  ((SELECT id FROM thermocheck.contractor_akademie_module WHERE code LIKE 'modul-7%'),
+   '7-a', 'Praxis: Raeume scannen', 1,
+   'https://iframe.mediadelivery.net/play/591760/3d205096-67ca-4ff4-be0c-37e729fc61e3',
+   10, true);
+```
+
+### Zusammenfassung der Dateiaenderungen
+
+| Datei | Aenderung |
+|---|---|
+| `src/components/onboarding/steps/AcademyStep.tsx` | Minutenanzeige (Clock + "X Min.") entfernen |
+| Neue Migration | DB: Modul 7 flach umstrukturieren, neues Video einfuegen |
 
