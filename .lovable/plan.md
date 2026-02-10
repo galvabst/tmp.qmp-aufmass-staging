@@ -1,37 +1,22 @@
 
 
-# Fix: Modul 6 erscheint nicht (Gruppen-Eltern werden faelschlicherweise gefiltert)
+# Neue Unter-Lektion 7-1-2: Praxisbeispiel Autark
 
-## Problem
-Der Content-Filter (`lek.video_url || lek.text_inhalt`) auf Zeile 208 entfernt die Lektion "6-3" (Dokumentationsstandard), weil sie selbst kein Video/Text hat. Aber "6-3" ist der **Gruppen-Eltern** fuer "6-3-1" und "6-3-2" (die Videos haben). Ohne den Eltern-Eintrag kann `buildHierarchicalUnterpunkte` die Kinder nicht zuordnen — sie werden uebersprungen und Modul 6 erscheint leer.
+## Aenderung
 
-## Loesung
+Eine neue Unter-Lektion **7-1-2** wird in die Datenbank eingefuegt:
 
-### Datei: `src/hooks/useAkademieContent.ts`
+- **Code**: `7-1-2`
+- **Titel**: Praxisbeispiel: Autark
+- **Beschreibung**: Ein Praxisbeispiel fuer die Arbeit mit dem Autark-System.
+- **Video-URL**: `https://iframe.mediadelivery.net/play/591760/65eea87d-b480-45d9-87fa-33fb7de4cceb`
+- **Modul**: 7 - Tool- und Dokumentationsworkflow (gleicher `modul_id` wie 7-1 und 7-1-1)
+- **Reihenfolge**: 12 (nach 7-1-1 mit Reihenfolge 11)
+- **Dauer**: 10 Minuten (Schaetzwert, wird zur Laufzeit durch die tatsaechliche Videodauer ueberschrieben)
 
-**1. Content-Filter von Zeile 208 entfernen** — alle aktiven Lektionen an `buildHierarchicalUnterpunkte` uebergeben.
+## Technischer Kontext
 
-**2. Content-Filter in `buildHierarchicalUnterpunkte` verschieben** — dort gezielt anwenden:
-- Kinder (Code mit 3 Teilen, z.B. "6-3-1"): Nur aufnehmen wenn `video_url` oder `text_inhalt` vorhanden
-- Einzel-Lektionen (Code mit 2 Teilen, z.B. "6-1"): Nur aufnehmen wenn Content vorhanden
-- Gruppen-Eltern (Code mit 2 Teilen, z.B. "6-3"): Behalten wenn mindestens ein Kind mit Content existiert
-
-### Technische Umsetzung
-
-Die Funktion `buildHierarchicalUnterpunkte` erhaelt den vollen `DbLektion[]`-Array (statt nur `AkademieUnterpunkt`). Der Filter wird wie folgt angewendet:
-
-```
-// Kinder filtern: nur mit Content
-for (const lek of sorted) {
-  if (parts.length === 3 && (lek.video_url || lek.text_inhalt)) {
-    // Kind aufnehmen
-  }
-}
-
-// Eltern/Einzel: 
-// - Gruppe behalten wenn Kinder vorhanden
-// - Einzel nur wenn Content vorhanden
-```
-
-Die bestehende Bereinigung (Gruppen ohne Kinder entfernen, Module ohne Unterpunkte entfernen) bleibt unveraendert.
+- Die bestehende Hierarchie-Logik erkennt den 3-teiligen Code `7-1-1` und `7-1-2` automatisch als Kinder von `7-1` ("Datenerfassung im System")
+- `7-1` wird dadurch zur Gruppe mit zwei Unter-Lektionen
+- Kein Code-Aenderung noetig — nur ein Datenbank-INSERT
 
