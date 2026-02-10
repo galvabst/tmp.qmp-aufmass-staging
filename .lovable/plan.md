@@ -1,26 +1,41 @@
 
-# Interne Admin-Checks als Zugangsvoraussetzung
 
-Die drei internen Spalten `vertrag_geprueft_intern`, `kleidung_bestellt_intern` und `lizenzen_bereitgestellt_intern` muessen alle `true` sein, damit ein Techniker Auftraege annehmen kann. Aktuell werden sie weder vom RPC zurueckgegeben noch im Frontend geprueft.
+# Leere Lektionen ausblenden, inhaltsreiche sind Pflicht
 
-## Aenderungen
+## Ziel
+Lektionen ohne Inhalt (weder Video noch Text) werden im Frontend komplett ausgeblendet. Sobald Inhalt hinzugefuegt wird, erscheint die Lektion automatisch und ist Pflicht fuer den Fortschritt.
 
-### 1. DB-Migration: Anton auf true setzen + RPC erweitern
+## Umsetzung
 
-- `vertrag_geprueft_intern`, `kleidung_bestellt_intern`, `lizenzen_bereitgestellt_intern` fuer Anton (ID `17ef2646-e455-4d99-88ad-443b44ed9594`) auf `true` setzen
-- Die RPC-Funktion `thermocheck.get_my_contractor_onboarding()` und den Public-Wrapper erweitern, sodass die drei Spalten im Ergebnis enthalten sind
+### Einzige betroffene Datei: `src/hooks/useAkademieContent.ts`
 
-### 2. Hook: `useContractorOnboardingStatus.ts`
+**1. Lektion-Filter beim Laden (Zeile ~205)**
 
-- `ContractorOnboardingRecord` Interface um die drei neuen Felder erweitern
-- `isReady`-Berechnung anpassen: Zusaetzlich zu `onboarding_status === 'ready'` und `trainer_freigabe === true` muessen auch alle drei intern-Felder `true` sein
-- Die drei Felder aus der RPC-Response mappen
+Nach dem Filtern der Lektionen pro Modul wird ein zusaetzlicher Filter eingefuegt:
 
-### 3. Keine UI-Aenderungen noetig
+```
+.filter(lek => lek.video_url || lek.text_inhalt)
+```
 
-Wenn `isReady` false ist, zeigt die App bereits den Onboarding-Screen bzw. "Waiting for Approval". Es ist kein neuer Lockscreen noetig -- der bestehende Gate-Mechanismus greift automatisch.
+Dadurch tauchen nur Lektionen mit mindestens Video oder Text auf. Sobald in der Datenbank Inhalt ergaenzt wird, erscheint die Lektion beim naechsten Laden automatisch — und zaehlt dann zum Pflicht-Fortschritt.
 
-## Dateien
+**2. Gruppen-Bereinigung in `buildHierarchicalUnterpunkte` (Zeile ~98)**
 
-- **Migration**: RPC-Update + Antons Daten
-- **`src/hooks/useContractorOnboardingStatus.ts`**: Interface + isReady-Logik erweitern
+Nach dem Aufbau der Hierarchie werden Gruppen-Eltern entfernt, deren Kinder alle herausgefiltert wurden:
+
+```
+result.filter(item => !(item.isGroup && item.children?.length === 0))
+```
+
+**3. Modul-Bereinigung (Zeile ~215)**
+
+Module ohne verbleibende Unterpunkte werden aus der Liste entfernt:
+
+```
+.filter(mod => mod.unterpunkte.length > 0)
+```
+
+## Warum das automatisch "Pflicht" bedeutet
+
+Die Fortschrittsberechnung in `AcademyStep.tsx` (`countLeafUnterpunkte`, `getTotalAkademieProgress`) zaehlt alle sichtbaren Lektionen. Was angezeigt wird, muss abgeschlossen werden — es gibt keinen optionalen Status. Neue Inhalte erhoehen also automatisch die Gesamtzahl und senken den Fortschrittsprozentsatz, bis sie abgeschlossen sind.
+
