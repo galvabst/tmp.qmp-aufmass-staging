@@ -1,4 +1,4 @@
-import { forwardRef, useRef, useImperativeHandle, useState, useEffect, useCallback } from 'react';
+import { forwardRef, useRef, useImperativeHandle, useState, useEffect } from 'react';
 import { Play } from 'lucide-react';
 
 export interface VideoPlayerHandle {
@@ -38,6 +38,18 @@ export function detectVideoSource(url: string): 'bunny-stream' | 'youtube' | 'di
   
   // Default: Direct video file
   return 'direct-mp4';
+}
+
+/** Bunny CDN base URL for this library — used to load thumbnails for aspect ratio detection */
+const BUNNY_CDN_BASE = 'https://vz-939265f2-233.b-cdn.net';
+
+/**
+ * Extracts the video ID from a Bunny Stream URL
+ * e.g. https://iframe.mediadelivery.net/play/591760/3d205096-... → 3d205096-...
+ */
+function extractBunnyVideoId(url: string): string | null {
+  const match = url.match(/(?:play|embed)\/\d+\/([a-f0-9-]+)/i);
+  return match ? match[1] : null;
 }
 
 /**
@@ -191,82 +203,36 @@ export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceV
       getIframeRef: () => bunnyIframeRef.current
     }), []);
     
-    // Listen for Bunny Stream postMessage events to detect video dimensions
-    const handleMessage = useCallback((event: MessageEvent) => {
-      // Only process messages from Bunny CDN
-      if (typeof event.data !== 'string') return;
-      
-      try {
-        const data = JSON.parse(event.data);
-        
-        // Bunny player sends events with video dimensions
-        // Look for events containing width/height info
-        if (data.event === 'videoLoad' || data.event === 'ready' || data.event === 'play') {
-          const w = data.width || data.videoWidth;
-          const h = data.height || data.videoHeight;
-          
-          if (w && h && w > 0 && h > 0) {
-            const ratio = w / h;
-            const portrait = h > w;
-            console.log(`[VideoPlayer] Detected dimensions: ${w}x${h}, portrait: ${portrait}`);
-            
-            setAspectRatio(`${w}/${h}`);
-            setIsPortrait(portrait);
-            onAspectDetected?.({ width: w, height: h, ratio, isPortrait: portrait });
-          }
-        }
-      } catch {
-        // Not JSON or not relevant - ignore
-      }
-    }, [onAspectDetected]);
-    
+    // Detect aspect ratio by loading the Bunny thumbnail image
     useEffect(() => {
-      window.addEventListener('message', handleMessage);
-      return () => window.removeEventListener('message', handleMessage);
-    }, [handleMessage]);
-    
-    // Also try to detect via Player.js API when iframe is available
-    useEffect(() => {
-      const iframe = bunnyIframeRef.current;
-      if (!iframe || !videoUrl) return;
+      if (!videoUrl) return;
       
-      const tryDetectFromPlayer = () => {
-        if (typeof playerjs === 'undefined') return;
-        
-        try {
-          const player = new playerjs.Player(iframe);
-          player.on('ready', () => {
-            // Try to get video dimensions via postMessage probe
-            // Bunny's player.js may expose this through custom methods
-            // Fallback: check iframe's natural video size after a short delay
-            setTimeout(() => {
-              try {
-                // Access the iframe content if same-origin (won't work cross-origin)
-                const video = iframe.contentDocument?.querySelector('video');
-                if (video && video.videoWidth && video.videoHeight) {
-                  const w = video.videoWidth;
-                  const h = video.videoHeight;
-                  const portrait = h > w;
-                  console.log(`[VideoPlayer] Detected via video element: ${w}x${h}`);
-                  setAspectRatio(`${w}/${h}`);
-                  setIsPortrait(portrait);
-                  onAspectDetected?.({ width: w, height: h, ratio: w / h, isPortrait: portrait });
-                }
-              } catch {
-                // Cross-origin - expected, postMessage detection is primary
-              }
-            }, 1500);
-          });
-        } catch {
-          // Player.js not ready
+      const sourceType = detectVideoSource(videoUrl);
+      if (sourceType !== 'bunny-stream') return;
+      
+      const videoId = extractBunnyVideoId(videoUrl);
+      if (!videoId) return;
+      
+      const thumbnailUrl = `${BUNNY_CDN_BASE}/${videoId}/thumbnail.jpg`;
+      const img = new Image();
+      
+      img.onload = () => {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (w > 0 && h > 0) {
+          const portrait = h > w;
+          console.log(`[VideoPlayer] Thumbnail dimensions: ${w}x${h}, portrait: ${portrait}`);
+          setAspectRatio(`${w}/${h}`);
+          setIsPortrait(portrait);
+          onAspectDetected?.({ width: w, height: h, ratio: w / h, isPortrait: portrait });
         }
       };
       
-      if (iframe.contentWindow) {
-        setTimeout(tryDetectFromPlayer, 500);
-      } else {
-        iframe.addEventListener('load', () => setTimeout(tryDetectFromPlayer, 500));
-      }
+      img.onerror = () => {
+        console.warn('[VideoPlayer] Could not load thumbnail for aspect detection, keeping 16:9');
+      };
+      
+      img.src = thumbnailUrl;
     }, [videoUrl, onAspectDetected]);
     
     // No video URL provided
