@@ -1,4 +1,4 @@
-import { Play, CheckCircle2, Clock, GraduationCap, Lock, ChevronRight } from 'lucide-react';
+import { Play, CheckCircle2, GraduationCap, Lock, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -89,10 +89,6 @@ function LektionInnerRow({
           <span className="text-muted-foreground mr-1.5">{unterpunkt.code?.replace(/-/g, '.')}</span>
           {unterpunkt.titel}
         </p>
-      </div>
-      <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-        <Clock className="w-3 h-3" />
-        <span>{unterpunkt.dauerMinuten} Min.</span>
       </div>
     </div>
   );
