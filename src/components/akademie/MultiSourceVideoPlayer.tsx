@@ -1,14 +1,24 @@
-import { forwardRef, useRef, useImperativeHandle } from 'react';
+import { forwardRef, useRef, useImperativeHandle, useState, useEffect, useCallback } from 'react';
 import { Play } from 'lucide-react';
 
 export interface VideoPlayerHandle {
   getIframeRef: () => HTMLIFrameElement | null;
 }
 
+/** Detected video dimensions from the player */
+export interface VideoAspectInfo {
+  width: number;
+  height: number;
+  ratio: number; // width / height
+  isPortrait: boolean;
+}
+
 interface MultiSourceVideoPlayerProps {
   videoUrl: string | null | undefined;
   /** Height mode: 'hero' fills available space, 'contained' uses aspect ratio */
   heightMode?: 'hero' | 'contained';
+  /** Callback when video dimensions are detected */
+  onAspectDetected?: (info: VideoAspectInfo) => void;
 }
 
 /**
@@ -171,13 +181,93 @@ function NoVideoPlaceholder() {
  * Exposes iframe ref via imperative handle for Player.js integration.
  */
 export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceVideoPlayerProps>(
-  function MultiSourceVideoPlayer({ videoUrl, heightMode = 'hero' }, ref) {
+  function MultiSourceVideoPlayer({ videoUrl, heightMode = 'hero', onAspectDetected }, ref) {
     const bunnyIframeRef = useRef<HTMLIFrameElement>(null);
+    const [aspectRatio, setAspectRatio] = useState('16/9');
+    const [isPortrait, setIsPortrait] = useState(false);
     
     // Expose iframe ref to parent
     useImperativeHandle(ref, () => ({
       getIframeRef: () => bunnyIframeRef.current
     }), []);
+    
+    // Listen for Bunny Stream postMessage events to detect video dimensions
+    const handleMessage = useCallback((event: MessageEvent) => {
+      // Only process messages from Bunny CDN
+      if (typeof event.data !== 'string') return;
+      
+      try {
+        const data = JSON.parse(event.data);
+        
+        // Bunny player sends events with video dimensions
+        // Look for events containing width/height info
+        if (data.event === 'videoLoad' || data.event === 'ready' || data.event === 'play') {
+          const w = data.width || data.videoWidth;
+          const h = data.height || data.videoHeight;
+          
+          if (w && h && w > 0 && h > 0) {
+            const ratio = w / h;
+            const portrait = h > w;
+            console.log(`[VideoPlayer] Detected dimensions: ${w}x${h}, portrait: ${portrait}`);
+            
+            setAspectRatio(`${w}/${h}`);
+            setIsPortrait(portrait);
+            onAspectDetected?.({ width: w, height: h, ratio, isPortrait: portrait });
+          }
+        }
+      } catch {
+        // Not JSON or not relevant - ignore
+      }
+    }, [onAspectDetected]);
+    
+    useEffect(() => {
+      window.addEventListener('message', handleMessage);
+      return () => window.removeEventListener('message', handleMessage);
+    }, [handleMessage]);
+    
+    // Also try to detect via Player.js API when iframe is available
+    useEffect(() => {
+      const iframe = bunnyIframeRef.current;
+      if (!iframe || !videoUrl) return;
+      
+      const tryDetectFromPlayer = () => {
+        if (typeof playerjs === 'undefined') return;
+        
+        try {
+          const player = new playerjs.Player(iframe);
+          player.on('ready', () => {
+            // Try to get video dimensions via postMessage probe
+            // Bunny's player.js may expose this through custom methods
+            // Fallback: check iframe's natural video size after a short delay
+            setTimeout(() => {
+              try {
+                // Access the iframe content if same-origin (won't work cross-origin)
+                const video = iframe.contentDocument?.querySelector('video');
+                if (video && video.videoWidth && video.videoHeight) {
+                  const w = video.videoWidth;
+                  const h = video.videoHeight;
+                  const portrait = h > w;
+                  console.log(`[VideoPlayer] Detected via video element: ${w}x${h}`);
+                  setAspectRatio(`${w}/${h}`);
+                  setIsPortrait(portrait);
+                  onAspectDetected?.({ width: w, height: h, ratio: w / h, isPortrait: portrait });
+                }
+              } catch {
+                // Cross-origin - expected, postMessage detection is primary
+              }
+            }, 1500);
+          });
+        } catch {
+          // Player.js not ready
+        }
+      };
+      
+      if (iframe.contentWindow) {
+        setTimeout(tryDetectFromPlayer, 500);
+      } else {
+        iframe.addEventListener('load', () => setTimeout(tryDetectFromPlayer, 500));
+      }
+    }, [videoUrl, onAspectDetected]);
     
     // No video URL provided
     if (!videoUrl || videoUrl.trim() === '') {
@@ -207,16 +297,19 @@ export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceV
       }
     };
     
+    // For portrait videos on mobile: limit height so tabs/footer stay visible
+    const maxHeight = heightMode === 'hero'
+      ? (isPortrait ? '65vh' : '70vh')
+      : undefined;
+    
     return (
       <div className="w-full bg-black overflow-hidden">
-        {/* Video container with dynamic height based on mode */}
-        {/* REMOVED maxHeight: 75vh to allow portrait videos to fill container like YouTube */}
         <div 
-          className="relative w-full bg-black"
+          className="relative w-full bg-black mx-auto"
           style={{ 
-            aspectRatio: '16/9',
+            aspectRatio,
             width: '100%',
-            maxHeight: heightMode === 'hero' ? '70vh' : undefined,
+            maxHeight,
           }}
         >
           {renderPlayer()}

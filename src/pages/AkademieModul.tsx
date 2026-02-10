@@ -293,10 +293,6 @@ function AkademieModulContent({
             <h1 className="font-semibold text-foreground text-sm leading-tight line-clamp-2">
               {unterpunkt.titel}
             </h1>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-              <Clock className="w-3 h-3 shrink-0" />
-              <span>{unterpunkt.dauerMinuten} Minuten</span>
-            </div>
           </div>
         </div>
       </header>
