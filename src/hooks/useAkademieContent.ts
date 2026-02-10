@@ -57,6 +57,8 @@ function extractDisplayNummer(moduleCode: string): number {
 function buildHierarchicalUnterpunkte(lektionen: DbLektion[]): AkademieUnterpunkt[] {
   const sorted = [...lektionen].sort((a, b) => a.reihenfolge - b.reihenfolge);
 
+  const hasContent = (lek: DbLektion) => !!lek.video_url || !!lek.text_inhalt;
+
   const toUnterpunkt = (lek: DbLektion): AkademieUnterpunkt => ({
     id: lek.id,
     code: lek.code,
@@ -69,37 +71,39 @@ function buildHierarchicalUnterpunkte(lektionen: DbLektion[]): AkademieUnterpunk
   });
 
   // Identify parent-child by code pattern: "6-3" is parent of "6-3-1", "6-3-2"
-  const parentMap = new Map<string, AkademieUnterpunkt>();
   const childMap = new Map<string, AkademieUnterpunkt[]>();
 
-  // First pass: create all items and identify parents
+  // First pass: collect children (3-part codes) that have content
   for (const lek of sorted) {
     const parts = lek.code.split('-');
-    if (parts.length === 3) {
-      // This is a child (e.g. 6-3-1) → parent code is "6-3"
+    if (parts.length === 3 && hasContent(lek)) {
       const parentCode = `${parts[0]}-${parts[1]}`;
       if (!childMap.has(parentCode)) childMap.set(parentCode, []);
       childMap.get(parentCode)!.push(toUnterpunkt(lek));
     }
   }
 
-  // Second pass: build result with nesting
+  // Second pass: build result — keep groups with children, singles only with content
   const result: AkademieUnterpunkt[] = [];
   for (const lek of sorted) {
     const parts = lek.code.split('-');
-    if (parts.length === 3) continue; // Skip children, they're nested
+    if (parts.length === 3) continue; // Children are nested, skip
 
-    const item = toUnterpunkt(lek);
     const children = childMap.get(lek.code);
     if (children && children.length > 0) {
+      // Group parent — keep it because it has content-bearing children
+      const item = toUnterpunkt(lek);
       item.isGroup = true;
       item.children = children;
+      result.push(item);
+    } else if (!children && hasContent(lek)) {
+      // Single lesson with content
+      result.push(toUnterpunkt(lek));
     }
-    result.push(item);
+    // else: no children AND no own content → skip
   }
 
-  // Remove groups whose children were all filtered out
-  return result.filter(item => !(item.isGroup && item.children?.length === 0));
+  return result;
 }
 
 // Transforms DB data to app types (unused legacy - kept for reference)
@@ -204,8 +208,7 @@ export function useAkademieContent() {
         // Transform to app types with hierarchy
         const result: AkademieHauptmodul[] = module.map((mod: any) => {
           const modulLektionen = (lektionen || [])
-            .filter((lek: any) => lek.modul_id === mod.id)
-            .filter((lek: any) => lek.video_url || lek.text_inhalt);
+            .filter((lek: any) => lek.modul_id === mod.id);
           return {
             id: mod.id,
             code: mod.code,
