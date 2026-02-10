@@ -1,41 +1,37 @@
 
 
-# Leere Lektionen ausblenden, inhaltsreiche sind Pflicht
+# Fix: Modul 6 erscheint nicht (Gruppen-Eltern werden faelschlicherweise gefiltert)
 
-## Ziel
-Lektionen ohne Inhalt (weder Video noch Text) werden im Frontend komplett ausgeblendet. Sobald Inhalt hinzugefuegt wird, erscheint die Lektion automatisch und ist Pflicht fuer den Fortschritt.
+## Problem
+Der Content-Filter (`lek.video_url || lek.text_inhalt`) auf Zeile 208 entfernt die Lektion "6-3" (Dokumentationsstandard), weil sie selbst kein Video/Text hat. Aber "6-3" ist der **Gruppen-Eltern** fuer "6-3-1" und "6-3-2" (die Videos haben). Ohne den Eltern-Eintrag kann `buildHierarchicalUnterpunkte` die Kinder nicht zuordnen — sie werden uebersprungen und Modul 6 erscheint leer.
 
-## Umsetzung
+## Loesung
 
-### Einzige betroffene Datei: `src/hooks/useAkademieContent.ts`
+### Datei: `src/hooks/useAkademieContent.ts`
 
-**1. Lektion-Filter beim Laden (Zeile ~205)**
+**1. Content-Filter von Zeile 208 entfernen** — alle aktiven Lektionen an `buildHierarchicalUnterpunkte` uebergeben.
 
-Nach dem Filtern der Lektionen pro Modul wird ein zusaetzlicher Filter eingefuegt:
+**2. Content-Filter in `buildHierarchicalUnterpunkte` verschieben** — dort gezielt anwenden:
+- Kinder (Code mit 3 Teilen, z.B. "6-3-1"): Nur aufnehmen wenn `video_url` oder `text_inhalt` vorhanden
+- Einzel-Lektionen (Code mit 2 Teilen, z.B. "6-1"): Nur aufnehmen wenn Content vorhanden
+- Gruppen-Eltern (Code mit 2 Teilen, z.B. "6-3"): Behalten wenn mindestens ein Kind mit Content existiert
 
-```
-.filter(lek => lek.video_url || lek.text_inhalt)
-```
+### Technische Umsetzung
 
-Dadurch tauchen nur Lektionen mit mindestens Video oder Text auf. Sobald in der Datenbank Inhalt ergaenzt wird, erscheint die Lektion beim naechsten Laden automatisch — und zaehlt dann zum Pflicht-Fortschritt.
-
-**2. Gruppen-Bereinigung in `buildHierarchicalUnterpunkte` (Zeile ~98)**
-
-Nach dem Aufbau der Hierarchie werden Gruppen-Eltern entfernt, deren Kinder alle herausgefiltert wurden:
+Die Funktion `buildHierarchicalUnterpunkte` erhaelt den vollen `DbLektion[]`-Array (statt nur `AkademieUnterpunkt`). Der Filter wird wie folgt angewendet:
 
 ```
-result.filter(item => !(item.isGroup && item.children?.length === 0))
+// Kinder filtern: nur mit Content
+for (const lek of sorted) {
+  if (parts.length === 3 && (lek.video_url || lek.text_inhalt)) {
+    // Kind aufnehmen
+  }
+}
+
+// Eltern/Einzel: 
+// - Gruppe behalten wenn Kinder vorhanden
+// - Einzel nur wenn Content vorhanden
 ```
 
-**3. Modul-Bereinigung (Zeile ~215)**
-
-Module ohne verbleibende Unterpunkte werden aus der Liste entfernt:
-
-```
-.filter(mod => mod.unterpunkte.length > 0)
-```
-
-## Warum das automatisch "Pflicht" bedeutet
-
-Die Fortschrittsberechnung in `AcademyStep.tsx` (`countLeafUnterpunkte`, `getTotalAkademieProgress`) zaehlt alle sichtbaren Lektionen. Was angezeigt wird, muss abgeschlossen werden — es gibt keinen optionalen Status. Neue Inhalte erhoehen also automatisch die Gesamtzahl und senken den Fortschrittsprozentsatz, bis sie abgeschlossen sind.
+Die bestehende Bereinigung (Gruppen ohne Kinder entfernen, Module ohne Unterpunkte entfernen) bleibt unveraendert.
 
