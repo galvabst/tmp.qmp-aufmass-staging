@@ -10,6 +10,7 @@ import { MultiSourceVideoPlayer, detectVideoSource, VideoPlayerHandle } from '@/
 import { isUuid } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { useBunnyPlayerProgress, useIframeLessonProgress } from '@/hooks/useVideoProgress';
+import { useIsLektionAlreadyCompleted } from '@/hooks/useAkademieFortschritt';
 import { Progress } from '@/components/ui/progress';
 
 const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
@@ -240,19 +241,23 @@ function AkademieModulContent({
   const iframeRefObject = useRef<HTMLIFrameElement | null>(null);
   iframeRefObject.current = iframeRef;
   
+  // Check if this lesson was already completed (localStorage + DB)
+  const isAlreadyCompleted = useIsLektionAlreadyCompleted(unterpunkt.id);
+  
   // Use Bunny Player.js hook for Bunny Stream, fallback timer for YouTube
   const bunnyProgress = useBunnyPlayerProgress(
     unterpunkt.dauerMinuten,
-    iframeRefObject
+    iframeRefObject,
+    { allowSeeking: isAlreadyCompleted }
   );
   
   const fallbackProgress = useIframeLessonProgress(unterpunkt.dauerMinuten);
   
   // Use Bunny progress if it's a Bunny stream - with two-phase logic
-  // canUnlockTabs = 90% watched (unlock content tabs)
-  // canMarkComplete = 100% or video ended (enable completion button)
-  const canUnlockTabs = isBunnyStream ? bunnyProgress.canUnlockTabs : fallbackProgress.canComplete;
-  const canMarkComplete = isBunnyStream ? bunnyProgress.canMarkComplete : fallbackProgress.canComplete;
+  // canUnlockTabs = 90% watched (unlock content tabs) OR already completed
+  // canMarkComplete = 100% or video ended (enable completion button) OR already completed
+  const canUnlockTabs = isAlreadyCompleted || (isBunnyStream ? bunnyProgress.canUnlockTabs : fallbackProgress.canComplete);
+  const canMarkComplete = isAlreadyCompleted || (isBunnyStream ? bunnyProgress.canMarkComplete : fallbackProgress.canComplete);
   const percentComplete = isBunnyStream ? bunnyProgress.percentComplete : fallbackProgress.percentComplete;
   const timeRemainingFormatted = isBunnyStream ? bunnyProgress.timeRemainingFormatted : fallbackProgress.timeRemainingFormatted;
   const isPlaying = isBunnyStream ? bunnyProgress.isPlaying : true;
