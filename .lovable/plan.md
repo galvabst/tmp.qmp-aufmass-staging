@@ -1,58 +1,30 @@
 
+# Fix: IntroVideo Layout und Darstellung
 
-# Unskippable Intro-Video vor dem Onboarding
+## Probleme (aus dem Screenshot)
 
-## Was passiert
+1. **Video zeigt Login-Seite** statt den eigentlichen Videoinhalt -- das Bunny Stream iframe laedt die App-URL statt das Video. Wahrscheinlich ein iframe-Embedding-Problem, das sich durch korrekte URL-Normalisierung (`/embed/` statt `/play/`) loesen laesst.
+2. **Logo zu klein und links** statt zentriert
+3. **Video-Container zu klein** -- zu viel schwarzer Leerraum oben und unten
+4. **Progress-Bar** hat den orangenen Punkt ganz links, der Progress-Indikator ist kaum sichtbar auf dem schwarzen Hintergrund
 
-Beim **allerersten Einloggen** sieht ein neuer Contractor ein Fullscreen-Intro-Video, bevor das Onboarding startet. Das Video erklaert den Vertrag und die Anforderungen. Es ist **nicht ueberspringbar** -- erst wenn es komplett durchgelaufen ist, kann der User weiter.
+## Aenderungen
 
-**Video-URL:** `https://iframe.mediadelivery.net/play/591760/304c7347-3b6f-4231-988b-59e5b8082e32`
+### `src/components/onboarding/IntroVideo.tsx`
 
-## Ablauf aus Nutzersicht
+**Layout-Verbesserungen:**
+- Logo groesser machen (`size="lg"` statt `"md"`) und sicherstellen, dass es zentriert ist
+- Video-Container vergroessern: weniger Padding, `max-w-4xl` statt `max-w-3xl`
+- Einen Titel/Ueberschrift unter dem Logo: "Willkommen bei Galvanek" o.ae.
+- Progress-Bar Styling verbessern: den Indicator in der Brand-Farbe (Orange) und den Track sichtbarer machen (`bg-white/20`)
+- Button im disabled-Zustand deutlicher stylen (opacity, Cursor)
+- Gesamtlayout optimieren: Logo-Bereich kompakter, mehr Platz fuer das Video
 
-1. Neuer User loggt sich ein
-2. Fullscreen schwarzer Bildschirm mit Galvanek-Logo und dem Intro-Video
-3. Video laeuft ab (unskippable, kein Vorspulen moeglich)
-4. Nach Ende des Videos erscheint ein "Weiter"-Button
-5. Klick auf "Weiter" bringt den User zum normalen Onboarding (Schritt 1: Profil)
-6. Beim naechsten Login wird das Intro-Video **nicht** mehr angezeigt
+**Video-URL Fix:**
+- Sicherstellen, dass die URL korrekt als `/embed/` (nicht `/play/`) an den Player geht -- die `normalizeBunnyUrl`-Funktion in `MultiSourceVideoPlayer.tsx` macht das bereits, aber pruefen ob das iframe korrekt geladen wird
 
-## Technische Umsetzung
-
-### 1. Neue Komponente: `src/components/onboarding/IntroVideo.tsx`
-
-- Fullscreen-Overlay mit schwarzem Hintergrund
-- Galvanek-Logo oben mittig
-- `MultiSourceVideoPlayer` fuer das Bunny Stream Video
-- `useBunnyPlayerProgress` Hook fuer Skip-Schutz (gleiche Logik wie Akademie-Videos)
-- Fortschritts-Anzeige ("X:XX verbleibend")
-- "Weiter zum Onboarding"-Button, erst aktiv wenn `isVideoEnded === true`
-- Callback `onComplete` wenn der User auf "Weiter" klickt
-
-### 2. State-Tracking
-
-**localStorage** (`OnboardingState`):
-- Neues Feld `introVideoWatched: boolean` (Default: `false`)
-
-**Datenbank** (`thermocheck.contractor_onboarding`):
-- Neue Spalte `intro_video_watched boolean DEFAULT false`
-- RPC-Funktion erweitern um dieses Feld zurueckzugeben/zu speichern
-
-### 3. Dateiaenderungen
+### Technische Details
 
 | Datei | Aenderung |
 |---|---|
-| **NEU** `src/components/onboarding/IntroVideo.tsx` | Fullscreen Intro-Video Komponente mit Skip-Schutz |
-| `src/types/onboarding.ts` | `OnboardingState` um `introVideoWatched: boolean` erweitern |
-| `src/lib/onboarding-config.ts` | `createInitialOnboardingState()` mit `introVideoWatched: false` |
-| `src/components/OnboardingScreen.tsx` | Vor Step-Rendering pruefen: wenn `!introVideoWatched`, dann `IntroVideo` rendern |
-| `src/hooks/useOnboardingState.ts` | Neuer Callback `setIntroVideoWatched` |
-| `src/hooks/useContractorProfile.ts` | `saveProgress` erweitern um `intro_video_watched` |
-| SQL Migration | `ALTER TABLE` + RPC-Erweiterung fuer `intro_video_watched` |
-
-### 4. Vorhandene Infrastruktur (wird wiederverwendet)
-
-- `MultiSourceVideoPlayer` -- rendert Bunny Stream iframes
-- `useBunnyPlayerProgress` -- trackt Wiedergabezeit, verhindert Vorspulen, erkennt Video-Ende
-- Player.js API -- bereits in `index.html` eingebunden
-
+| `src/components/onboarding/IntroVideo.tsx` | Logo groesser, Video-Container breiter, besseres Spacing, Progress-Bar Styling, Willkommens-Text |
