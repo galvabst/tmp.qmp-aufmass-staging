@@ -1,44 +1,58 @@
 
 
-# Fix: localStorage-Leak absichern und App publishen
+# Unskippable Intro-Video vor dem Onboarding
 
-## Problem
+## Was passiert
 
-Die Datenbank ist korrekt (`onboarding_status: 'invited'`, alle Checks `false`). Der aktuelle Preview-Code wuerde das Onboarding korrekt anzeigen. Aber die **Published Version** auf `quick-measure-pro.lovable.app` hat aelteren Code, der das Onboarding-Gate nicht korrekt durchsetzt.
+Beim **allerersten Einloggen** sieht ein neuer Contractor ein Fullscreen-Intro-Video, bevor das Onboarding startet. Das Video erklaert den Vertrag und die Anforderungen. Es ist **nicht ueberspringbar** -- erst wenn es komplett durchgelaufen ist, kann der User weiter.
 
-Zusaetzlich kann localStorage von einem vorherigen User-Login uebrig bleiben und den Onboarding-Fortschritt verfaelschen.
+**Video-URL:** `https://iframe.mediadelivery.net/play/591760/304c7347-3b6f-4231-988b-59e5b8082e32`
 
-## Loesung
+## Ablauf aus Nutzersicht
 
-### 1. localStorage-Reset haerten (`OnboardingScreen.tsx`)
+1. Neuer User loggt sich ein
+2. Fullscreen schwarzer Bildschirm mit Galvanek-Logo und dem Intro-Video
+3. Video laeuft ab (unskippable, kein Vorspulen moeglich)
+4. Nach Ende des Videos erscheint ein "Weiter"-Button
+5. Klick auf "Weiter" bringt den User zum normalen Onboarding (Schritt 1: Profil)
+6. Beim naechsten Login wird das Intro-Video **nicht** mehr angezeigt
 
-Die `isDefinitelyStale`-Bedingung erweitern: Wenn die DB `invited` meldet (kein Fortschritt), aber localStorage irgendeinen Fortschritt zeigt (currentStep nicht 'profil' oder completedSteps nicht leer), wird der localStorage sofort geloescht.
+## Technische Umsetzung
 
-**Vorher (Zeile 87-89):**
-```text
-const isDefinitelyStale =
-  parsed.coachingAbgeschlossen === true ||
-  parsed.akademieTestBestanden === true;
-```
+### 1. Neue Komponente: `src/components/onboarding/IntroVideo.tsx`
 
-**Nachher:**
-```text
-const isDefinitelyStale =
-  parsed.coachingAbgeschlossen === true ||
-  parsed.akademieTestBestanden === true ||
-  (parsed.currentStep && parsed.currentStep !== 'profil') ||
-  (Array.isArray(parsed.completedSteps) && parsed.completedSteps.length > 0);
-```
+- Fullscreen-Overlay mit schwarzem Hintergrund
+- Galvanek-Logo oben mittig
+- `MultiSourceVideoPlayer` fuer das Bunny Stream Video
+- `useBunnyPlayerProgress` Hook fuer Skip-Schutz (gleiche Logik wie Akademie-Videos)
+- Fortschritts-Anzeige ("X:XX verbleibend")
+- "Weiter zum Onboarding"-Button, erst aktiv wenn `isVideoEnded === true`
+- Callback `onComplete` wenn der User auf "Weiter" klickt
 
-### 2. App publishen
+### 2. State-Tracking
 
-Nach der Aenderung muss die App neu published werden, damit `quick-measure-pro.lovable.app` den aktuellen Gate-Code bekommt.
+**localStorage** (`OnboardingState`):
+- Neues Feld `introVideoWatched: boolean` (Default: `false`)
 
-## Technische Details
+**Datenbank** (`thermocheck.contractor_onboarding`):
+- Neue Spalte `intro_video_watched boolean DEFAULT false`
+- RPC-Funktion erweitern um dieses Feld zurueckzugeben/zu speichern
+
+### 3. Dateiaenderungen
 
 | Datei | Aenderung |
 |---|---|
-| `src/components/OnboardingScreen.tsx` | Zeilen 87-89: `isDefinitelyStale`-Bedingung um `currentStep` und `completedSteps`-Pruefung erweitern |
+| **NEU** `src/components/onboarding/IntroVideo.tsx` | Fullscreen Intro-Video Komponente mit Skip-Schutz |
+| `src/types/onboarding.ts` | `OnboardingState` um `introVideoWatched: boolean` erweitern |
+| `src/lib/onboarding-config.ts` | `createInitialOnboardingState()` mit `introVideoWatched: false` |
+| `src/components/OnboardingScreen.tsx` | Vor Step-Rendering pruefen: wenn `!introVideoWatched`, dann `IntroVideo` rendern |
+| `src/hooks/useOnboardingState.ts` | Neuer Callback `setIntroVideoWatched` |
+| `src/hooks/useContractorProfile.ts` | `saveProgress` erweitern um `intro_video_watched` |
+| SQL Migration | `ALTER TABLE` + RPC-Erweiterung fuer `intro_video_watched` |
 
-Nach dem Publish: Alle neuen User mit `onboarding_status: 'invited'` werden korrekt ins Onboarding geleitet, unabhaengig von eventuell vorhandenen localStorage-Daten eines vorherigen Users.
+### 4. Vorhandene Infrastruktur (wird wiederverwendet)
+
+- `MultiSourceVideoPlayer` -- rendert Bunny Stream iframes
+- `useBunnyPlayerProgress` -- trackt Wiedergabezeit, verhindert Vorspulen, erkennt Video-Ende
+- Player.js API -- bereits in `index.html` eingebunden
 
