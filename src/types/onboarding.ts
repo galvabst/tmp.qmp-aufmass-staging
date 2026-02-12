@@ -176,6 +176,9 @@ export interface OnboardingState {
   gebuchterCoachingSlot?: string; // Slot-ID
   coachingAbgeschlossen: boolean;
   
+  // Intro-Video
+  introVideoWatched: boolean;
+  
   // Meta
   startedAt: string;
   completedAt?: string;

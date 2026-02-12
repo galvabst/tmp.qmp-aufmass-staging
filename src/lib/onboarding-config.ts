@@ -275,6 +275,8 @@ export function createInitialOnboardingState(profile: ApplicantProfile): Onboard
     
     coachingAbgeschlossen: false,
     
+    introVideoWatched: false,
+    
     startedAt: new Date().toISOString(),
   };
 }
