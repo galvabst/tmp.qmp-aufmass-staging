@@ -1,0 +1,1 @@
+UPDATE thermocheck.contractor_akademie_lektionen SET video_url = 'https://iframe.mediadelivery.net/play/591760/a9021913-0c3c-4986-a32e-11ac216e5edf' WHERE code = '3-1';
