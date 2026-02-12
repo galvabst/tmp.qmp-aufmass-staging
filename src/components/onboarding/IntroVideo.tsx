@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ArrowRight } from 'lucide-react';
 
-const INTRO_VIDEO_URL = 'https://iframe.mediadelivery.net/embed/591760/304c7347-3b6f-4231-988b-59e5b8082e32';
+const INTRO_VIDEO_URL = 'https://iframe.mediadelivery.net/embed/591760/a9021913-0c3c-4986-a32e-11ac216e5edf';
 
 interface IntroVideoProps {
   onComplete: () => void;
