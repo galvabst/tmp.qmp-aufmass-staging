@@ -86,7 +86,9 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       // (coaching abgeschlossen bei DB "invited" = definitiv veralteter State eines anderen Users)
       const isDefinitelyStale =
         parsed.coachingAbgeschlossen === true ||
-        parsed.akademieTestBestanden === true;
+        parsed.akademieTestBestanden === true ||
+        (parsed.currentStep && parsed.currentStep !== 'profil') ||
+        (Array.isArray(parsed.completedSteps) && parsed.completedSteps.length > 0);
 
       if (isDefinitelyStale) {
         console.warn('[Onboarding] Stale localStorage detected (DB invited + coaching/test done) - forcing reset');
