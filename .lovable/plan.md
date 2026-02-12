@@ -1,41 +1,44 @@
 
 
-# Video-Player dynamisch an Hochkant/Querformat anpassen
+# Fix: localStorage-Leak absichern und App publishen
 
 ## Problem
-Der Video-Container hat aktuell ein festes 16:9 Seitenverhaeltnis. Bei Hochkant-Videos (9:16, z.B. Handy-Aufnahmen) entstehen grosse schwarze Balken links und rechts, statt den Bildschirm optimal zu nutzen.
+
+Die Datenbank ist korrekt (`onboarding_status: 'invited'`, alle Checks `false`). Der aktuelle Preview-Code wuerde das Onboarding korrekt anzeigen. Aber die **Published Version** auf `quick-measure-pro.lovable.app` hat aelteren Code, der das Onboarding-Gate nicht korrekt durchsetzt.
+
+Zusaetzlich kann localStorage von einem vorherigen User-Login uebrig bleiben und den Onboarding-Fortschritt verfaelschen.
 
 ## Loesung
 
-Das Bunny Player iframe sendet per `postMessage` Informationen ueber die Video-Dimensionen. Wir lauschen auf diese Nachrichten und passen das Seitenverhaeltnis des Containers dynamisch an — genau wie YouTube es macht.
+### 1. localStorage-Reset haerten (`OnboardingScreen.tsx`)
 
-### Ablauf
+Die `isDefinitelyStale`-Bedingung erweitern: Wenn die DB `invited` meldet (kein Fortschritt), aber localStorage irgendeinen Fortschritt zeigt (currentStep nicht 'profil' oder completedSteps nicht leer), wird der localStorage sofort geloescht.
 
-1. Video-Player rendert initial mit 16:9 (Standard-Annahme)
-2. Sobald das Bunny-Video geladen ist, erkennt der Player die echten Dimensionen
-3. Container passt sein Seitenverhaeltnis automatisch an (z.B. 9:16 fuer Hochkant)
-4. Auf Mobilgeraeten wird die Hoehe bei Hochkant-Videos begrenzt (max 70vh), damit Tabs und Footer noch sichtbar bleiben
+**Vorher (Zeile 87-89):**
+```text
+const isDefinitelyStale =
+  parsed.coachingAbgeschlossen === true ||
+  parsed.akademieTestBestanden === true;
+```
 
-### Technische Umsetzung
+**Nachher:**
+```text
+const isDefinitelyStale =
+  parsed.coachingAbgeschlossen === true ||
+  parsed.akademieTestBestanden === true ||
+  (parsed.currentStep && parsed.currentStep !== 'profil') ||
+  (Array.isArray(parsed.completedSteps) && parsed.completedSteps.length > 0);
+```
 
-**Datei: `src/components/akademie/MultiSourceVideoPlayer.tsx`**
+### 2. App publishen
 
-- Neuer State `detectedAspectRatio` (default: `16/9`)
-- `useEffect` mit `window.addEventListener('message', ...)` um Bunny-Player-Events abzufangen
-- Bunny sendet Events mit Video-Breite/Hoehe — daraus Aspect Ratio berechnen
-- Fallback: Falls keine Dimensionen erkannt werden, bleibt 16:9
+Nach der Aenderung muss die App neu published werden, damit `quick-measure-pro.lovable.app` den aktuellen Gate-Code bekommt.
 
-- Container-`style.aspectRatio` wird dynamisch gesetzt statt fest auf `16/9`
-- Bei Portrait-Videos (Hoehe > Breite): `maxHeight: 70vh` auf Mobil, damit die Seite noch scrollbar ist
-
-**Datei: `src/hooks/useVideoProgress.ts`**
-
-- Im `useBunnyPlayerProgress` Hook: Wenn der Player `ready` meldet, Video-Dimensionen abfragen (falls Player.js das unterstuetzt) und per optionalem Callback nach oben geben
-
-### Aenderungen
+## Technische Details
 
 | Datei | Aenderung |
 |---|---|
-| `src/components/akademie/MultiSourceVideoPlayer.tsx` | Dynamisches Aspect-Ratio per postMessage-Erkennung, maxHeight-Begrenzung fuer Portrait |
-| `src/pages/AkademieModul.tsx` | Minutenanzeige im Header entfernen (zeigt noch "X Minuten") |
+| `src/components/OnboardingScreen.tsx` | Zeilen 87-89: `isDefinitelyStale`-Bedingung um `currentStep` und `completedSteps`-Pruefung erweitern |
+
+Nach dem Publish: Alle neuen User mit `onboarding_status: 'invited'` werden korrekt ins Onboarding geleitet, unabhaengig von eventuell vorhandenen localStorage-Daten eines vorherigen Users.
 
