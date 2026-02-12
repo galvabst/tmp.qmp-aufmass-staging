@@ -1,30 +1,30 @@
 
-# Fix: IntroVideo Layout und Darstellung
 
-## Probleme (aus dem Screenshot)
+## Video-URL von Lektion 3-1 nach 1-3 verschieben
 
-1. **Video zeigt Login-Seite** statt den eigentlichen Videoinhalt -- das Bunny Stream iframe laedt die App-URL statt das Video. Wahrscheinlich ein iframe-Embedding-Problem, das sich durch korrekte URL-Normalisierung (`/embed/` statt `/play/`) loesen laesst.
-2. **Logo zu klein und links** statt zentriert
-3. **Video-Container zu klein** -- zu viel schwarzer Leerraum oben und unten
-4. **Progress-Bar** hat den orangenen Punkt ganz links, der Progress-Indikator ist kaum sichtbar auf dem schwarzen Hintergrund
+Die Video-URL `https://iframe.mediadelivery.net/play/591760/a9021913-0c3c-4986-a32e-11ac216e5edf` wurde versehentlich bei Lektion **3-1** hinterlegt, gehoert aber zu **1-3** (Auftreten beim Kunden).
 
-## Aenderungen
+### Aenderungen
 
-### `src/components/onboarding/IntroVideo.tsx`
+**Datenbank-Migration (Test-Umgebung):**
+- Video-URL bei `code = '3-1'` auf `NULL` setzen
+- Video-URL bei `code = '1-3'` auf den Bunny-Stream-Link setzen
 
-**Layout-Verbesserungen:**
-- Logo groesser machen (`size="lg"` statt `"md"`) und sicherstellen, dass es zentriert ist
-- Video-Container vergroessern: weniger Padding, `max-w-4xl` statt `max-w-3xl`
-- Einen Titel/Ueberschrift unter dem Logo: "Willkommen bei Galvanek" o.ae.
-- Progress-Bar Styling verbessern: den Indicator in der Brand-Farbe (Orange) und den Track sichtbarer machen (`bg-white/20`)
-- Button im disabled-Zustand deutlicher stylen (opacity, Cursor)
-- Gesamtlayout optimieren: Logo-Bereich kompakter, mehr Platz fuer das Video
-
-**Video-URL Fix:**
-- Sicherstellen, dass die URL korrekt als `/embed/` (nicht `/play/`) an den Player geht -- die `normalizeBunnyUrl`-Funktion in `MultiSourceVideoPlayer.tsx` macht das bereits, aber pruefen ob das iframe korrekt geladen wird
+**Live-Umgebung:**
+Da Daten nicht automatisch synchronisiert werden, muss dasselbe SQL manuell im Supabase SQL Editor mit ausgewaehlter **Live**-Umgebung ausgefuehrt werden.
 
 ### Technische Details
 
-| Datei | Aenderung |
-|---|---|
-| `src/components/onboarding/IntroVideo.tsx` | Logo groesser, Video-Container breiter, besseres Spacing, Progress-Bar Styling, Willkommens-Text |
+SQL-Migration:
+```sql
+UPDATE thermocheck.contractor_akademie_lektionen 
+SET video_url = NULL 
+WHERE code = '3-1';
+
+UPDATE thermocheck.contractor_akademie_lektionen 
+SET video_url = 'https://iframe.mediadelivery.net/play/591760/a9021913-0c3c-4986-a32e-11ac216e5edf' 
+WHERE code = '1-3';
+```
+
+Keine Code-Aenderungen noetig -- nur Datenbank-Updates.
+
