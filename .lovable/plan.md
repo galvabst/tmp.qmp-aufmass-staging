@@ -1,30 +1,41 @@
 
 
-## Video-URL von Lektion 3-1 nach 1-3 verschieben
+## Willkommens-Modul zu einem einzelnen Video-Punkt umbauen
 
-Die Video-URL `https://iframe.mediadelivery.net/play/591760/a9021913-0c3c-4986-a32e-11ac216e5edf` wurde versehentlich bei Lektion **3-1** hinterlegt, gehoert aber zu **1-3** (Auftreten beim Kunden).
+Aktuell hat Modul 0 ("Willkommen & Orientierung") drei leere Lektionen:
+- 0-1: Ziel der Akademie
+- 0-2: Rolle im Gesamtprozess
+- 0-3: Lernpfad, Ablauf & Freigaben
+
+Keine davon hat eine Video-URL oder Textinhalt -- sie werden also momentan im UI ausgeblendet (visibility logic).
 
 ### Aenderungen
 
-**Datenbank-Migration (Test-Umgebung):**
-- Video-URL bei `code = '3-1'` auf `NULL` setzen
-- Video-URL bei `code = '1-3'` auf den Bunny-Stream-Link setzen
+**Datenbank (manuell im SQL Editor):**
 
-**Live-Umgebung:**
-Da Daten nicht automatisch synchronisiert werden, muss dasselbe SQL manuell im Supabase SQL Editor mit ausgewaehlter **Live**-Umgebung ausgefuehrt werden.
+1. Lektion **0-1** bekommt die Video-URL und wird zur einzigen sichtbaren Lektion -- Titel wird zu "Willkommen" (oder ein passenderer Titel nach Wunsch) geaendert
+2. Lektionen **0-2** und **0-3** werden deaktiviert (`ist_aktiv = false`), damit sie nicht mehr zaehlen
 
-### Technische Details
-
-SQL-Migration:
 ```sql
+-- Lektion 0-1: Video hinterlegen + Titel anpassen
 UPDATE thermocheck.contractor_akademie_lektionen 
-SET video_url = NULL 
-WHERE code = '3-1';
+SET video_url = 'https://iframe.mediadelivery.net/play/591760/6f2c34c0-76aa-4cc2-9f1c-a1b7205738b3',
+    titel = 'Willkommen'
+WHERE code = '0-1';
 
+-- Lektionen 0-2 und 0-3 deaktivieren
 UPDATE thermocheck.contractor_akademie_lektionen 
-SET video_url = 'https://iframe.mediadelivery.net/play/591760/a9021913-0c3c-4986-a32e-11ac216e5edf' 
-WHERE code = '1-3';
+SET ist_aktiv = false 
+WHERE code IN ('0-2', '0-3');
 ```
 
-Keine Code-Aenderungen noetig -- nur Datenbank-Updates.
+Dieses SQL muss in beiden Umgebungen (Test + Live) im Supabase SQL Editor ausgefuehrt werden.
+
+### Keine Code-Aenderungen noetig
+
+Das Frontend blendet Lektionen ohne Inhalt automatisch aus und zeigt nur aktive Lektionen mit Video/Text an. Sobald 0-1 ein Video hat und 0-2/0-3 deaktiviert sind, erscheint das Modul mit genau einem Punkt.
+
+### Hinweis zum Titel
+
+Falls "Willkommen" nicht der gewuenschte Titel ist, kann er im SQL einfach angepasst werden. Auch der Modultitel "Willkommen & Orientierung" kann bei Bedarf geaendert werden.
 
