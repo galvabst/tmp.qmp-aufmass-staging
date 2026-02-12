@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
+import { useState, useEffect } from 'react';
+import { ONBOARDING_STORAGE_KEY_PREFIX } from '@/lib/onboarding-storage';
 
 // Same thermocheck client as useAkademieContent
 const thermocheckClient = createClient(
@@ -11,17 +13,20 @@ const thermocheckClient = createClient(
 /**
  * Hook to fetch completed lektion IDs from contractor_akademie_lektions_fortschritt.
  * Returns a Set<string> of lektion_ids with status 'completed'.
+ * 
+ * BUG FIX: Changed .eq('onboarding_id', ...) to .eq('contractor_id', ...) 
+ * to match the actual column name in the table.
  */
-export function useAkademieFortschritt(onboardingId: string | null) {
+export function useAkademieFortschritt(contractorId: string | null) {
   return useQuery({
-    queryKey: ['akademie-fortschritt', onboardingId],
+    queryKey: ['akademie-fortschritt', contractorId],
     queryFn: async (): Promise<Set<string>> => {
-      if (!onboardingId) return new Set();
+      if (!contractorId) return new Set();
 
       const { data, error } = await thermocheckClient
         .from('contractor_akademie_lektions_fortschritt')
         .select('lektion_id')
-        .eq('onboarding_id', onboardingId)
+        .eq('contractor_id', contractorId)
         .eq('status', 'completed');
 
       if (error) {
@@ -33,7 +38,71 @@ export function useAkademieFortschritt(onboardingId: string | null) {
       console.log(`[AkademieFortschritt] Loaded ${ids.size} completed lektionen`);
       return ids;
     },
-    enabled: !!onboardingId,
+    enabled: !!contractorId,
     staleTime: 2 * 60 * 1000,
   });
+}
+
+/**
+ * Check if a specific lektion has already been completed.
+ * Checks both localStorage (onboarding state) and DB progress (via useAkademieFortschritt).
+ * 
+ * Returns true if the lektion is marked as abgeschlossen in localStorage
+ * OR if it exists in the DB fortschritt set.
+ */
+export function useIsLektionAlreadyCompleted(
+  lektionId: string | undefined,
+  dbCompletedIds?: Set<string>
+): boolean {
+  const [isCompleted, setIsCompleted] = useState(false);
+
+  useEffect(() => {
+    if (!lektionId) {
+      setIsCompleted(false);
+      return;
+    }
+
+    // 1. Check DB fortschritt (passed in from parent)
+    if (dbCompletedIds?.has(lektionId)) {
+      setIsCompleted(true);
+      return;
+    }
+
+    // 2. Check localStorage onboarding state
+    try {
+      // Try all possible storage keys (user-namespaced and legacy)
+      const keys = Object.keys(localStorage).filter(k => k.startsWith(ONBOARDING_STORAGE_KEY_PREFIX));
+      
+      for (const key of keys) {
+        const saved = localStorage.getItem(key);
+        if (!saved) continue;
+        
+        const state = JSON.parse(saved);
+        const hauptmodule = state?.akademieHauptmodule;
+        if (!Array.isArray(hauptmodule)) continue;
+
+        for (const hm of hauptmodule) {
+          for (const up of (hm.unterpunkte || [])) {
+            if (up.id === lektionId && up.abgeschlossen) {
+              setIsCompleted(true);
+              return;
+            }
+            // Check children (sub-lessons)
+            for (const child of (up.children || [])) {
+              if (child.id === lektionId && child.abgeschlossen) {
+                setIsCompleted(true);
+                return;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[useIsLektionAlreadyCompleted] Error reading localStorage:', e);
+    }
+
+    setIsCompleted(false);
+  }, [lektionId, dbCompletedIds]);
+
+  return isCompleted;
 }

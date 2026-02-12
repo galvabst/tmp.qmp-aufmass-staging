@@ -134,7 +134,7 @@ export function useVideoProgress(
 export function useBunnyPlayerProgress(
   videoDurationMinutes: number,
   iframeRef: RefObject<HTMLIFrameElement | null>,
-  options: { requiredWatchPercent?: number } = {}
+  options: { requiredWatchPercent?: number; allowSeeking?: boolean } = {}
 ): {
   canUnlockTabs: boolean;
   canMarkComplete: boolean;
@@ -145,7 +145,7 @@ export function useBunnyPlayerProgress(
   isPlaying: boolean;
   isVideoEnded: boolean;
 } {
-  const { requiredWatchPercent = 0.9 } = options;
+  const { requiredWatchPercent = 0.9, allowSeeking = false } = options;
   
   const [watchedSeconds, setWatchedSeconds] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -163,9 +163,9 @@ export function useBunnyPlayerProgress(
   );
   const requiredSeconds = Math.round(totalDurationSeconds * requiredWatchPercent);
   
-  // Two-phase logic: tabs unlock at 90%, completion at 100%
-  const canUnlockTabs = watchedSeconds >= requiredSeconds;
-  const canMarkComplete = isVideoEnded || watchedSeconds >= totalDurationSeconds;
+  // When allowSeeking (already completed), skip all restrictions
+  const canUnlockTabs = allowSeeking || watchedSeconds >= requiredSeconds;
+  const canMarkComplete = allowSeeking || isVideoEnded || watchedSeconds >= totalDurationSeconds;
   
   const percentComplete = requiredSeconds > 0 
     ? Math.min(100, Math.round((watchedSeconds / requiredSeconds) * 100))
@@ -261,7 +261,7 @@ export function useBunnyPlayerProgress(
             maxReachedTimeRef.current = Math.max(maxReached, currentTime);
           }
           // Skip detected: user jumped ahead of max reached position
-          else if (currentTime > maxReached + 2) {
+          else if (currentTime > maxReached + 2 && !allowSeeking) {
             console.log('[BunnyPlayer] 🚫 Skip detected! Resetting to:', maxReached);
             player.setCurrentTime(maxReached);
           }
