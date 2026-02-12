@@ -12,6 +12,7 @@ import { ProofStep } from './onboarding/steps/ProofStep';
 import { CoachingStep } from './onboarding/steps/CoachingStep';
 import { OnboardingComplete } from './onboarding/OnboardingComplete';
 import { WaitingForApproval } from './onboarding/WaitingForApproval';
+import { IntroVideo } from './onboarding/IntroVideo';
 import { useOnboardingState, clearOnboardingLocalStorage } from '@/hooks/useOnboardingState';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useContractorProfile } from '@/hooks/useContractorProfile';
@@ -112,6 +113,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     saveGewerbeschein,
     saveProgress,
     saveEquipmentStatus,
+    saveIntroVideoWatched,
     onboardingState: dbOnboardingState,
     isOnboardingStateLoaded,
   } = useContractorProfile(dbStatus?.profileId || null);
@@ -143,6 +145,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setGebuchterCoachingSlot,
     setCoachingAbgeschlossen,
     hydrateAkademieFromDb,
+    setIntroVideoWatched,
   } = useOnboardingState(initialProfile, isPreview, forceReset);
   
   // Unlock "Weiter" sobald der Schritt gewechselt hat
@@ -179,6 +182,12 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     if (dbOnboardingState.akademieTestBestanden) {
       setAkademieTestBestanden(true);
       console.log('[Onboarding] Akademie test bestanden hydrated from DB');
+    }
+
+    // Intro-Video-Status aus DB hydrieren
+    if (dbOnboardingState.introVideoWatched) {
+      setIntroVideoWatched(true);
+      console.log('[Onboarding] Intro video watched hydrated from DB');
     }
 
     // Fortschritt aus DB (hat Vorrang vor localStorage)
@@ -362,6 +371,20 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   }, [location.state, completeAkademieModul, completeAkademieUnterpunkt, goToStep, navigate]);
 
   const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
+
+  // Intro-Video Gate: Zeige das unskippable Video BEVOR das Onboarding startet
+  if (!state.introVideoWatched && !isPreview) {
+    const handleIntroComplete = async () => {
+      setIntroVideoWatched(true);
+      try {
+        await saveIntroVideoWatched();
+        console.log('[Onboarding] Intro video marked as watched in DB');
+      } catch (error) {
+        console.warn('[Onboarding] Failed to save intro video status to DB:', error);
+      }
+    };
+    return <IntroVideo onComplete={handleIntroComplete} />;
+  }
 
   if (isComplete) {
     if (isPreview) {

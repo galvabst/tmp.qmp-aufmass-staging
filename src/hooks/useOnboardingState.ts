@@ -372,6 +372,11 @@ export function useOnboardingState(
     }));
   }, []);
 
+  // Intro-Video
+  const setIntroVideoWatched = useCallback((value: boolean) => {
+    setState(prev => ({ ...prev, introVideoWatched: value }));
+  }, []);
+
   // Berechnete Werte
   const progress = calculateOnboardingProgress(state);
   
@@ -481,6 +486,9 @@ export function useOnboardingState(
     // Schritt 7
     setGebuchterCoachingSlot,
     setCoachingAbgeschlossen,
+    
+    // Intro-Video
+    setIntroVideoWatched,
     
     // Helpers
     isStepComplete,

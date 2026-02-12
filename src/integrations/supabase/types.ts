@@ -9564,6 +9564,7 @@ export type Database = {
           equipment_status: Json
           gewerbeschein_spaeter: boolean
           gewerbeschein_url: string
+          intro_video_watched: boolean
         }[]
       }
       get_contractors: {
@@ -11030,6 +11031,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_contractor_intro_video_watched: { Args: never; Returns: undefined }
       update_contractor_onboarding_address: {
         Args: { p_ort: string; p_plz: string; p_strasse: string }
         Returns: undefined

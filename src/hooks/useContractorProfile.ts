@@ -12,6 +12,7 @@ interface ContractorOnboardingData {
   completed_steps?: string[] | null;
   equipment_status?: Record<string, unknown> | null;
   akademie_test_bestanden?: boolean | null;
+  intro_video_watched?: boolean | null;
 }
 
 export interface EquipmentItemStatus {
@@ -26,6 +27,7 @@ export interface ContractorOnboardingState {
   completedSteps: OnboardingStepId[];
   equipmentStatus?: Record<string, EquipmentItemStatus>;
   akademieTestBestanden: boolean;
+  introVideoWatched: boolean;
 }
 
 /**
@@ -130,6 +132,7 @@ export function useContractorProfile(profileId: string | null) {
           completedSteps: (row.completed_steps as OnboardingStepId[]) || [],
           equipmentStatus: (row.equipment_status as Record<string, EquipmentItemStatus>) || undefined,
           akademieTestBestanden: row.akademie_test_bestanden || false,
+          introVideoWatched: row.intro_video_watched || false,
         };
       } catch {
         return null;
@@ -313,6 +316,19 @@ export function useContractorProfile(profileId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
     },
   });
+
+  // Intro-Video als gesehen markieren
+  const saveIntroVideoWatchedMutation = useMutation({
+    mutationFn: async () => {
+      await (supabase.rpc as unknown as (
+        fn: string,
+        params?: Record<string, unknown>
+      ) => Promise<{ error: Error | null }>)('update_contractor_intro_video_watched');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
+    },
+  });
   
   return {
     data: query.data,
@@ -333,6 +349,7 @@ export function useContractorProfile(profileId: string | null) {
     saveGewerbeschein: saveGewerbescheinMutation.mutateAsync,
     saveProgress: saveProgressMutation.mutateAsync,
     saveEquipmentStatus: saveEquipmentStatusMutation.mutateAsync,
+    saveIntroVideoWatched: saveIntroVideoWatchedMutation.mutateAsync,
     
     // Mutation states
     isUpdating: updateMutation.isPending,
