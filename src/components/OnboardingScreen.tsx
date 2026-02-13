@@ -67,6 +67,11 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
   // KRITISCH: Payment-Success in URL? Dann NIEMALS forceReset!
   const hasPaymentSuccess = searchParams.get('payment') === 'success';
+  const paymentRedirectRef = useRef(hasPaymentSuccess);
+  // Einmal true, bleibt true für die gesamte Lebensdauer der Komponente
+  if (hasPaymentSuccess) {
+    paymentRedirectRef.current = true;
+  }
 
   const dbShowsNoProgress = dbStatus?.onboardingStatus === 'invited';
   const [forceReset, setForceReset] = useState(false);
@@ -373,7 +378,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
 
   // Intro-Video Gate: Zeige das unskippable Video BEVOR das Onboarding startet
-  if (!state.introVideoWatched && !isPreview && !hasPaymentSuccess) {
+  if (!state.introVideoWatched && !isPreview && !paymentRedirectRef.current) {
     const handleIntroComplete = async () => {
       setIntroVideoWatched(true);
       try {
