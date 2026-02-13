@@ -13,6 +13,9 @@ interface ContractorOnboardingData {
   equipment_status?: Record<string, unknown> | null;
   akademie_test_bestanden?: boolean | null;
   intro_video_watched?: boolean | null;
+  coaching_bewertung?: string | null;
+  gebuchter_coaching_termin?: string | null;
+  gebuchter_coach_name?: string | null;
 }
 
 export interface EquipmentItemStatus {
@@ -28,6 +31,9 @@ export interface ContractorOnboardingState {
   equipmentStatus?: Record<string, EquipmentItemStatus>;
   akademieTestBestanden: boolean;
   introVideoWatched: boolean;
+  coachingBewertung?: string;
+  coachingTermin?: string;
+  coachName?: string;
 }
 
 /**
@@ -133,6 +139,9 @@ export function useContractorProfile(profileId: string | null) {
           equipmentStatus: (row.equipment_status as Record<string, EquipmentItemStatus>) || undefined,
           akademieTestBestanden: row.akademie_test_bestanden || false,
           introVideoWatched: row.intro_video_watched || false,
+          coachingBewertung: row.coaching_bewertung || undefined,
+          coachingTermin: row.gebuchter_coaching_termin || undefined,
+          coachName: row.gebuchter_coach_name || undefined,
         };
       } catch {
         return null;

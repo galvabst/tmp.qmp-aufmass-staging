@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { CheckSquare, Upload, Camera, CheckCircle2, X } from 'lucide-react';
+import { CheckSquare, Upload, Camera, CheckCircle2, X, Lock, Calendar, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { CoachingBewertungEnum } from '@/lib/enums';
 
 interface ProofStepProps {
   checkliste: Record<string, boolean>;
@@ -11,6 +12,9 @@ interface ProofStepProps {
   gesamtfotoUrl?: string;
   onGesamtfotoUpload: (file: File) => void;
   onRemoveGesamtfoto: () => void;
+  coachingBewertung?: CoachingBewertungEnum;
+  coachingTermin?: string;
+  coachName?: string;
 }
 
 const CHECKLIST_ITEMS = [
@@ -25,10 +29,14 @@ export function ProofStep({
   gesamtfotoUrl,
   onGesamtfotoUpload,
   onRemoveGesamtfoto,
+  coachingBewertung = 'ausstehend',
+  coachingTermin,
+  coachName,
 }: ProofStepProps) {
   const [dragActive, setDragActive] = useState(false);
 
   const allChecked = CHECKLIST_ITEMS.every(item => checkliste[item.key]);
+  const isFreigegeben = coachingBewertung === 'bestanden';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -40,6 +48,20 @@ export function ProofStep({
     setDragActive(false);
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) onGesamtfotoUpload(file);
+  };
+
+  const formatTermin = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('de-DE', { 
+        weekday: 'short', 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+    } catch {
+      return dateStr;
+    }
   };
 
   return (
@@ -141,6 +163,50 @@ export function ProofStep({
               onChange={handleFileChange}
             />
           </label>
+        )}
+      </div>
+
+      {/* Trainer-Freigabe Gate */}
+      <div className="bg-card rounded-xl p-4 shadow-card">
+        {isFreigegeben ? (
+          <div className="flex items-center gap-3 p-3 bg-status-accepted/10 border border-status-accepted rounded-lg">
+            <CheckCircle2 className="w-6 h-6 text-status-accepted flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-foreground">Trainer-Freigabe erteilt</p>
+              <p className="text-sm text-muted-foreground">
+                Du kannst das Onboarding jetzt abschließen.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-3 bg-muted/50 border border-border rounded-lg">
+              <Lock className="w-6 h-6 text-muted-foreground flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-foreground">Warte auf Freigabe durch deinen Trainer</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Der Trainer gibt dir die Freigabe nach eigenem Ermessen nach deinem Termin.
+                </p>
+              </div>
+            </div>
+
+            {(coachingTermin || coachName) && (
+              <div className="p-3 bg-muted/30 rounded-lg space-y-2">
+                {coachingTermin && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                    <span>Coaching-Termin: <strong className="text-foreground">{formatTermin(coachingTermin)}</strong></span>
+                  </div>
+                )}
+                {coachName && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <User className="w-4 h-4 flex-shrink-0" />
+                    <span>Trainer: <strong className="text-foreground">{coachName}</strong></span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -117,6 +117,23 @@ export const CHECKIN_STATUS_LABELS: Record<CheckinStatusEnum, string> = {
   'no_show': 'Nicht erschienen'
 };
 
+// -----------------------------------------------------------------------------
+// 7. COACHING BEWERTUNG
+// -----------------------------------------------------------------------------
+export const COACHING_BEWERTUNG_VALUES = [
+  'ausstehend',
+  'bestanden',
+  'nicht_bestanden'
+] as const;
+
+export type CoachingBewertungEnum = typeof COACHING_BEWERTUNG_VALUES[number];
+
+export const COACHING_BEWERTUNG_LABELS: Record<CoachingBewertungEnum, string> = {
+  'ausstehend': 'Ausstehend',
+  'bestanden': 'Bestanden',
+  'nicht_bestanden': 'Nicht bestanden'
+};
+
 // =============================================================================
 // GENERIC HELPERS
 // =============================================================================
