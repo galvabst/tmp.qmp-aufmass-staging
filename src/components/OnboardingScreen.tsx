@@ -669,6 +669,9 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             gesamtfotoUrl={state.gesamtfotoUrl}
             onGesamtfotoUpload={handleGesamtfotoUpload}
             onRemoveGesamtfoto={() => setGesamtfotoUrl(undefined)}
+            coachingBewertung={(dbOnboardingState as any)?.coachingBewertung || 'ausstehend'}
+            coachingTermin={(dbOnboardingState as any)?.coachingTermin}
+            coachName={(dbOnboardingState as any)?.coachName}
           />
         );
 
@@ -716,7 +719,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         onBack={isPreview ? onExitPreview : goToPreviousStep}
         onNext={handleNext}
         nextLabel={getNextLabel()}
-        nextDisabled={!canProceed || isAdvancing}
+        nextDisabled={!canProceed || isAdvancing || (state.currentStep === 'nachweise' && (dbOnboardingState as any)?.coachingBewertung !== 'bestanden')}
         progress={progress}
         erstelltAm={isPreview ? undefined : dbStatus?.erstelltAm}
       >
