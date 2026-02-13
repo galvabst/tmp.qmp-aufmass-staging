@@ -1,4 +1,4 @@
-import { Calendar, Clock, MapPin, User, CheckCircle2, Home, Euro, Users } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle2, Euro, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -49,22 +49,8 @@ export function CoachingStep({
             </div>
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-primary" />
-              <span className="text-foreground">
-                {bookedSlot.uhrzeitVon} - {bookedSlot.uhrzeitBis} Uhr
-              </span>
+              <span className="text-foreground">Ganztägig</span>
             </div>
-            {bookedSlot.objektAdresse && (
-              <div className="flex items-center gap-3">
-                <MapPin className="w-5 h-5 text-primary" />
-                <span className="text-foreground">{bookedSlot.objektAdresse}</span>
-              </div>
-            )}
-            {bookedSlot.objektTyp && (
-              <div className="flex items-center gap-3">
-                <Home className="w-5 h-5 text-primary" />
-                <span className="text-foreground">Thermocheck - {bookedSlot.objektTyp}</span>
-              </div>
-            )}
             <div className="flex items-center gap-3">
               <User className="w-5 h-5 text-primary" />
               <span className="text-foreground">Coach: {bookedSlot.coachName}</span>
@@ -74,8 +60,8 @@ export function CoachingStep({
 
         <div className="bg-muted/50 rounded-xl p-4">
           <p className="text-sm text-muted-foreground">
-            📧 Du erhältst eine Bestätigungs-E-Mail mit allen Details und dem Treffpunkt. 
-            Bitte erscheine pünktlich und bringe deine komplette Ausstattung mit.
+            📧 Der Trainer wird dir den Treffpunkt rechtzeitig mitteilen. 
+            Bitte bringe deine komplette Ausstattung mit.
           </p>
         </div>
       </div>
@@ -152,21 +138,9 @@ export function CoachingStep({
                         <Calendar className="w-4 h-4 flex-shrink-0" />
                         <span>
                           {format(parseISO(slot.datum), 'EEE, dd.MM.yyyy', { locale: de })}
-                          {' · '}{slot.uhrzeitVon} - {slot.uhrzeitBis} Uhr
+                          {' · '}Ganztägig
                         </span>
                       </div>
-                      {(slot.objektPlz || slot.objektOrt) && (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 flex-shrink-0" />
-                          <span className="truncate">{slot.objektPlz} {slot.objektOrt}</span>
-                        </div>
-                      )}
-                      {slot.objektTyp && (
-                        <div className="flex items-center gap-2">
-                          <Home className="w-4 h-4 flex-shrink-0" />
-                          <span>Thermocheck - {slot.objektTyp}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -194,7 +168,7 @@ export function CoachingStep({
         <div className="sticky bottom-0 pt-4 pb-2 bg-gradient-to-t from-background to-transparent">
           <Button onClick={onBookSlot} className="w-full h-12 text-base">
             <Users className="w-5 h-5 mr-2" />
-            Mitfahrt buchen - {slots.find(s => s.id === selectedSlotId)?.preis}€
+            Mitfahrt buchen
           </Button>
         </div>
       )}
