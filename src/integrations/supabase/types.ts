@@ -9559,9 +9559,12 @@ export type Database = {
           anschrift_ort: string
           anschrift_plz: string
           anschrift_strasse: string
+          coaching_bewertung: string
           completed_steps: string[]
           current_step: string
           equipment_status: Json
+          gebuchter_coach_name: string
+          gebuchter_coaching_termin: string
           gewerbeschein_spaeter: boolean
           gewerbeschein_url: string
           intro_video_watched: boolean
