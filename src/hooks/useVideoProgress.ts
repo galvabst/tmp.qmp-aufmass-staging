@@ -28,6 +28,42 @@ interface UseVideoProgressReturn {
   };
 }
 
+// --- localStorage persistence helpers ---
+
+const VIDEO_PROGRESS_PREFIX = 'akademie_video_progress:';
+const VIDEO_PROGRESS_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+interface StoredVideoProgress {
+  watchedSeconds: number;
+  maxReachedTime: number;
+  timestamp: number;
+}
+
+function getStoredVideoProgress(lessonId: string): StoredVideoProgress | null {
+  try {
+    const raw = localStorage.getItem(VIDEO_PROGRESS_PREFIX + lessonId);
+    if (!raw) return null;
+    const parsed: StoredVideoProgress = JSON.parse(raw);
+    // TTL check: ignore entries older than 7 days
+    if (Date.now() - parsed.timestamp > VIDEO_PROGRESS_TTL_MS) {
+      localStorage.removeItem(VIDEO_PROGRESS_PREFIX + lessonId);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function setStoredVideoProgress(lessonId: string, data: Omit<StoredVideoProgress, 'timestamp'>) {
+  try {
+    const entry: StoredVideoProgress = { ...data, timestamp: Date.now() };
+    localStorage.setItem(VIDEO_PROGRESS_PREFIX + lessonId, JSON.stringify(entry));
+  } catch {
+    // Silently fail if localStorage is full
+  }
+}
+
 /**
  * Hook to track video progress for unskippable video logic.
  * Only counts forward progress - seeking doesn't artificially increase watched time.
@@ -128,13 +164,18 @@ export function useVideoProgress(
  * Hook for Bunny Stream videos using Player.js API.
  * Tracks actual playback time and prevents skipping ahead.
  * 
- * FIX: Now accepts iframe as state (HTMLIFrameElement | null) instead of RefObject
- * so the hook re-initializes when the iframe becomes available.
+ * Now supports localStorage + DB persistence via optional lessonId param.
+ * When lessonId is provided, progress survives page reloads.
  */
 export function useBunnyPlayerProgress(
   videoDurationMinutes: number,
   iframeRef: RefObject<HTMLIFrameElement | null>,
-  options: { requiredWatchPercent?: number; allowSeeking?: boolean } = {}
+  options: {
+    requiredWatchPercent?: number;
+    allowSeeking?: boolean;
+    lessonId?: string;
+    dbProgressSeconds?: number;
+  } = {}
 ): {
   canUnlockTabs: boolean;
   canMarkComplete: boolean;
@@ -144,19 +185,38 @@ export function useBunnyPlayerProgress(
   timeRemainingFormatted: string;
   isPlaying: boolean;
   isVideoEnded: boolean;
+  maxReachedTime: number;
 } {
-  const { requiredWatchPercent = 0.9, allowSeeking = false } = options;
+  const { requiredWatchPercent = 0.9, allowSeeking = false, lessonId, dbProgressSeconds } = options;
   
-  const [watchedSeconds, setWatchedSeconds] = useState(0);
+  // Restore from localStorage + DB on first mount
+  const initialProgress = useRef<{ watchedSeconds: number; maxReachedTime: number } | null>(null);
+  if (initialProgress.current === null && lessonId) {
+    const stored = getStoredVideoProgress(lessonId);
+    const dbSec = dbProgressSeconds ?? 0;
+    const lsWatched = stored?.watchedSeconds ?? 0;
+    const lsMax = stored?.maxReachedTime ?? 0;
+    initialProgress.current = {
+      watchedSeconds: Math.max(lsWatched, dbSec),
+      maxReachedTime: Math.max(lsMax, dbSec),
+    };
+    console.log('[BunnyPlayer] Restored progress for', lessonId, initialProgress.current);
+  } else if (initialProgress.current === null) {
+    initialProgress.current = { watchedSeconds: 0, maxReachedTime: 0 };
+  }
+
+  const [watchedSeconds, setWatchedSeconds] = useState(initialProgress.current.watchedSeconds);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [initAttempt, setInitAttempt] = useState(0);
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   
   // Refs for tracking state without triggering re-renders
-  const maxReachedTimeRef = useRef(0);
+  const maxReachedTimeRef = useRef(initialProgress.current.maxReachedTime);
   const lastUpdateTimeRef = useRef(0);
   const playerRef = useRef<playerjs.Player | null>(null);
+  const lastSaveTimeRef = useRef(0); // throttle localStorage writes
+  const hasRestoredRef = useRef(false); // ensure we only seek once after ready
   
   const [totalDurationSeconds, setTotalDurationSeconds] = useState(
     Math.round(videoDurationMinutes * 60)
@@ -221,8 +281,19 @@ export function useBunnyPlayerProgress(
         playerRef.current = player;
         
         player.on('ready', () => {
-          console.log('[BunnyPlayer] ✅ Player ready - events will now fire correctly');
+          console.log('[BunnyPlayer] ✅ Player ready');
           setIsPlayerReady(true);
+          
+          // Restore position after ready — only once
+          if (!hasRestoredRef.current && lessonId && !allowSeeking) {
+            const savedMax = maxReachedTimeRef.current;
+            if (savedMax > 1) {
+              console.log('[BunnyPlayer] 🔄 Restoring position to', savedMax, 'seconds');
+              player.setCurrentTime(savedMax);
+              lastUpdateTimeRef.current = savedMax;
+              hasRestoredRef.current = true;
+            }
+          }
         });
         
         player.on('play', () => {
@@ -241,6 +312,13 @@ export function useBunnyPlayerProgress(
           setIsVideoEnded(true);
           // Mark as fully watched when video ends naturally
           setWatchedSeconds(totalDurationSeconds);
+          // Save final progress to localStorage
+          if (lessonId) {
+            setStoredVideoProgress(lessonId, {
+              watchedSeconds: totalDurationSeconds,
+              maxReachedTime: totalDurationSeconds,
+            });
+          }
         });
         
         player.on('timeupdate', (data: { seconds: number; duration: number }) => {
@@ -259,6 +337,18 @@ export function useBunnyPlayerProgress(
             const timeDelta = currentTime - lastTime;
             setWatchedSeconds(prev => prev + timeDelta);
             maxReachedTimeRef.current = Math.max(maxReached, currentTime);
+            
+            // Throttled localStorage save (every 3 seconds)
+            if (lessonId) {
+              const now = Date.now();
+              if (now - lastSaveTimeRef.current > 3000) {
+                lastSaveTimeRef.current = now;
+                setStoredVideoProgress(lessonId, {
+                  watchedSeconds: watchedSeconds + timeDelta,
+                  maxReachedTime: Math.max(maxReached, currentTime),
+                });
+              }
+            }
           }
           // Skip detected: user jumped ahead of max reached position
           else if (currentTime > maxReached + 2 && !allowSeeking) {
@@ -310,6 +400,32 @@ export function useBunnyPlayerProgress(
     };
   }, [initAttempt, requiredSeconds]);
   
+  // Save to localStorage on beforeunload + visibilitychange
+  useEffect(() => {
+    if (!lessonId || allowSeeking) return;
+    
+    const saveProgress = () => {
+      setStoredVideoProgress(lessonId, {
+        watchedSeconds,
+        maxReachedTime: maxReachedTimeRef.current,
+      });
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        saveProgress();
+      }
+    };
+    
+    window.addEventListener('beforeunload', saveProgress);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('beforeunload', saveProgress);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [lessonId, allowSeeking, watchedSeconds]);
+  
   // Fallback timer if Player.js fails to initialize after 8 seconds
   useEffect(() => {
     if (isPlayerReady) return; // Player.js is working
@@ -331,7 +447,8 @@ export function useBunnyPlayerProgress(
     percentComplete, 
     timeRemainingFormatted,
     isPlaying,
-    isVideoEnded
+    isVideoEnded,
+    maxReachedTime: maxReachedTimeRef.current,
   };
 }
 
