@@ -1,40 +1,88 @@
 
 
-## Stripe 0-Euro-Bug beheben: Falsche Price ID wird verwendet
+## Zwei Fixes: Video-Skipschutz verbessern + Redirect nach Bestellung korrigieren
 
-### Problem
+### Problem 1: Videos koennen per Fortschrittsbalken vorgespult werden
 
-Die Edge Function `create-checkout-session` liest `stripe_price_id` aus der Datenbank. Diese Spalte enthaelt aber die **0-Euro-Preis-IDs**. Die richtigen Preis-IDs (mit den echten Betraegen wie 38.99, 47.99 usw.) stehen in der Spalte `extern_link`.
+Der Bunny Stream Player zeigt eine native Fortschrittsleiste (Seekbar) im iframe an. Obwohl der `useBunnyPlayerProgress`-Hook Spruenge nach vorne erkennt und zuruecksetzt (`player.setCurrentTime(maxReached)`), kann der Nutzer trotzdem kurz vorspulen, weil der Reset erst beim naechsten `timeupdate`-Event greift. Die Seekbar selbst kann nicht per JS versteckt werden, weil sie INNERHALB des Bunny-iframes liegt.
 
-### Daten-Uebersicht
+**Loesung:** CSS-Overlay ueber den unteren Bereich des iframes legen, der die Seekbar physisch verdeckt. Das Overlay wird nur beim **ersten Durchgang** angezeigt (wenn die Lektion noch nicht abgeschlossen ist). Sobald die Lektion als `abgeschlossen` markiert ist (`allowSeeking = true`), verschwindet das Overlay und die Seekbar wird nutzbar.
 
-| Produkt | stripe_price_id (0 EUR - FALSCH) | extern_link (RICHTIG) |
-|---------|----------------------------------|----------------------|
-| T-Shirt | price_1SxlelLnjPqrEfxxwdrSMrZ6 | price_1SvgcrLnjPqrEfxxgvConSYk |
-| Poloshirt | price_1Sxmc6LnjPqrEfxxi2Hw0T5P | price_1SvgtgLnjPqrEfxxEneJQgW0 |
-| Schlappen | price_1SxmacLnjPqrEfxxW060yeQC | price_1SvgwYLnjPqrEfxxldTsLr6R |
-| Pullover | price_1SxmdgLnjPqrEfxxOBY3UmMN | price_1SvgvELnjPqrEfxx4N5BArSC |
-| Ausweiskarte | price_1Sxmd1LnjPqrEfxxxEDDkR8S | price_1SvgZrLnjPqrEfxx9ByGa0UB |
-| Scanner-Lizenz | price_1SxpvhLnjPqrEfxxdZVQTgLm | price_1SvhF0LnjPqrEfxxNZn53Ydt |
-| Google Workspace | price_1SxpwOLnjPqrEfxxWYh27lg2 | price_1Svh1QLnjPqrEfxxhoLlUgo6 |
+### Problem 2: Nach Stripe-Zahlung wird das Introvideo erneut angezeigt
 
-### Loesung
+Nach einer erfolgreichen Stripe-Zahlung leitet Stripe den Nutzer zurueck auf `/?payment=success&session_id=...`. Die `OnboardingScreen`-Komponente rendert aber ZUERST das Introvideo-Gate (Zeile 376), BEVOR der Payment-Handler (Zeile 324) den Step auf `bestellungen` setzen kann. Der State `introVideoWatched` wird zwar aus der DB hydriert, aber das passiert asynchron -- beim initialen Render ist er noch `false`.
 
-Ein einziger SQL-Befehl: Die `stripe_price_id`-Spalte mit den korrekten Werten aus `extern_link` ueberschreiben.
+**Loesung:** Wenn `?payment=success` in der URL steht, das Introvideo-Gate ueberspringen und direkt zum Bestellungen-Step navigieren. Zusaetzlich: Bessere Toast-Meldungen fuer Erfolg und Fehler.
 
+---
+
+### Technische Aenderungen
+
+#### 1. MultiSourceVideoPlayer.tsx -- Seekbar-Overlay
+
+Neues optionales Prop: `hideSeekbar?: boolean`
+
+Wenn `hideSeekbar = true`:
+- Ein halbtransparentes `div` wird als CSS-Overlay ueber die unteren ~50px des iframes gelegt
+- `pointer-events: none` auf das Overlay, damit Play/Pause im oberen Bereich weiter funktioniert
+- Tatsaechlich: `pointer-events: auto` NUR auf dem Overlay-Streifen, um Klicks auf die Seekbar zu blockieren
+
+```text
++----------------------------------+
+|                                  |
+|        Video (klickbar)          |
+|                                  |
+|                                  |
++----------------------------------+
+| ████ Overlay (blockiert Seekbar) |  <-- 48px hoch, pointer-events: auto
++----------------------------------+
 ```
-UPDATE thermocheck.contractor_produkte
-SET stripe_price_id = extern_link
-WHERE ist_aktiv = true;
+
+#### 2. AkademieModul.tsx -- Overlay an Completion-Status koppeln
+
+- Wenn `isAlreadyCompleted = false` (Lektion noch nicht abgeschlossen): `hideSeekbar={true}`
+- Wenn `isAlreadyCompleted = true`: `hideSeekbar={false}` (Seekbar sichtbar, freies Spulen)
+
+#### 3. IntroVideo.tsx -- Seekbar immer versteckt + Payment-Skip
+
+- `hideSeekbar={true}` immer aktiv (Introvideo soll nie skippbar sein)
+
+#### 4. OnboardingScreen.tsx -- Payment-Redirect-Fix
+
+Aenderung im Introvideo-Gate (Zeile 376):
+
+```text
+Vorher:
+  if (!state.introVideoWatched && !isPreview) {
+    return <IntroVideo ... />;
+  }
+
+Nachher:
+  if (!state.introVideoWatched && !isPreview && !hasPaymentSuccess) {
+    return <IntroVideo ... />;
+  }
 ```
 
-### Warum kein Code-Change noetig ist
+Das stellt sicher, dass bei `?payment=success` das Video uebersprungen und direkt der Payment-Handler ausgefuehrt wird. Der Payment-Handler setzt dann `goToStep('bestellungen')`.
 
-Die Edge Function `create-checkout-session` liest bereits `stripe_price_id` korrekt aus. Sobald die DB-Werte stimmen, werden automatisch die richtigen Preise an Stripe uebergeben. Kein Code muss geaendert werden.
+Zusaetzlich: Bei `?payment=cancelled` eine Fehlermeldung anzeigen:
 
-### Risiko-Check
+```text
+Vorher:  toast.info('Zahlung abgebrochen');
+Nachher: toast.error('Es gab ein Problem mit deiner Bestellung. Bitte versuche es erneut.');
+```
 
-- Die alten 0-Euro-IDs gehen verloren (werden ueberschrieben) -- das ist gewuenscht
-- `stripe_test_price_id` bleibt unberuehrt als Backup
-- Alle 7 Produkte haben einen gueltigen `extern_link`-Wert
+---
 
+### Zusammenfassung der Dateiaenderungen
+
+| Datei | Aenderung |
+|-------|-----------|
+| `src/components/akademie/MultiSourceVideoPlayer.tsx` | Neues Prop `hideSeekbar`, rendert CSS-Overlay ueber iframe-Unterseite |
+| `src/pages/AkademieModul.tsx` | Uebergibt `hideSeekbar={!isAlreadyCompleted}` an den Player |
+| `src/components/onboarding/IntroVideo.tsx` | Uebergibt `hideSeekbar={true}` an den Player |
+| `src/components/OnboardingScreen.tsx` | Introvideo-Gate ueberspringen bei `?payment=success`; bessere Error-Toasts |
+
+### Keine DB-Aenderungen noetig
+
+Die Information "Lektion bereits abgeschlossen" kommt aus `contractor_akademie_lektions_fortschritt` (bereits vorhanden). Fuer das Introvideo kommt sie aus `intro_video_watched` in `contractor_onboarding` (bereits vorhanden).
