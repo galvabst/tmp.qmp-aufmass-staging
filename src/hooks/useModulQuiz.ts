@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
+
+// Thermocheck schema client (same pattern as useAkademieFortschritt)
+const thermocheckClient = createClient(
+  'https://keplsvhudmfaagixttql.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlcGxzdmh1ZG1mYWFnaXh0dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0OTQ4MzIsImV4cCI6MjA3MjA3MDgzMn0.pfrd37wSwqnofDinrv60YOtCqnYTc9BXq08m_TSVTNY',
+  { db: { schema: 'thermocheck' } }
+);
 
 // Types for Quiz
 export interface QuizAntwort {
@@ -12,6 +19,7 @@ export interface QuizFrage {
   frage: string;
   antworten: QuizAntwort[];
   reihenfolge: number;
+  isMultipleChoice: boolean;
 }
 
 export interface QuizErgebnis {
@@ -21,34 +29,51 @@ export interface QuizErgebnis {
   versuch: number;
   score: number;
   bestanden: boolean;
-  antworten: Record<string, number>; // fragenId -> ausgewählte Antwort Index
+  antworten: Record<string, number | number[]>;
   abgeschlossen_at: string;
 }
 
 /**
- * Hook to fetch quiz questions for a module
- * Note: Quiz data is stored in thermocheck schema which isn't exposed via REST API yet
- * Returns empty array until schema is exposed or RPC functions are created
+ * Determine if a question has multiple correct answers
+ */
+function detectMultipleChoice(antworten: QuizAntwort[]): boolean {
+  return antworten.filter(a => a.korrekt).length > 1;
+}
+
+/**
+ * Hook to fetch quiz questions for a module.
+ * Pass modulId = undefined to load ALL active questions (for Abschlussprüfung).
  */
 export function useModulQuiz(modulId: string | undefined) {
   return useQuery({
     queryKey: ['akademie-quiz', modulId],
-    queryFn: async () => {
-      if (!modulId) return [];
+    queryFn: async (): Promise<QuizFrage[]> => {
+      let query = thermocheckClient
+        .from('contractor_akademie_quiz')
+        .select('id, frage, antworten, reihenfolge')
+        .eq('ist_aktiv', true)
+        .order('reihenfolge', { ascending: true });
 
-      // Quiz data is in thermocheck schema - not accessible via standard Supabase client
-      // This will return empty until either:
-      // 1. The thermocheck schema is exposed via API
-      // 2. RPC functions are created to access the data
-      // 3. The tables are moved to public schema
-      
-      console.log('[Quiz] Thermocheck schema quiz table not yet accessible via REST API');
-      
-      // Return empty array - the QuizModal will handle this gracefully
-      // by allowing module completion without quiz
-      return [] as QuizFrage[];
+      if (modulId) {
+        query = query.eq('modul_id', modulId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.warn('[Quiz] Error fetching questions:', error);
+        return [];
+      }
+
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        frage: row.frage,
+        antworten: row.antworten as QuizAntwort[],
+        reihenfolge: row.reihenfolge,
+        isMultipleChoice: detectMultipleChoice(row.antworten as QuizAntwort[]),
+      }));
     },
-    enabled: !!modulId,
+    enabled: modulId !== null, // enabled when modulId is undefined (all) or a string
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -59,13 +84,25 @@ export function useModulQuiz(modulId: string | undefined) {
 export function useQuizErgebnis(modulId: string | undefined, contractorId: string | undefined) {
   return useQuery({
     queryKey: ['quiz-ergebnis', modulId, contractorId],
-    queryFn: async () => {
+    queryFn: async (): Promise<QuizErgebnis | null> => {
       if (!modulId || !contractorId) return null;
 
-      // Quiz results are in thermocheck schema - not accessible via standard Supabase client
-      console.log('[Quiz] Thermocheck schema quiz_ergebnis table not yet accessible');
-      
-      return null as QuizErgebnis | null;
+      const { data, error } = await thermocheckClient
+        .from('contractor_akademie_quiz_ergebnis')
+        .select('*')
+        .eq('contractor_id', contractorId)
+        .eq('modul_id', modulId)
+        .eq('bestanden', true)
+        .order('abgeschlossen_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('[Quiz] Error fetching result:', error);
+        return null;
+      }
+
+      return data as QuizErgebnis | null;
     },
     enabled: !!modulId && !!contractorId,
     staleTime: 60 * 1000,
@@ -74,7 +111,6 @@ export function useQuizErgebnis(modulId: string | undefined, contractorId: strin
 
 /**
  * Hook to submit quiz answers
- * Note: This won't work until thermocheck schema is exposed or RPC is created
  */
 export function useSubmitQuiz() {
   const queryClient = useQueryClient();
@@ -90,29 +126,49 @@ export function useSubmitQuiz() {
       contractorId: string;
       modulId: string;
       fragen: QuizFrage[];
-      antworten: Record<string, number>;
+      antworten: Record<string, number | number[]>;
       bestehensSchwelle?: number;
     }) => {
-      // Calculate score locally
+      // Calculate score
       let correct = 0;
       for (const frage of fragen) {
-        const selectedIndex = antworten[frage.id];
-        if (selectedIndex !== undefined && frage.antworten[selectedIndex]?.korrekt) {
-          correct++;
+        const selected = antworten[frage.id];
+        if (frage.isMultipleChoice) {
+          // Multiple choice: all correct must be selected, no incorrect
+          const selectedIndices = Array.isArray(selected) ? selected : [];
+          const correctIndices = frage.antworten
+            .map((a, i) => a.korrekt ? i : -1)
+            .filter(i => i !== -1);
+          const isCorrect =
+            correctIndices.length === selectedIndices.length &&
+            correctIndices.every(i => selectedIndices.includes(i));
+          if (isCorrect) correct++;
+        } else {
+          // Single choice
+          const selectedIndex = typeof selected === 'number' ? selected : -1;
+          if (selectedIndex !== -1 && frage.antworten[selectedIndex]?.korrekt) {
+            correct++;
+          }
         }
       }
       const total = fragen.length;
-      const score = total > 0 ? Math.round((correct / total) * 100) : 100; // 100% if no questions
+      const score = total > 0 ? Math.round((correct / total) * 100) : 100;
       const bestanden = score >= bestehensSchwelle;
 
-      // Quiz submission to thermocheck schema is not available yet
-      // Return local result for now
-      console.log('[Quiz] Submit would write to thermocheck schema:', {
-        contractorId,
-        modulId,
-        score,
-        bestanden,
-      });
+      // Try to save to DB
+      try {
+        await thermocheckClient
+          .from('contractor_akademie_quiz_ergebnis')
+          .insert({
+            contractor_id: contractorId,
+            modul_id: modulId,
+            score,
+            bestanden,
+            antworten: antworten as any,
+          });
+      } catch (e) {
+        console.warn('[Quiz] Could not save result to DB:', e);
+      }
 
       return {
         ergebnis: {
@@ -132,26 +188,37 @@ export function useSubmitQuiz() {
       };
     },
     onSuccess: (_, variables) => {
-      // Invalidate quiz results cache
-      queryClient.invalidateQueries({ 
-        queryKey: ['quiz-ergebnis', variables.modulId] 
+      queryClient.invalidateQueries({
+        queryKey: ['quiz-ergebnis', variables.modulId],
       });
     },
   });
 }
 
 /**
- * Calculate quiz score from answers
+ * Calculate quiz score from answers (supports both single and multiple choice)
  */
 export function calculateQuizScore(
   fragen: QuizFrage[],
-  antworten: Record<string, number>
+  antworten: Record<string, number | number[]>
 ): { score: number; correct: number; total: number } {
   let correct = 0;
   for (const frage of fragen) {
-    const selectedIndex = antworten[frage.id];
-    if (selectedIndex !== undefined && frage.antworten[selectedIndex]?.korrekt) {
-      correct++;
+    const selected = antworten[frage.id];
+    if (frage.isMultipleChoice) {
+      const selectedIndices = Array.isArray(selected) ? selected : [];
+      const correctIndices = frage.antworten
+        .map((a, i) => a.korrekt ? i : -1)
+        .filter(i => i !== -1);
+      const isCorrect =
+        correctIndices.length === selectedIndices.length &&
+        correctIndices.every(i => selectedIndices.includes(i));
+      if (isCorrect) correct++;
+    } else {
+      const selectedIndex = typeof selected === 'number' ? selected : -1;
+      if (selectedIndex !== -1 && frage.antworten[selectedIndex]?.korrekt) {
+        correct++;
+      }
     }
   }
   const score = fragen.length > 0 ? Math.round((correct / fragen.length) * 100) : 0;
