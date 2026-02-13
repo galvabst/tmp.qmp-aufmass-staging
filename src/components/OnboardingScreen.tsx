@@ -13,6 +13,7 @@ import { CoachingStep } from './onboarding/steps/CoachingStep';
 import { OnboardingComplete } from './onboarding/OnboardingComplete';
 import { WaitingForApproval } from './onboarding/WaitingForApproval';
 import { IntroVideo } from './onboarding/IntroVideo';
+import { OnboardingLoadingScreen } from '@/components/ui/OnboardingLoadingScreen';
 import { useOnboardingState, clearOnboardingLocalStorage } from '@/hooks/useOnboardingState';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useContractorProfile } from '@/hooks/useContractorProfile';
@@ -151,6 +152,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setCoachingAbgeschlossen,
     hydrateAkademieFromDb,
     setIntroVideoWatched,
+    hydrateFromDb,
   } = useOnboardingState(initialProfile, isPreview, forceReset);
   
   // Unlock "Weiter" sobald der Schritt gewechselt hat
@@ -160,52 +162,23 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setIsAdvancing(false);
   }, [state.currentStep]);
 
-  // Hydrate Onboarding-State aus DB (Gewerbeschein + Fortschritt + Equipment + Akademie-Test)
+  // Hydrate Onboarding-State aus DB (atomare Hydration - ein einziger setState-Aufruf)
   useEffect(() => {
     if (isPreview || hasHydratedOnboardingStateRef.current || !isOnboardingStateLoaded || !dbOnboardingState) return;
     hasHydratedOnboardingStateRef.current = true;
 
-    console.log('[Onboarding] Hydrating onboarding state from DB:', dbOnboardingState);
+    console.log('[Onboarding] Hydrating onboarding state from DB (atomic):', dbOnboardingState);
 
-    // Gewerbeschein-Daten
-    if (dbOnboardingState.gewerbescheinUrl) {
-      setGewerbescheinUrl(dbOnboardingState.gewerbescheinUrl);
-    }
-    if (dbOnboardingState.gewerbescheinSpaeter) {
-      setGewerbescheinSpaeter(true);
-    }
-
-    // Equipment-Status aus DB hydrieren
-    if (dbOnboardingState.equipmentStatus) {
-      Object.entries(dbOnboardingState.equipmentStatus).forEach(([equipId, status]) => {
-        updateEquipmentStatus(equipId, status);
-      });
-      console.log('[Onboarding] Equipment status hydrated from DB:', dbOnboardingState.equipmentStatus);
-    }
-
-    // Akademie-Test-Status aus DB hydrieren
-    if (dbOnboardingState.akademieTestBestanden) {
-      setAkademieTestBestanden(true);
-      console.log('[Onboarding] Akademie test bestanden hydrated from DB');
-    }
-
-    // Intro-Video-Status aus DB hydrieren
-    if (dbOnboardingState.introVideoWatched) {
-      setIntroVideoWatched(true);
-      console.log('[Onboarding] Intro video watched hydrated from DB');
-    }
-
-    // Fortschritt aus DB (hat Vorrang vor localStorage)
-    if (dbOnboardingState.currentStep) {
-      goToStep(dbOnboardingState.currentStep);
-    }
-    if (dbOnboardingState.completedSteps && dbOnboardingState.completedSteps.length > 0) {
-      dbOnboardingState.completedSteps.forEach(step => {
-        if (!state.completedSteps.includes(step)) {
-        }
-      });
-    }
-  }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, setGewerbescheinUrl, setGewerbescheinSpaeter, goToStep, state.completedSteps, updateEquipmentStatus, setAkademieTestBestanden]);
+    hydrateFromDb({
+      gewerbescheinUrl: dbOnboardingState.gewerbescheinUrl,
+      gewerbescheinSpaeter: dbOnboardingState.gewerbescheinSpaeter,
+      currentStep: dbOnboardingState.currentStep,
+      completedSteps: dbOnboardingState.completedSteps,
+      equipmentStatus: dbOnboardingState.equipmentStatus,
+      akademieTestBestanden: dbOnboardingState.akademieTestBestanden,
+      introVideoWatched: dbOnboardingState.introVideoWatched,
+    });
+  }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, hydrateFromDb]);
 
   // Sync DB-Profil in State wenn geladen
   useEffect(() => {
@@ -376,6 +349,13 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   }, [location.state, completeAkademieModul, completeAkademieUnterpunkt, goToStep, navigate]);
 
   const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
+
+  // Loading-Gate: Warte auf DB-Hydration BEVOR IntroVideo-Check greift
+  const isHydrationPending = !isPreview && !hasHydratedOnboardingStateRef.current && !isOnboardingStateLoaded;
+
+  if (isHydrationPending) {
+    return <OnboardingLoadingScreen message="Lade Fortschritt..." />;
+  }
 
   // Intro-Video Gate: Zeige das unskippable Video BEVOR das Onboarding startet
   if (!state.introVideoWatched && !isPreview && !paymentRedirectRef.current) {
