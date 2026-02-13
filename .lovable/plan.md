@@ -1,39 +1,30 @@
 
 
-## Forum fuer ThermoCheck-Contractor
+## Reihenfolge aendern: Coaching vor Nachweise
 
-### Status: IMPLEMENTIERT ✅
+Die Schritte 6 und 7 werden getauscht. Neue Reihenfolge:
 
-### Zusammenfassung
+1. Profil -> 2. Dokumente -> 3. Bestellungen -> 4. Equipment -> 5. Akademie -> **6. Coaching** -> **7. Nachweise**
 
-Ein neuer "Forum"-Tab in der BottomNav, in dem alle freigeschalteten Contractor (onboarding_status = 'ready') Fragen stellen und beantworten koennen. Antworten von Trainern (is_trainer = true) werden visuell hervorgehoben und koennen als "akzeptierte Antwort" markiert werden.
+Logik: Erst die Mitfahrt beim Trainer absolvieren, dann bestaetigen, dass alles da ist und man einsatzbereit ist.
 
-### Implementierte Komponenten
+---
 
-**Datenbank:**
-- `thermocheck.contractor_onboarding.is_trainer` (boolean, default false)
-- `thermocheck.contractor_forum_threads` -- Fragen/Threads
-- `thermocheck.contractor_forum_antworten` -- Antworten
-- RLS: Nur ready Contractors + Admins, serverseitige Trainer-Pruefung
-- Helper-Funktionen: `thermocheck.is_ready_contractor()`, `thermocheck.is_trainer()`
+### Aenderungen
 
-**Frontend:**
-- `src/features/forum/ui/ForumView.tsx` -- Hauptansicht mit Filter (Alle/Unbeantwortete)
-- `src/features/forum/ui/ForumThreadCard.tsx` -- Thread-Vorschau
-- `src/features/forum/ui/ForumThreadDetail.tsx` -- Detailansicht + Antwort-Eingabe
-- `src/features/forum/ui/ForumNewThread.tsx` -- Neue Frage erstellen
-- `src/features/forum/ui/ForumAntwortCard.tsx` -- Antwort-Karte (Trainer hervorgehoben)
-- `src/features/forum/ui/TrainerBadge.tsx` -- Visuelles Badge
-- `src/features/forum/hooks/useForumThreads.ts`
-- `src/features/forum/hooks/useForumAntworten.ts`
-- `src/features/forum/hooks/useCreateThread.ts`
-- `src/features/forum/hooks/useCreateAntwort.ts`
+**1. `src/types/onboarding.ts`** -- STEP_ORDER Array anpassen:
+- `coaching` vor `nachweise` setzen
 
-**Navigation:**
-- BottomNav: 6 Tabs (Pool, Buchungen, Aktiv, Pruefung, Forum, Profil)
-- Icons auf 18px, Labels auf 9px fuer Mobile-Kompatibilitaet
+**2. `src/lib/onboarding-config.ts`** -- ONBOARDING_STEPS Array anpassen:
+- Coaching-Eintrag vor Nachweise-Eintrag verschieben
 
-### Phase 2 (spaeter)
-- Push-Benachrichtigungen bei neuen Fragen
-- Akzeptierte Antwort markieren (UI-Button)
-- Realtime-Subscriptions
+**3. `src/components/OnboardingScreen.tsx`** -- Button-Labels und Fortschrittslogik anpassen:
+- `getNextLabel()`: "Weiter zu Coaching" nach Akademie, "Weiter zu Nachweise" nach Coaching, "Onboarding abschliessen" bei Nachweise
+- `handleNext()`: Step-Array in der Fortschrittsspeicherung aktualisieren
+- Completion-Check: `isComplete` basiert jetzt auf `nachweise` als letztem Schritt (Nachweise-Abschluss statt Coaching-Abschluss)
+
+**4. `src/hooks/useOnboardingState.ts`** -- isComplete Pruefung anpassen:
+- `isComplete` auf letzten Schritt (jetzt `nachweise`) umstellen statt `coachingAbgeschlossen`
+
+Keine DB-Migration noetig -- die Reihenfolge ist rein Frontend-seitig gesteuert.
+
