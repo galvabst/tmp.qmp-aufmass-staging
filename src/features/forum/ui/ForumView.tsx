@@ -1,0 +1,98 @@
+import { useState } from 'react';
+import { Plus, Filter } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ForumThreadCard } from './ForumThreadCard';
+import { ForumThreadDetail } from './ForumThreadDetail';
+import { ForumNewThread } from './ForumNewThread';
+import { useForumThreads, type ForumThread } from '../hooks/useForumThreads';
+
+export function ForumView() {
+  const [view, setView] = useState<'list' | 'detail' | 'new'>('list');
+  const [selectedThread, setSelectedThread] = useState<ForumThread | null>(null);
+  const [filter, setFilter] = useState<'alle' | 'unbeantwortet'>('alle');
+  const { data: threads, isLoading } = useForumThreads(filter);
+
+  if (view === 'new') {
+    return (
+      <ForumNewThread
+        onBack={() => setView('list')}
+        onCreated={() => setView('list')}
+      />
+    );
+  }
+
+  if (view === 'detail' && selectedThread) {
+    return (
+      <ForumThreadDetail
+        thread={selectedThread}
+        onBack={() => {
+          setView('list');
+          setSelectedThread(null);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      <header className="sticky top-0 z-40 bg-card border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold text-foreground">Forum</h1>
+          <Button size="sm" onClick={() => setView('new')} className="gap-1.5">
+            <Plus className="w-4 h-4" />
+            Frage stellen
+          </Button>
+        </div>
+        {/* Filter */}
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={() => setFilter('alle')}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              filter === 'alle'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border'
+            }`}
+          >
+            Alle Fragen
+          </button>
+          <button
+            onClick={() => setFilter('unbeantwortet')}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              filter === 'unbeantwortet'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border'
+            }`}
+          >
+            Unbeantwortete
+          </button>
+        </div>
+      </header>
+
+      <div className="p-4 space-y-3">
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground text-center py-12">Laden...</div>
+        ) : threads && threads.length > 0 ? (
+          threads.map(thread => (
+            <ForumThreadCard
+              key={thread.id}
+              thread={thread}
+              onClick={t => {
+                setSelectedThread(t);
+                setView('detail');
+              }}
+            />
+          ))
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-sm text-muted-foreground mb-4">
+              {filter === 'unbeantwortet' ? 'Keine unbeantworteten Fragen!' : 'Noch keine Fragen – stelle die erste!'}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setView('new')}>
+              Frage stellen
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

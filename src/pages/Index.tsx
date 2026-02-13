@@ -6,6 +6,7 @@ import { BookingsView } from '@/components/BookingsView';
 import { ActiveOrdersView } from '@/components/ActiveOrdersView';
 import { ReviewView } from '@/components/ReviewView';
 import { ProfileView } from '@/components/ProfileView';
+import { ForumView } from '@/features/forum/ui/ForumView';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { TechnicianOrderDetail } from '@/components/TechnicianOrderDetail';
 import { mockTechnicianOrders } from '@/data/mockTechnicianData';
@@ -326,6 +327,10 @@ const Index = () => {
           orders={orders} 
           onOrderClick={handleOrderClick}
         />
+      )}
+
+      {activeTab === 'forum' && (
+        <ForumView />
       )}
       
       {activeTab === 'profile' && (

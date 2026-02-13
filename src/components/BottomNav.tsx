@@ -1,7 +1,7 @@
-import { MapPin, Calendar, Clock, CheckCircle2, User } from 'lucide-react';
+import { MapPin, Calendar, Clock, CheckCircle2, User, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type Tab = 'pool' | 'bookings' | 'active' | 'review' | 'profile';
+export type Tab = 'pool' | 'bookings' | 'active' | 'review' | 'forum' | 'profile';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -25,6 +25,7 @@ export function BottomNav({
     { id: 'bookings' as Tab, label: 'Buchungen', icon: Calendar, badge: bookingsCount },
     { id: 'active' as Tab, label: 'Aktiv', icon: Clock, badge: activeCount },
     { id: 'review' as Tab, label: 'Prüfung', icon: CheckCircle2, badge: reviewCount },
+    { id: 'forum' as Tab, label: 'Forum', icon: MessageCircle },
     { id: 'profile' as Tab, label: 'Profil', icon: User },
   ];
 
@@ -45,14 +46,14 @@ export function BottomNav({
               )}
             >
               <div className="relative">
-                <Icon className={cn('w-5 h-5', isActive && 'stroke-[2.5px]')} />
+                <Icon className={cn('w-[18px] h-[18px]', isActive && 'stroke-[2.5px]')} />
                 {tab.badge !== undefined && tab.badge > 0 && (
                   <span className="absolute -top-1.5 -right-2 bg-accent text-accent-foreground text-[10px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1">
                     {tab.badge}
                   </span>
                 )}
               </div>
-              <span className={cn('text-[10px] mt-1', isActive && 'font-semibold')}>
+              <span className={cn('text-[9px] mt-0.5', isActive && 'font-semibold')}>
                 {tab.label}
               </span>
             </button>
