@@ -10,7 +10,8 @@ import { MultiSourceVideoPlayer, detectVideoSource, VideoPlayerHandle } from '@/
 import { isUuid } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { useBunnyPlayerProgress, useIframeLessonProgress } from '@/hooks/useVideoProgress';
-import { useIsLektionAlreadyCompleted } from '@/hooks/useAkademieFortschritt';
+import { useIsLektionAlreadyCompleted, useMyContractorOnboardingId, useLektionVideoProgress } from '@/hooks/useAkademieFortschritt';
+import { useSaveVideoProgress } from '@/hooks/useSaveVideoProgress';
 import { Progress } from '@/components/ui/progress';
 
 const STORAGE_KEY = 'thermocheck_onboarding_state_v2';
@@ -244,12 +245,34 @@ function AkademieModulContent({
   // Check if this lesson was already completed (localStorage + DB)
   const isAlreadyCompleted = useIsLektionAlreadyCompleted(unterpunkt.id);
   
+  // Get contractor onboarding ID for DB persistence
+  const { data: contractorId } = useMyContractorOnboardingId();
+  
+  // Get saved video progress from DB
+  const { data: dbProgressSeconds } = useLektionVideoProgress(
+    contractorId ?? null,
+    unterpunkt.id
+  );
+  
   // Use Bunny Player.js hook for Bunny Stream, fallback timer for YouTube
   const bunnyProgress = useBunnyPlayerProgress(
     unterpunkt.dauerMinuten,
     iframeRefObject,
-    { allowSeeking: isAlreadyCompleted }
+    {
+      allowSeeking: isAlreadyCompleted,
+      lessonId: unterpunkt.id,
+      dbProgressSeconds: dbProgressSeconds ?? 0,
+    }
   );
+  
+  // Persist video progress to DB (throttled)
+  useSaveVideoProgress({
+    contractorId: contractorId ?? null,
+    lektionId: unterpunkt.id,
+    watchedSeconds: bunnyProgress.watchedSeconds,
+    maxReachedTime: bunnyProgress.maxReachedTime,
+    isCompleted: isAlreadyCompleted,
+  });
   
   const fallbackProgress = useIframeLessonProgress(unterpunkt.dauerMinuten);
   

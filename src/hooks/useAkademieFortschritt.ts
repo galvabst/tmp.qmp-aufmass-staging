@@ -13,9 +13,6 @@ const thermocheckClient = createClient(
 /**
  * Hook to fetch completed lektion IDs from contractor_akademie_lektions_fortschritt.
  * Returns a Set<string> of lektion_ids with status 'completed'.
- * 
- * BUG FIX: Changed .eq('onboarding_id', ...) to .eq('contractor_id', ...) 
- * to match the actual column name in the table.
  */
 export function useAkademieFortschritt(contractorId: string | null) {
   return useQuery({
@@ -44,11 +41,62 @@ export function useAkademieFortschritt(contractorId: string | null) {
 }
 
 /**
+ * Fetch video_progress_seconds for a specific lektion from DB.
+ * Used to restore video position after page reload.
+ */
+export function useLektionVideoProgress(contractorId: string | null, lektionId: string | undefined) {
+  return useQuery({
+    queryKey: ['lektion-video-progress', contractorId, lektionId],
+    queryFn: async (): Promise<number> => {
+      if (!contractorId || !lektionId) return 0;
+
+      const { data, error } = await thermocheckClient
+        .from('contractor_akademie_lektions_fortschritt')
+        .select('video_progress_seconds')
+        .eq('contractor_id', contractorId)
+        .eq('lektion_id', lektionId)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('[LektionVideoProgress] Error:', error);
+        return 0;
+      }
+
+      return data?.video_progress_seconds ?? 0;
+    },
+    enabled: !!contractorId && !!lektionId,
+    staleTime: 0, // Always fresh on mount
+  });
+}
+
+/**
+ * Fetch the contractor's onboarding ID for the current auth user.
+ * Uses get_my_contractor_onboarding RPC which returns the onboarding record.
+ */
+export function useMyContractorOnboardingId() {
+  return useQuery({
+    queryKey: ['my-contractor-onboarding-id'],
+    queryFn: async (): Promise<string | null> => {
+      // Try thermocheck schema first
+      const { data, error } = await thermocheckClient.rpc('get_my_contractor_onboarding');
+
+      if (error) {
+        console.warn('[useMyContractorOnboardingId] RPC failed:', error);
+        return null;
+      }
+
+      if (Array.isArray(data) && data.length > 0) {
+        return data[0].id || null;
+      }
+      return null;
+    },
+    staleTime: 10 * 60 * 1000, // Cache 10 min
+  });
+}
+
+/**
  * Check if a specific lektion has already been completed.
  * Checks both localStorage (onboarding state) and DB progress (via useAkademieFortschritt).
- * 
- * Returns true if the lektion is marked as abgeschlossen in localStorage
- * OR if it exists in the DB fortschritt set.
  */
 export function useIsLektionAlreadyCompleted(
   lektionId: string | undefined,
@@ -70,7 +118,6 @@ export function useIsLektionAlreadyCompleted(
 
     // 2. Check localStorage onboarding state
     try {
-      // Try all possible storage keys (user-namespaced and legacy)
       const keys = Object.keys(localStorage).filter(k => k.startsWith(ONBOARDING_STORAGE_KEY_PREFIX));
       
       for (const key of keys) {
@@ -87,7 +134,6 @@ export function useIsLektionAlreadyCompleted(
               setIsCompleted(true);
               return;
             }
-            // Check children (sub-lessons)
             for (const child of (up.children || [])) {
               if (child.id === lektionId && child.abgeschlossen) {
                 setIsCompleted(true);

@@ -21,7 +21,7 @@ export function IntroVideo({ onComplete }: IntroVideoProps) {
     percentComplete,
     timeRemainingFormatted,
     isVideoEnded,
-  } = useBunnyPlayerProgress(30, iframeRef);
+  } = useBunnyPlayerProgress(30, iframeRef, { lessonId: 'intro-video' });
 
   const syncIframeRef = () => {
     const iframe = playerRef.current?.getIframeRef();
