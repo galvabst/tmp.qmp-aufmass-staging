@@ -1,43 +1,97 @@
 
 
-## Coaching-Slots: Ganztaegige Mitfahrt statt Einzeltermine
+## Trainer-Freigabe-Gate mit ENUM-Feldern (kein Freitext)
 
-### Was sich aendert
+### Ueberblick
 
-Die Coaching-Karten zeigen aktuell einzelne Auftraege mit Uhrzeiten (z.B. "09:00 - 11:00 Uhr"). Stattdessen soll dargestellt werden, dass der Trainee den **ganzen Tag** mit dem Trainer mitfaehrt. Ausserdem sollen keine Objekt-Details (PLZ, Ort, Objekttyp) mehr angezeigt werden -- nur der **Trainer-Name**, die **Region**, das **Datum** und der **Preis**.
+Der Nachweise-Schritt (letzter Onboarding-Schritt) wird blockiert, bis der Trainer nach der Mitfahrt die Freigabe erteilt. Alle Status-Felder verwenden ausschliesslich ENUMs -- kein Freitext.
 
-### Aenderungen
+---
 
-**1. Mock-Daten anpassen (`src/lib/onboarding-config.ts`)**
-- Uhrzeiten entfernen oder auf "Ganztaegig" setzen (z.B. `uhrzeitVon: 'Ganztägig'`, `uhrzeitBis: ''`)
-- `objektPlz`, `objektOrt`, `objektTyp`, `objektAdresse` aus den Mock-Slots entfernen -- diese Details sind fuer den Trainee nicht relevant, da der Trainer den Treffpunkt mitteilt
+### 1. Neuer Postgres ENUM-Typ
 
-**2. Coaching-Karten vereinfachen (`src/components/onboarding/steps/CoachingStep.tsx`)**
+```sql
+CREATE TYPE thermocheck.coaching_bewertung_enum AS ENUM (
+  'ausstehend',
+  'bestanden',
+  'nicht_bestanden'
+);
+```
 
-Vorher (pro Karte):
-- Coach-Name + Region
-- Datum + Uhrzeit
-- PLZ + Ort
-- Objekttyp (Einfamilienhaus etc.)
+### 2. Datenbank-Migration
 
-Nachher (pro Karte):
-- Coach-Name + Region
-- Datum (nur Tag, z.B. "Mi., 28.01.2026") + "Ganztaegig"
-- Kein Ort, kein Objekttyp
+Neue Spalten in `thermocheck.contractor_onboarding`:
 
-Konkrete Aenderungen in der Slot-Karte:
-- Uhrzeit-Anzeige aendern: Statt `{slot.uhrzeitVon} - {slot.uhrzeitBis} Uhr` nur **"Ganztägig"** anzeigen
-- PLZ/Ort-Zeile (`objektPlz`, `objektOrt`) komplett entfernen
-- Objekttyp-Zeile (`objektTyp`) komplett entfernen
+| Spalte | Typ | Default | Beschreibung |
+|--------|-----|---------|-------------|
+| coaching_bewertung | thermocheck.coaching_bewertung_enum | 'ausstehend' | Trainer-Entscheidung |
+| coaching_bewertung_am | timestamptz | null | Zeitpunkt der Bewertung |
+| gebuchter_coaching_termin | date | null | Datum des Termins (Anzeige) |
+| gebuchter_coach_name | text | null | Name des Trainers (Anzeige) |
 
-**3. Bestaetigungsansicht anpassen (gebuchter Slot)**
-- Uhrzeit-Zeile: "Ganztägig" statt Von-Bis
-- Adresse und Objekttyp entfernen (Trainer teilt Treffpunkt per E-Mail mit)
-- Hinweis-Text anpassen: "Der Trainer wird dir den Treffpunkt rechtzeitig mitteilen"
+Kein Kommentar-Feld (war Freitext) -- stattdessen genuegt der ENUM-Status.
 
-**4. Button-Text anpassen**
-- "Mitfahrt buchen" statt "Mitfahrt buchen - 149€" (Preis bleibt im Badge der Karte sichtbar)
+### 3. TypeScript ENUM in `src/lib/enums.ts`
 
-### Keine DB- oder Typ-Aenderungen noetig
-Die `CoachingSlot`-Felder (`uhrzeitVon`, `objektPlz` etc.) bleiben im Interface bestehen, da sie spaeter aus der DB kommen koennten. Wir blenden sie nur im UI aus.
+```typescript
+// COACHING BEWERTUNG
+export const COACHING_BEWERTUNG_VALUES = [
+  'ausstehend',
+  'bestanden', 
+  'nicht_bestanden'
+] as const;
+
+export type CoachingBewertungEnum = typeof COACHING_BEWERTUNG_VALUES[number];
+
+export const COACHING_BEWERTUNG_LABELS: Record<CoachingBewertungEnum, string> = {
+  'ausstehend': 'Ausstehend',
+  'bestanden': 'Bestanden',
+  'nicht_bestanden': 'Nicht bestanden'
+};
+```
+
+### 4. UI-Aenderungen im Nachweise-Schritt (`ProofStep.tsx`)
+
+Neuer Bereich unterhalb des Gesamtfotos:
+
+- **coaching_bewertung = 'ausstehend'**: Lock-Icon + grauer Info-Kasten mit gebuchtem Termin-Datum und Trainer-Name. Text: "Der Trainer gibt dir die Freigabe nach eigenem Ermessen nach deinem Termin." Button "Onboarding abschliessen" ist grau/disabled.
+- **coaching_bewertung = 'bestanden'**: Gruener Haken, Button aktiv.
+- **coaching_bewertung = 'nicht_bestanden'**: Contractor wird zurueckgestuft auf Coaching-Schritt (siehe Punkt 6).
+
+Neue Props fuer `ProofStep`:
+- `coachingBewertung: CoachingBewertungEnum`
+- `coachingTermin?: string` (Datum)
+- `coachName?: string`
+
+### 5. OnboardingScreen-Aenderungen
+
+- `nextDisabled` im Nachweise-Schritt: zusaetzlich pruefen ob `coaching_bewertung === 'bestanden'`
+- Coaching-Bewertung aus `useContractorProfile` laden (neue DB-Felder)
+- An `ProofStep` als Props durchreichen
+
+### 6. Rueckstufungs-Flow bei 'nicht_bestanden'
+
+- Wenn `coaching_bewertung === 'nicht_bestanden'` aus DB kommt:
+  - `current_step` wird auf `'coaching'` gesetzt
+  - `'coaching'` wird aus `completed_steps` entfernt
+  - Im Coaching-Schritt erscheint ein Warn-Banner: "Eine weitere Mitfahrt ist erforderlich."
+  - Contractor muss neuen Termin buchen
+  - Nach Buchung wird `coaching_bewertung` auf `'ausstehend'` zurueckgesetzt
+
+### 7. Trainer-UI (`QGQueueView.tsx`)
+
+Zwei Buttons pro Onboarding-Eintrag:
+- "Freigeben" setzt `coaching_bewertung = 'bestanden'`
+- "Zurueckstufen" setzt `coaching_bewertung = 'nicht_bestanden'` + aktualisiert `completed_steps` und `current_step`
+
+### 8. Betroffene Dateien
+
+- **Migration**: Neuer ENUM-Typ + ALTER TABLE
+- `src/lib/enums.ts`: Neuer ENUM-Block
+- `src/components/onboarding/steps/ProofStep.tsx`: Freigabe-Gate UI
+- `src/components/OnboardingScreen.tsx`: Button-Disable + Props weiterleiten
+- `src/components/onboarding/steps/CoachingStep.tsx`: Warn-Banner bei nicht_bestanden
+- `src/hooks/useContractorProfile.ts`: Neue Felder laden
+- `src/hooks/useOnboardingState.ts`: isComplete-Pruefung anpassen
+- `src/features/quality-gate/ui/QGQueueView.tsx`: Trainer-Buttons
 
