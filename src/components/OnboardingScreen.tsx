@@ -524,7 +524,19 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       }
     }
 
-    if (state.currentStep === 'coaching' && state.coachingAbgeschlossen) {
+    // Nachweise ist der letzte Schritt – Onboarding abschließen
+    if (state.currentStep === 'nachweise') {
+      // Alle Schritte als abgeschlossen markieren
+      const allSteps = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+      try {
+        await saveProgress({
+          currentStep: 'nachweise',
+          completedSteps: allSteps,
+        });
+      } catch (error) {
+        console.warn('[Onboarding] Failed to save final progress:', error);
+      }
+      setCoachingAbgeschlossen(true); // triggers isComplete
       nextClickLockRef.current = false;
       setIsAdvancing(false);
       return;
@@ -538,8 +550,9 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         ? state.completedSteps
         : [...state.completedSteps, state.currentStep];
       
-      const nextStepIndex = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'nachweise', 'coaching'].indexOf(state.currentStep);
-      const nextStep = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'nachweise', 'coaching'][nextStepIndex + 1];
+      const stepOrder = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+      const nextStepIndex = stepOrder.indexOf(state.currentStep);
+      const nextStep = stepOrder[nextStepIndex + 1];
       
       if (nextStep) {
         await saveProgress({
@@ -559,9 +572,9 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       case 'dokumente': return 'Weiter zu Bestellungen';
       case 'bestellungen': return 'Weiter zu Equipment';
       case 'equipment': return 'Jetzt zur Akademie';
-      case 'akademie': return 'Weiter zu Nachweise';
-      case 'nachweise': return 'Weiter zu Coaching';
-      case 'coaching': return 'Onboarding abschließen';
+      case 'akademie': return 'Weiter zu Coaching';
+      case 'coaching': return 'Weiter zu Nachweise';
+      case 'nachweise': return 'Onboarding abschließen';
       default: return 'Weiter';
     }
   };
