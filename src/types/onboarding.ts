@@ -191,8 +191,8 @@ export const STEP_ORDER: OnboardingStepId[] = [
   'bestellungen',
   'equipment',
   'akademie',
-  'nachweise',
   'coaching',
+  'nachweise',
 ];
 
 export function getStepIndex(stepId: OnboardingStepId): number {

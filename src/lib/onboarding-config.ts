@@ -43,16 +43,16 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
     icon: 'graduation-cap',
   },
   {
-    id: 'nachweise',
-    label: 'Nachweise',
-    description: 'Bestätige den Erhalt deiner Ausstattung',
-    icon: 'check-square',
-  },
-  {
     id: 'coaching',
     label: 'Coaching',
     description: 'Buche deine Praxis-Begleitung',
     icon: 'users',
+  },
+  {
+    id: 'nachweise',
+    label: 'Nachweise',
+    description: 'Bestätige den Erhalt deiner Ausstattung',
+    icon: 'check-square',
   },
 ];
 
