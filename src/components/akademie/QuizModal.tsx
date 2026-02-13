@@ -34,7 +34,7 @@ export function QuizModal({
   modulTitel,
   contractorId,
   onQuizComplete,
-  bestehensSchwelle = 80,
+  bestehensSchwelle = 100,
 }: QuizModalProps) {
   const [state, setState] = useState<QuizState>('loading');
   const [currentIndex, setCurrentIndex] = useState(0);

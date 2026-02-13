@@ -121,7 +121,7 @@ export function useSubmitQuiz() {
       modulId,
       fragen,
       antworten,
-      bestehensSchwelle = 80,
+      bestehensSchwelle = 100,
     }: {
       contractorId: string;
       modulId: string;
