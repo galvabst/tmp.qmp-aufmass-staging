@@ -1,52 +1,23 @@
 
 
-## Fix: Intro-Video-Bypass nach Payment absichern
+## Intro-Video-URL zuruecksetzen
 
-### Problem
+### Was passiert ist
 
-Der aktuelle Fix (`!hasPaymentSuccess` in der Gate-Bedingung) hat eine Race Condition:
+Das Video `53ef2c6e-d174-4577-885a-1b94ce91df46` ("Begruessung und Vertrauen", Lektion 2-2) wurde faelschlicherweise als Intro-Video gesetzt. Es gehoert aber in die Akademie und war dort bereits korrekt hinterlegt.
 
-1. Stripe leitet zurueck mit `?payment=success`
-2. `hasPaymentSuccess = true` -> Gate wird uebersprungen (OK)
-3. Payment-Handler laeuft, setzt `goToStep('bestellungen')` und **bereinigt die URL** (`setSearchParams({})`)
-4. Nach URL-Bereinigung: `hasPaymentSuccess = false` wieder
-5. Wenn `introVideoWatched` noch nicht aus der DB hydriert ist -> Gate greift erneut -> **Intro-Video blitzt kurz auf**
-
-### Loesung
-
-Einen `useRef`-Flag einfuehren, das sich merkt, dass ein Payment-Redirect stattgefunden hat. Dieser bleibt fuer die gesamte Lebensdauer der Komponente `true`, auch nachdem die URL bereinigt wurde.
-
-### Technische Aenderung: OnboardingScreen.tsx
-
-**Zeile ~67:** Neuen Ref einfuehren:
-
-```typescript
-const hasPaymentSuccess = searchParams.get('payment') === 'success';
-const paymentRedirectRef = useRef(hasPaymentSuccess);
-
-// Einmal true, bleibt true fuer die Session
-if (hasPaymentSuccess) {
-  paymentRedirectRef.current = true;
-}
-```
-
-**Zeile 376:** Gate-Bedingung anpassen:
-
-```typescript
-if (!state.introVideoWatched && !isPreview && !paymentRedirectRef.current) {
-  // ... IntroVideo rendern
-}
-```
-
-So bleibt der Bypass aktiv, auch nachdem die URL-Parameter entfernt wurden. Der Ref ueberlebt Re-Renders ohne die Race Condition.
-
-### Betroffene Datei
+### Aenderung
 
 | Datei | Aenderung |
 |-------|-----------|
-| `src/components/OnboardingScreen.tsx` | `paymentRedirectRef` statt direkter URL-Pruefung im Gate |
+| `src/components/onboarding/IntroVideo.tsx` | URL zuruecksetzen auf die vorherige: `a9021913-0c3c-4986-a32e-11ac216e5edf` |
 
-### Kein weiterer Aenderungsbedarf
+```
+Vorher (falsch):
+INTRO_VIDEO_URL = '.../53ef2c6e-d174-4577-885a-1b94ce91df46'
 
-Alle anderen Aenderungen (Seekbar-Overlay, Toast-Meldungen) bleiben wie implementiert.
+Nachher (korrekt):
+INTRO_VIDEO_URL = '.../a9021913-0c3c-4986-a32e-11ac216e5edf'
+```
 
+Das ist eine einzeilige Aenderung -- nur die URL-Konstante wird zurueckgesetzt.
