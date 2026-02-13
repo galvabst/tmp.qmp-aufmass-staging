@@ -47,6 +47,7 @@ export function IntroVideo({ onComplete }: IntroVideoProps) {
             ref={playerRef}
             videoUrl={INTRO_VIDEO_URL}
             heightMode="contained"
+            hideSeekbar={true}
           />
         </div>
       </div>

@@ -331,7 +331,8 @@ function AkademieModulContent({
         <MultiSourceVideoPlayer 
           ref={videoPlayerRef}
           videoUrl={unterpunkt.videoUrl} 
-          heightMode="hero" 
+          heightMode="hero"
+          hideSeekbar={!isAlreadyCompleted}
         />
 
         {/* Content Container - Constrained for readability */}

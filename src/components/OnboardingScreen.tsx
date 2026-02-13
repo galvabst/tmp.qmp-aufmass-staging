@@ -340,7 +340,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       setSearchParams({}, { replace: true });
     } else if (paymentStatus === 'cancelled') {
       paymentHandledRef.current = true;
-      toast.info('Zahlung abgebrochen');
+      toast.error('Es gab ein Problem mit deiner Bestellung. Bitte versuche es erneut.');
       goToStep('bestellungen');
       setSearchParams({}, { replace: true });
     }
@@ -373,7 +373,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
 
   // Intro-Video Gate: Zeige das unskippable Video BEVOR das Onboarding startet
-  if (!state.introVideoWatched && !isPreview) {
+  if (!state.introVideoWatched && !isPreview && !hasPaymentSuccess) {
     const handleIntroComplete = async () => {
       setIntroVideoWatched(true);
       try {

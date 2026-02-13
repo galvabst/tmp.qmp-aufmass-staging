@@ -19,6 +19,8 @@ interface MultiSourceVideoPlayerProps {
   heightMode?: 'hero' | 'contained';
   /** Callback when video dimensions are detected */
   onAspectDetected?: (info: VideoAspectInfo) => void;
+  /** When true, renders a CSS overlay hiding the iframe seekbar (bottom ~48px) */
+  hideSeekbar?: boolean;
 }
 
 /**
@@ -193,7 +195,7 @@ function NoVideoPlaceholder() {
  * Exposes iframe ref via imperative handle for Player.js integration.
  */
 export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceVideoPlayerProps>(
-  function MultiSourceVideoPlayer({ videoUrl, heightMode = 'hero', onAspectDetected }, ref) {
+  function MultiSourceVideoPlayer({ videoUrl, heightMode = 'hero', onAspectDetected, hideSeekbar = false }, ref) {
     const bunnyIframeRef = useRef<HTMLIFrameElement>(null);
     const [aspectRatio, setAspectRatio] = useState('16/9');
     const [isPortrait, setIsPortrait] = useState(false);
@@ -279,6 +281,19 @@ export const MultiSourceVideoPlayer = forwardRef<VideoPlayerHandle, MultiSourceV
           }}
         >
           {renderPlayer()}
+          {/* Seekbar overlay: blocks interaction with the iframe's native seekbar */}
+          {hideSeekbar && (
+            <div
+              className="absolute bottom-0 left-0 right-0 z-10"
+              style={{
+                height: '48px',
+                pointerEvents: 'auto',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0))',
+              }}
+              onClick={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+            />
+          )}
         </div>
       </div>
     );
