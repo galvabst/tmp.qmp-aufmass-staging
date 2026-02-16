@@ -1,76 +1,62 @@
 
 
-## Onboarding Layout Redesign + Forward-Navigation Fix
+## Stepper-Dots klickbar machen + Vorwaerts-Button + Animation verlangsamen
 
-### Problem 1: Navigation blockiert bei abgeschlossenen Schritten
-Wenn man zu einem bereits abgeschlossenen Schritt zuruecknavigiert, ist der "Weiter"-Button deaktiviert, weil `canProceed` die Schritt-Validierung erneut prueft statt zu erkennen, dass der Schritt schon als completed markiert ist.
-
-### Problem 2: Layout soll professioneller und ansprechender werden
-Das aktuelle Layout ist funktional aber schlicht. Es fehlt das Galvanek-Logo und ein modernes, "sexy" Design.
-
----
-
-### Loesung 1: Forward-Navigation fuer abgeschlossene Schritte
-
-**Datei:** `src/hooks/useOnboardingState.ts`
-
-Zeile 487 aendern: Wenn der aktuelle Schritt bereits in `completedSteps` enthalten ist, soll `canProceed` immer `true` sein:
-
-```text
-// ALT:
-const canProceed = isStepComplete(state.currentStep);
-
-// NEU:
-const canProceed = state.completedSteps.includes(state.currentStep) || isStepComplete(state.currentStep);
-```
-
-So kann man nach dem Zuruecknavigieren sofort wieder vorwaerts gehen.
-
----
-
-### Loesung 2: Layout-Redesign des OnboardingStepWrapper
+### Aenderung 1: Pulsing-Animation verlangsamen
 
 **Datei:** `src/components/onboarding/OnboardingStepWrapper.tsx`
 
-Aenderungen am Header-Bereich:
+Die Klasse `animate-pulse` (Standard: 2s) wird durch eine custom Animation ersetzt mit laengerer Dauer (4s), damit das Blinken subtiler und weniger aggressiv wirkt.
 
-1. **Galvanek-Logo** oben rechts im Header einbinden (klein, `size="sm"`)
-2. **Modernes Header-Design**: Gradient statt flachem Orange, abgerundete untere Ecken, subtiler Schatten
-3. **Verbesserte Stepper-Dots**: Groesser, mit Haekchen-Icon fuer abgeschlossene Schritte, animierter aktiver Dot
-4. **Schritt-Info besser strukturiert**: Zurueck-Button und Logo auf einer Zeile, Schritt-Info darunter
-5. **Footer aufpolieren**: Dezenterer Fortschrittsbalken, besserer Button-Style mit Pfeil-Icon
-
-Konkretes Design:
-
-```text
-Header-Aufbau:
-+------------------------------------------+
-| [<-]  Schritt 3 von 7    [Galvanek-Logo] |
-|                                          |
-| Bestellungen                             |
-| Bestelle deine Pflichtausruestung        |
-|                                          |
-| [*] [*] [o] [ ] [ ] [ ] [ ]  (Dots)     |
-+------------------------------------------+
-```
-
-- Header bekommt einen leichten Gradient: `bg-gradient-to-br from-primary to-primary/85`
-- Untere Ecken abgerundet: `rounded-b-2xl`
-- Stepper-Dots werden `h-2 w-2` statt `h-1 flex-1` (Punkte statt Balken)
-- Abgeschlossene Dots bekommen ein Mini-Haekchen oder filled circle
-- Aktueller Dot pulsiert dezent
-
-Footer:
-- Progress-Bar bekommt einen orange Gradient
-- "Weiter"-Button mit ArrowRight Icon am Ende
-- Leichter Schatten oben statt border-t
+Statt `animate-pulse` wird `animate-[pulse_4s_cubic-bezier(0.4,0,0.6,1)_infinite]` verwendet.
 
 ---
 
-### Zusammenfassung der Aenderungen
+### Aenderung 2: Vorwaerts-Button im Header (neben Zurueck-Button)
+
+**Datei:** `src/components/onboarding/OnboardingStepWrapper.tsx`
+
+Ein ArrowRight-Button wird rechts neben dem Schritt-Text angezeigt, wenn der naechste Schritt bereits abgeschlossen ist ODER wenn der aktuelle Schritt abgeschlossen ist (also man sich zuruecknavigiert hat). Bedingung: Es gibt einen naechsten Schritt UND dieser oder der aktuelle Schritt ist in `completedSteps`.
+
+**Datei:** `src/components/onboarding/OnboardingStepWrapper.tsx` - Neue Props noetig:
+- `onForward?: () => void` - Callback fuer Vorwaerts-Navigation
+
+**Datei:** `src/components/OnboardingScreen.tsx`:
+- Neue Prop `onForward` an `OnboardingStepWrapper` uebergeben, die `goToNextStep()` aufruft (ohne die handleNext-Logik mit Validierung/Speichern, da der Schritt ja schon completed ist)
+
+Layout im Header:
+```text
++----------------------------------------------------+
+| [<-]    Schritt 3 von 7    [->]   [Galvanek-Logo]  |
++----------------------------------------------------+
+```
+
+Der Vorwaerts-Button erscheint nur wenn:
+- `currentStep` ist in `completedSteps` (man hat sich zuruecknavigiert)
+- Es gibt einen naechsten Schritt
+
+---
+
+### Aenderung 3: Stepper-Dots klickbar machen
+
+**Datei:** `src/components/onboarding/OnboardingStepWrapper.tsx`
+
+Abgeschlossene Dots werden zu klickbaren Buttons. Klick navigiert direkt zu dem Schritt. Nur abgeschlossene Schritte und der aktuelle Schritt sind klickbar.
+
+Neue Prop noetig:
+- `onStepClick?: (stepId: OnboardingStepId) => void`
+
+**Datei:** `src/components/OnboardingScreen.tsx`:
+- `onStepClick={goToStep}` an Wrapper uebergeben
+
+Die Dots bekommen `cursor-pointer` und ein `onClick` Handler fuer abgeschlossene Schritte.
+
+---
+
+### Zusammenfassung
 
 | Datei | Aenderung |
 |---|---|
-| `src/hooks/useOnboardingState.ts` | `canProceed` prueft auch `completedSteps` |
-| `src/components/onboarding/OnboardingStepWrapper.tsx` | Logo, Gradient-Header, bessere Stepper-Dots, polierter Footer |
+| `src/components/onboarding/OnboardingStepWrapper.tsx` | Animation verlangsamen, Vorwaerts-Button, klickbare Dots, neue Props `onForward` und `onStepClick` |
+| `src/components/OnboardingScreen.tsx` | `onForward` und `onStepClick` Props durchreichen |
 
