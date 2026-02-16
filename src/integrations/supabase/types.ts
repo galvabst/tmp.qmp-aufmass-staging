@@ -10047,7 +10047,12 @@ export type Database = {
         }[]
       }
       get_thermocheck_auftraege: {
-        Args: never
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_substatus_filter?: string
+        }
         Returns: unknown[]
         SetofOptions: {
           from: "*"
@@ -10055,6 +10060,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_thermocheck_auftraege_count: {
+        Args: { p_search?: string; p_substatus_filter?: string }
+        Returns: number
       }
       get_thermocheck_ideen: {
         Args: never
@@ -10069,6 +10078,13 @@ export type Database = {
           status: string
           titel: string
           updated_at: string
+        }[]
+      }
+      get_thermocheck_substatus_counts: {
+        Args: never
+        Returns: {
+          count: number
+          substatus: string
         }[]
       }
       get_user_accessible_apps: {
