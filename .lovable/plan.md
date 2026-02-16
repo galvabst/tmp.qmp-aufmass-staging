@@ -1,51 +1,64 @@
 
 
-## Fix: Alle Akademie-Lektionen bis auf die letzte als abgeschlossen markieren
+## Fix: Akademie-Fortschritt wird nicht aus der DB in den UI-State uebernommen
 
-### Problem
+### Ursache
 
-Es gibt 49 Lektionen insgesamt, aber nur 24 wurden als "completed" eingetragen. Viele Lektionen in Modulen 1-12 fehlen, daher bleiben die Module wegen der sequenziellen Freischaltung gesperrt.
+Die `hydrateAkademieFromDb`-Funktion in `useOnboardingState.ts` (Zeilen 158-201) hat einen kritischen Fehler: Wenn die Modul-Struktur im localStorage bereits die gleichen IDs hat wie in der DB, wird die Hydration uebersprungen (Zeile 201: `return prev`). Das bedeutet, die `completedLektionIds` aus der DB werden **nie angewendet**, weil der Code denkt "die Struktur stimmt schon, nichts zu tun".
+
+```text
+Ablauf:
+1. Erster Besuch: localStorage leer, Module werden geladen mit abgeschlossen=false
+2. Module werden in localStorage gespeichert (alle abgeschlossen=false)
+3. DB-Fortschritt (54 completed Records) wird geladen
+4. hydrateAkademieFromDb prueft: dbIds === stateIds? -> JA (gleiche Struktur!)
+5. -> return prev (keine Aenderung!) -> completedLektionIds werden ignoriert
+6. Ergebnis: Alle Module bleiben "gesperrt"
+```
+
+Das `completed_at` NULL-Feld in der DB ist NICHT die Ursache -- die Query filtert nur nach `status = 'completed'`.
 
 ### Loesung
 
-25 fehlende Lektionen als "completed" einfuegen. Nur die allerletzte Lektion **12-4 "Freigabe & Rezertifizierung"** bleibt offen -- das ist das letzte Video, das du dir dann anschauen kannst, um den kompletten Flow (Video -> Quiz -> Zertifikat) zu testen.
+Die `hydrateAkademieFromDb`-Funktion muss die `completedLektionIds` IMMER auf die Module anwenden, auch wenn die Struktur (IDs) bereits uebereinstimmt. Konkret: Der `return prev`-Zweig (Zeile 201) muss ebenfalls die DB-Fortschrittsdaten mergen.
 
-Fehlende Lektionen, die eingefuegt werden:
+### Zum Thema "leere Lektionen nicht als Pflicht"
 
-| Code | Titel |
-|------|-------|
-| 1-2 | Was ist nicht Bestandteil? |
-| 2-1 | Auftreten & Kleidung |
-| 2-3 | Strukturierte Gespraechsfuehrung |
-| 2-4 | Umgang mit schwierigen Situationen |
-| 2-5 | Erwartungsmanagement |
-| 4-1 | Auftragsbriefing verstehen |
-| 4-2 | Equipment- & Material-Check |
-| 4-3 | Tool- & App-Setup |
-| 5-1 | Standard-Ablauf Vor-Ort |
-| 5-2 | Raum-/Objekt-Systematik |
-| 5-4 | Kommunikation waehrend Aufnahme |
-| 6-1 | Prinzipien guter Datenerhebung |
-| 6-2 | Mess- & Aufnahme-Grundregeln |
-| 6-3 | Dokumentationsstandard |
-| 6-4 | Belegstandard: Foto-Qualitaet |
-| 6-5 | Umgang mit fehlenden Informationen |
-| 8-4 | Professionelle Verabschiedung |
-| 9-5 | Schnittstellenfaelle |
-| 10-1 | Qualitaetskriterien |
-| 10-4 | Fehlerbibliothek |
-| 11-1 | Shadowing-Regeln |
-| 11-2 | Feedback-Routine |
-| 11-3 | Dokumentationsreview |
-| 12-1 | Theorie-Kurztest |
-| 12-2 | Praxispruefung Vor-Ort |
-| 12-3 | Dokumentationspruefung |
+Das funktioniert bereits korrekt:
+- `buildHierarchicalUnterpunkte` in `useAkademieContent.ts` filtert Lektionen ohne Video und ohne Text-Inhalt automatisch heraus
+- Module ohne sichtbare Lektionen werden komplett versteckt (Zeile 223)
+- `countLeafUnterpunkte` in `AcademyStep.tsx` zaehlt nur sichtbare (= inhaltshabende) Lektionen
 
-**Offen bleibt nur:** 12-4 "Freigabe & Rezertifizierung" (ID: `40cb6b00-96a1-4837-af9c-977ef68b81d0`)
+### Technische Aenderung
 
-### Technische Details
+| Datei | Aenderung |
+|---|---|
+| `src/hooks/useOnboardingState.ts` | Zeile 158-201: Den `else`-Zweig (wenn IDs uebereinstimmen) so aendern, dass `completedLektionIds` trotzdem angewendet werden |
 
-- **Nur Daten-INSERT** in `thermocheck.contractor_akademie_lektions_fortschritt`
-- 26 neue Eintraege mit `status = 'completed'` fuer contractor_id `66912458-4735-4e2a-9942-9c3bb525f447`
-- Kein Code-Aenderung noetig, kein Schema-Change
+Konkret wird der Block ab Zeile 158 so angepasst:
+
+```text
+// VORHER (Zeile 200-201):
+return prev; // No change needed
+
+// NACHHER:
+// Struktur stimmt, aber DB-Fortschritt muss trotzdem gemergt werden
+if (completedLektionIds && completedLektionIds.size > 0) {
+  const updatedModules = currentHauptmodule.map(hm => ({
+    ...hm,
+    unterpunkte: hm.unterpunkte.map(up => ({
+      ...up,
+      abgeschlossen: up.abgeschlossen || completedLektionIds.has(up.id),
+      children: up.children?.map(child => ({
+        ...child,
+        abgeschlossen: child.abgeschlossen || completedLektionIds.has(child.id),
+      })),
+    })),
+  }));
+  return { ...prev, akademieHauptmodule: updatedModules };
+}
+return prev;
+```
+
+Keine DB-Aenderungen noetig. Die 54 Fortschritt-Records sind bereits korrekt in der Datenbank.
 
