@@ -3960,6 +3960,7 @@ export type Database = {
           geschaetzter_wert: number | null
           id: string
           ist_firmenkunde: boolean | null
+          kommentar_verloren: string | null
           kontakt_datum: string | null
           kunde_anrede: string | null
           kunde_email: string | null
@@ -4004,6 +4005,9 @@ export type Database = {
           tatsaechlicher_wert: number | null
           thc_status: Database["public"]["Enums"]["thc_status_enum"] | null
           updated_at: string
+          verlustgrund:
+            | Database["public"]["Enums"]["lead_verlustgrund_enum"]
+            | null
         }
         Insert: {
           abschluss_datum?: string | null
@@ -4024,6 +4028,7 @@ export type Database = {
           geschaetzter_wert?: number | null
           id?: string
           ist_firmenkunde?: boolean | null
+          kommentar_verloren?: string | null
           kontakt_datum?: string | null
           kunde_anrede?: string | null
           kunde_email?: string | null
@@ -4068,6 +4073,9 @@ export type Database = {
           tatsaechlicher_wert?: number | null
           thc_status?: Database["public"]["Enums"]["thc_status_enum"] | null
           updated_at?: string
+          verlustgrund?:
+            | Database["public"]["Enums"]["lead_verlustgrund_enum"]
+            | null
         }
         Update: {
           abschluss_datum?: string | null
@@ -4088,6 +4096,7 @@ export type Database = {
           geschaetzter_wert?: number | null
           id?: string
           ist_firmenkunde?: boolean | null
+          kommentar_verloren?: string | null
           kontakt_datum?: string | null
           kunde_anrede?: string | null
           kunde_email?: string | null
@@ -4132,6 +4141,9 @@ export type Database = {
           tatsaechlicher_wert?: number | null
           thc_status?: Database["public"]["Enums"]["thc_status_enum"] | null
           updated_at?: string
+          verlustgrund?:
+            | Database["public"]["Enums"]["lead_verlustgrund_enum"]
+            | null
         }
         Relationships: [
           {
@@ -4460,6 +4472,8 @@ export type Database = {
       }
       markenbotschafter_affiliates: {
         Row: {
+          affiliate_code: string | null
+          affiliate_ebene: number
           anrede: string | null
           autargy_kunde_id: string | null
           beitritt_datum: string
@@ -4484,17 +4498,22 @@ export type Database = {
           original_verkaeufer_id: string | null
           ort: string | null
           plz: string | null
+          profile_id: string | null
           status: Database["public"]["Enums"]["mb_affiliate_status_enum"]
           strasse: string | null
           telefon: string | null
           typ: Database["public"]["Enums"]["mb_affiliate_typ_enum"]
           updated_at: string
-          vertrag_datei_url: string
+          verguetungsmodell_id: string | null
+          vertrag_datei_url: string | null
+          vertrag_hochgeladen_am: string | null
           vertrag_hochgeladen_von: string | null
           vorname: string | null
           ziel_erreicht: boolean
         }
         Insert: {
+          affiliate_code?: string | null
+          affiliate_ebene?: number
           anrede?: string | null
           autargy_kunde_id?: string | null
           beitritt_datum?: string
@@ -4519,17 +4538,22 @@ export type Database = {
           original_verkaeufer_id?: string | null
           ort?: string | null
           plz?: string | null
+          profile_id?: string | null
           status?: Database["public"]["Enums"]["mb_affiliate_status_enum"]
           strasse?: string | null
           telefon?: string | null
           typ: Database["public"]["Enums"]["mb_affiliate_typ_enum"]
           updated_at?: string
-          vertrag_datei_url: string
+          verguetungsmodell_id?: string | null
+          vertrag_datei_url?: string | null
+          vertrag_hochgeladen_am?: string | null
           vertrag_hochgeladen_von?: string | null
           vorname?: string | null
           ziel_erreicht?: boolean
         }
         Update: {
+          affiliate_code?: string | null
+          affiliate_ebene?: number
           anrede?: string | null
           autargy_kunde_id?: string | null
           beitritt_datum?: string
@@ -4554,12 +4578,15 @@ export type Database = {
           original_verkaeufer_id?: string | null
           ort?: string | null
           plz?: string | null
+          profile_id?: string | null
           status?: Database["public"]["Enums"]["mb_affiliate_status_enum"]
           strasse?: string | null
           telefon?: string | null
           typ?: Database["public"]["Enums"]["mb_affiliate_typ_enum"]
           updated_at?: string
-          vertrag_datei_url?: string
+          verguetungsmodell_id?: string | null
+          vertrag_datei_url?: string | null
+          vertrag_hochgeladen_am?: string | null
           vertrag_hochgeladen_von?: string | null
           vorname?: string | null
           ziel_erreicht?: boolean
@@ -4605,6 +4632,20 @@ export type Database = {
             columns: ["original_verkaeufer_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_affiliates_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_affiliates_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
           {
@@ -4987,6 +5028,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "mitarbeiter_kosten_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mitarbeiter_monatsziele: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          gueltig_ab: string
+          id: string
+          mitarbeiter_id: string
+          updated_at: string
+          ziel_typ: Database["public"]["Enums"]["mitarbeiter_ziel_typ_enum"]
+          ziel_wert: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          gueltig_ab: string
+          id?: string
+          mitarbeiter_id: string
+          updated_at?: string
+          ziel_typ: Database["public"]["Enums"]["mitarbeiter_ziel_typ_enum"]
+          ziel_wert: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          gueltig_ab?: string
+          id?: string
+          mitarbeiter_id?: string
+          updated_at?: string
+          ziel_typ?: Database["public"]["Enums"]["mitarbeiter_ziel_typ_enum"]
+          ziel_wert?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mitarbeiter_monatsziele_mitarbeiter_id_fkey"
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
@@ -9770,6 +9852,14 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: string
       }
+      get_mitarbeiter_ziele: {
+        Args: { p_mitarbeiter_id: string; p_stichtag?: string }
+        Returns: {
+          gueltig_ab: string
+          ziel_typ: string
+          ziel_wert: number
+        }[]
+      }
       get_module_hierarchy: {
         Args: { _app_code: string }
         Returns: {
@@ -10208,6 +10298,114 @@ export type Database = {
           similarity: number
         }[]
       }
+      mb_auszahlen_abrechnung: {
+        Args: { _abrechnung_id: string; _referenz?: string }
+        Returns: undefined
+      }
+      mb_freigeben_abrechnung: {
+        Args: { _abrechnung_id: string }
+        Returns: undefined
+      }
+      mb_get_abrechnungen: {
+        Args: { _mb_id?: string; _monat?: string; _status?: string }
+        Returns: {
+          abrechnungsmonat: string
+          anzahl_positionen: number
+          ausgezahlt_am: string
+          created_at: string
+          freigegeben_am: string
+          id: string
+          mb_id: string
+          mb_name: string
+          status: "offen" | "freigegeben" | "ausgezahlt" | "storniert"
+          summe_netto: number
+        }[]
+      }
+      mb_get_abrechnungspositionen: {
+        Args: { _abrechnung_id: string }
+        Returns: {
+          auftrag_id: string
+          auftrag_netto_summe: number
+          betrag: number
+          created_at: string
+          ebene: number
+          empfehlender_mb_id: string
+          id: string
+          lead_id: string
+          mb_id: string
+          status: "anspruch" | "bestaetigt" | "storniert"
+          storno_grund: string
+          typ: "direktempfehlung" | "ebene_2_bonus" | "ebene_3_plus_bonus"
+        }[]
+      }
+      mb_get_affiliate_tree: {
+        Args: { _mb_id: string }
+        Returns: {
+          display_name: string
+          ebene: number
+          empfehlungen_count: number
+          geworben_von_mb_id: string
+          id: string
+          status: string
+          typ: string
+        }[]
+      }
+      mb_get_einstellungen: {
+        Args: never
+        Returns: unknown[]
+        SetofOptions: {
+          from: "*"
+          to: "einstellungen"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      mb_list_verguetungsmodelle: {
+        Args: never
+        Returns: unknown[]
+        SetofOptions: {
+          from: "*"
+          to: "verguetungsmodelle"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      mb_storniere_position: {
+        Args: { _grund: string; _position_id: string }
+        Returns: undefined
+      }
+      mb_update_einstellung: {
+        Args: { _key: string; _value: Json }
+        Returns: undefined
+      }
+      mb_upsert_verguetungsmodell:
+        | {
+            Args: {
+              _aktiv?: boolean
+              _beschreibung?: string
+              _betrag_ebene_2?: number
+              _betrag_ebene_3_plus?: number
+              _betrag_pro_abschluss?: number
+              _id?: string
+              _max_ebenen_auszahlung?: number
+              _name?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _aktiv?: boolean
+              _beschreibung?: string
+              _betrag_ebene_2?: number
+              _betrag_ebene_3_plus?: number
+              _betrag_pro_abschluss?: number
+              _id?: string
+              _max_ebenen_auszahlung?: number
+              _name?: string
+              _stufen?: Json
+            }
+            Returns: string
+          }
       merge_duplicate_lead_status_entries: { Args: never; Returns: Json }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
@@ -11301,6 +11499,34 @@ export type Database = {
         | "Gewonnen THC"
         | "Verloren"
       lead_verlust_typ: "Danger Loss" | "Follow-Up Loss"
+      lead_verlustgrund_enum:
+        | "3x nicht erreicht"
+        | "wird HAUS verkaufen oder verkauft"
+        | "Bitte an anderen Vertriebler zuweisen"
+        | "Angebot zu teuer"
+        | "Finanzierung nicht moeglich"
+        | "Interessent will bzw. wartet auf Foerderung"
+        | "hat aktuell kein Geld dafuer"
+        | "Komponenten werden billiger"
+        | "Interessierte Anlage Umsetzung groesser als 12Monate"
+        | "Angebot/Konzept ist lt. Interessent unwirtschaftlich"
+        | "Stromverbrauch zu niedrig"
+        | "Strompreise werden sinken"
+        | "Ist aktuell nicht interessiert"
+        | "ausserhalb PLZ Gebiet"
+        | "Interessent ist zu alt"
+        | "Loeschen Sie mich aus dem System"
+        | "hat bereits bei Mitbewerber gekauft"
+        | "Mitbewerber Angebot angenommen"
+        | "Interessent hat bereits eine PV-Anlage"
+        | "Interessent ist nicht Eigentuemer"
+        | "Dach zu klein / verwinkelt"
+        | "technisch nicht umsetzbar (Elektrik / Dacheindeckung)"
+        | "Duplikat - Lead existiert schon"
+        | "Lead unbrauchbar Storno"
+        | "Interessent moechte Balkonkraftwerk"
+        | "Mieterstrommodell ACHTUNG UMSETZBAR SIEHE AKADEMIE"
+        | "Interessent wollte nur mal Infos"
       leistungseinheit_enum:
         | "pro Stück"
         | "pro Meter"
@@ -11316,8 +11542,14 @@ export type Database = {
         | "In Bearbeitung"
         | "Erledigt"
         | "Abgelehnt"
-      mb_affiliate_status_enum: "aktiv" | "inaktiv" | "gekuendigt"
-      mb_affiliate_typ_enum: "kunde" | "affiliate" | "mitarbeiter"
+      mb_affiliate_status_enum:
+        | "neu"
+        | "vertrag_versendet"
+        | "vertrag_gezeichnet"
+        | "aktiv"
+        | "inaktiv"
+        | "gekuendigt"
+      mb_affiliate_typ_enum: "kunde" | "affiliate" | "mitarbeiter" | "user"
       mb_kontakt_ergebnis_enum:
         | "empfehlung_erhalten"
         | "keine_empfehlung"
@@ -11328,6 +11560,11 @@ export type Database = {
       mitarbeiter_source: "lovable" | "API" | "manual"
       mitarbeiter_status: "Aktiv" | "Gekündigt" | "Probezeit" | "Admin"
       mitarbeiter_typ_filter: "alle" | "handelsvertreter" | "festangestellte"
+      mitarbeiter_ziel_typ_enum:
+        | "thc_termine"
+        | "thc_sales"
+        | "ag_termine"
+        | "ag_sales"
       nachverkauf_potenzial_status_enum:
         | "offen"
         | "interesse"
@@ -11385,6 +11622,7 @@ export type Database = {
         | "angebot"
         | "widerruf"
         | "finanzierung_nachweis"
+        | "thc_vertrag"
       sales_dokument_analyse_typ_enum:
         | "ocr"
         | "seitenfilter"
@@ -11445,7 +11683,11 @@ export type Database = {
         | "krank"
         | "wartung"
         | "vorgemerkt"
-      termin_status_enum: "Ausstehend" | "Stattgefunden" | "No Show"
+      termin_status_enum:
+        | "Ausstehend"
+        | "Stattgefunden"
+        | "No Show"
+        | "No Show Same Day"
       thc_status_enum:
         | "Neuer Thermo-Check"
         | "Nicht erreicht Thermo-Check"
@@ -11862,6 +12104,35 @@ export const Constants = {
         "Verloren",
       ],
       lead_verlust_typ: ["Danger Loss", "Follow-Up Loss"],
+      lead_verlustgrund_enum: [
+        "3x nicht erreicht",
+        "wird HAUS verkaufen oder verkauft",
+        "Bitte an anderen Vertriebler zuweisen",
+        "Angebot zu teuer",
+        "Finanzierung nicht moeglich",
+        "Interessent will bzw. wartet auf Foerderung",
+        "hat aktuell kein Geld dafuer",
+        "Komponenten werden billiger",
+        "Interessierte Anlage Umsetzung groesser als 12Monate",
+        "Angebot/Konzept ist lt. Interessent unwirtschaftlich",
+        "Stromverbrauch zu niedrig",
+        "Strompreise werden sinken",
+        "Ist aktuell nicht interessiert",
+        "ausserhalb PLZ Gebiet",
+        "Interessent ist zu alt",
+        "Loeschen Sie mich aus dem System",
+        "hat bereits bei Mitbewerber gekauft",
+        "Mitbewerber Angebot angenommen",
+        "Interessent hat bereits eine PV-Anlage",
+        "Interessent ist nicht Eigentuemer",
+        "Dach zu klein / verwinkelt",
+        "technisch nicht umsetzbar (Elektrik / Dacheindeckung)",
+        "Duplikat - Lead existiert schon",
+        "Lead unbrauchbar Storno",
+        "Interessent moechte Balkonkraftwerk",
+        "Mieterstrommodell ACHTUNG UMSETZBAR SIEHE AKADEMIE",
+        "Interessent wollte nur mal Infos",
+      ],
       leistungseinheit_enum: [
         "pro Stück",
         "pro Meter",
@@ -11879,8 +12150,15 @@ export const Constants = {
         "Erledigt",
         "Abgelehnt",
       ],
-      mb_affiliate_status_enum: ["aktiv", "inaktiv", "gekuendigt"],
-      mb_affiliate_typ_enum: ["kunde", "affiliate", "mitarbeiter"],
+      mb_affiliate_status_enum: [
+        "neu",
+        "vertrag_versendet",
+        "vertrag_gezeichnet",
+        "aktiv",
+        "inaktiv",
+        "gekuendigt",
+      ],
+      mb_affiliate_typ_enum: ["kunde", "affiliate", "mitarbeiter", "user"],
       mb_kontakt_ergebnis_enum: [
         "empfehlung_erhalten",
         "keine_empfehlung",
@@ -11892,6 +12170,12 @@ export const Constants = {
       mitarbeiter_source: ["lovable", "API", "manual"],
       mitarbeiter_status: ["Aktiv", "Gekündigt", "Probezeit", "Admin"],
       mitarbeiter_typ_filter: ["alle", "handelsvertreter", "festangestellte"],
+      mitarbeiter_ziel_typ_enum: [
+        "thc_termine",
+        "thc_sales",
+        "ag_termine",
+        "ag_sales",
+      ],
       nachverkauf_potenzial_status_enum: [
         "offen",
         "interesse",
@@ -11957,6 +12241,7 @@ export const Constants = {
         "angebot",
         "widerruf",
         "finanzierung_nachweis",
+        "thc_vertrag",
       ],
       sales_dokument_analyse_typ_enum: [
         "ocr",
@@ -12024,7 +12309,12 @@ export const Constants = {
         "wartung",
         "vorgemerkt",
       ],
-      termin_status_enum: ["Ausstehend", "Stattgefunden", "No Show"],
+      termin_status_enum: [
+        "Ausstehend",
+        "Stattgefunden",
+        "No Show",
+        "No Show Same Day",
+      ],
       thc_status_enum: [
         "Neuer Thermo-Check",
         "Nicht erreicht Thermo-Check",

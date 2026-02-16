@@ -77,36 +77,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const dbShowsNoProgress = dbStatus?.onboardingStatus === 'invited';
   const [forceReset, setForceReset] = useState(false);
 
-  // ForceReset-Logik: Nur bei wirklich unmöglichem Zustand UND NICHT bei payment=success
-  useEffect(() => {
-    const profileId = dbStatus?.profileId;
-    if (!profileId || !dbShowsNoProgress || forceReset || isPreview || hasPaymentSuccess) return;
-
-    const storageKey = getOnboardingStorageKey(profileId);
-    const savedState = localStorage.getItem(storageKey);
-    if (!savedState) return;
-
-    try {
-      const parsed = JSON.parse(savedState);
-
-      // Nur bei WIRKLICH unmöglichem Zustand resetten
-      // (coaching abgeschlossen bei DB "invited" = definitiv veralteter State eines anderen Users)
-      const isDefinitelyStale =
-        parsed.coachingAbgeschlossen === true ||
-        parsed.akademieTestBestanden === true ||
-        (parsed.currentStep && parsed.currentStep !== 'profil') ||
-        (Array.isArray(parsed.completedSteps) && parsed.completedSteps.length > 0);
-
-      if (isDefinitelyStale) {
-        console.warn('[Onboarding] Stale localStorage detected (DB invited + coaching/test done) - forcing reset');
-        clearOnboardingLocalStorage(profileId);
-        setForceReset(true);
-      }
-    } catch {
-      clearOnboardingLocalStorage(profileId);
-      setForceReset(true);
-    }
-  }, [dbShowsNoProgress, forceReset, isPreview, dbStatus?.profileId, hasPaymentSuccess]);
+  // ForceReset-Effect ist nach useContractorProfile verschoben (braucht isOnboardingStateLoaded)
 
   // Profildaten aus DB laden
   const {
@@ -179,6 +150,53 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       introVideoWatched: dbOnboardingState.introVideoWatched,
     });
   }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, hydrateFromDb]);
+
+  // ForceReset-Logik: Nur bei wirklich unmöglichem Zustand UND NICHT bei payment redirect
+  useEffect(() => {
+    const profileId = dbStatus?.profileId;
+    // paymentRedirectRef überlebt URL-Bereinigung (hasPaymentSuccess tut das NICHT)
+    if (!profileId || !dbShowsNoProgress || forceReset || isPreview || paymentRedirectRef.current) return;
+
+    // Wenn DB-State geladen ist und echten Fortschritt zeigt, NIEMALS resetten
+    if (isOnboardingStateLoaded && dbOnboardingState) {
+      const dbHasRealProgress = 
+        (dbOnboardingState.completedSteps && dbOnboardingState.completedSteps.length > 0) ||
+        dbOnboardingState.introVideoWatched === true;
+      if (dbHasRealProgress) {
+        console.log('[Onboarding] DB shows real progress, skipping forceReset');
+        return;
+      }
+    }
+
+    const storageKey = getOnboardingStorageKey(profileId);
+    const savedState = localStorage.getItem(storageKey);
+    if (!savedState) return;
+
+    try {
+      const parsed = JSON.parse(savedState);
+      const isDefinitelyStale =
+        parsed.coachingAbgeschlossen === true ||
+        parsed.akademieTestBestanden === true ||
+        (parsed.currentStep && parsed.currentStep !== 'profil') ||
+        (Array.isArray(parsed.completedSteps) && parsed.completedSteps.length > 0);
+
+      if (isDefinitelyStale) {
+        console.warn('[Onboarding] Stale localStorage detected - forcing reset');
+        clearOnboardingLocalStorage(profileId);
+        setForceReset(true);
+      }
+    } catch {
+      clearOnboardingLocalStorage(profileId);
+      setForceReset(true);
+    }
+  }, [dbShowsNoProgress, forceReset, isPreview, dbStatus?.profileId, isOnboardingStateLoaded, dbOnboardingState]);
+
+  // Bug 3 Fix: Hydration-Ref nach ForceReset zurücksetzen
+  useEffect(() => {
+    if (forceReset) {
+      hasHydratedOnboardingStateRef.current = false;
+    }
+  }, [forceReset]);
 
   // Sync DB-Profil in State wenn geladen
   useEffect(() => {
@@ -350,8 +368,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
   const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
 
-  // Loading-Gate: Warte auf DB-Hydration BEVOR IntroVideo-Check greift
-  const isHydrationPending = !isPreview && !hasHydratedOnboardingStateRef.current && !isOnboardingStateLoaded;
+  // Loading-Gate: Warte bis Hydration TATSÄCHLICH ausgeführt wurde (nicht nur bis Daten geladen)
+  const isHydrationPending = !isPreview && !hasHydratedOnboardingStateRef.current;
 
   if (isHydrationPending) {
     return <OnboardingLoadingScreen message="Lade Fortschritt..." />;
