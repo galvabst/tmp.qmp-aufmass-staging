@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ import {
 } from '@/types/onboarding';
 import { ONBOARDING_STEPS } from '@/lib/onboarding-config';
 import { OnboardingCountdown } from './OnboardingCountdown';
+import { GalvanekLogo } from '@/components/GalvanekLogo';
 
 interface OnboardingStepWrapperProps {
   currentStep: OnboardingStepId;
@@ -51,38 +52,43 @@ export function OnboardingStepWrapper({
         <OnboardingCountdown erstelltAm={erstelltAm} />
       )}
 
-      {/* Header mit Schritt-Indikator */}
-      <header className="bg-primary text-primary-foreground safe-area-top">
-        <div className="p-4">
-          {/* Zurück-Button und Schritt-Nummer */}
-          <div className="flex items-center gap-3 mb-4">
-            {showBack && onBack && currentIndex > 0 && (
+      {/* Header */}
+      <header className="bg-gradient-to-br from-primary to-primary/85 text-primary-foreground rounded-b-2xl shadow-lg safe-area-top">
+        <div className="p-4 pb-2">
+          {/* Top row: Back + Step info + Logo */}
+          <div className="flex items-center gap-3">
+            {showBack && onBack && currentIndex > 0 ? (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onBack}
-                className="text-primary-foreground hover:bg-primary-foreground/10"
+                className="text-primary-foreground hover:bg-primary-foreground/10 shrink-0"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
+            ) : (
+              <div className="w-10" />
             )}
-            <div className="flex-1">
-              <span className="text-sm text-primary-foreground/70">
+            <div className="flex-1 text-center">
+              <span className="text-xs font-medium text-primary-foreground/70 uppercase tracking-wider">
                 Schritt {currentIndex + 1} von {totalSteps}
               </span>
             </div>
+            <GalvanekLogo size="sm" className="shrink-0 brightness-0 invert opacity-80" />
           </div>
 
-          {/* Schritt-Titel */}
-          <h1 className="text-xl font-bold">{title}</h1>
-          {description && (
-            <p className="text-primary-foreground/80 mt-1 text-sm">{description}</p>
-          )}
+          {/* Title */}
+          <div className="mt-3 mb-2 text-center">
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            {description && (
+              <p className="text-primary-foreground/75 mt-1 text-sm">{description}</p>
+            )}
+          </div>
         </div>
 
-        {/* Mini-Stepper */}
+        {/* Stepper dots */}
         <div className="px-4 pb-4">
-          <div className="flex gap-1">
+          <div className="flex items-center justify-center gap-2">
             {STEP_ORDER.map((stepId, index) => {
               const isCompleted = isStepCompleted(stepId, completedSteps);
               const isCurrent = stepId === currentStep;
@@ -91,12 +97,16 @@ export function OnboardingStepWrapper({
                 <div
                   key={stepId}
                   className={cn(
-                    'h-1 flex-1 rounded-full transition-colors',
-                    isCompleted ? 'bg-primary-foreground' :
-                    isCurrent ? 'bg-primary-foreground/70' :
-                    'bg-primary-foreground/20'
+                    'rounded-full transition-all duration-300 flex items-center justify-center',
+                    isCompleted
+                      ? 'h-6 w-6 bg-primary-foreground text-primary'
+                      : isCurrent
+                        ? 'h-6 w-6 bg-primary-foreground/30 border-2 border-primary-foreground animate-pulse'
+                        : 'h-2.5 w-2.5 bg-primary-foreground/25'
                   )}
-                />
+                >
+                  {isCompleted && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                </div>
               );
             })}
           </div>
@@ -108,12 +118,12 @@ export function OnboardingStepWrapper({
         {children}
       </main>
 
-      {/* Footer mit Weiter-Button */}
-      <footer className="p-4 border-t bg-background safe-area-bottom">
+      {/* Footer */}
+      <footer className="p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] bg-background safe-area-bottom">
         <div className="mb-3">
-          <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
             <span>Gesamtfortschritt</span>
-            <span>{progress}%</span>
+            <span className="font-semibold text-foreground">{progress}%</span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
@@ -121,10 +131,11 @@ export function OnboardingStepWrapper({
         <Button 
           onClick={onNext} 
           disabled={nextDisabled}
-          className="w-full"
+          className="w-full gap-2"
           size="lg"
         >
           {nextLabel}
+          <ArrowRight className="w-4 h-4" />
         </Button>
       </footer>
     </div>

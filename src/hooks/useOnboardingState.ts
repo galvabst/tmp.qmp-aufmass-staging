@@ -484,7 +484,7 @@ export function useOnboardingState(
     }
   }, [state, isPreview]);
 
-  const canProceed = isStepComplete(state.currentStep);
+  const canProceed = state.completedSteps.includes(state.currentStep) || isStepComplete(state.currentStep);
   const isComplete = state.completedSteps.length === STEP_ORDER.length || (state.coachingAbgeschlossen && state.completedSteps.includes('nachweise'));
 
   return {
