@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 interface QuizModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  modulId: string;
+  modulId?: string; // undefined = Abschlussprüfung (alle Fragen)
   modulTitel: string;
   contractorId: string;
   onQuizComplete: (bestanden: boolean) => void;
@@ -100,7 +100,7 @@ export function QuizModal({
     try {
       const result = await submitMutation.mutateAsync({
         contractorId,
-        modulId,
+        modulId: modulId || 'abschlusspruefung',
         fragen,
         antworten,
         bestehensSchwelle,
