@@ -261,6 +261,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   useEffect(() => {
     if (isPreview || hasHydratedRef.current) return;
     if (!dbLoaded || !dbAkademieModule || dbAkademieModule.length === 0) return;
+    if (completedLektionIds === undefined) return; // Warten bis Fortschritt geladen
     
     hasHydratedRef.current = true;
     hydrateAkademieFromDb(dbAkademieModule, completedLektionIds);
