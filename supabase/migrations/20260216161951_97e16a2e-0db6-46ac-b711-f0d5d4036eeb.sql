@@ -1,0 +1,1 @@
+ALTER TABLE thermocheck.contractor_akademie_quiz_ergebnis ALTER COLUMN modul_id DROP NOT NULL;

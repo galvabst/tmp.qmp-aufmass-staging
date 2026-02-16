@@ -155,19 +155,19 @@ export function useSubmitQuiz() {
       const score = total > 0 ? Math.round((correct / total) * 100) : 100;
       const bestanden = score >= bestehensSchwelle;
 
-      // Try to save to DB
-      try {
-        await thermocheckClient
-          .from('contractor_akademie_quiz_ergebnis')
-          .insert({
-            contractor_id: contractorId,
-            modul_id: modulId,
-            score,
-            bestanden,
-            antworten: antworten as any,
-          });
-      } catch (e) {
-        console.warn('[Quiz] Could not save result to DB:', e);
+      // Save to DB with proper error handling
+      const { error: insertError } = await thermocheckClient
+        .from('contractor_akademie_quiz_ergebnis')
+        .insert({
+          contractor_id: contractorId,
+          modul_id: modulId === 'abschlusspruefung' ? null : modulId,
+          score,
+          bestanden,
+          antworten: antworten as any,
+        });
+
+      if (insertError) {
+        console.error('[Quiz] Could not save result to DB:', insertError);
       }
 
       return {
