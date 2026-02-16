@@ -1,60 +1,76 @@
 
-## Unskippable Outro-Video zwischen Akademie und Coaching
 
-### Problem
-Beim Klick auf "Weiter zu Coaching" wird direkt zum naechsten Schritt gewechselt. Es gibt keinen Code, der ein Video dazwischen einblendet.
+## Onboarding Layout Redesign + Forward-Navigation Fix
 
-### Loesung
-Ein fullscreen Outro-Video (gleiche Mechanik wie das Intro-Video) wird eingeblendet, wenn der User den Akademie-Schritt abschliesst und zu Coaching wechseln will. Erst nach vollstaendigem Ansehen darf weiternavigiert werden.
+### Problem 1: Navigation blockiert bei abgeschlossenen Schritten
+Wenn man zu einem bereits abgeschlossenen Schritt zuruecknavigiert, ist der "Weiter"-Button deaktiviert, weil `canProceed` die Schritt-Validierung erneut prueft statt zu erkennen, dass der Schritt schon als completed markiert ist.
 
-### Video-URL
-`https://iframe.mediadelivery.net/embed/591760/37bee5ad-1e93-454a-b48a-e10dd0b90e38`
+### Problem 2: Layout soll professioneller und ansprechender werden
+Das aktuelle Layout ist funktional aber schlicht. Es fehlt das Galvanek-Logo und ein modernes, "sexy" Design.
 
-### Technische Umsetzung
+---
+
+### Loesung 1: Forward-Navigation fuer abgeschlossene Schritte
+
+**Datei:** `src/hooks/useOnboardingState.ts`
+
+Zeile 487 aendern: Wenn der aktuelle Schritt bereits in `completedSteps` enthalten ist, soll `canProceed` immer `true` sein:
+
+```text
+// ALT:
+const canProceed = isStepComplete(state.currentStep);
+
+// NEU:
+const canProceed = state.completedSteps.includes(state.currentStep) || isStepComplete(state.currentStep);
+```
+
+So kann man nach dem Zuruecknavigieren sofort wieder vorwaerts gehen.
+
+---
+
+### Loesung 2: Layout-Redesign des OnboardingStepWrapper
+
+**Datei:** `src/components/onboarding/OnboardingStepWrapper.tsx`
+
+Aenderungen am Header-Bereich:
+
+1. **Galvanek-Logo** oben rechts im Header einbinden (klein, `size="sm"`)
+2. **Modernes Header-Design**: Gradient statt flachem Orange, abgerundete untere Ecken, subtiler Schatten
+3. **Verbesserte Stepper-Dots**: Groesser, mit Haekchen-Icon fuer abgeschlossene Schritte, animierter aktiver Dot
+4. **Schritt-Info besser strukturiert**: Zurueck-Button und Logo auf einer Zeile, Schritt-Info darunter
+5. **Footer aufpolieren**: Dezenterer Fortschrittsbalken, besserer Button-Style mit Pfeil-Icon
+
+Konkretes Design:
+
+```text
+Header-Aufbau:
++------------------------------------------+
+| [<-]  Schritt 3 von 7    [Galvanek-Logo] |
+|                                          |
+| Bestellungen                             |
+| Bestelle deine Pflichtausruestung        |
+|                                          |
+| [*] [*] [o] [ ] [ ] [ ] [ ]  (Dots)     |
++------------------------------------------+
+```
+
+- Header bekommt einen leichten Gradient: `bg-gradient-to-br from-primary to-primary/85`
+- Untere Ecken abgerundet: `rounded-b-2xl`
+- Stepper-Dots werden `h-2 w-2` statt `h-1 flex-1` (Punkte statt Balken)
+- Abgeschlossene Dots bekommen ein Mini-Haekchen oder filled circle
+- Aktueller Dot pulsiert dezent
+
+Footer:
+- Progress-Bar bekommt einen orange Gradient
+- "Weiter"-Button mit ArrowRight Icon am Ende
+- Leichter Schatten oben statt border-t
+
+---
+
+### Zusammenfassung der Aenderungen
 
 | Datei | Aenderung |
 |---|---|
-| `src/components/onboarding/OutroVideo.tsx` | Neue Komponente (Kopie von IntroVideo, angepasst fuer Outro-Kontext) |
-| `src/components/OnboardingScreen.tsx` | State `showOutroVideo` + Gate in `handleNext` bei `currentStep === 'akademie'` |
+| `src/hooks/useOnboardingState.ts` | `canProceed` prueft auch `completedSteps` |
+| `src/components/onboarding/OnboardingStepWrapper.tsx` | Logo, Gradient-Header, bessere Stepper-Dots, polierter Footer |
 
-### Ablauf
-
-1. User klickt "Weiter zu Coaching" im Akademie-Schritt
-2. Statt `goToNextStep()` wird `showOutroVideo = true` gesetzt
-3. Fullscreen-Video erscheint (unskippable, gleiche Seekbar-Blockade wie IntroVideo)
-4. Nach Video-Ende: Button "Weiter zum Coaching" wird aktiv
-5. Klick: `showOutroVideo = false`, `goToNextStep()` wird ausgefuehrt, Fortschritt wird gespeichert
-
-### OutroVideo Komponente
-
-- Wiederverwendet `MultiSourceVideoPlayer` mit `hideSeekbar={true}`
-- Wiederverwendet `useBunnyPlayerProgress` fuer Fortschrittsanzeige
-- Titel: "Praxis-Phase abgeschlossen!" oder aehnlich
-- Button-Text: "Weiter zum Coaching"
-- Kein Logo noetig, aber schwarzer Fullscreen-Hintergrund wie IntroVideo
-
-### Aenderungen in OnboardingScreen.tsx
-
-```text
-// Neuer State
-const [showOutroVideo, setShowOutroVideo] = useState(false);
-
-// In handleNext, VOR goToNextStep():
-if (state.currentStep === 'akademie') {
-  setShowOutroVideo(true);
-  nextClickLockRef.current = false;
-  setIsAdvancing(false);
-  return; // Blockiert Navigation bis Video fertig
-}
-
-// Outro-Video Gate (vor renderStep)
-if (showOutroVideo) {
-  return <OutroVideo onComplete={() => {
-    setShowOutroVideo(false);
-    goToNextStep();
-    // saveProgress...
-  }} />;
-}
-```
-
-Der Outro-Video-Status muss NICHT in der DB persistiert werden, da er nur einmalig beim Uebergang relevant ist. Beim naechsten Laden ist der User bereits auf dem Coaching-Schritt.
