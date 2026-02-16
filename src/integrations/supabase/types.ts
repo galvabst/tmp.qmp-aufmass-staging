@@ -10046,6 +10046,16 @@ export type Database = {
           title: string
         }[]
       }
+      get_thermocheck_auftraege: {
+        Args: never
+        Returns: unknown[]
+        SetofOptions: {
+          from: "*"
+          to: "v_thermocheck_auftraege"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_thermocheck_ideen: {
         Args: never
         Returns: {
