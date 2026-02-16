@@ -1,95 +1,106 @@
 
+## Fix: Onboarding-State wird nach Stripe-Redirect zurueckgesetzt
 
-## Fix: Onboarding-State Reset nach Redirect verhindern
+### Ursachenanalyse (3 zusammenhaengende Bugs)
 
-### Ursachenanalyse
+**Bug 1 (HAUPTURSACHE): ForceReset loescht localStorage nach Stripe-Redirect**
 
-Es gibt drei zusammenhaengende Bugs, die dazu fuehren, dass der User nach einem externen Redirect (z.B. Stripe-Checkout) zum Intro-Video zurueckgesetzt wird:
+In `OnboardingScreen.tsx` (Zeile 81-109) gibt es eine "ForceReset"-Logik, die prueft, ob der DB-Status `invited` ist, aber localStorage Fortschritt enthaelt. In diesem Fall wird localStorage geloescht und der State komplett zurueckgesetzt.
 
-1. **Leere completedSteps-Hydration**: In `OnboardingScreen.tsx` (Zeilen 202-207) ist der Loop-Body, der die completedSteps aus der DB in den State schreiben soll, komplett leer. Die DB meldet `completed_steps: ["profil","dokumente",...]`, aber diese werden nie in den lokalen State uebernommen.
+Das Problem: `onboarding_status` bleibt waehrend des GESAMTEN Onboardings auf `invited`! (Bestaetigt durch DB-Abfrage: alle User ausser dem manuell auf "ready" gesetzten Test-User haben Status "invited".) Die Logik behandelt also JEDEN normalen Onboarding-Fortschritt als "stale" und loescht ihn.
 
-2. **Nicht-atomare Hydration**: Die DB-Werte werden ueber mehrere separate `setState`-Aufrufe gesetzt (`setGewerbescheinSpaeter`, `goToStep`, `setIntroVideoWatched`). Zwischen diesen Aufrufen befindet sich der Component in einem inkonsistenten Zwischenzustand.
+Es gibt zwar einen Payment-Bypass (Zeile 83: `hasPaymentSuccess`), aber der ist fehlerhaft:
 
-3. **Kein Loading-Gate**: Der IntroVideo-Check (Zeile 381) feuert beim ersten Render BEVOR die DB-Daten geladen sind. Wenn localStorage leer oder veraltet ist, wird das Intro-Video angezeigt, obwohl die DB `intro_video_watched: true` hat.
+```
+// Zeile 70: wird bei jedem Render NEU ausgewertet
+const hasPaymentSuccess = searchParams.get('payment') === 'success';
+
+// Zeile 83: Guard im ForceReset-Effect
+if (!profileId || !dbShowsNoProgress || ... || hasPaymentSuccess) return;
+
+// Zeile 109: hasPaymentSuccess ist in den Dependencies!
+}, [dbShowsNoProgress, forceReset, isPreview, dbStatus?.profileId, hasPaymentSuccess]);
+```
+
+**Ablauf:**
+1. Render 1: `hasPaymentSuccess = true` -- ForceReset wird uebersprungen (korrekt)
+2. Payment-Handler-Effect laeuft, ruft `setSearchParams({}, { replace: true })` auf (loescht URL-Parameter)
+3. Render 2: `hasPaymentSuccess = false` -- Effect re-evaluiert weil `hasPaymentSuccess` in den Dependencies ist
+4. ForceReset-Guard greift NICHT MEHR -- localStorage wird geloescht!
+5. State wird komplett zurueckgesetzt (introVideoWatched: false, currentStep: 'profil')
+
+**Bug 2: Loading-Gate hat Race Condition**
+
+```typescript
+// Zeile 354:
+const isHydrationPending = !isPreview && !hasHydratedOnboardingStateRef.current && !isOnboardingStateLoaded;
+```
+
+Die Bedingung nutzt AND (`&&`) fuer beide Checks. Wenn `isOnboardingStateLoaded` auf `true` wechselt, wird die Loading-Screen entfernt, aber der Hydration-Effect hat noch nicht gefeuert (Effects laufen NACH dem Render). Fuer einen einzigen Render-Frame ist `introVideoWatched` noch `false`.
+
+**Bug 3: Hydration laeuft nicht erneut nach ForceReset**
+
+`hasHydratedOnboardingStateRef` wird einmal auf `true` gesetzt und nie zurueckgesetzt. Wenn ForceReset NACH der Hydration triggert (Bug 1), wird der State zurueckgesetzt, aber die DB-Hydration laeuft kein zweites Mal. Der User bleibt mit frischem State stecken.
+
+---
 
 ### Loesung
 
-#### 1. Atomare Hydration in `useOnboardingState.ts`
+#### 1. ForceReset-Logik entschaerfen (`OnboardingScreen.tsx`)
 
-Neue Funktion `hydrateFromDb` hinzufuegen, die ALLE DB-Werte in einem einzigen `setState`-Aufruf setzt:
+- `paymentRedirectRef.current` statt `hasPaymentSuccess` im Guard verwenden (ueberlebt URL-Bereinigung)
+- `hasPaymentSuccess` aus den Effect-Dependencies entfernen
+- Zusaetzlich: ForceReset nur bei echtem User-Mismatch triggern, nicht bei normalem 'invited'-Status. Pruefung ob bezahlte Bestellungen existieren (`bestellungen_bezahlt > 0`) als Safety-Check.
 
 ```typescript
-const hydrateFromDb = useCallback((dbState: {
-  gewerbescheinUrl?: string;
-  gewerbescheinSpaeter?: boolean;
-  currentStep?: OnboardingStepId;
-  completedSteps?: OnboardingStepId[];
-  equipmentStatus?: Record<string, EquipmentItemStatus>;
-  akademieTestBestanden?: boolean;
-  introVideoWatched?: boolean;
-}) => {
-  setState(prev => ({
-    ...prev,
-    gewerbescheinUrl: dbState.gewerbescheinUrl || prev.gewerbescheinUrl,
-    gewerbescheinSpaeter: dbState.gewerbescheinSpaeter || prev.gewerbescheinSpaeter,
-    currentStep: dbState.currentStep || prev.currentStep,
-    completedSteps: dbState.completedSteps?.length
-      ? dbState.completedSteps
-      : prev.completedSteps,
-    equipmentStatus: dbState.equipmentStatus
-      ? { ...prev.equipmentStatus, ...dbState.equipmentStatus }
-      : prev.equipmentStatus,
-    akademieTestBestanden: dbState.akademieTestBestanden || prev.akademieTestBestanden,
-    introVideoWatched: dbState.introVideoWatched || prev.introVideoWatched,
-  }));
-}, []);
+// VORHER (Zeile 83):
+if (!profileId || !dbShowsNoProgress || forceReset || isPreview || hasPaymentSuccess) return;
+
+// NACHHER:
+if (!profileId || !dbShowsNoProgress || forceReset || isPreview || paymentRedirectRef.current) return;
+
+// Dependencies: hasPaymentSuccess ENTFERNEN
+}, [dbShowsNoProgress, forceReset, isPreview, dbStatus?.profileId]);
 ```
 
-#### 2. Hydration-Effect in `OnboardingScreen.tsx` vereinfachen
+Zusaetzlich: Stale-Check absichern -- wenn die DB bezahlte Bestellungen zeigt (`dbStatus` hat ein Feld dafuer ueber `onboardingRecord`), ist der User definitiv NICHT stale:
 
-Den bestehenden Hydration-Effect (Zeilen 164-208) ersetzen durch einen einzigen Aufruf von `hydrateFromDb`:
+```typescript
+// Zusaetzliche Pruefung: Wenn DB echten Fortschritt zeigt, NIEMALS resetten
+const dbHasRealProgress = (onboardingRecord?.bestellungen_bezahlt ?? 0) > 0 
+  || (onboardingRecord?.lektionen_abgeschlossen ?? 0) > 0;
+
+if (dbHasRealProgress) return; // Definitiv kein Stale-State
+```
+
+#### 2. Loading-Gate fixen (`OnboardingScreen.tsx`)
+
+```typescript
+// VORHER (Zeile 354):
+const isHydrationPending = !isPreview && !hasHydratedOnboardingStateRef.current && !isOnboardingStateLoaded;
+
+// NACHHER:
+const isHydrationPending = !isPreview && !hasHydratedOnboardingStateRef.current;
+```
+
+So wird die Loading-Screen gezeigt bis die Hydration tatsaechlich ausgefuehrt wurde -- nicht nur bis die Daten geladen sind.
+
+#### 3. Hydration-Ref nach ForceReset zuruecksetzen (`OnboardingScreen.tsx`)
+
+Wenn `forceReset` triggert, muss `hasHydratedOnboardingStateRef` zurueckgesetzt werden, damit die DB-Hydration erneut laufen kann:
 
 ```typescript
 useEffect(() => {
-  if (isPreview || hasHydratedOnboardingStateRef.current || !isOnboardingStateLoaded || !dbOnboardingState) return;
-  hasHydratedOnboardingStateRef.current = true;
-
-  hydrateFromDb({
-    gewerbescheinUrl: dbOnboardingState.gewerbescheinUrl,
-    gewerbescheinSpaeter: dbOnboardingState.gewerbescheinSpaeter,
-    currentStep: dbOnboardingState.currentStep,
-    completedSteps: dbOnboardingState.completedSteps,
-    equipmentStatus: dbOnboardingState.equipmentStatus,
-    akademieTestBestanden: dbOnboardingState.akademieTestBestanden,
-    introVideoWatched: dbOnboardingState.introVideoWatched,
-  });
-}, [isPreview, isOnboardingStateLoaded, dbOnboardingState, hydrateFromDb]);
-```
-
-#### 3. Loading-Gate vor IntroVideo-Check
-
-In `OnboardingScreen.tsx` einen Loading-Zustand einbauen, der wartet, bis die DB-Hydration abgeschlossen ist, BEVOR der IntroVideo-Check greift:
-
-```typescript
-// VOR dem IntroVideo-Check:
-const isHydrationPending = !isPreview && !hasHydratedOnboardingStateRef.current && !isOnboardingStateLoaded;
-
-if (isHydrationPending) {
-  return <OnboardingLoadingScreen message="Lade Fortschritt..." />;
-}
-
-// DANN erst der IntroVideo-Check:
-if (!state.introVideoWatched && !isPreview && !paymentRedirectRef.current) {
-  // ...
-}
+  if (forceReset) {
+    hasHydratedOnboardingStateRef.current = false;
+  }
+}, [forceReset]);
 ```
 
 ### Betroffene Dateien
 
-- **`src/hooks/useOnboardingState.ts`**: Neue `hydrateFromDb`-Funktion exportieren
-- **`src/components/OnboardingScreen.tsx`**: Hydration-Effect vereinfachen, Loading-Gate einfuegen, leeren completedSteps-Loop entfernen
+- **`src/components/OnboardingScreen.tsx`**: ForceReset-Guard, Loading-Gate, Hydration-Ref-Reset (3 gezielte Aenderungen, keine neuen Dateien)
 
-### Warum das den Gewerbeschein-Bug behebt
+### Warum das den Redirect-Bug endgueltig behebt
 
-Der User hat `gewerbeschein_spaeter: true` in der DB, aber beim Redirect wird der State kurzzeitig ohne diesen Wert initialisiert. Durch die atomare Hydration wird `gewerbescheinSpaeter` zusammen mit `introVideoWatched`, `currentStep` und `completedSteps` in einem einzigen Schritt gesetzt -- es gibt keinen inkonsistenten Zwischenzustand mehr.
-
+Die Kausalkette war: Stripe-Redirect -- URL-Params werden geloescht -- ForceReset-Guard faellt weg -- localStorage wird geloescht -- State startet von vorne. Durch den persistenten `paymentRedirectRef` und die zusaetzliche DB-Fortschritts-Pruefung kann der ForceReset nach einem Stripe-Redirect nicht mehr faelschlicherweise triggern.
