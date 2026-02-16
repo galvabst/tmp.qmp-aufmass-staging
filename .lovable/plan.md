@@ -1,32 +1,44 @@
 
 
-## Fix: "Abmelden"-Button hat keinen onClick-Handler
+## Fix: Quiz bleibt bei "Quiz wird geladen..." haengen
 
-### Problem
+### Ursache
 
-Der "Abmelden"-Button in der Profilansicht ist ein reines `<button>`-Element ohne `onClick`-Handler. Ein Klick darauf tut daher nichts.
+Beim Oeffnen des Modals passiert Folgendes:
+
+1. `useEffect([open])` setzt den State auf `'loading'`
+2. `useEffect([isLoading, fragen.length])` soll auf `'questions'` wechseln
+3. ABER: Die Quiz-Daten sind bereits im React-Query-Cache (staleTime: 5 Minuten), d.h. `isLoading` ist sofort `false` und `fragen.length` ist sofort > 0
+4. Da sich diese Werte nicht aendern, wird der zweite Effect **nicht erneut ausgefuehrt**
+5. Ergebnis: State bleibt auf `'loading'` haengen
+
+Beim allerersten Oeffnen funktioniert es, weil `isLoading` initial `true` ist und sich dann zu `false` aendert. Ab dem zweiten Mal bleiben die Werte gleich.
 
 ### Loesung
 
-Dem Button einen `onClick`-Handler hinzufuegen, der `supabase.auth.signOut()` aufruft und danach die Seite neu laedt (damit der Auth-State zurueckgesetzt wird).
+Den `state` direkt im ersten Effect setzen, wenn die Daten bereits verfuegbar sind:
+
+```text
+useEffect(() => {
+  if (open) {
+    setCurrentIndex(0);
+    setAntworten({});
+    setResult(null);
+    // Wenn Daten bereits gecacht sind, direkt zu 'questions' wechseln
+    if (!isLoading && fragen.length > 0) {
+      setState('questions');
+    } else {
+      setState('loading');
+    }
+  }
+}, [open]);
+```
 
 ### Technische Aenderung
 
 | Datei | Aenderung |
 |---|---|
-| `src/components/ProfileView.tsx` | Import von `supabase` hinzufuegen, `onClick`-Handler mit `signOut()` an den Button haengen |
+| `src/components/akademie/QuizModal.tsx` | Zeilen 47-55: Den Reset-Effect so anpassen, dass er den Cache-Zustand prueft und direkt zu `'questions'` wechselt, wenn Daten bereits vorhanden sind |
 
-Konkret:
-- Import: `import { supabase } from '@/integrations/supabase/client'`
-- Handler auf dem Button:
-
-```typescript
-onClick={async () => {
-  await supabase.auth.signOut();
-  toast.info('Abgemeldet');
-  window.location.reload();
-}}
-```
-
-Keine weiteren Aenderungen noetig.
+Der zweite `useEffect` (Zeilen 57-62) bleibt bestehen fuer den Fall, dass die Daten erst spaeter geladen werden (erster Aufruf).
 
