@@ -156,9 +156,11 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     const profileId = dbStatus?.profileId;
     // paymentRedirectRef überlebt URL-Bereinigung (hasPaymentSuccess tut das NICHT)
     if (!profileId || !dbShowsNoProgress || forceReset || isPreview || paymentRedirectRef.current) return;
+    // KRITISCH: Warte bis DB-State geladen ist, bevor stale-Check
+    if (!isOnboardingStateLoaded) return;
 
-    // Wenn DB-State geladen ist und echten Fortschritt zeigt, NIEMALS resetten
-    if (isOnboardingStateLoaded && dbOnboardingState) {
+    // Wenn DB-State echten Fortschritt zeigt, NIEMALS resetten
+    if (dbOnboardingState) {
       const dbHasRealProgress = 
         (dbOnboardingState.completedSteps && dbOnboardingState.completedSteps.length > 0) ||
         dbOnboardingState.introVideoWatched === true;

@@ -73,7 +73,7 @@ export function OrdersStep({
   const { updateSize, isUpdating } = useOnboardingSizes();
   
   // Stripe Checkout Hook
-  const { startCheckout, isLoading: isCheckoutLoading } = useStripeCheckout();
+  const { startCheckout, startMultiCheckout, isLoading: isCheckoutLoading } = useStripeCheckout();
 
   // Loading-State: Zeige Skeleton bis DB-Bestellungen geladen sind
   if (isLoadingOrders) {
@@ -274,18 +274,9 @@ export function OrdersStep({
           </>
         )}
 
-        {/* Bestell-Ansicht nach Auswahl */}
-        {oberteilAuswahl && nextVariant && (
+        {/* Bestell-Ansicht nach Auswahl: Einzelnes Oberteil */}
+        {oberteilAuswahl && oberteilAuswahl !== 'beides' && nextVariant && (
           <div className="bg-card rounded-2xl p-6 shadow-card">
-            {/* Zeige was noch bestellt werden muss */}
-            {oberteilAuswahl === 'beides' && (
-              <div className="text-center mb-4">
-                <p className="text-sm text-muted-foreground">
-                  {orderedProducts.includes('tshirt') ? '2 von 2: Poloshirt' : '1 von 2: T-Shirt'}
-                </p>
-              </div>
-            )}
-
             {/* Auswahl ändern - nur wenn noch kein Oberteil bestellt */}
             {!orderedProducts.includes('tshirt') && !orderedProducts.includes('poloshirt') && (
               <button
@@ -313,7 +304,6 @@ export function OrdersStep({
               <Badge variant="secondary">Preis im Shop (einmalig)</Badge>
             </div>
 
-            {/* Mengenauswahl für Oberteil-Variante */}
             <div className="mt-4">
               <QuantitySelector
                 value={getQuantity(nextVariant.id)}
@@ -322,7 +312,6 @@ export function OrdersStep({
               />
             </div>
 
-            {/* Größenauswahl für Oberteil-Variante */}
             <div className="mt-4">
               <SizeSelector
                 type="kleidung"
@@ -350,6 +339,89 @@ export function OrdersStep({
                     ? `Jetzt bestellen (Größe ${selectedSizes[nextVariant.id]})`
                     : 'Zuerst Größe wählen'
                   }
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* Sammel-Checkout: Beide Oberteile auf einer Seite */}
+        {oberteilAuswahl === 'beides' && !isOberteilComplete() && (
+          <div className="space-y-4">
+            {/* Auswahl ändern */}
+            {!orderedProducts.includes('tshirt') && !orderedProducts.includes('poloshirt') && (
+              <button
+                type="button"
+                onClick={() => onOberteilAuswahl(null)}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Auswahl ändern
+              </button>
+            )}
+
+            {OBERTEIL_VARIANTEN.filter(v => !orderedProducts.includes(v.id)).map((variant) => (
+              <div key={variant.id} className="bg-card rounded-2xl p-6 shadow-card">
+                <ProductImageSlideshow
+                  images={variant.bildUrls}
+                  alt={`Thermocheck ${variant.name}`}
+                />
+                <div className="text-center mt-4 space-y-2">
+                  <h3 className="text-xl font-bold text-foreground">
+                    Thermocheck {variant.name}
+                  </h3>
+                  <Badge variant="secondary">Preis im Shop (einmalig)</Badge>
+                </div>
+
+                <div className="mt-4">
+                  <QuantitySelector
+                    value={getQuantity(variant.id)}
+                    onChange={(v) => setQuantities(prev => ({ ...prev, [variant.id]: v }))}
+                    disabled={isUpdating || isCheckoutLoading}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <SizeSelector
+                    type="kleidung"
+                    selectedSize={selectedSizes[variant.id] || null}
+                    onSizeSelect={(size) => handleSizeSelect(variant.id, size)}
+                    disabled={isUpdating || isCheckoutLoading}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {/* Gemeinsamer Bestell-Button */}
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={async () => {
+                const itemsToOrder = OBERTEIL_VARIANTEN
+                  .filter(v => !orderedProducts.includes(v.id))
+                  .map(v => ({
+                    produktKey: v.id,
+                    groesse: selectedSizes[v.id],
+                    menge: getQuantity(v.id),
+                  }));
+                await startMultiCheckout(itemsToOrder);
+              }}
+              disabled={
+                OBERTEIL_VARIANTEN
+                  .filter(v => !orderedProducts.includes(v.id))
+                  .some(v => !selectedSizes[v.id]) ||
+                isUpdating || isCheckoutLoading
+              }
+            >
+              {isCheckoutLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Weiterleitung zu Stripe...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-5 h-5 mr-2" />
+                  Beide jetzt bestellen
                 </>
               )}
             </Button>
