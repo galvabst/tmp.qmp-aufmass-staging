@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, Award, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -45,7 +45,7 @@ export function QuizModal({
   const submitMutation = useSubmitQuiz();
 
   // Reset state when modal opens
-  useMemo(() => {
+  useEffect(() => {
     if (open) {
       setState('loading');
       setCurrentIndex(0);
@@ -55,7 +55,7 @@ export function QuizModal({
   }, [open]);
 
   // Transition to questions when loaded
-  useMemo(() => {
+  useEffect(() => {
     if (!isLoading && fragen.length > 0) {
       setState('questions');
     }
