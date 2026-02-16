@@ -198,6 +198,21 @@ export function useOnboardingState(
         };
       }
       
+      // Structure matches, but still merge DB completion status
+      if (completedLektionIds && completedLektionIds.size > 0) {
+        const updatedModules = currentHauptmodule.map(hm => ({
+          ...hm,
+          unterpunkte: hm.unterpunkte.map(up => ({
+            ...up,
+            abgeschlossen: up.abgeschlossen || completedLektionIds.has(up.id),
+            children: up.children?.map(child => ({
+              ...child,
+              abgeschlossen: child.abgeschlossen || completedLektionIds.has(child.id),
+            })),
+          })),
+        }));
+        return { ...prev, akademieHauptmodule: updatedModules };
+      }
       return prev; // No change needed
     });
   }, []);
