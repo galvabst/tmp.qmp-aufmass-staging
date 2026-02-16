@@ -47,10 +47,14 @@ export function QuizModal({
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
-      setState('loading');
       setCurrentIndex(0);
       setAntworten({});
       setResult(null);
+      if (!isLoading && fragen.length > 0) {
+        setState('questions');
+      } else {
+        setState('loading');
+      }
     }
   }, [open]);
 
