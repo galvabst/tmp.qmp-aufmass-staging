@@ -32,9 +32,9 @@ function countLeafUnterpunkte(unterpunkte: AkademieUnterpunkt[]): { completed: n
   return { completed, total };
 }
 
-function isHauptmodulUnlocked(_index: number, _hauptmodule: AkademieHauptmodul[]): boolean {
-  // TEMP: Alle Module freigeschaltet während Aufbauphase
-  return true;
+function isHauptmodulUnlocked(index: number, hauptmodule: AkademieHauptmodul[]): boolean {
+  if (index === 0) return true;
+  return isHauptmodulComplete(hauptmodule[index - 1]);
 }
 
 function isHauptmodulComplete(hauptmodul: AkademieHauptmodul): boolean {
@@ -53,10 +53,7 @@ function getTotalAkademieProgress(hauptmodule: AkademieHauptmodul[]): { complete
   return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
 }
 
-function isUnterpunktUnlocked(): boolean {
-  // TEMP: Alle Unterpunkte freigeschaltet während Aufbauphase
-  return true;
-}
+// Unterpunkt-Sperre entfernt — Sperre greift auf Modul-Ebene via AccordionItem disabled
 
 /** Renders a single clickable lesson inside an expanded accordion */
 function LektionInnerRow({
