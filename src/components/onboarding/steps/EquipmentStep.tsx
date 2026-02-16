@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Plane, Smartphone, Upload, ExternalLink, CheckCircle2, X, ShoppingCart, Ruler, Star, Loader2 } from 'lucide-react';
+import { Plane, Smartphone, Upload, ExternalLink, CheckCircle2, X, ShoppingCart, Ruler, Star, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { NachweisUploadZone } from './equipment/NachweisUploadZone';
+import { EquipmentCard } from './equipment/EquipmentCard';
 
 interface EquipmentStatus {
   hatEigenes: boolean;
@@ -25,72 +27,6 @@ interface EquipmentStepProps {
   massbandKaufLink?: string;
 }
 
-/** Wiederverwendbare Upload-Zone für Equipment-Nachweise */
-function NachweisUploadZone({
-  nachweisUrl,
-  onRemove,
-  onFileSelect,
-  dragActive,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  isUploading,
-}: {
-  nachweisUrl?: string;
-  onRemove: () => void;
-  onFileSelect: (file: File) => void;
-  dragActive: boolean;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragLeave: () => void;
-  onDrop: (e: React.DragEvent) => void;
-  isUploading: boolean;
-}) {
-  if (nachweisUrl) {
-    return (
-      <div className="flex items-center gap-3 p-3 bg-status-accepted/5 border border-status-accepted rounded-lg">
-        <CheckCircle2 className="w-5 h-5 text-status-accepted" />
-        <span className="flex-1 text-sm text-foreground">Nachweis hochgeladen</span>
-        <Button variant="ghost" size="icon" onClick={onRemove}>
-          <X className="w-4 h-4" />
-        </Button>
-      </div>
-    );
-  }
-
-  if (isUploading) {
-    return (
-      <div className="flex flex-col items-center justify-center border-2 border-dashed border-primary rounded-lg p-4">
-        <Loader2 className="w-6 h-6 text-primary animate-spin mb-2" />
-        <span className="text-sm text-muted-foreground">Wird hochgeladen…</span>
-      </div>
-    );
-  }
-
-  return (
-    <label
-      className={cn(
-        'flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 cursor-pointer transition-all',
-        dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/30',
-      )}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-    >
-      <Upload className="w-6 h-6 text-muted-foreground mb-2" />
-      <span className="text-sm text-muted-foreground">Foto oder PDF hochladen</span>
-      <input
-        type="file"
-        accept="image/*,.pdf"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onFileSelect(file);
-        }}
-      />
-    </label>
-  );
-}
-
 export function EquipmentStep({
   drohneStatus,
   iphoneStatus,
@@ -105,10 +41,8 @@ export function EquipmentStep({
   iPhoneKaufLink = 'https://apple.com/de/shop/buy-iphone',
   massbandKaufLink = 'https://amzn.to/4afYToT',
 }: EquipmentStepProps) {
-  const [drohneDragActive, setDrohneDragActive] = useState(false);
-  const [iphoneDragActive, setIphoneDragActive] = useState(false);
-  const [massbandDragActive, setMassbandDragActive] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [dragActiveId, setDragActiveId] = useState<string | null>(null);
 
   const handleFileUpload = async (equipId: string, file: File, onChange: (s: EquipmentStatus) => void, currentStatus: EquipmentStatus) => {
     setUploadingId(equipId);
@@ -122,9 +56,9 @@ export function EquipmentStep({
     }
   };
 
-  const handleDrop = (e: React.DragEvent, equipId: string, onChange: (s: EquipmentStatus) => void, currentStatus: EquipmentStatus, setDrag: (v: boolean) => void) => {
+  const handleDrop = (e: React.DragEvent, equipId: string, onChange: (s: EquipmentStatus) => void, currentStatus: EquipmentStatus) => {
     e.preventDefault();
-    setDrag(false);
+    setDragActiveId(null);
     const file = e.dataTransfer.files?.[0];
     if (file) handleFileUpload(equipId, file, onChange, currentStatus);
   };
@@ -133,236 +67,259 @@ export function EquipmentStep({
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Drohne */}
-      <div className="bg-card rounded-xl p-4 shadow-card">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <Plane className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Drohne mit 4K Kamera</h3>
-            <p className="text-sm text-muted-foreground">Für Dachaufnahmen erforderlich</p>
-          </div>
-        </div>
+  const completedCount = [drohneStatus, iphoneStatus, massbandStatus].filter(
+    s => s.hatEigenes && s.nachweisUrl
+  ).length;
 
+  return (
+    <div className="space-y-5">
+      {/* Progress summary */}
+      <div className="flex items-center gap-3 px-1">
+        <div className="flex gap-1.5">
+          {[drohneStatus, iphoneStatus, massbandStatus].map((s, i) => (
+            <div
+              key={i}
+              className={cn(
+                'h-1.5 w-8 rounded-full transition-all duration-500',
+                s.hatEigenes && s.nachweisUrl
+                  ? 'bg-status-accepted'
+                  : s.hatEigenes
+                    ? 'bg-primary/60'
+                    : 'bg-border'
+              )}
+            />
+          ))}
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {completedCount}/3 bestätigt
+        </span>
+      </div>
+
+      {/* Drohne */}
+      <EquipmentCard
+        icon={Plane}
+        title="Drohne mit 4K Kamera"
+        subtitle="Für Dachaufnahmen erforderlich"
+        isCompleted={!!drohneStatus.nachweisUrl}
+        stepNumber={1}
+      >
         <RadioGroup
           value={drohneStatus.hatEigenes ? 'ja' : 'nein'}
-          onValueChange={(value) => onDrohneChange({ 
+          onValueChange={(value) => onDrohneChange({
             hatEigenes: value === 'ja',
             nachweisUrl: value === 'nein' ? undefined : drohneStatus.nachweisUrl,
           })}
-          className="space-y-3"
+          className="space-y-2.5"
         >
-          <div className={cn(
-            'flex items-center space-x-3 border rounded-lg p-3 cursor-pointer transition-colors',
-            drohneStatus.hatEigenes ? 'border-primary bg-primary/5' : 'border-border'
+          <label className={cn(
+            'flex items-center gap-3 border rounded-xl p-3.5 cursor-pointer transition-all duration-200',
+            drohneStatus.hatEigenes
+              ? 'border-primary bg-primary/5 shadow-sm'
+              : 'border-border hover:border-muted-foreground/30'
           )}>
             <RadioGroupItem value="ja" id="drohne-ja" />
-            <Label htmlFor="drohne-ja" className="flex-1 cursor-pointer">
-              Ja, ich habe bereits eine Drohne
-            </Label>
-          </div>
-          <div className={cn(
-            'flex items-center space-x-3 border rounded-lg p-3 cursor-pointer transition-colors',
-            !drohneStatus.hatEigenes ? 'border-primary bg-primary/5' : 'border-border'
+            <span className="text-sm font-medium text-foreground">Ja, ich habe bereits eine Drohne</span>
+          </label>
+          <label className={cn(
+            'flex items-center gap-3 border rounded-xl p-3.5 cursor-pointer transition-all duration-200',
+            !drohneStatus.hatEigenes
+              ? 'border-primary bg-primary/5 shadow-sm'
+              : 'border-border hover:border-muted-foreground/30'
           )}>
             <RadioGroupItem value="nein" id="drohne-nein" />
-            <Label htmlFor="drohne-nein" className="flex-1 cursor-pointer">
-              Nein, ich brauche eine Drohne
-            </Label>
-          </div>
+            <span className="text-sm font-medium text-foreground">Nein, ich brauche eine Drohne</span>
+          </label>
         </RadioGroup>
 
         {drohneStatus.hatEigenes && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t border-border/60">
             <p className="text-sm font-medium text-foreground mb-3">Nachweis hochladen (Foto/Kaufbeleg)</p>
             <NachweisUploadZone
               nachweisUrl={drohneStatus.nachweisUrl}
               onRemove={() => onDrohneChange({ ...drohneStatus, nachweisUrl: undefined })}
               onFileSelect={(file) => handleFileUpload('drohne', file, onDrohneChange, drohneStatus)}
-              dragActive={drohneDragActive}
-              onDragOver={(e) => { e.preventDefault(); setDrohneDragActive(true); }}
-              onDragLeave={() => setDrohneDragActive(false)}
-              onDrop={(e) => handleDrop(e, 'drohne', onDrohneChange, drohneStatus, setDrohneDragActive)}
+              dragActive={dragActiveId === 'drohne'}
+              onDragOver={(e) => { e.preventDefault(); setDragActiveId('drohne'); }}
+              onDragLeave={() => setDragActiveId(null)}
+              onDrop={(e) => handleDrop(e, 'drohne', onDrohneChange, drohneStatus)}
               isUploading={uploadingId === 'drohne'}
             />
           </div>
         )}
 
         {!drohneStatus.hatEigenes && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t border-border/60">
             <p className="text-sm text-muted-foreground mb-3">
               Du benötigst eine Drohne mit 4K Kamera für Dachaufnahmen.
             </p>
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => openExternalLink(drohneMietLink)}>
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Drohne mieten
+            <div className="flex gap-2.5">
+              <Button variant="outline" className="flex-1 rounded-xl h-11" onClick={() => openExternalLink(drohneMietLink)}>
+                <ExternalLink className="w-4 h-4 mr-1.5" />
+                Mieten
               </Button>
-              <Button variant="default" className="flex-1 relative" onClick={() => openExternalLink(drohneKaufLink)}>
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Drohne kaufen
-                <span className="absolute -top-2.5 -right-1 bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                  <Star className="w-2.5 h-2.5" />
-                  Bessere Wahl
+              <Button className="flex-1 relative rounded-xl h-11 bg-gradient-to-r from-primary to-primary/85 hover:from-primary/90 hover:to-primary/75" onClick={() => openExternalLink(drohneKaufLink)}>
+                <ShoppingCart className="w-4 h-4 mr-1.5" />
+                Kaufen
+                <span className="absolute -top-2 -right-1 bg-status-accepted text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm">
+                  <Star className="w-2.5 h-2.5" fill="currentColor" />
+                  Empfohlen
                 </span>
               </Button>
             </div>
           </div>
         )}
-      </div>
+      </EquipmentCard>
 
       {/* iPhone mit LiDAR */}
-      <div className="bg-card rounded-xl p-4 shadow-card">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <Smartphone className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">iPhone mit LiDAR</h3>
-            <p className="text-sm text-muted-foreground">iPhone 12 Pro oder neuer für 3D-Scans</p>
-          </div>
-        </div>
-
+      <EquipmentCard
+        icon={Smartphone}
+        title="iPhone mit LiDAR"
+        subtitle="iPhone 12 Pro oder neuer für 3D-Scans"
+        isCompleted={!!iphoneStatus.nachweisUrl}
+        stepNumber={2}
+      >
         <RadioGroup
           value={iphoneStatus.hatEigenes ? 'ja' : 'nein'}
           onValueChange={(value) => onIphoneChange({
             hatEigenes: value === 'ja',
             nachweisUrl: value === 'nein' ? undefined : iphoneStatus.nachweisUrl,
           })}
-          className="space-y-3"
+          className="space-y-2.5"
         >
-          <div className={cn(
-            'flex items-center space-x-3 border rounded-lg p-3 cursor-pointer transition-colors',
-            iphoneStatus.hatEigenes ? 'border-primary bg-primary/5' : 'border-border'
+          <label className={cn(
+            'flex items-center gap-3 border rounded-xl p-3.5 cursor-pointer transition-all duration-200',
+            iphoneStatus.hatEigenes
+              ? 'border-primary bg-primary/5 shadow-sm'
+              : 'border-border hover:border-muted-foreground/30'
           )}>
             <RadioGroupItem value="ja" id="iphone-ja" />
-            <Label htmlFor="iphone-ja" className="flex-1 cursor-pointer">
-              Ja, ich habe ein kompatibles iPhone
-            </Label>
-          </div>
-          <div className={cn(
-            'flex items-center space-x-3 border rounded-lg p-3 cursor-pointer transition-colors',
-            !iphoneStatus.hatEigenes ? 'border-primary bg-primary/5' : 'border-border'
+            <span className="text-sm font-medium text-foreground">Ja, ich habe ein kompatibles iPhone</span>
+          </label>
+          <label className={cn(
+            'flex items-center gap-3 border rounded-xl p-3.5 cursor-pointer transition-all duration-200',
+            !iphoneStatus.hatEigenes
+              ? 'border-primary bg-primary/5 shadow-sm'
+              : 'border-border hover:border-muted-foreground/30'
           )}>
             <RadioGroupItem value="nein" id="iphone-nein" />
-            <Label htmlFor="iphone-nein" className="flex-1 cursor-pointer">
-              Nein, ich brauche ein iPhone
-            </Label>
-          </div>
+            <span className="text-sm font-medium text-foreground">Nein, ich brauche ein iPhone</span>
+          </label>
         </RadioGroup>
 
         {iphoneStatus.hatEigenes && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t border-border/60">
             <p className="text-sm font-medium text-foreground mb-3">Nachweis hochladen (Foto/Screenshot)</p>
             <NachweisUploadZone
               nachweisUrl={iphoneStatus.nachweisUrl}
               onRemove={() => onIphoneChange({ ...iphoneStatus, nachweisUrl: undefined })}
               onFileSelect={(file) => handleFileUpload('iphone-lidar', file, onIphoneChange, iphoneStatus)}
-              dragActive={iphoneDragActive}
-              onDragOver={(e) => { e.preventDefault(); setIphoneDragActive(true); }}
-              onDragLeave={() => setIphoneDragActive(false)}
-              onDrop={(e) => handleDrop(e, 'iphone-lidar', onIphoneChange, iphoneStatus, setIphoneDragActive)}
+              dragActive={dragActiveId === 'iphone-lidar'}
+              onDragOver={(e) => { e.preventDefault(); setDragActiveId('iphone-lidar'); }}
+              onDragLeave={() => setDragActiveId(null)}
+              onDrop={(e) => handleDrop(e, 'iphone-lidar', onIphoneChange, iphoneStatus)}
               isUploading={uploadingId === 'iphone-lidar'}
             />
           </div>
         )}
 
         {!iphoneStatus.hatEigenes && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t border-border/60">
             <p className="text-sm text-muted-foreground mb-3">
               Du benötigst mindestens ein iPhone 12 Pro mit LiDAR-Scanner.
             </p>
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => openExternalLink(iPhoneMietLink)}>
-                <ExternalLink className="w-4 h-4 mr-2" />
-                iPhone mieten
+            <div className="flex gap-2.5">
+              <Button variant="outline" className="flex-1 rounded-xl h-11" onClick={() => openExternalLink(iPhoneMietLink)}>
+                <ExternalLink className="w-4 h-4 mr-1.5" />
+                Mieten
               </Button>
-              <Button variant="default" className="flex-1" onClick={() => openExternalLink(iPhoneKaufLink)}>
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                iPhone kaufen
+              <Button className="flex-1 rounded-xl h-11" onClick={() => openExternalLink(iPhoneKaufLink)}>
+                <ShoppingCart className="w-4 h-4 mr-1.5" />
+                Kaufen
               </Button>
             </div>
           </div>
         )}
-      </div>
+      </EquipmentCard>
 
       {/* Maßband */}
-      <div className="bg-card rounded-xl p-4 shadow-card">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <Ruler className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Maßband</h3>
-            <p className="text-sm text-muted-foreground">Empfohlene Länge: mindestens 5m</p>
-          </div>
-        </div>
-
+      <EquipmentCard
+        icon={Ruler}
+        title="Maßband"
+        subtitle="Empfohlene Länge: mindestens 5m"
+        isCompleted={!!massbandStatus.nachweisUrl}
+        stepNumber={3}
+      >
         <RadioGroup
           value={massbandStatus.hatEigenes ? 'ja' : 'nein'}
           onValueChange={(value) => onMassbandChange({
             hatEigenes: value === 'ja',
             nachweisUrl: value === 'nein' ? undefined : massbandStatus.nachweisUrl,
           })}
-          className="space-y-3"
+          className="space-y-2.5"
         >
-          <div className={cn(
-            'flex items-center space-x-3 border rounded-lg p-3 cursor-pointer transition-colors',
-            massbandStatus.hatEigenes ? 'border-primary bg-primary/5' : 'border-border'
+          <label className={cn(
+            'flex items-center gap-3 border rounded-xl p-3.5 cursor-pointer transition-all duration-200',
+            massbandStatus.hatEigenes
+              ? 'border-primary bg-primary/5 shadow-sm'
+              : 'border-border hover:border-muted-foreground/30'
           )}>
             <RadioGroupItem value="ja" id="massband-ja" />
-            <Label htmlFor="massband-ja" className="flex-1 cursor-pointer">
-              Ja, ich habe bereits ein Maßband
-            </Label>
-          </div>
-          <div className={cn(
-            'flex items-center space-x-3 border rounded-lg p-3 cursor-pointer transition-colors',
-            !massbandStatus.hatEigenes ? 'border-primary bg-primary/5' : 'border-border'
+            <span className="text-sm font-medium text-foreground">Ja, ich habe bereits ein Maßband</span>
+          </label>
+          <label className={cn(
+            'flex items-center gap-3 border rounded-xl p-3.5 cursor-pointer transition-all duration-200',
+            !massbandStatus.hatEigenes
+              ? 'border-primary bg-primary/5 shadow-sm'
+              : 'border-border hover:border-muted-foreground/30'
           )}>
             <RadioGroupItem value="nein" id="massband-nein" />
-            <Label htmlFor="massband-nein" className="flex-1 cursor-pointer">
-              Nein, ich brauche ein Maßband
-            </Label>
-          </div>
+            <span className="text-sm font-medium text-foreground">Nein, ich brauche ein Maßband</span>
+          </label>
         </RadioGroup>
 
         {massbandStatus.hatEigenes && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t border-border/60">
             <p className="text-sm font-medium text-foreground mb-3">Nachweis hochladen (Foto)</p>
             <NachweisUploadZone
               nachweisUrl={massbandStatus.nachweisUrl}
               onRemove={() => onMassbandChange({ ...massbandStatus, nachweisUrl: undefined })}
               onFileSelect={(file) => handleFileUpload('massband', file, onMassbandChange, massbandStatus)}
-              dragActive={massbandDragActive}
-              onDragOver={(e) => { e.preventDefault(); setMassbandDragActive(true); }}
-              onDragLeave={() => setMassbandDragActive(false)}
-              onDrop={(e) => handleDrop(e, 'massband', onMassbandChange, massbandStatus, setMassbandDragActive)}
+              dragActive={dragActiveId === 'massband'}
+              onDragOver={(e) => { e.preventDefault(); setDragActiveId('massband'); }}
+              onDragLeave={() => setDragActiveId(null)}
+              onDrop={(e) => handleDrop(e, 'massband', onMassbandChange, massbandStatus)}
               isUploading={uploadingId === 'massband'}
             />
           </div>
         )}
 
         {!massbandStatus.hatEigenes && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t border-border/60">
             <p className="text-sm text-muted-foreground mb-3">
               Empfohlene Länge: mindestens 5m
             </p>
-            <Button variant="default" className="w-full" onClick={() => openExternalLink(massbandKaufLink)}>
-              <ShoppingCart className="w-4 h-4 mr-2" />
+            <Button className="w-full rounded-xl h-11" onClick={() => openExternalLink(massbandKaufLink)}>
+              <ShoppingCart className="w-4 h-4 mr-1.5" />
               Unser empfohlenes Modell kaufen
             </Button>
           </div>
         )}
-      </div>
+      </EquipmentCard>
 
-      {/* Info */}
-      <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
-        <p className="text-sm text-foreground">
-          <strong>💡 Tipp:</strong> Die Drohne, das iPhone und das Maßband kannst du auch steuerlich absetzen!
-        </p>
+      {/* Pro-Tipp */}
+      <div className="relative overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent p-4">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="flex items-start gap-3 relative">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+            <Sparkles className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground mb-0.5">Steuer-Tipp</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Die Drohne, das iPhone und das Maßband kannst du als Betriebsausgabe steuerlich absetzen!
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
