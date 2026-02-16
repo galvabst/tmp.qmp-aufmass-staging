@@ -13,6 +13,7 @@ import { CoachingStep } from './onboarding/steps/CoachingStep';
 import { OnboardingComplete } from './onboarding/OnboardingComplete';
 import { WaitingForApproval } from './onboarding/WaitingForApproval';
 import { IntroVideo } from './onboarding/IntroVideo';
+import { OutroVideo } from './onboarding/OutroVideo';
 import { QuizModal } from './akademie/QuizModal';
 import { OnboardingLoadingScreen } from '@/components/ui/OnboardingLoadingScreen';
 import { useOnboardingState, clearOnboardingLocalStorage } from '@/hooks/useOnboardingState';
@@ -349,6 +350,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
   const [quizOpen, setQuizOpen] = useState(false);
+  const [showOutroVideo, setShowOutroVideo] = useState(false);
 
   // Coaching-Slots aus DB laden
   const { data: dbCoachingSlots = [] } = useAvailableCoachingSlots();
@@ -436,6 +438,28 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       }
     };
     return <IntroVideo onComplete={handleIntroComplete} />;
+  }
+
+  // Outro-Video Gate: Fullscreen-Video zwischen Akademie und Coaching
+  if (showOutroVideo) {
+    const handleOutroComplete = async () => {
+      setShowOutroVideo(false);
+      goToNextStep();
+      // Fortschritt speichern
+      try {
+        const nextCompletedSteps = state.completedSteps.includes('akademie')
+          ? state.completedSteps
+          : [...state.completedSteps, 'akademie'];
+        await saveProgress({
+          currentStep: 'coaching',
+          completedSteps: nextCompletedSteps,
+        });
+        console.log('[Onboarding] Outro video complete, progress saved');
+      } catch (error) {
+        console.warn('[Onboarding] Failed to save progress after outro:', error);
+      }
+    };
+    return <OutroVideo onComplete={handleOutroComplete} />;
   }
 
   if (isComplete) {
@@ -596,6 +620,14 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         console.warn('[Onboarding] Failed to save final progress:', error);
       }
       setCoachingAbgeschlossen(true); // triggers isComplete
+      nextClickLockRef.current = false;
+      setIsAdvancing(false);
+      return;
+    }
+
+    // Outro-Video Gate: Bei Akademie → Coaching Übergang Video zeigen
+    if (state.currentStep === 'akademie') {
+      setShowOutroVideo(true);
       nextClickLockRef.current = false;
       setIsAdvancing(false);
       return;
