@@ -11181,6 +11181,10 @@ export type Database = {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
       }
+      start_contractor_arbeitspaket: {
+        Args: { p_arbeitspaket_code: string; p_contractor_id: string }
+        Returns: string
+      }
       suggest_appointment_slots_v2: {
         Args: {
           p_days_ahead?: number

@@ -1,0 +1,27 @@
+INSERT INTO thermocheck.contractor_akademie_lektions_fortschritt (contractor_id, lektion_id, status)
+VALUES
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '688ac84e-785c-47f0-a301-6a8ee8d1f527', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', 'f10b3df0-1a58-4d2a-80a1-164b38a21292', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '76824e54-a994-4ac7-a600-761808855c6b', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', 'fbf14648-868f-4a23-8f56-6930e9040ae4', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '11fe8577-cf14-4f89-91e0-62ba8e494f48', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '2e5839a9-7b49-46bc-804e-e2a4a29f53c4', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '10cdf71a-7a4d-4cfd-9e07-063f732c6850', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '4eba70a8-894e-4ace-994f-f0cfb22af9c2', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', 'ab32e7af-462d-4416-8346-463b81ebcc95', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '8c2d3698-6be8-4bff-be48-50a17e726c9f', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '7ab1f48c-d348-4f84-b4b8-efa6762f1818', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '7f318aeb-46b6-48be-a175-f96020c18c21', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '942b1ed1-144f-4e9e-807d-50f402eddb6f', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '7e450a86-8d49-4a5c-84f2-2a11347b9551', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', 'e34ef996-6c92-489f-bbb4-7f40ebd793a4', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '43c89c73-3003-4a94-adbf-d1af9cc0b9ed', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', 'ce55a301-13af-454b-af82-b773c9f27637', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', 'b2fc2422-9c7e-4250-9fe2-dcace5c9d176', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '6e336324-7983-479c-ab46-b885fd1c4221', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '54cbd715-ec5a-4cd9-b3b7-2b71287e9bd3', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '6609714f-e028-4d26-b1fb-a0fd557d388c', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', 'ab660c31-3931-489e-a5e6-b28a8f00b6be', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', '810227fd-1fe2-4e71-9161-1c75dd1a585b', 'completed'),
+  ('66912458-4735-4e2a-9942-9c3bb525f447', 'c2212860-ef1b-44d9-b44f-75b67622df94', 'completed')
+ON CONFLICT (contractor_id, lektion_id) DO UPDATE SET status = 'completed';
