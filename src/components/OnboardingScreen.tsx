@@ -13,15 +13,16 @@ import { CoachingStep } from './onboarding/steps/CoachingStep';
 import { OnboardingComplete } from './onboarding/OnboardingComplete';
 import { WaitingForApproval } from './onboarding/WaitingForApproval';
 import { IntroVideo } from './onboarding/IntroVideo';
+import { QuizModal } from './akademie/QuizModal';
 import { OnboardingLoadingScreen } from '@/components/ui/OnboardingLoadingScreen';
 import { useOnboardingState, clearOnboardingLocalStorage } from '@/hooks/useOnboardingState';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useContractorProfile } from '@/hooks/useContractorProfile';
 import { useContractorOrders, getPaidProductKeys } from '@/hooks/useContractorOrders';
 import { useAkademieFortschritt } from '@/hooks/useAkademieFortschritt';
+import { useAvailableCoachingSlots, useMyBookedSlot, useBookCoachingSlot } from '@/hooks/useCoachingSlots';
 import {
   MOCK_PRODUCTS,
-  MOCK_COACHING_SLOTS,
   MOCK_EQUIPMENT,
   ONBOARDING_STEPS,
   createInitialOnboardingState,
@@ -91,6 +92,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     saveProgress,
     saveEquipmentStatus,
     saveIntroVideoWatched,
+    saveAkademieTestBestanden,
     onboardingState: dbOnboardingState,
     isOnboardingStateLoaded,
   } = useContractorProfile(dbStatus?.profileId || null);
@@ -345,7 +347,51 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   }, [searchParams, setSearchParams, refetchOrders, goToStep]);
 
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
-  const [coachingSlots, setCoachingSlots] = useState<CoachingSlot[]>(MOCK_COACHING_SLOTS);
+  const [quizOpen, setQuizOpen] = useState(false);
+
+  // Coaching-Slots aus DB laden
+  const { data: dbCoachingSlots = [] } = useAvailableCoachingSlots();
+  const { data: myBookedSlot } = useMyBookedSlot(dbStatus?.profileId || null);
+  const bookCoachingSlotMutation = useBookCoachingSlot();
+
+  // DB-Slots + gebuchter Slot → CoachingSlot[] Format für CoachingStep
+  const coachingSlots: CoachingSlot[] = (() => {
+    const slots: CoachingSlot[] = [];
+    
+    // Gebuchter Slot zuerst
+    if (myBookedSlot) {
+      slots.push({
+        id: myBookedSlot.id,
+        coachName: `${myBookedSlot.trainer_vorname || ''} ${myBookedSlot.trainer_nachname || ''}`.trim() || 'Trainer',
+        coachAvatarUrl: myBookedSlot.trainer_avatar_url,
+        datum: myBookedSlot.datum,
+        uhrzeitVon: 'Ganztägig',
+        uhrzeitBis: '',
+        ort: myBookedSlot.region,
+        region: myBookedSlot.region,
+        gebucht: true,
+        preis: Number(myBookedSlot.preis) || 149,
+      });
+    }
+    
+    // Verfügbare Slots
+    for (const slot of dbCoachingSlots) {
+      slots.push({
+        id: slot.id,
+        coachName: `${slot.trainer_vorname || ''} ${slot.trainer_nachname || ''}`.trim() || 'Trainer',
+        coachAvatarUrl: slot.trainer_avatar_url,
+        datum: slot.datum,
+        uhrzeitVon: 'Ganztägig',
+        uhrzeitBis: '',
+        ort: slot.region,
+        region: slot.region,
+        gebucht: false,
+        preis: Number(slot.preis) || 149,
+      });
+    }
+    
+    return slots;
+  })();
 
   // Handle completed unterpunkt from AkademieModul page navigation
   useEffect(() => {
@@ -450,24 +496,36 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   };
 
   const handleStartTest = () => {
-    toast.info('Abschlusstest wird gestartet...');
-    setTimeout(() => {
-      setAkademieTestBestanden(true);
-      toast.success('Test bestanden! 🎉');
-    }, 2000);
+    setQuizOpen(true);
   };
 
-  const handleBookCoaching = () => {
+  const handleQuizComplete = async (bestanden: boolean) => {
+    if (bestanden) {
+      setAkademieTestBestanden(true);
+      toast.success('Abschlusstest bestanden! 🎉');
+      try {
+        await saveAkademieTestBestanden();
+        console.log('[Onboarding] akademie_test_bestanden saved to DB');
+      } catch (error) {
+        console.warn('[Onboarding] Failed to save akademie_test_bestanden:', error);
+      }
+    } else {
+      toast.error('Leider nicht bestanden. Du kannst es erneut versuchen.');
+    }
+  };
+
+  const handleBookCoaching = async () => {
     if (!selectedCoachingSlot) return;
     
-    setCoachingSlots(prev => prev.map(s => 
-      s.id === selectedCoachingSlot 
-        ? { ...s, gebucht: true }
-        : s
-    ));
-    setGebuchterCoachingSlot(selectedCoachingSlot);
-    setCoachingAbgeschlossen(true);
-    toast.success('Coaching-Termin gebucht!');
+    try {
+      const result = await bookCoachingSlotMutation.mutateAsync(selectedCoachingSlot);
+      setGebuchterCoachingSlot(selectedCoachingSlot);
+      setCoachingAbgeschlossen(true);
+      toast.success(`Coaching-Termin gebucht bei ${result.coach_name}!`);
+    } catch (error: any) {
+      console.error('[Onboarding] Coaching booking failed:', error);
+      toast.error(error?.message || 'Buchung fehlgeschlagen. Bitte versuche es erneut.');
+    }
   };
 
   const handleNext = async () => {
@@ -725,6 +783,16 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       >
         {renderStep()}
       </OnboardingStepWrapper>
+
+      {/* Akademie Abschlusstest Quiz Modal */}
+      <QuizModal
+        open={quizOpen}
+        onOpenChange={setQuizOpen}
+        modulTitel="Abschlussprüfung"
+        contractorId={dbStatus?.onboardingId || ''}
+        onQuizComplete={handleQuizComplete}
+        bestehensSchwelle={100}
+      />
     </div>
   );
 }

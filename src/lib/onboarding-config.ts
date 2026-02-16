@@ -4,7 +4,6 @@ import {
   EquipmentItem, 
   AkademieModul,
   AkademieHauptmodul,
-  CoachingSlot,
   ApplicantProfile,
   OnboardingState,
   STEP_ORDER,
@@ -176,51 +175,8 @@ export const MOCK_AKADEMIE_MODULE: AkademieModul[] = [];
 // Mock-Daten entfernt - thermocheck Schema ist SSOT
 export const MOCK_AKADEMIE_HAUPTMODULE: AkademieHauptmodul[] = [];
 
-// Mock-Coaching Slots (basiert auf echten Thermochecks von berechtigten Coaches)
-export const MOCK_COACHING_SLOTS: CoachingSlot[] = [
-  {
-    id: 'slot-1',
-    thermocheckId: 'tc-001',
-    coachId: 'coach-1',
-    coachName: 'Thomas Müller',
-    coachAvatarUrl: '/placeholder.svg',
-    datum: '2026-01-28',
-    uhrzeitVon: 'Ganztägig',
-    uhrzeitBis: '',
-    ort: 'München',
-    region: 'Bayern',
-    gebucht: false,
-    preis: 149,
-  },
-  {
-    id: 'slot-2',
-    thermocheckId: 'tc-002',
-    coachId: 'coach-1',
-    coachName: 'Thomas Müller',
-    coachAvatarUrl: '/placeholder.svg',
-    datum: '2026-01-29',
-    uhrzeitVon: 'Ganztägig',
-    uhrzeitBis: '',
-    ort: 'München',
-    region: 'Bayern',
-    gebucht: false,
-    preis: 149,
-  },
-  {
-    id: 'slot-3',
-    thermocheckId: 'tc-003',
-    coachId: 'coach-2',
-    coachName: 'Stefan Weber',
-    coachAvatarUrl: '/placeholder.svg',
-    datum: '2026-01-30',
-    uhrzeitVon: 'Ganztägig',
-    uhrzeitBis: '',
-    ort: 'Augsburg',
-    region: 'Bayern',
-    gebucht: false,
-    preis: 149,
-  },
-];
+// Coaching-Slots werden jetzt aus der DB geladen (thermocheck.contractor_coaching_slots)
+// Mock-Daten entfernt - DB ist SSOT
 
 // Mock-Bewerber Profil
 export const MOCK_APPLICANT_PROFILE: ApplicantProfile = {

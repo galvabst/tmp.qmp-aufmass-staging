@@ -338,6 +338,20 @@ export function useContractorProfile(profileId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
     },
   });
+
+  // Akademie-Abschlusstest als bestanden markieren
+  const saveAkademieTestBestandenMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase.rpc as unknown as (
+        fn: string,
+        params?: Record<string, unknown>
+      ) => Promise<{ error: Error | null }>)('update_contractor_akademie_test_bestanden');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
+    },
+  });
   
   return {
     data: query.data,
@@ -359,6 +373,7 @@ export function useContractorProfile(profileId: string | null) {
     saveProgress: saveProgressMutation.mutateAsync,
     saveEquipmentStatus: saveEquipmentStatusMutation.mutateAsync,
     saveIntroVideoWatched: saveIntroVideoWatchedMutation.mutateAsync,
+    saveAkademieTestBestanden: saveAkademieTestBestandenMutation.mutateAsync,
     
     // Mutation states
     isUpdating: updateMutation.isPending,
