@@ -809,6 +809,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         description={currentStepConfig?.description}
         onBack={isPreview ? onExitPreview : goToPreviousStep}
         onNext={handleNext}
+        onForward={goToNextStep}
+        onStepClick={goToStep}
         nextLabel={getNextLabel()}
         nextDisabled={!canProceed || isAdvancing || (state.currentStep === 'nachweise' && (dbOnboardingState as any)?.coachingBewertung !== 'bestanden')}
         progress={progress}

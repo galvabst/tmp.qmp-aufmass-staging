@@ -21,6 +21,8 @@ interface OnboardingStepWrapperProps {
   children: ReactNode;
   onBack?: () => void;
   onNext: () => void;
+  onForward?: () => void;
+  onStepClick?: (stepId: OnboardingStepId) => void;
   nextLabel?: string;
   nextDisabled?: boolean;
   showBack?: boolean;
@@ -36,6 +38,8 @@ export function OnboardingStepWrapper({
   children,
   onBack,
   onNext,
+  onForward,
+  onStepClick,
   nextLabel = 'Weiter',
   nextDisabled = false,
   showBack = true,
@@ -44,6 +48,7 @@ export function OnboardingStepWrapper({
 }: OnboardingStepWrapperProps) {
   const currentIndex = getStepIndex(currentStep);
   const totalSteps = STEP_ORDER.length;
+  const canGoForward = completedSteps.includes(currentStep) && currentIndex < totalSteps - 1;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -74,6 +79,18 @@ export function OnboardingStepWrapper({
                 Schritt {currentIndex + 1} von {totalSteps}
               </span>
             </div>
+            {canGoForward && onForward ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onForward}
+                className="text-primary-foreground hover:bg-primary-foreground/10 shrink-0"
+              >
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            ) : (
+              <div className="w-10" />
+            )}
             <GalvanekLogo size="sm" className="shrink-0 brightness-0 invert opacity-80" />
           </div>
 
@@ -93,20 +110,25 @@ export function OnboardingStepWrapper({
               const isCompleted = isStepCompleted(stepId, completedSteps);
               const isCurrent = stepId === currentStep;
               
+              const isClickable = (isCompleted || isCurrent) && onStepClick;
+              
               return (
-                <div
+                <button
                   key={stepId}
+                  type="button"
+                  disabled={!isClickable}
+                  onClick={() => isClickable && onStepClick(stepId)}
                   className={cn(
                     'rounded-full transition-all duration-300 flex items-center justify-center',
                     isCompleted
-                      ? 'h-6 w-6 bg-primary-foreground text-primary'
+                      ? 'h-6 w-6 bg-primary-foreground text-primary cursor-pointer hover:scale-110'
                       : isCurrent
-                        ? 'h-6 w-6 bg-primary-foreground/30 border-2 border-primary-foreground animate-pulse'
-                        : 'h-2.5 w-2.5 bg-primary-foreground/25'
+                        ? 'h-6 w-6 bg-primary-foreground/30 border-2 border-primary-foreground animate-[pulse_4s_cubic-bezier(0.4,0,0.6,1)_infinite]'
+                        : 'h-2.5 w-2.5 bg-primary-foreground/25 cursor-default'
                   )}
                 >
                   {isCompleted && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
-                </div>
+                </button>
               );
             })}
           </div>
