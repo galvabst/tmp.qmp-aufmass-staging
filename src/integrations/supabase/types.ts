@@ -9546,6 +9546,7 @@ export type Database = {
           abgeschlossen: boolean
           datei_url: string
           id: string
+          optionen: Json
           pflichtfeld: boolean
           reihenfolge: number
           schritt_code: string

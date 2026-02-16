@@ -7,6 +7,8 @@ import { Progress } from '@/components/ui/progress';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { GalvanekLogo } from '@/components/GalvanekLogo';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 interface ProfileViewProps {
   profile: TechnicianProfile;
   onSave?: (updatedProfile: Partial<TechnicianProfile>) => void;
@@ -319,7 +321,14 @@ export function ProfileView({ profile, onSave, onStartOnboarding, onStartOnboard
 
       {/* Logout */}
       <section className="p-4 pt-0">
-        <button className="w-full flex items-center justify-center gap-2 p-4 bg-card rounded-lg shadow-card text-destructive font-medium hover:bg-destructive/5 transition-colors">
+        <button
+          onClick={async () => {
+            await supabase.auth.signOut();
+            toast.info('Abgemeldet');
+            window.location.reload();
+          }}
+          className="w-full flex items-center justify-center gap-2 p-4 bg-card rounded-lg shadow-card text-destructive font-medium hover:bg-destructive/5 transition-colors"
+        >
           <LogOut className="w-5 h-5" />
           Abmelden
         </button>
