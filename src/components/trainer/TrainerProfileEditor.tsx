@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Video, Save, Check, Type } from 'lucide-react';
+import { Video, Save, Check, Type, Euro } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,28 +15,33 @@ export function TrainerProfileEditor({ profileId }: TrainerProfileEditorProps) {
   const { data, isLoading, updateTrainerProfile, isUpdating } = useTrainerProfile(profileId);
   const [videoUrl, setVideoUrl] = useState('');
   const [bio, setBio] = useState('');
+  const [preis, setPreis] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (data) {
       setVideoUrl(data.trainer_video_url || '');
       setBio(data.trainer_bio || '');
+      setPreis(data.trainer_coaching_preis != null ? String(data.trainer_coaching_preis) : '');
     }
   }, [data]);
 
   useEffect(() => {
     if (!data) return;
+    const preisStr = data.trainer_coaching_preis != null ? String(data.trainer_coaching_preis) : '';
     const changed =
       (videoUrl !== (data.trainer_video_url || '')) ||
-      (bio !== (data.trainer_bio || ''));
+      (bio !== (data.trainer_bio || '')) ||
+      (preis !== preisStr);
     setHasChanges(changed);
-  }, [videoUrl, bio, data]);
+  }, [videoUrl, bio, preis, data]);
 
   const handleSave = async () => {
     try {
       await updateTrainerProfile({
         trainer_video_url: videoUrl.trim() || null,
         trainer_bio: bio.trim() || null,
+        trainer_coaching_preis: preis.trim() ? parseFloat(preis.trim()) : null,
       });
       setHasChanges(false);
       toast.success('Trainer-Profil gespeichert');
@@ -90,6 +95,28 @@ export function TrainerProfileEditor({ profileId }: TrainerProfileEditorProps) {
           <p className="text-[11px] text-muted-foreground text-right">
             {bio.length}/200 Zeichen
           </p>
+        </div>
+
+        {/* Coaching-Preis */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Euro className="w-4 h-4 text-primary" />
+            Coaching-Preis (brutto)
+          </label>
+          <div className="relative">
+            <Input
+              type="number"
+              value={preis}
+              onChange={(e) => setPreis(e.target.value)}
+              placeholder="z.B. 149.00"
+              min={0}
+              step={0.01}
+              className="text-sm pr-14"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+              EUR
+            </span>
+          </div>
         </div>
 
         {/* Save */}

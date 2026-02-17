@@ -1,0 +1,1 @@
+ALTER TABLE thermocheck.contractor_onboarding ADD COLUMN trainer_coaching_preis NUMERIC(8,2) DEFAULT NULL;

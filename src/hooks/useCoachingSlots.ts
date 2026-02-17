@@ -26,6 +26,7 @@ export interface DbCoachingRide {
   trainer_avatar_url?: string;
   trainer_video_url?: string;
   trainer_bio?: string;
+  trainer_coaching_preis?: number;
 }
 
 async function syncSession() {
@@ -50,7 +51,7 @@ export function useAvailableCoachingRides() {
       // 1. Alle Trainer laden (id = contractor_onboarding.id, profile_id = auth user id)
       const { data: trainers, error: trainerErr } = await thermocheckClient
         .from('contractor_onboarding')
-        .select('id, profile_id, trainer_video_url, trainer_bio')
+        .select('id, profile_id, trainer_video_url, trainer_bio, trainer_coaching_preis')
         .eq('is_trainer', true);
 
       if (trainerErr || !trainers || trainers.length === 0) {
@@ -141,6 +142,7 @@ export function useAvailableCoachingRides() {
           trainer_avatar_url: profile?.avatar_url || undefined,
           trainer_video_url: trainerRecord.trainer_video_url || undefined,
           trainer_bio: trainerRecord.trainer_bio || undefined,
+          trainer_coaching_preis: trainerRecord.trainer_coaching_preis ?? undefined,
         });
       }
 
@@ -183,7 +185,7 @@ export function useMyBookedRide(profileId: string | null) {
       // FIX: contractor_onboarding laden per id (= zugewiesener_techniker_id)
       const { data: trainerOnb } = await thermocheckClient
         .from('contractor_onboarding')
-        .select('profile_id, trainer_video_url, trainer_bio')
+        .select('profile_id, trainer_video_url, trainer_bio, trainer_coaching_preis')
         .eq('id', auftrag.zugewiesener_techniker_id)
         .maybeSingle();
 
@@ -226,6 +228,7 @@ export function useMyBookedRide(profileId: string | null) {
         trainer_avatar_url: trainer?.avatar_url || undefined,
         trainer_video_url: trainerOnb?.trainer_video_url || undefined,
         trainer_bio: trainerOnb?.trainer_bio || undefined,
+        trainer_coaching_preis: trainerOnb?.trainer_coaching_preis ?? undefined,
       };
     },
     enabled: !!profileId,
