@@ -9163,6 +9163,15 @@ export type Database = {
         Args: { p_contractor_arbeitspaket_id: string }
         Returns: boolean
       }
+      complete_thermocheck_wc1: {
+        Args: {
+          p_auftrag_id: string
+          p_quadratmeter: number
+          p_termine: Json
+          p_wohneinheiten: number
+        }
+        Returns: undefined
+      }
       compute_display_name: {
         Args: {
           p_fallback_email?: string
@@ -10053,13 +10062,36 @@ export type Database = {
           p_search?: string
           p_substatus_filter?: string
         }
-        Returns: unknown[]
-        SetofOptions: {
-          from: "*"
-          to: "v_thermocheck_auftraege"
-          isOneToOne: false
-          isSetofReturn: true
-        }
+        Returns: {
+          abgerechnet: boolean
+          created_at: string
+          created_by: string
+          id: string
+          info_vertrieb_pv_aufmass: string
+          info_vertrieb_sonstiges: string
+          info_vertrieb_thc_aufmass: string
+          kunde_anrede: string
+          kunde_email: string
+          kunde_hausnummer: string
+          kunde_nachname: string
+          kunde_ort: string
+          kunde_plz: string
+          kunde_strasse: string
+          kunde_telefon: string
+          kunde_vorname: string
+          lead_id: string
+          lead_name: string
+          notizen: string
+          pipeline_status: string
+          rechnungsdatum: string
+          rechnungsnummer: string
+          referenz_nummer: string
+          signier_datum_thc: string
+          storno_datum: string
+          updated_at: string
+          widerrufsbelehrung_url: string
+          zugewiesener_techniker_id: string
+        }[]
       }
       get_thermocheck_auftraege_count: {
         Args: { p_search?: string; p_substatus_filter?: string }
@@ -10088,6 +10120,7 @@ export type Database = {
           lead_name: string
           notizen: string
           pipeline_status: string
+          quadratmeter: number
           rechnungsdatum: string
           rechnungsnummer: string
           referenz_nummer: string
@@ -10095,7 +10128,11 @@ export type Database = {
           storno_datum: string
           techniker_name: string
           updated_at: string
+          vertriebler_name: string
+          wc1_durchgefuehrt_am: string
+          wc1_durchgefuehrt_von: string
           widerrufsbelehrung_url: string
+          wohneinheiten: number
           zugewiesener_techniker_id: string
         }[]
       }
@@ -10119,6 +10156,20 @@ export type Database = {
         Returns: {
           count: number
           substatus: string
+        }[]
+      }
+      get_thermocheck_terminvorschlaege: {
+        Args: { p_auftrag_id: string }
+        Returns: {
+          created_at: string
+          created_by: string
+          datum: string
+          ganztaegig: boolean
+          id: string
+          sortierung: number
+          thermocheck_auftrag_id: string
+          zeit_bis: string
+          zeit_von: string
         }[]
       }
       get_user_accessible_apps: {
