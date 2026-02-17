@@ -40,21 +40,25 @@ async function getAuthHeaders() {
   };
 }
 
-export function usePoolOrders() {
+export function useMyAssignedOrders() {
   return useQuery({
-    queryKey: ["pool-orders"],
+    queryKey: ["my-assigned-orders"],
     queryFn: async (): Promise<TechnicianOrder[]> => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+      if (!userId) return [];
+
       const headers = await getAuthHeaders();
 
-      // Step 1: Fetch auftraege with pipeline_status = termin_abwarten and no techniker assigned
+      // Fetch auftraege assigned to current user
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?pipeline_status=eq.termin_abwarten&zugewiesener_techniker_id=is.null&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${userId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status`,
         { headers }
       );
 
       if (!auftraegeRes.ok) {
-        console.error("[usePoolOrders] Failed to fetch auftraege:", auftraegeRes.status);
-        throw new Error("Failed to fetch auftraege");
+        console.error("[useMyAssignedOrders] Failed to fetch auftraege:", auftraegeRes.status);
+        throw new Error("Failed to fetch assigned auftraege");
       }
 
       const auftraege: AuftragRow[] = await auftraegeRes.json();
@@ -62,23 +66,20 @@ export function usePoolOrders() {
 
       const auftragIds = auftraege.map(a => a.id);
 
-      // Step 2: Fetch terminvorschlaege for those auftraege
+      // Fetch termine for those auftraege
       const termineRes = await fetch(
         `${SUPABASE_URL}/rest/v1/thermocheck_terminvorschlaege?thermocheck_auftrag_id=in.(${auftragIds.join(",")})&select=id,thermocheck_auftrag_id,datum,zeit_von,zeit_bis,ganztaegig,created_at&order=datum.asc`,
         { headers }
       );
 
       if (!termineRes.ok) {
-        console.error("[usePoolOrders] Failed to fetch termine:", termineRes.status);
+        console.error("[useMyAssignedOrders] Failed to fetch termine:", termineRes.status);
         throw new Error("Failed to fetch termine");
       }
 
       const termine: TerminRow[] = await termineRes.json();
-
-      // Build a map of auftrag_id -> auftrag
       const auftragMap = new Map(auftraege.map(a => [a.id, a]));
 
-      // Map each termin to a TechnicianOrder
       const orders: TechnicianOrder[] = termine.map(termin => {
         const auftrag = auftragMap.get(termin.thermocheck_auftrag_id);
         const customerName = auftrag
@@ -101,7 +102,7 @@ export function usePoolOrders() {
           scheduledDate: termin.datum,
           scheduledTime: timeStr,
           description: "Thermocheck-Termin",
-          status: "published" as const,
+          status: "booked" as const,
           auftragstyp: "thermocheck" as const,
           createdAt: termin.created_at,
           contactPhone: auftrag?.kunde_telefon || undefined,
@@ -109,7 +110,7 @@ export function usePoolOrders() {
         };
       });
 
-      console.log("[usePoolOrders] Loaded", orders.length, "pool orders");
+      console.log("[useMyAssignedOrders] Loaded", orders.length, "assigned orders");
       return orders;
     },
     staleTime: 30 * 1000,

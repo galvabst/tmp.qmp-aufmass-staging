@@ -8709,6 +8709,11 @@ export type Database = {
         Returns: unknown
       }
       _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      accept_pool_order: { Args: { p_termin_id: string }; Returns: Json }
+      accept_thermocheck_termin: {
+        Args: { p_terminvorschlag_id: string }
+        Returns: undefined
+      }
       addauth: { Args: { "": string }; Returns: boolean }
       addgeometrycolumn:
         | {
@@ -10162,12 +10167,15 @@ export type Database = {
       get_thermocheck_terminvorschlaege: {
         Args: { p_auftrag_id: string }
         Returns: {
+          angenommen_am: string
+          angenommen_von: string
           created_at: string
           created_by: string
           datum: string
           ganztaegig: boolean
           id: string
           sortierung: number
+          status: "vorgeschlagen" | "angenommen" | "abgelehnt"
           thermocheck_auftrag_id: string
           zeit_bis: string
           zeit_von: string

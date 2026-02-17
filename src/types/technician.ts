@@ -94,6 +94,7 @@ export interface TechnicianOrder {
   billableAmount?: number;
   submittedAt?: string;
   approvedAt?: string;
+  auftragId?: string;
 }
 
 // Technician Profile
