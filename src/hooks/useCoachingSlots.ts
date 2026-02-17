@@ -37,6 +37,9 @@ async function syncSession() {
 
 /**
  * Lädt verfügbare Coaching-Rides (Aufträge mit Trainer + Terminvorschläge, noch nicht gebucht)
+ * 
+ * WICHTIG: zugewiesener_techniker_id = contractor_onboarding.id (NICHT profile_id)
+ * Daher: Trainer über contractor_onboarding.id laden, Profile über profile_id auflösen
  */
 export function useAvailableCoachingRides() {
   return useQuery({
@@ -44,10 +47,10 @@ export function useAvailableCoachingRides() {
     queryFn: async (): Promise<DbCoachingRide[]> => {
       await syncSession();
 
-      // 1. Alle Trainer-IDs laden
+      // 1. Alle Trainer laden (id = contractor_onboarding.id, profile_id = auth user id)
       const { data: trainers, error: trainerErr } = await thermocheckClient
         .from('contractor_onboarding')
-        .select('profile_id, trainer_video_url, trainer_bio')
+        .select('id, profile_id, trainer_video_url, trainer_bio')
         .eq('is_trainer', true);
 
       if (trainerErr || !trainers || trainers.length === 0) {
@@ -55,14 +58,15 @@ export function useAvailableCoachingRides() {
         return [];
       }
 
-      const trainerIds = trainers.map(t => t.profile_id);
-      const trainerMap = new Map(trainers.map(t => [t.profile_id, t]));
+      // Map: contractor_onboarding.id -> trainer record
+      const trainerByContractorId = new Map(trainers.map(t => [t.id, t]));
+      const contractorIds = trainers.map(t => t.id);
 
-      // 2. Aufträge mit zugewiesenem Trainer laden (noch nicht gebucht)
+      // 2. Aufträge filtern mit contractor_onboarding.id (NICHT profile_id)
       const { data: auftraege, error: auftraegeErr } = await thermocheckClient
         .from('thermocheck_auftraege')
         .select('id, lead_id, zugewiesener_techniker_id')
-        .in('zugewiesener_techniker_id', trainerIds)
+        .in('zugewiesener_techniker_id', contractorIds)
         .is('coaching_gebucht_von', null);
 
       if (auftraegeErr || !auftraege || auftraege.length === 0) {
@@ -80,7 +84,6 @@ export function useAvailableCoachingRides() {
         .in('thermocheck_auftrag_id', auftragIds)
         .order('sortierung', { ascending: true });
 
-      // Nur Aufträge MIT Terminvorschlägen anzeigen
       const termineByAuftrag = new Map<string, CoachingTermin[]>();
       for (const t of (termine || [])) {
         const list = termineByAuftrag.get(t.thermocheck_auftrag_id) || [];
@@ -93,18 +96,18 @@ export function useAvailableCoachingRides() {
         termineByAuftrag.set(t.thermocheck_auftrag_id, list);
       }
 
-      // 4. Trainer-Profile (Name + Avatar) aus public schema laden
-      const trainerProfileIds = [...new Set(auftraege.map(a => a.zugewiesener_techniker_id))];
+      // 4. Trainer profile_ids sammeln und Profile aus public schema laden
+      const profileIds = [...new Set(trainers.map(t => t.profile_id).filter(Boolean))];
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, vorname, nachname, avatar_url')
-        .in('id', trainerProfileIds);
+        .in('id', profileIds);
 
       const profileMap = new Map(
         (profiles || []).map(p => [p.id, p])
       );
 
-      // 5. Lead-Daten für Region laden (public schema)
+      // 5. Lead-Daten für Region laden
       let regionMap = new Map<string, string>();
       if (leadIds.length > 0) {
         const { data: leads } = await supabase
@@ -117,25 +120,27 @@ export function useAvailableCoachingRides() {
         );
       }
 
-      // 6. Zusammenbauen
+      // 6. Zusammenbauen: contractor_onboarding.id -> profile_id -> profiles
       const results: DbCoachingRide[] = [];
       for (const auftrag of auftraege) {
         const auftragTermine = termineByAuftrag.get(auftrag.id);
-        if (!auftragTermine || auftragTermine.length === 0) continue; // Skip ohne Termine
+        if (!auftragTermine || auftragTermine.length === 0) continue;
 
-        const trainer = profileMap.get(auftrag.zugewiesener_techniker_id);
-        const trainerOnb = trainerMap.get(auftrag.zugewiesener_techniker_id);
+        const trainerRecord = trainerByContractorId.get(auftrag.zugewiesener_techniker_id);
+        if (!trainerRecord) continue;
+
+        const profile = profileMap.get(trainerRecord.profile_id);
 
         results.push({
           auftrag_id: auftrag.id,
-          trainer_profile_id: auftrag.zugewiesener_techniker_id,
+          trainer_profile_id: trainerRecord.profile_id,
           termine: auftragTermine,
           region: regionMap.get(auftrag.lead_id) || 'Region',
-          trainer_vorname: trainer?.vorname || '',
-          trainer_nachname: trainer?.nachname || '',
-          trainer_avatar_url: trainer?.avatar_url || undefined,
-          trainer_video_url: trainerOnb?.trainer_video_url || undefined,
-          trainer_bio: trainerOnb?.trainer_bio || undefined,
+          trainer_vorname: profile?.vorname || '',
+          trainer_nachname: profile?.nachname || '',
+          trainer_avatar_url: profile?.avatar_url || undefined,
+          trainer_video_url: trainerRecord.trainer_video_url || undefined,
+          trainer_bio: trainerRecord.trainer_bio || undefined,
         });
       }
 
@@ -147,6 +152,9 @@ export function useAvailableCoachingRides() {
 
 /**
  * Lädt den gebuchten Ride des aktuellen Users
+ * 
+ * WICHTIG: zugewiesener_techniker_id = contractor_onboarding.id
+ * Daher: erst contractor_onboarding laden, dann profile_id -> profiles
  */
 export function useMyBookedRide(profileId: string | null) {
   return useQuery({
@@ -172,12 +180,23 @@ export function useMyBookedRide(profileId: string | null) {
         .eq('thermocheck_auftrag_id', auftrag.id)
         .order('sortierung', { ascending: true });
 
-      // Trainer-Profile
-      const { data: trainer } = await supabase
-        .from('profiles')
-        .select('id, vorname, nachname, avatar_url')
+      // FIX: contractor_onboarding laden per id (= zugewiesener_techniker_id)
+      const { data: trainerOnb } = await thermocheckClient
+        .from('contractor_onboarding')
+        .select('profile_id, trainer_video_url, trainer_bio')
         .eq('id', auftrag.zugewiesener_techniker_id)
         .maybeSingle();
+
+      // Dann profiles mit der aufgelösten profile_id laden
+      let trainer: { vorname: string; nachname: string; avatar_url: string | null } | null = null;
+      if (trainerOnb?.profile_id) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('vorname, nachname, avatar_url')
+          .eq('id', trainerOnb.profile_id)
+          .maybeSingle();
+        trainer = profileData;
+      }
 
       // Region aus Lead
       let region = 'Region';
@@ -192,16 +211,9 @@ export function useMyBookedRide(profileId: string | null) {
         }
       }
 
-      // Trainer Video/Bio
-      const { data: trainerOnb } = await thermocheckClient
-        .from('contractor_onboarding')
-        .select('trainer_video_url, trainer_bio')
-        .eq('profile_id', auftrag.zugewiesener_techniker_id)
-        .maybeSingle();
-
       return {
         auftrag_id: auftrag.id,
-        trainer_profile_id: auftrag.zugewiesener_techniker_id,
+        trainer_profile_id: trainerOnb?.profile_id || auftrag.zugewiesener_techniker_id,
         termine: (termine || []).map(t => ({
           datum: t.datum,
           ganztaegig: t.ganztaegig,
