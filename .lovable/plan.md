@@ -1,50 +1,56 @@
 
 
-## Fix: "Zum Auftrags-Pool" Button fuehrt nicht zum Pool
+## Echte Auftraege aus `thermocheck_terminvorschlaege` laden
 
 ### Problem
 
-Till sieht die "Du bist einsatzbereit"-Seite korrekt, aber ein Klick auf "Zum Auftrags-Pool" zeigt nur einen falschen Toast ("bitte warte auf Trainer-Freigabe") und bleibt auf derselben Seite haengen.
+Der Pool zeigt Dummy-Daten aus einer Mock-Datei. Die echten Auftraege stehen in `thermocheck_terminvorschlaege` (Termine) verknuepft mit `v_thermocheck_auftraege` (Kundendaten).
 
-**Ursache:** Die `onComplete`-Callback in `Index.tsx` (Zeile 256-262) ruft nie `refetchOnboardingStatus()` auf. Dadurch bleibt der gecachte React-Query-State veraltet und `isDbReady` bleibt `false` -- die Seite rendert weiterhin `OnboardingScreen` statt den Pool.
+### Datenquelle
 
-### Loesung
+Aktuell 1 Datensatz in `thermocheck_terminvorschlaege`:
 
-**Datei:** `src/pages/Index.tsx`, Zeile 256-262
+| Feld | Wert |
+|---|---|
+| datum | 2026-02-26 |
+| zeit_von / zeit_bis | 11:00 - 15:00 |
+| Kunde | Ferizi Arsim |
+| Adresse | Stettinerstrasse 7, 37574 Einbeck |
+| pipeline_status | termin_abwarten |
 
-Aktuell:
-```
-onComplete={() => {
-  if (isPreviewMode) {
-    setIsPreviewMode(false);
-    return;
-  }
-  toast.success('Onboarding abgeschlossen – bitte warte auf Trainer-Freigabe! 🎓');
-}}
-```
+### Umsetzung
 
-Neu:
-```
-onComplete={() => {
-  if (isPreviewMode) {
-    setIsPreviewMode(false);
-    return;
-  }
-  refetchOnboardingStatus();
-  toast.success('Willkommen im Pool! 🎉');
-}}
-```
+**1. Neuer Hook: `src/hooks/usePoolOrders.ts`**
+
+- Fetcht per REST-API (wie `useContractorOrders`) aus dem `thermocheck`-Schema
+- JOIN: `thermocheck_terminvorschlaege` + `v_thermocheck_auftraege` (via `thermocheck_auftrag_id`)
+- Filter: `pipeline_status = termin_abwarten` und `zugewiesener_techniker_id` ist leer (offene Auftraege)
+- Mappt die DB-Felder auf das `TechnicianOrder`-Interface:
+  - `customerName` = `kunde_vorname` + `kunde_nachname`
+  - `address` = `kunde_strasse` + `kunde_hausnummer`
+  - `city` = `kunde_ort`, `postalCode` = `kunde_plz`
+  - `scheduledDate` = `datum`, `scheduledTime` = `zeit_von` - `zeit_bis`
+  - `status` = `published` (da im Pool)
+  - `contactPhone` = `kunde_telefon`, `contactEmail` = `kunde_email`
+  - `auftragstyp` = `thermocheck` (default)
+
+**2. Aenderung: `src/pages/Index.tsx`**
+
+- Import von `mockTechnicianOrders` entfernen
+- `usePoolOrders(profileId)` aufrufen
+- `orders` State initial leer setzen, mit DB-Daten befuellen sobald geladen
+- Loading-State waehrend Daten geladen werden
 
 ### Technische Details
 
-- `refetchOnboardingStatus()` ist bereits verfuegbar (Zeile 41 in Index.tsx, destrukturiert aus `useContractorOnboardingStatus`)
-- Nach dem Refetch wird `isDbReady` in Index.tsx auf `true` evaluiert (weil die DB bereits `onboarding_status = 'ready'` hat)
-- Die Bedingung `!isDbReady` (Zeile 240) wird dann `false`, und der Pool wird gerendert
-- Die Toast-Nachricht wird korrigiert -- Trainer brauchen keine Freigabe abzuwarten
+- Verwendet den gleichen REST-Fetch-Pattern wie `useContractorOrders` mit `Accept-Profile: thermocheck` Header
+- Query: Erst Terminvorschlaege laden mit `select=*,thermocheck_auftrag_id(kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status)` oder zwei separate Queries
+- Lokale Aktionen (Annehmen, Check-in) bleiben vorerst im Frontend-State
 
 ### Betroffene Dateien
 
 | Datei | Aenderung |
 |---|---|
-| `src/pages/Index.tsx` | `onComplete` Callback: `refetchOnboardingStatus()` aufrufen + Toast-Text aendern |
+| `src/hooks/usePoolOrders.ts` | Neu: Hook fuer echte Termine aus DB |
+| `src/pages/Index.tsx` | Mock-Import entfernen, echten Hook einbinden |
 
