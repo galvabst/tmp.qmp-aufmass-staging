@@ -428,7 +428,9 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     }
   }, [location.state, completeAkademieModul, completeAkademieUnterpunkt, goToStep, navigate]);
 
-  const isDbReady = dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true;
+  const isDbReady = dbStatus?.isTrainer
+    ? dbStatus?.onboardingStatus === 'ready'
+    : (dbStatus?.onboardingStatus === 'ready' && dbStatus?.trainerFreigabe === true);
 
   // Loading-Gate: Warte bis Hydration TATSÄCHLICH ausgeführt wurde (nicht nur bis Daten geladen)
   const isHydrationPending = !isPreview && !hasHydratedOnboardingStateRef.current;
@@ -840,7 +842,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         onForward={goToNextStep}
         onStepClick={goToStep}
         nextLabel={getNextLabel()}
-        nextDisabled={!canProceed || isAdvancing || (state.currentStep === 'nachweise' && (dbOnboardingState as any)?.coachingBewertung !== 'bestanden')}
+        nextDisabled={!canProceed || isAdvancing || (state.currentStep === 'nachweise' && !dbStatus?.isTrainer && (dbOnboardingState as any)?.coachingBewertung !== 'bestanden')}
         progress={progress}
         erstelltAm={isPreview ? undefined : dbStatus?.erstelltAm}
       >
