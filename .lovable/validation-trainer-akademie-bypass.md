@@ -21,7 +21,7 @@
 | Rolle | Akademie-Pflicht? | Coaching-Pflicht? | Module freigeschaltet? | Weiter-Button aktiv? |
 |---|---|---|---|---|
 | user (is_trainer=false) | Ja | Ja | Sequenziell | Nur wenn alle Lektionen + Test / Ride gebucht |
-| user (is_trainer=true) | Nein | Nein | Alle offen | Sofort |
+| user (is_trainer=true) | Nein | Nein | Alle offen | Sofort | Kein Warten auf Freigabe |
 | Preview-Modus | Nein | Nein | Alle offen | Sofort |
 
 ## Edge Cases
