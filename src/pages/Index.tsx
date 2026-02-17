@@ -258,7 +258,8 @@ const Index = () => {
             setIsPreviewMode(false);
             return;
           }
-          toast.success('Onboarding abgeschlossen – bitte warte auf Trainer-Freigabe! 🎓');
+          refetchOnboardingStatus();
+          toast.success('Willkommen im Pool! 🎉');
         }}
       />
     );
