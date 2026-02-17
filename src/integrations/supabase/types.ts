@@ -10065,6 +10065,40 @@ export type Database = {
         Args: { p_search?: string; p_substatus_filter?: string }
         Returns: number
       }
+      get_thermocheck_auftrag_detail: {
+        Args: { p_auftrag_id: string }
+        Returns: {
+          abgerechnet: boolean
+          created_at: string
+          created_by: string
+          id: string
+          info_vertrieb_pv_aufmass: string
+          info_vertrieb_sonstiges: string
+          info_vertrieb_thc_aufmass: string
+          kunde_anrede: string
+          kunde_email: string
+          kunde_hausnummer: string
+          kunde_nachname: string
+          kunde_ort: string
+          kunde_plz: string
+          kunde_strasse: string
+          kunde_telefon: string
+          kunde_vorname: string
+          lead_id: string
+          lead_name: string
+          notizen: string
+          pipeline_status: string
+          rechnungsdatum: string
+          rechnungsnummer: string
+          referenz_nummer: string
+          signier_datum_thc: string
+          storno_datum: string
+          techniker_name: string
+          updated_at: string
+          widerrufsbelehrung_url: string
+          zugewiesener_techniker_id: string
+        }[]
+      }
       get_thermocheck_ideen: {
         Args: never
         Returns: {
