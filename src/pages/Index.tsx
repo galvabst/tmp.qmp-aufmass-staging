@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav, Tab } from '@/components/BottomNav';
 import { PoolView } from '@/components/PoolView';
@@ -11,6 +11,8 @@ import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { TechnicianOrderDetail } from '@/components/TechnicianOrderDetail';
 import { TechnicianOrder, TechnicianProfile, CheckinPhase } from '@/types/technician';
 import { usePoolOrders } from '@/hooks/usePoolOrders';
+import { useMyAssignedOrders } from '@/hooks/useMyAssignedOrders';
+import { supabase } from '@/integrations/supabase/client';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
 import { useContractorOnboardingStatus } from '@/hooks/useContractorOnboardingStatus';
@@ -48,15 +50,21 @@ const Index = () => {
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
   
   // Fetch real orders from DB
-  const { data: dbOrders, isLoading: isOrdersLoading } = usePoolOrders();
+  const { data: dbPoolOrders, isLoading: isOrdersLoading } = usePoolOrders();
+  const { data: dbAssignedOrders } = useMyAssignedOrders();
   const [orders, setOrders] = useState<TechnicianOrder[]>([]);
   
-  // Sync DB orders into local state (for local mutations like accept/checkin)
+  // Sync DB orders into local state (merge pool + assigned)
   useEffect(() => {
-    if (dbOrders) {
-      setOrders(dbOrders);
+    const pool = dbPoolOrders || [];
+    const assigned = dbAssignedOrders || [];
+    // Deduplicate by id
+    const merged = new Map<string, TechnicianOrder>();
+    for (const o of [...pool, ...assigned]) {
+      merged.set(o.id, o);
     }
-  }, [dbOrders]);
+    setOrders(Array.from(merged.values()));
+  }, [dbPoolOrders, dbAssignedOrders]);
   
   // Build profile from DB data
   const profile = useMemo((): TechnicianProfile => {
@@ -135,7 +143,39 @@ const Index = () => {
     setSelectedOrder(null);
   };
 
-  const handleStatusChange = (orderId: string, newStatus: ObjectOrderStatusEnum) => {
+  const handleStatusChange = useCallback(async (orderId: string, newStatus: ObjectOrderStatusEnum) => {
+    if (newStatus === 'booked') {
+      // Use RPC to atomically accept the order
+      try {
+        const { data, error } = await supabase.rpc('accept_pool_order', {
+          p_termin_id: orderId,
+        });
+
+        if (error) {
+          console.error('[handleStatusChange] RPC error:', error);
+          toast.error('Fehler beim Annehmen: ' + error.message);
+          return;
+        }
+
+        const result = data as { success: boolean; error?: string };
+        if (!result.success) {
+          toast.error(result.error || 'Auftrag konnte nicht angenommen werden');
+          return;
+        }
+
+        toast.success('Auftrag angenommen! 🎉');
+        setSelectedOrder(null);
+        setActiveTab('bookings');
+        // Refetch to get updated data
+        return;
+      } catch (err) {
+        console.error('[handleStatusChange] Unexpected error:', err);
+        toast.error('Unerwarteter Fehler beim Annehmen');
+        return;
+      }
+    }
+
+    // For other status changes, keep local state update
     setOrders(prev => 
       prev.map(order => 
         order.id === orderId 
@@ -145,7 +185,6 @@ const Index = () => {
     );
 
     const statusMessages: Partial<Record<ObjectOrderStatusEnum, string>> = {
-      booked: 'Auftrag angenommen! 🎉',
       cancelled: 'Auftrag abgelehnt',
     };
 
@@ -154,11 +193,7 @@ const Index = () => {
     }
     
     setSelectedOrder(null);
-    
-    if (newStatus === 'booked') {
-      setActiveTab('bookings');
-    }
-  };
+  }, []);
 
   const handleCheckin = (orderId: string, phase: CheckinPhase) => {
     const now = new Date().toISOString();
