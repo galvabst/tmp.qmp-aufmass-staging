@@ -475,6 +475,7 @@ export function useOnboardingState(
         return allLeafsComplete && state.akademieTestBestanden;
       case 'nachweise':
         if (isPreview) return true;
+        if (isTrainer) return true;
         return !!(
           Object.values(state.ausstattungCheckliste).every(Boolean) &&
           state.gesamtfotoUrl
