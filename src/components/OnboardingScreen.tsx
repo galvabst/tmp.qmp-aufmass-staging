@@ -766,16 +766,24 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
       case 'nachweise':
         return (
-          <ProofStep
-            checkliste={state.ausstattungCheckliste}
-            onChecklistChange={updateCheckliste}
-            gesamtfotoUrl={state.gesamtfotoUrl}
-            onGesamtfotoUpload={handleGesamtfotoUpload}
-            onRemoveGesamtfoto={() => setGesamtfotoUrl(undefined)}
-            coachingBewertung={(dbOnboardingState as any)?.coachingBewertung || 'ausstehend'}
-            coachingTermin={(dbOnboardingState as any)?.coachingTermin}
-            coachName={(dbOnboardingState as any)?.coachName}
-          />
+          <>
+            {dbStatus?.isTrainer && (
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 flex items-start gap-2 text-sm text-blue-800">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>Als Trainer entfällt die Freigabe-Pflicht. Du kannst diesen Schritt überspringen.</span>
+              </div>
+            )}
+            <ProofStep
+              checkliste={state.ausstattungCheckliste}
+              onChecklistChange={updateCheckliste}
+              gesamtfotoUrl={state.gesamtfotoUrl}
+              onGesamtfotoUpload={handleGesamtfotoUpload}
+              onRemoveGesamtfoto={() => setGesamtfotoUrl(undefined)}
+              coachingBewertung={dbStatus?.isTrainer ? 'bestanden' : ((dbOnboardingState as any)?.coachingBewertung || 'ausstehend')}
+              coachingTermin={(dbOnboardingState as any)?.coachingTermin}
+              coachName={(dbOnboardingState as any)?.coachName}
+            />
+          </>
         );
 
       case 'coaching':
