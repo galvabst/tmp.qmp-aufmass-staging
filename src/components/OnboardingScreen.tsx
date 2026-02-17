@@ -21,7 +21,7 @@ import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useContractorProfile } from '@/hooks/useContractorProfile';
 import { useContractorOrders, getPaidProductKeys } from '@/hooks/useContractorOrders';
 import { useAkademieFortschritt } from '@/hooks/useAkademieFortschritt';
-import { useAvailableCoachingSlots, useMyBookedSlot, useBookCoachingSlot } from '@/hooks/useCoachingSlots';
+import { useAvailableCoachingRides, useMyBookedRide, useBookCoachingRide } from '@/hooks/useCoachingSlots';
 import {
   MOCK_PRODUCTS,
   MOCK_EQUIPMENT,
@@ -352,44 +352,54 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const [quizOpen, setQuizOpen] = useState(false);
   const [showOutroVideo, setShowOutroVideo] = useState(false);
 
-  // Coaching-Slots aus DB laden
-  const { data: dbCoachingSlots = [] } = useAvailableCoachingSlots();
-  const { data: myBookedSlot } = useMyBookedSlot(dbStatus?.profileId || null);
-  const bookCoachingSlotMutation = useBookCoachingSlot();
+  // Coaching-Rides aus DB laden
+  const { data: dbCoachingRides = [] } = useAvailableCoachingRides();
+  const { data: myBookedRide } = useMyBookedRide(dbStatus?.profileId || null);
+  const bookCoachingRideMutation = useBookCoachingRide();
 
-  // DB-Slots + gebuchter Slot → CoachingSlot[] Format für CoachingStep
+  // DB-Rides → CoachingSlot[] Format für CoachingStep
   const coachingSlots: CoachingSlot[] = (() => {
     const slots: CoachingSlot[] = [];
     
-    // Gebuchter Slot zuerst
-    if (myBookedSlot) {
+    // Gebuchter Ride zuerst
+    if (myBookedRide) {
       slots.push({
-        id: myBookedSlot.id,
-        coachName: `${myBookedSlot.trainer_vorname || ''} ${myBookedSlot.trainer_nachname || ''}`.trim() || 'Trainer',
-        coachAvatarUrl: myBookedSlot.trainer_avatar_url,
-        datum: myBookedSlot.datum,
-        uhrzeitVon: 'Ganztägig',
-        uhrzeitBis: '',
-        ort: myBookedSlot.region,
-        region: myBookedSlot.region,
+        id: myBookedRide.auftrag_id,
+        coachName: `${myBookedRide.trainer_vorname || ''} ${myBookedRide.trainer_nachname || ''}`.trim() || 'Trainer',
+        coachAvatarUrl: myBookedRide.trainer_avatar_url,
+        coachVideoUrl: myBookedRide.trainer_video_url,
+        coachBio: myBookedRide.trainer_bio,
+        termine: myBookedRide.termine.map(t => ({
+          datum: t.datum,
+          ganztaegig: t.ganztaegig,
+          zeitVon: t.zeit_von,
+          zeitBis: t.zeit_bis,
+        })),
+        ort: myBookedRide.region,
+        region: myBookedRide.region,
         gebucht: true,
-        preis: Number(myBookedSlot.preis) || 149,
+        preis: 149,
       });
     }
     
-    // Verfügbare Slots
-    for (const slot of dbCoachingSlots) {
+    // Verfügbare Rides
+    for (const ride of dbCoachingRides) {
       slots.push({
-        id: slot.id,
-        coachName: `${slot.trainer_vorname || ''} ${slot.trainer_nachname || ''}`.trim() || 'Trainer',
-        coachAvatarUrl: slot.trainer_avatar_url,
-        datum: slot.datum,
-        uhrzeitVon: 'Ganztägig',
-        uhrzeitBis: '',
-        ort: slot.region,
-        region: slot.region,
+        id: ride.auftrag_id,
+        coachName: `${ride.trainer_vorname || ''} ${ride.trainer_nachname || ''}`.trim() || 'Trainer',
+        coachAvatarUrl: ride.trainer_avatar_url,
+        coachVideoUrl: ride.trainer_video_url,
+        coachBio: ride.trainer_bio,
+        termine: ride.termine.map(t => ({
+          datum: t.datum,
+          ganztaegig: t.ganztaegig,
+          zeitVon: t.zeit_von,
+          zeitBis: t.zeit_bis,
+        })),
+        ort: ride.region,
+        region: ride.region,
         gebucht: false,
-        preis: Number(slot.preis) || 149,
+        preis: 149,
       });
     }
     
@@ -543,7 +553,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     if (!selectedCoachingSlot) return;
     
     try {
-      const result = await bookCoachingSlotMutation.mutateAsync(selectedCoachingSlot);
+      const result = await bookCoachingRideMutation.mutateAsync(selectedCoachingSlot);
       setGebuchterCoachingSlot(selectedCoachingSlot);
       setCoachingAbgeschlossen(true);
       toast.success(`Coaching-Termin gebucht bei ${result.coach_name}!`);
