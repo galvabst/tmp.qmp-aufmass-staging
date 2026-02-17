@@ -125,6 +125,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setGesamtfotoUrl,
     setGebuchterCoachingSlot,
     setCoachingAbgeschlossen,
+    setAllStepsCompleted,
     hydrateAkademieFromDb,
     setIntroVideoWatched,
     hydrateFromDb,
@@ -632,6 +633,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       } catch (error) {
         console.warn('[Onboarding] Failed to save final progress:', error);
       }
+      setAllStepsCompleted();          // lokalen State synchronisieren
       setCoachingAbgeschlossen(true); // triggers isComplete
       nextClickLockRef.current = false;
       setIsAdvancing(false);
