@@ -118,20 +118,22 @@ export interface AkademieHauptmodul {
   unterpunkte: AkademieUnterpunkt[];
 }
 
-// Coaching-Slot (basiert auf echten Thermochecks von berechtigten Coaches)
+// Termin-Vorschlag innerhalb eines Coaching-Rides
+export interface CoachingTermin {
+  datum: string;
+  ganztaegig: boolean;
+  zeitVon?: string;
+  zeitBis?: string;
+}
+
+// Coaching-Slot (basiert auf echten Thermocheck-Aufträgen mit Terminvorschlägen)
 export interface CoachingSlot {
-  id: string;
-  thermocheckId?: string; // ID des echten Thermochecks (optional für Mock)
-  coachId?: string;
+  id: string;              // auftrag_id
   coachName: string;
   coachAvatarUrl?: string;
-  datum: string;
-  uhrzeitVon: string;
-  uhrzeitBis: string;
-  objektAdresse?: string; // Vollständige Adresse (nur nach Buchung sichtbar!)
-  objektPlz?: string; // PLZ (vor Buchung sichtbar)
-  objektOrt?: string; // Stadt (vor Buchung sichtbar)
-  objektTyp?: string; // z.B. "Einfamilienhaus"
+  coachVideoUrl?: string;
+  coachBio?: string;
+  termine: CoachingTermin[];  // bis zu 3 Terminvorschläge
   ort: string;
   region: string;
   gebucht: boolean;

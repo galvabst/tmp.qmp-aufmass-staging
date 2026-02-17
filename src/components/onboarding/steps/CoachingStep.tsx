@@ -1,10 +1,12 @@
-import { Calendar, Clock, User, CheckCircle2, Users, MapPin, ArrowRight, CalendarCheck, Car, Award, RefreshCw, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { Calendar, Clock, User, CheckCircle2, Users, MapPin, ArrowRight, CalendarCheck, Car, Award, RefreshCw, Sparkles, Play, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CoachingSlot } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { MultiSourceVideoPlayer } from '@/components/akademie/MultiSourceVideoPlayer';
 
 interface CoachingStepProps {
   slots: CoachingSlot[];
@@ -48,16 +50,36 @@ function StepFlow({ compact = false }: { compact?: boolean }) {
   );
 }
 
+/* ── Termine Chips ── */
+function TermineChips({ termine }: { termine: CoachingSlot['termine'] }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {termine.map((t, i) => (
+        <span
+          key={i}
+          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md"
+        >
+          <Calendar className="w-3 h-3" />
+          {format(parseISO(t.datum), 'EEE, dd.MM.', { locale: de })}
+        </span>
+      ))}
+      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
+        <Clock className="w-3 h-3" />
+        Ganztägig
+      </span>
+    </div>
+  );
+}
+
 /* ── Boarding Pass (booked state) ── */
 function BoardingPass({ slot }: { slot: CoachingSlot }) {
+  const firstTermin = slot.termine[0];
+
   return (
     <div className="space-y-4">
-      {/* Ticket */}
       <div className="relative rounded-2xl border border-status-accepted/25 bg-card overflow-hidden shadow-card">
-        {/* Green accent top */}
         <div className="h-1.5 bg-gradient-to-r from-status-accepted/60 via-status-accepted to-status-accepted/60" />
 
-        {/* Header */}
         <div className="px-5 pt-5 pb-3 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-status-accepted/10 text-status-accepted text-xs font-bold tracking-wide uppercase mb-2">
             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -65,10 +87,8 @@ function BoardingPass({ slot }: { slot: CoachingSlot }) {
           </div>
         </div>
 
-        {/* Dashed separator */}
         <div className="mx-5 border-t border-dashed border-border/60" />
 
-        {/* Coach info */}
         <div className="px-5 py-4 flex items-center gap-4">
           <div className="relative">
             <Avatar className="w-14 h-14 border-[3px] border-status-accepted/30 shadow-sm">
@@ -81,35 +101,29 @@ function BoardingPass({ slot }: { slot: CoachingSlot }) {
           </div>
           <div>
             <p className="font-bold text-foreground text-base">{slot.coachName}</p>
-            <p className="text-xs text-muted-foreground">Erfahrener Thermocheck-Coach</p>
+            <p className="text-xs text-muted-foreground">{slot.coachBio || 'Erfahrener Thermocheck-Coach'}</p>
           </div>
         </div>
 
-        {/* Dashed separator */}
         <div className="mx-5 border-t border-dashed border-border/60" />
 
-        {/* Details grid */}
-        <div className="px-5 py-4 grid grid-cols-3 gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Datum</p>
-            <p className="text-sm font-semibold text-foreground">
-              {format(parseISO(slot.datum), 'EEE, dd.MM.', { locale: de })}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Region</p>
-            <p className="text-sm font-semibold text-foreground">{slot.region || '—'}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Dauer</p>
-            <p className="text-sm font-semibold text-foreground">Ganztägig</p>
+        <div className="px-5 py-4">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Termine</p>
+          <TermineChips termine={slot.termine} />
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Region</p>
+              <p className="text-sm font-semibold text-foreground">{slot.region || '—'}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Dauer</p>
+              <p className="text-sm font-semibold text-foreground">Ganztägig</p>
+            </div>
           </div>
         </div>
 
-        {/* Dashed separator */}
         <div className="mx-5 border-t border-dashed border-border/60" />
 
-        {/* Footer hint */}
         <div className="px-5 py-3.5 flex items-center gap-2.5">
           <Sparkles className="w-4 h-4 text-primary shrink-0" />
           <p className="text-xs text-muted-foreground">
@@ -128,12 +142,18 @@ export function CoachingStep({
   onSelectSlot,
   onBookSlot,
 }: CoachingStepProps) {
+  const [expandedSlotId, setExpandedSlotId] = useState<string | null>(null);
   const bookedSlot = slots.find(s => s.gebucht);
   const availableSlots = slots.filter(s => !s.gebucht);
 
   if (bookedSlot) {
     return <BoardingPass slot={bookedSlot} />;
   }
+
+  const handleToggleExpand = (slotId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedSlotId(prev => prev === slotId ? null : slotId);
+  };
 
   return (
     <div className="space-y-5">
@@ -179,12 +199,14 @@ export function CoachingStep({
           <div className="space-y-3">
             {availableSlots.map((slot) => {
               const isSelected = selectedSlotId === slot.id;
+              const isExpanded = expandedSlotId === slot.id;
+              const hasVideo = !!slot.coachVideoUrl;
 
               return (
                 <div
                   key={slot.id}
                   className={cn(
-                    'relative rounded-2xl border bg-card p-4 cursor-pointer transition-all duration-200',
+                    'relative rounded-2xl border bg-card cursor-pointer transition-all duration-200',
                     isSelected
                       ? 'border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.3),0_4px_16px_-4px_hsl(var(--primary)/0.15)] scale-[1.01]'
                       : 'border-border/80 shadow-card hover:shadow-[0_4px_16px_-4px_hsl(215_25%_15%/0.1)] hover:border-border'
@@ -195,55 +217,88 @@ export function CoachingStep({
                     <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent rounded-t-2xl" />
                   )}
 
-                  <div className="flex items-center gap-4">
-                    {/* Avatar */}
-                    <div className="relative shrink-0">
-                      <Avatar className={cn(
-                        'w-14 h-14 border-[3px] shadow-sm transition-colors',
-                        isSelected ? 'border-primary/30' : 'border-background'
-                      )}>
-                        <AvatarImage src={slot.coachAvatarUrl} alt={slot.coachName} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
-                          {slot.coachName.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      {isSelected && (
-                        <CheckCircle2 className="absolute -bottom-0.5 -right-0.5 w-5 h-5 text-primary fill-card" />
-                      )}
-                    </div>
+                  <div className="p-4">
+                    <div className="flex items-center gap-4">
+                      {/* Avatar */}
+                      <div className="relative shrink-0">
+                        <Avatar className={cn(
+                          'w-14 h-14 border-[3px] shadow-sm transition-colors',
+                          isSelected ? 'border-primary/30' : 'border-background'
+                        )}>
+                          <AvatarImage src={slot.coachAvatarUrl} alt={slot.coachName} />
+                          <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
+                            {slot.coachName.split(' ').map(n => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        {isSelected && (
+                          <CheckCircle2 className="absolute -bottom-0.5 -right-0.5 w-5 h-5 text-primary fill-card" />
+                        )}
+                      </div>
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-foreground text-sm mb-1.5">{slot.coachName}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
-                          <Calendar className="w-3 h-3" />
-                          {format(parseISO(slot.datum), 'EEE, dd.MM.', { locale: de })}
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-foreground text-sm mb-0.5">{slot.coachName}</p>
+                        <p className="text-[11px] text-muted-foreground mb-1.5">
+                          {slot.coachBio || 'Erfahrener Thermocheck-Coach'}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <TermineChips termine={slot.termine} />
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/8 px-2 py-0.5 rounded-md">
+                            <MapPin className="w-3 h-3" />
+                            {slot.region}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Price */}
+                      <div className={cn(
+                        'shrink-0 rounded-xl px-3 py-2 text-center transition-colors',
+                        isSelected ? 'bg-primary/10' : 'bg-muted/40'
+                      )}>
+                        <span className={cn(
+                          'text-sm font-bold tabular-nums',
+                          isSelected ? 'text-primary' : 'text-foreground'
+                        )}>
+                          {slot.preis}€
                         </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
-                          <Clock className="w-3 h-3" />
-                          Ganztägig
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/8 px-2 py-0.5 rounded-md">
-                          <MapPin className="w-3 h-3" />
-                          {slot.region}
-                        </span>
+                        <p className="text-[9px] text-muted-foreground">/Tag</p>
                       </div>
                     </div>
 
-                    {/* Price */}
-                    <div className={cn(
-                      'shrink-0 rounded-xl px-3 py-2 text-center transition-colors',
-                      isSelected ? 'bg-primary/10' : 'bg-muted/40'
-                    )}>
-                      <span className={cn(
-                        'text-sm font-bold tabular-nums',
-                        isSelected ? 'text-primary' : 'text-foreground'
-                      )}>
-                        {slot.preis}€
-                      </span>
-                    </div>
+                    {/* Video Button */}
+                    {hasVideo && (
+                      <button
+                        onClick={(e) => handleToggleExpand(slot.id, e)}
+                        className={cn(
+                          'mt-3 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors',
+                          isExpanded
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
+                        )}
+                      >
+                        <Play className="w-3 h-3" />
+                        Video ansehen
+                        <ChevronDown className={cn('w-3 h-3 transition-transform', isExpanded && 'rotate-180')} />
+                      </button>
+                    )}
                   </div>
+
+                  {/* Expanded Video Section */}
+                  {isExpanded && hasVideo && (
+                    <div className="border-t border-border/60 p-4 space-y-3">
+                      <div className="rounded-xl overflow-hidden">
+                        <MultiSourceVideoPlayer
+                          videoUrl={slot.coachVideoUrl!}
+                          heightMode="contained"
+                        />
+                      </div>
+                      {slot.coachBio && (
+                        <p className="text-xs text-muted-foreground italic">
+                          „{slot.coachBio}"
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

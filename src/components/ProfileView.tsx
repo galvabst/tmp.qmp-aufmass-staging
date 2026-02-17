@@ -9,14 +9,19 @@ import { de } from 'date-fns/locale';
 import { GalvanekLogo } from '@/components/GalvanekLogo';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useIsTrainer } from '@/hooks/useIsTrainer';
+import { TrainerProfileEditor } from '@/components/trainer/TrainerProfileEditor';
+
 interface ProfileViewProps {
   profile: TechnicianProfile;
+  profileId?: string | null;
   onSave?: (updatedProfile: Partial<TechnicianProfile>) => void;
   onStartOnboarding?: () => void;
   onStartOnboardingPreview?: () => void;
 }
 
-export function ProfileView({ profile, onSave, onStartOnboarding, onStartOnboardingPreview }: ProfileViewProps) {
+export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onStartOnboardingPreview }: ProfileViewProps) {
+  const { data: isTrainer } = useIsTrainer(profileId || null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
@@ -180,6 +185,11 @@ export function ProfileView({ profile, onSave, onStartOnboarding, onStartOnboard
           )}
         </div>
       </section>
+
+      {/* Trainer Self-Service Editor */}
+      {isTrainer && profileId && (
+        <TrainerProfileEditor profileId={profileId} />
+      )}
 
       {/* Contact Info */}
       <section className="p-4 pt-0">

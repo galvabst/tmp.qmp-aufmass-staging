@@ -335,7 +335,8 @@ const Index = () => {
       
       {activeTab === 'profile' && (
         <ProfileView 
-          profile={profile} 
+          profile={profile}
+          profileId={profileId}
           onSave={(updatedData) => {
             toast.success('Profil aktualisiert');
           }}
