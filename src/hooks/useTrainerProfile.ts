@@ -11,6 +11,7 @@ const thermocheckClient = createClient(
 export interface TrainerProfileData {
   trainer_video_url: string | null;
   trainer_bio: string | null;
+  trainer_coaching_preis: number | null;
 }
 
 export function useTrainerProfile(profileId: string | null) {
@@ -26,7 +27,7 @@ export function useTrainerProfile(profileId: string | null) {
 
       const { data, error } = await thermocheckClient
         .from('contractor_onboarding')
-        .select('trainer_video_url, trainer_bio')
+        .select('trainer_video_url, trainer_bio, trainer_coaching_preis')
         .eq('profile_id', profileId)
         .maybeSingle();
 

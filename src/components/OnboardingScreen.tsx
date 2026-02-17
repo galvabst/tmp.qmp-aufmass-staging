@@ -379,7 +379,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         ort: myBookedRide.region,
         region: myBookedRide.region,
         gebucht: true,
-        preis: 149,
+        preis: myBookedRide.trainer_coaching_preis ?? 0,
       });
     }
     
@@ -400,7 +400,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         ort: ride.region,
         region: ride.region,
         gebucht: false,
-        preis: 149,
+        preis: ride.trainer_coaching_preis ?? 0,
       });
     }
     
