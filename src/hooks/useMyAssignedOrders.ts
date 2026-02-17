@@ -50,9 +50,28 @@ export function useMyAssignedOrders() {
 
       const headers = await getAuthHeaders();
 
-      // Fetch auftraege assigned to current user
+      // Step 1: Resolve contractor_onboarding.id for current user
+      const onboardingRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/contractor_onboarding?profile_id=eq.${userId}&select=id`,
+        { headers }
+      );
+
+      if (!onboardingRes.ok) {
+        console.error("[useMyAssignedOrders] Failed to fetch contractor_onboarding:", onboardingRes.status);
+        throw new Error("Failed to fetch contractor onboarding record");
+      }
+
+      const onboardingRows: { id: string }[] = await onboardingRes.json();
+      if (!onboardingRows.length) {
+        console.log("[useMyAssignedOrders] No contractor_onboarding record found for user");
+        return [];
+      }
+
+      const contractorId = onboardingRows[0].id;
+
+      // Step 2: Fetch auftraege assigned to contractor_onboarding.id
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${userId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status`,
         { headers }
       );
 
