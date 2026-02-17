@@ -388,6 +388,14 @@ export function useOnboardingState(
     }));
   }, []);
 
+  // Alle Schritte als completed markieren (für Onboarding-Abschluss)
+  const setAllStepsCompleted = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      completedSteps: [...STEP_ORDER],
+    }));
+  }, []);
+
   // Intro-Video
   const setIntroVideoWatched = useCallback((value: boolean) => {
     setState(prev => ({ ...prev, introVideoWatched: value }));
@@ -533,7 +541,7 @@ export function useOnboardingState(
     // Schritt 7
     setGebuchterCoachingSlot,
     setCoachingAbgeschlossen,
-    
+    setAllStepsCompleted,
     // Intro-Video
     setIntroVideoWatched,
     
