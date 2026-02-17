@@ -481,6 +481,7 @@ export function useOnboardingState(
         );
       case 'coaching':
         if (isPreview) return true;
+        if (isTrainer) return true;
         return state.coachingAbgeschlossen;
       default:
         return false;
