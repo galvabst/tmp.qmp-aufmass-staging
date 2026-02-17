@@ -9022,6 +9022,7 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      book_coaching_ride: { Args: { p_auftrag_id: string }; Returns: Json }
       bulk_assign_leads: {
         Args: { p_limit?: number }
         Returns: {
