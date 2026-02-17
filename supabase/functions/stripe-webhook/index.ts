@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno&no-check";
 
-const WEBHOOK_VERSION = "2026-02-16-v4";
+const WEBHOOK_VERSION = "2026-02-17-v5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -129,8 +129,32 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log(`[stripe-webhook] checkout.session.completed: ${session.id}`);
+        console.log(`[stripe-webhook] checkout.session.completed: ${session.id}, payment_status: ${session.payment_status}`);
         console.log(`[stripe-webhook] Metadata: ${JSON.stringify(session.metadata)}`);
+
+        // CRITICAL: For subscriptions, Stripe sends checkout.session.completed even when
+        // the initial payment fails (payment_status = "unpaid"). Only mark as "paid"
+        // if Stripe confirms the payment actually succeeded.
+        if (session.payment_status !== "paid") {
+          console.warn(`[stripe-webhook] Payment NOT successful (status: ${session.payment_status}), NOT marking as paid`);
+          actionType = "checkout_completed_unpaid";
+
+          // Still link session_id to orders for future lookup
+          const unpaidResult = await findOrdersForSession(supabase, session);
+          if (unpaidResult.orders.length > 0) {
+            for (const order of unpaidResult.orders) {
+              await supabase
+                .schema("thermocheck")
+                .from("contractor_bestellungen")
+                .update({ stripe_session_id: session.id })
+                .eq("id", order.id);
+              orderIds.push(order.id);
+            }
+          }
+          lookupMethod = unpaidResult.lookupMethod;
+          break;
+        }
+
         actionType = "checkout_completed";
 
         // Multi-order lookup
@@ -265,22 +289,45 @@ Deno.serve(async (req) => {
 
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log(`[stripe-webhook] invoice.paid: ${invoice.id}`);
+        console.log(`[stripe-webhook] invoice.paid: ${invoice.id}, subscription: ${invoice.subscription}`);
         actionType = "subscription_renewed";
         lookupMethod = "subscription_id";
 
         if (invoice.subscription) {
-          const { data: bestellung } = await supabase
+          // Find ALL orders with this subscription (could be initial or renewal)
+          const { data: bestellungen } = await supabase
             .schema("thermocheck")
             .from("contractor_bestellungen")
-            .select("id")
-            .eq("stripe_subscription_id", invoice.subscription as string)
-            .maybeSingle();
+            .select("id, stripe_payment_status")
+            .eq("stripe_subscription_id", invoice.subscription as string);
 
-          if (bestellung) {
-            orderIds.push(bestellung.id);
-            ordersUpdated = 1;
-            console.log(`[stripe-webhook] Subscription renewal for: ${bestellung.id}`);
+          if (bestellungen && bestellungen.length > 0) {
+            for (const bestellung of bestellungen) {
+              // Update to paid if not already
+              if (bestellung.stripe_payment_status !== "paid") {
+                const { error: updateError } = await supabase
+                  .schema("thermocheck")
+                  .from("contractor_bestellungen")
+                  .update({
+                    stripe_payment_status: "paid",
+                    paid_at: new Date().toISOString(),
+                    webhook_received_at: new Date().toISOString(),
+                    idempotency_key: event.id,
+                  })
+                  .eq("id", bestellung.id);
+
+                if (updateError) {
+                  console.error(`[stripe-webhook] Error updating order ${bestellung.id} to paid:`, updateError);
+                } else {
+                  console.log(`[stripe-webhook] invoice.paid: Updated order ${bestellung.id} to paid`);
+                }
+              }
+              ordersUpdated++;
+              orderIds.push(bestellung.id);
+            }
+          } else {
+            // Fallback: try finding by stripe_session_id from checkout metadata
+            console.warn(`[stripe-webhook] No orders found for subscription ${invoice.subscription}`);
           }
         }
         break;
@@ -288,21 +335,40 @@ Deno.serve(async (req) => {
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log(`[stripe-webhook] invoice.payment_failed: ${invoice.id}`);
+        console.log(`[stripe-webhook] invoice.payment_failed: ${invoice.id}, subscription: ${invoice.subscription}`);
         actionType = "payment_failed";
         lookupMethod = "subscription_id";
 
         if (invoice.subscription) {
-          const { data: bestellung } = await supabase
+          const { data: bestellungen } = await supabase
             .schema("thermocheck")
             .from("contractor_bestellungen")
-            .select("id")
-            .eq("stripe_subscription_id", invoice.subscription as string)
-            .maybeSingle();
+            .select("id, stripe_payment_status")
+            .eq("stripe_subscription_id", invoice.subscription as string);
 
-          if (bestellung) {
-            orderIds.push(bestellung.id);
-            console.log(`[stripe-webhook] Payment failed for: ${bestellung.id}`);
+          if (bestellungen && bestellungen.length > 0) {
+            for (const bestellung of bestellungen) {
+              // Only mark as failed if currently pending (don't override a paid status)
+              if (bestellung.stripe_payment_status === "pending") {
+                const { error: updateError } = await supabase
+                  .schema("thermocheck")
+                  .from("contractor_bestellungen")
+                  .update({
+                    stripe_payment_status: "failed",
+                    webhook_received_at: new Date().toISOString(),
+                    idempotency_key: event.id,
+                  })
+                  .eq("id", bestellung.id);
+
+                if (updateError) {
+                  console.error(`[stripe-webhook] Error marking order ${bestellung.id} as failed:`, updateError);
+                } else {
+                  console.log(`[stripe-webhook] Marked order ${bestellung.id} as failed`);
+                }
+              }
+              ordersUpdated++;
+              orderIds.push(bestellung.id);
+            }
           }
         }
         break;
