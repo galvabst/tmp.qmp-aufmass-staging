@@ -9,8 +9,8 @@ import { ProfileView } from '@/components/ProfileView';
 import { ForumView } from '@/features/forum/ui/ForumView';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { TechnicianOrderDetail } from '@/components/TechnicianOrderDetail';
-import { mockTechnicianOrders } from '@/data/mockTechnicianData';
 import { TechnicianOrder, TechnicianProfile, CheckinPhase } from '@/types/technician';
+import { usePoolOrders } from '@/hooks/usePoolOrders';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
 import { useContractorOnboardingStatus } from '@/hooks/useContractorOnboardingStatus';
@@ -46,7 +46,17 @@ const Index = () => {
 
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
-  const [orders, setOrders] = useState<TechnicianOrder[]>(mockTechnicianOrders);
+  
+  // Fetch real orders from DB
+  const { data: dbOrders, isLoading: isOrdersLoading } = usePoolOrders();
+  const [orders, setOrders] = useState<TechnicianOrder[]>([]);
+  
+  // Sync DB orders into local state (for local mutations like accept/checkin)
+  useEffect(() => {
+    if (dbOrders) {
+      setOrders(dbOrders);
+    }
+  }, [dbOrders]);
   
   // Build profile from DB data
   const profile = useMemo((): TechnicianProfile => {
