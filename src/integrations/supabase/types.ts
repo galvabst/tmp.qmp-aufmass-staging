@@ -9907,6 +9907,7 @@ export type Database = {
           bestellungen_bezahlt: number
           erstellt_am: string
           id: string
+          is_trainer: boolean
           kleidung_bestellt_intern: boolean
           lektionen_abgeschlossen: number
           lizenzen_bereitgestellt_intern: boolean

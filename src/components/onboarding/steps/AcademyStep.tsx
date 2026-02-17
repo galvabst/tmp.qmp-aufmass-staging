@@ -12,6 +12,7 @@ interface AcademyStepProps {
   onUnterpunktComplete: (hauptmodulId: string, unterpunktId: string) => void;
   testBestanden: boolean;
   onStartTest: () => void;
+  isTrainer?: boolean;
 }
 
 /** Counts all leaf unterpunkte (children count, not groups) */
@@ -153,6 +154,7 @@ export function AcademyStep({
   onUnterpunktComplete,
   testBestanden,
   onStartTest,
+  isTrainer = false,
 }: AcademyStepProps) {
   const navigate = useNavigate();
   const totalProgress = getTotalAkademieProgress(hauptmodule);
@@ -173,6 +175,19 @@ export function AcademyStep({
 
   return (
     <div className="space-y-4">
+      {/* Trainer Info Banner */}
+      {isTrainer && (
+        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-start gap-3">
+          <GraduationCap className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Trainer-Modus</p>
+            <p className="text-sm text-muted-foreground">
+              Als Trainer kannst du die Akademie überspringen oder optional durcharbeiten. Alle Module sind freigeschaltet.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Progress Header */}
       <div className="bg-card rounded-xl p-4 shadow-card">
         <div className="flex items-center gap-3 mb-3">
@@ -200,7 +215,7 @@ export function AcademyStep({
         className="space-y-3"
       >
         {hauptmodule.map((hauptmodul, hauptmodulIndex) => {
-          const isUnlocked = isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
+          const isUnlocked = isTrainer || isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
           const isComplete = isHauptmodulComplete(hauptmodul);
           const progress = countLeafUnterpunkte(hauptmodul.unterpunkte);
           

@@ -18,6 +18,8 @@ export interface ContractorOnboardingRecord {
   vertrag_geprueft_intern: boolean | null;
   kleidung_bestellt_intern: boolean | null;
   lizenzen_bereitgestellt_intern: boolean | null;
+  // Trainer flag
+  is_trainer: boolean;
 }
 
 interface UseContractorOnboardingStatusResult {
@@ -116,6 +118,7 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
           vertrag_geprueft_intern: record.vertrag_geprueft_intern ?? null,
           kleidung_bestellt_intern: record.kleidung_bestellt_intern ?? null,
           lizenzen_bereitgestellt_intern: record.lizenzen_bereitgestellt_intern ?? null,
+          is_trainer: record.is_trainer ?? false,
         },
         errorMessage: null,
       };

@@ -42,6 +42,7 @@ interface OnboardingScreenProps {
     profileId?: string;
     erstelltAm?: string;
     onboardingId?: string;
+    isTrainer?: boolean;
   };
 }
 
@@ -127,7 +128,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     hydrateAkademieFromDb,
     setIntroVideoWatched,
     hydrateFromDb,
-  } = useOnboardingState(initialProfile, isPreview, forceReset);
+  } = useOnboardingState(initialProfile, isPreview, forceReset, dbStatus?.isTrainer ?? false);
   
   // Unlock "Weiter" sobald der Schritt gewechselt hat
   useEffect(() => {
@@ -759,6 +760,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             onUnterpunktComplete={completeAkademieUnterpunkt}
             testBestanden={state.akademieTestBestanden}
             onStartTest={handleStartTest}
+            isTrainer={dbStatus?.isTrainer}
           />
         );
 
