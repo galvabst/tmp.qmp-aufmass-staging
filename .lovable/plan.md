@@ -1,41 +1,92 @@
 
-## Trainer-Preis Self-Service
+## Fix: "Onboarding abschliessen" Button funktioniert nicht
 
-### Was wird gemacht
-Trainer koennen im TrainerProfileEditor ihren Coaching-Preis (brutto, in Euro) selbst eintragen. Dieser Preis wird dann im Coaching-Step des Onboardings dynamisch angezeigt statt des hardcodierten 149-Euro-Werts.
+### Problem
+Beim Klick auf "Onboarding abschliessen" im Nachweise-Schritt passiert nichts. Der Grund ist ein State-Bug:
 
-### Aenderungen
+1. `handleNext` auf dem Nachweise-Schritt ruft `setCoachingAbgeschlossen(true)` auf (Zeile 635)
+2. Aber `nachweise` wird nie zu `completedSteps` im lokalen State hinzugefuegt
+3. Die `isComplete`-Pruefung verlangt: `state.coachingAbgeschlossen && state.completedSteps.includes('nachweise')`
+4. Da `nachweise` nie in `completedSteps` aufgenommen wird, bleibt `isComplete = false`
+5. Die `saveProgress`-Funktion schreibt zwar alle 7 Schritte in die DB, aktualisiert aber nicht den lokalen React-State
 
-#### 1. DB-Migration: Neue Spalte `trainer_coaching_preis`
-- Spalte `trainer_coaching_preis NUMERIC(8,2) DEFAULT NULL` in `thermocheck.contractor_onboarding` hinzufuegen
-- NULL bedeutet: kein Preis hinterlegt (Fallback auf 0 oder "Preis auf Anfrage" im UI)
+### Loesung
+In `OnboardingScreen.tsx`, Zeile 624-638: Vor dem `setCoachingAbgeschlossen(true)` den lokalen State aktualisieren, sodass alle 7 Schritte (inklusive `nachweise`) in `completedSteps` stehen.
 
-#### 2. Hook `useTrainerProfile` erweitern
-- `TrainerProfileData` Interface: `trainer_coaching_preis: number | null` hinzufuegen
-- SELECT erweitern um `trainer_coaching_preis`
-- Update-Mutation akzeptiert `trainer_coaching_preis`
+### Technische Aenderung
 
-#### 3. TrainerProfileEditor: Preis-Feld hinzufuegen
-- Neues Input-Feld zwischen Bio und Save-Button
-- Label: "Coaching-Preis (brutto)" mit Euro-Icon
-- Input type="number", min=0, step=0.01, Placeholder "z.B. 149.00"
-- Suffix "EUR" rechts im Input
-- Aenderungs-Tracking in `hasChanges` integrieren
+**Datei: `src/components/OnboardingScreen.tsx`** (Zeile 624-638)
 
-#### 4. OnboardingScreen: Preis dynamisch laden
-- In `useAvailableCoachingRides` (useCoachingSlots.ts): `trainer_coaching_preis` aus `contractor_onboarding` mitlesen
-- Im Coaching-Step den Preis aus den Trainer-Daten nehmen statt hardcoded 149
-- Fallback: Wenn NULL, "Preis auf Anfrage" anzeigen oder 0
+Aktuell:
+```typescript
+if (state.currentStep === 'nachweise') {
+  const allSteps = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+  try {
+    await saveProgress({
+      currentStep: 'nachweise',
+      completedSteps: allSteps,
+    });
+  } catch (error) {
+    console.warn('[Onboarding] Failed to save final progress:', error);
+  }
+  setCoachingAbgeschlossen(true); // triggers isComplete
+  ...
+}
+```
 
-### Technische Details
+Neu -- vor `setCoachingAbgeschlossen` noch alle fehlenden Schritte zum lokalen State hinzufuegen:
+```typescript
+if (state.currentStep === 'nachweise') {
+  const allSteps: OnboardingStepId[] = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+  try {
+    await saveProgress({
+      currentStep: 'nachweise',
+      completedSteps: allSteps,
+    });
+  } catch (error) {
+    console.warn('[Onboarding] Failed to save final progress:', error);
+  }
+  // Lokalen State aktualisieren: alle Schritte als completed markieren
+  for (const step of allSteps) {
+    if (!state.completedSteps.includes(step)) {
+      goToNextStep(); // oder direkt setState nutzen
+    }
+  }
+  setCoachingAbgeschlossen(true); // triggers isComplete
+  ...
+}
+```
 
-| Datei | Aenderung |
-|---|---|
-| SQL-Migration | `ALTER TABLE thermocheck.contractor_onboarding ADD COLUMN trainer_coaching_preis NUMERIC(8,2) DEFAULT NULL` |
-| `src/hooks/useTrainerProfile.ts` | Interface + SELECT + Update erweitern |
-| `src/components/trainer/TrainerProfileEditor.tsx` | Neues Preis-Input-Feld |
-| `src/hooks/useCoachingSlots.ts` | `trainer_coaching_preis` aus Trainer-Daten lesen und zurueckgeben |
-| `src/components/OnboardingScreen.tsx` | Zeilen 382 + 403: `preis: trainer.coaching_preis ?? 0` statt `preis: 149` |
+Alternativ (sauberer): Eine neue Funktion `setAllStepsCompleted` im `useOnboardingState` Hook hinzufuegen, die `completedSteps` direkt auf alle 7 Schritte setzt. Das ist zuverlaessiger als mehrere `goToNextStep`-Aufrufe.
 
-### Keine RLS-Aenderung noetig
-Die bestehenden RLS-Policies auf `contractor_onboarding` decken die neue Spalte automatisch ab (Spalten-Level, nicht Row-Level).
+**Datei: `src/hooks/useOnboardingState.ts`** -- Neue Hilfsfunktion:
+```typescript
+const setAllStepsCompleted = useCallback(() => {
+  setState(prev => ({
+    ...prev,
+    completedSteps: [...STEP_ORDER],
+  }));
+}, []);
+```
+
+**Datei: `src/components/OnboardingScreen.tsx`** -- Dann im handleNext:
+```typescript
+if (state.currentStep === 'nachweise') {
+  const allSteps = [...STEP_ORDER];
+  try {
+    await saveProgress({ currentStep: 'nachweise', completedSteps: allSteps });
+  } catch (error) {
+    console.warn('[Onboarding] Failed to save final progress:', error);
+  }
+  setAllStepsCompleted();          // lokalen State synchronisieren
+  setCoachingAbgeschlossen(true);  // triggers isComplete
+  nextClickLockRef.current = false;
+  setIsAdvancing(false);
+  return;
+}
+```
+
+### Zusammenfassung
+- Eine einzeilige Root-Cause: `nachweise` fehlt in `completedSteps` im lokalen State
+- Fix: Neue Funktion `setAllStepsCompleted` im Hook + Aufruf vor `setCoachingAbgeschlossen`
+- Keine DB- oder RLS-Aenderungen noetig
