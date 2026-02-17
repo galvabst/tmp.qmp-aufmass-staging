@@ -251,6 +251,7 @@ const Index = () => {
           profileId: onboardingRecord.profile_id || undefined,
           erstelltAm: onboardingRecord.erstellt_am || undefined,
           onboardingId: onboardingRecord.id || undefined,
+          isTrainer: onboardingRecord.is_trainer || false,
         } : undefined}
         onComplete={() => {
           if (isPreviewMode) {

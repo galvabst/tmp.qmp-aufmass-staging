@@ -102,7 +102,8 @@ const loadPersistedState = (initialProfile: ApplicantProfile, storageKey: string
 export function useOnboardingState(
   initialProfile: ApplicantProfile,
   isPreview: boolean = false,
-  forceReset: boolean = false // NEU: Flag um State ohne Reload zurückzusetzen
+  forceReset: boolean = false, // NEU: Flag um State ohne Reload zurückzusetzen
+  isTrainer: boolean = false, // Trainer können Akademie überspringen
 ) {
   const storageKey = getOnboardingStorageKey(initialProfile.id || undefined);
 
@@ -459,6 +460,8 @@ export function useOnboardingState(
           && itemValid(state.equipmentStatus['massband']);
       case 'akademie':
         if (isPreview) return true;
+        // Trainer können die Akademie überspringen
+        if (isTrainer) return true;
         // Prüfe ob alle Leaf-Unterpunkte aller Hauptmodule abgeschlossen sind UND Test bestanden
         const hauptmodule = state.akademieHauptmodule || [];
         const allLeafsComplete = hauptmodule.length > 0 && hauptmodule.every(hm =>
@@ -482,7 +485,7 @@ export function useOnboardingState(
       default:
         return false;
     }
-  }, [state, isPreview]);
+  }, [state, isPreview, isTrainer]);
 
   const canProceed = state.completedSteps.includes(state.currentStep) || isStepComplete(state.currentStep);
   const isComplete = state.completedSteps.length === STEP_ORDER.length || (state.coachingAbgeschlossen && state.completedSteps.includes('nachweise'));
