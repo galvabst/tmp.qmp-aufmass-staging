@@ -134,13 +134,17 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
 
   // Determine if user is fully ready
   // User must have onboarding_status = 'ready' AND trainer_freigabe = true
+  // Trainer bypass: Trainers don't need trainer_freigabe or internal admin checks
+  const isTrainer = onboardingRecord?.is_trainer === true;
   const isReady = !!(
     onboardingRecord &&
     onboardingRecord.onboarding_status === 'ready' &&
-    onboardingRecord.trainer_freigabe === true &&
-    onboardingRecord.vertrag_geprueft_intern === true &&
-    onboardingRecord.kleidung_bestellt_intern === true &&
-    onboardingRecord.lizenzen_bereitgestellt_intern === true
+    (isTrainer || (
+      onboardingRecord.trainer_freigabe === true &&
+      onboardingRecord.vertrag_geprueft_intern === true &&
+      onboardingRecord.kleidung_bestellt_intern === true &&
+      onboardingRecord.lizenzen_bereitgestellt_intern === true
+    ))
   );
 
   return {
