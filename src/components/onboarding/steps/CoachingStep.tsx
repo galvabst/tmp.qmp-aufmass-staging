@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Clock, User, CheckCircle2, Users, MapPin, ArrowRight, CalendarCheck, Car, Award, RefreshCw, Sparkles, Play, ChevronDown } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle2, Users, MapPin, ArrowRight, CalendarCheck, Car, Award, RefreshCw, Sparkles, Play, ChevronDown, Phone, Mail, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CoachingSlot } from '@/types/onboarding';
@@ -122,12 +122,48 @@ function BoardingPass({ slot }: { slot: CoachingSlot }) {
           </div>
         </div>
 
+        {/* Coach-Kontaktdaten */}
+        {(slot.coachTelefon || slot.coachEmail) && (
+          <>
+            <div className="mx-5 border-t border-dashed border-border/60" />
+            <div className="px-5 py-4">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2.5">Kontakt deines Coaches</p>
+              <div className="space-y-2">
+                {slot.coachTelefon && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <a href={`tel:${slot.coachTelefon}`} className="text-primary hover:underline">
+                      {slot.coachTelefon}
+                    </a>
+                  </div>
+                )}
+                {slot.coachEmail && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <a href={`mailto:${slot.coachEmail}`} className="text-primary hover:underline truncate">
+                      {slot.coachEmail}
+                    </a>
+                  </div>
+                )}
+                {slot.coachOrt && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="text-foreground">{slot.coachOrt}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
         <div className="mx-5 border-t border-dashed border-border/60" />
 
-        <div className="px-5 py-3.5 flex items-center gap-2.5">
-          <Sparkles className="w-4 h-4 text-primary shrink-0" />
+        {/* Hinweis-Banner */}
+        <div className="px-5 py-3.5 flex items-start gap-2.5 bg-primary/4 rounded-b-2xl">
+          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
           <p className="text-xs text-muted-foreground">
-            Bringe deine <span className="font-medium text-foreground">komplette Ausstattung</span> mit. Treffpunkt wird rechtzeitig mitgeteilt.
+            Dein Coach wird sich in den nächsten Tagen bei dir melden. Falls nicht, nimm selbst Kontakt auf.
+            Bringe deine <span className="font-medium text-foreground">komplette Ausstattung</span> mit.
           </p>
         </div>
       </div>

@@ -75,3 +75,41 @@ thermocheck_auftraege (zugewiesener_techniker_id = Trainer mit is_trainer=true)
 ## Known Issues
 - Bestehende Security-Linter-Warnings (pre-existing, nicht durch diese Migration verursacht)
 - Preis ist hardcoded auf 149€ (kein Preis-Feld auf thermocheck_auftraege)
+
+---
+
+## Update 2026-02-19: Trainer-Mitfahrten + Trainee-Kontaktinfo
+
+### Neue Dateien
+| Datei | Beschreibung |
+|---|---|
+| `src/hooks/useMyCoachingRideAlongs.ts` | Hook für Trainer: Lädt gebuchte Mitfahrten mit Trainee-Kontaktdaten |
+| `src/components/trainer/TrainerRideAlongs.tsx` | UI: Mitfahrten-Liste im Profil-Tab |
+
+### Erweiterte Dateien
+| Datei | Änderung |
+|---|---|
+| `src/hooks/useCoachingSlots.ts` | useMyBookedRide lädt trainer_telefon/email/ort |
+| `src/types/onboarding.ts` | CoachingSlot +coachTelefon/coachEmail/coachOrt |
+| `src/components/onboarding/steps/CoachingStep.tsx` | BoardingPass zeigt Coach-Kontakt + Hinweis-Banner |
+| `src/components/ProfileView.tsx` | TrainerRideAlongs unter TrainerProfileEditor |
+| `src/components/OnboardingScreen.tsx` | Mapping der neuen Felder DbCoachingRide → CoachingSlot |
+
+### Rollen-Matrix (Erweiterung)
+| Rolle | Sieht Mitfahrten-Sektion? | Sieht Coach-Kontakt? |
+|---|---|---|
+| Trainer (is_trainer=true) | ✅ Profil-Tab | N/A |
+| Trainee (Onboarder) | ❌ | ✅ BoardingPass |
+| Admin/Manager | ❌ | ❌ |
+
+### Edge Cases (Erweiterung)
+| Szenario | Verhalten | Status |
+|---|---|---|
+| 0 Mitfahrt-Buchungen | Empty State | ✅ |
+| Trainee ohne Telefon | "Nicht hinterlegt" | ✅ |
+| Trainee ohne Adresse | "Nicht angegeben" | ✅ |
+| Coach ohne Telefon | Kontakt-Sektion hidden | ✅ |
+| Mehrere Mitfahrten | Sortiert nach Datum | ✅ |
+
+### Keine DB-Migration nötig
+Alle Daten existierten bereits in profiles + contractor_onboarding.

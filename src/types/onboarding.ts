@@ -133,6 +133,9 @@ export interface CoachingSlot {
   coachAvatarUrl?: string;
   coachVideoUrl?: string;
   coachBio?: string;
+  coachTelefon?: string;
+  coachEmail?: string;
+  coachOrt?: string;
   termine: CoachingTermin[];  // bis zu 3 Terminvorschläge
   ort: string;
   region: string;
