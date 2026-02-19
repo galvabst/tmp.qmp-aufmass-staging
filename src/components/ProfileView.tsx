@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useIsTrainer } from '@/hooks/useIsTrainer';
 import { TrainerProfileEditor } from '@/components/trainer/TrainerProfileEditor';
+import { TrainerRideAlongs } from '@/components/trainer/TrainerRideAlongs';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
@@ -186,9 +187,12 @@ export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onS
         </div>
       </section>
 
-      {/* Trainer Self-Service Editor */}
+      {/* Trainer Self-Service Editor + Mitfahrten */}
       {isTrainer && profileId && (
-        <TrainerProfileEditor profileId={profileId} />
+        <>
+          <TrainerProfileEditor profileId={profileId} />
+          <TrainerRideAlongs profileId={profileId} />
+        </>
       )}
 
       {/* Contact Info */}

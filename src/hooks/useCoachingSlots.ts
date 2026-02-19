@@ -27,6 +27,9 @@ export interface DbCoachingRide {
   trainer_video_url?: string;
   trainer_bio?: string;
   trainer_coaching_preis?: number;
+  trainer_telefon?: string;
+  trainer_email?: string;
+  trainer_ort?: string;
 }
 
 async function syncSession() {
@@ -190,11 +193,11 @@ export function useMyBookedRide(profileId: string | null) {
         .maybeSingle();
 
       // Dann profiles mit der aufgelösten profile_id laden
-      let trainer: { vorname: string; nachname: string; avatar_url: string | null } | null = null;
+      let trainer: { vorname: string; nachname: string; avatar_url: string | null; telefon: string | null; email: string | null } | null = null;
       if (trainerOnb?.profile_id) {
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('vorname, nachname, avatar_url')
+          .select('vorname, nachname, avatar_url, telefon, email')
           .eq('id', trainerOnb.profile_id)
           .maybeSingle();
         trainer = profileData;
@@ -210,6 +213,19 @@ export function useMyBookedRide(profileId: string | null) {
           .maybeSingle();
         if (lead) {
           region = `${lead.kunde_plz || ''} ${lead.kunde_ort || ''}`.trim() || 'Region';
+        }
+      }
+
+      // Trainer-Ort aus contractor_onboarding
+      let trainerOrt: string | undefined;
+      if (trainerOnb) {
+        const { data: trainerOnbFull } = await thermocheckClient
+          .from('contractor_onboarding')
+          .select('anschrift_plz, anschrift_ort')
+          .eq('id', auftrag.zugewiesener_techniker_id)
+          .maybeSingle();
+        if (trainerOnbFull) {
+          trainerOrt = [trainerOnbFull.anschrift_plz, trainerOnbFull.anschrift_ort].filter(Boolean).join(' ').trim() || undefined;
         }
       }
 
@@ -229,6 +245,9 @@ export function useMyBookedRide(profileId: string | null) {
         trainer_video_url: trainerOnb?.trainer_video_url || undefined,
         trainer_bio: trainerOnb?.trainer_bio || undefined,
         trainer_coaching_preis: trainerOnb?.trainer_coaching_preis ?? undefined,
+        trainer_telefon: trainer?.telefon || undefined,
+        trainer_email: trainer?.email || undefined,
+        trainer_ort: trainerOrt,
       };
     },
     enabled: !!profileId,
