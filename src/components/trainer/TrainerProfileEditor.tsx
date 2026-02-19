@@ -101,14 +101,14 @@ export function TrainerProfileEditor({ profileId }: TrainerProfileEditorProps) {
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Euro className="w-4 h-4 text-primary" />
-            Coaching-Preis (brutto)
+            Coaching-Preis (netto)
           </label>
           <div className="relative">
             <Input
               type="number"
               value={preis}
               onChange={(e) => setPreis(e.target.value)}
-              placeholder="z.B. 149.00"
+              placeholder="z.B. 300"
               min={0}
               step={0.01}
               className="text-sm pr-14"
@@ -117,6 +117,11 @@ export function TrainerProfileEditor({ profileId }: TrainerProfileEditorProps) {
               EUR
             </span>
           </div>
+          {preis.trim() && !isNaN(parseFloat(preis)) && (
+            <p className="text-[11px] text-muted-foreground">
+              Endpreis für Trainee: <span className="font-semibold text-foreground">{Math.round(parseFloat(preis) * 1.3)} EUR</span> (inkl. 30% Marge)
+            </p>
+          )}
         </div>
 
         {/* Save */}

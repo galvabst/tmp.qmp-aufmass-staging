@@ -383,7 +383,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         ort: myBookedRide.region,
         region: myBookedRide.region,
         gebucht: true,
-        preis: myBookedRide.trainer_coaching_preis ?? 0,
+        preis: Math.round((myBookedRide.trainer_coaching_preis ?? 0) * 1.3),
       });
     }
     
@@ -407,7 +407,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         ort: ride.region,
         region: ride.region,
         gebucht: false,
-        preis: ride.trainer_coaching_preis ?? 0,
+        preis: Math.round((ride.trainer_coaching_preis ?? 0) * 1.3),
       });
     }
     
