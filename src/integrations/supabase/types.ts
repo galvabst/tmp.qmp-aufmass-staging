@@ -4008,6 +4008,7 @@ export type Database = {
           verlustgrund:
             | Database["public"]["Enums"]["lead_verlustgrund_enum"]
             | null
+          widerruf_datum: string | null
         }
         Insert: {
           abschluss_datum?: string | null
@@ -4076,6 +4077,7 @@ export type Database = {
           verlustgrund?:
             | Database["public"]["Enums"]["lead_verlustgrund_enum"]
             | null
+          widerruf_datum?: string | null
         }
         Update: {
           abschluss_datum?: string | null
@@ -4144,6 +4146,7 @@ export type Database = {
           verlustgrund?:
             | Database["public"]["Enums"]["lead_verlustgrund_enum"]
             | null
+          widerruf_datum?: string | null
         }
         Relationships: [
           {
@@ -7229,6 +7232,7 @@ export type Database = {
           title: string
           travel_time_minutes: number | null
           updated_at: string
+          visit_type: string | null
         }
         Insert: {
           analyzed_at?: string | null
@@ -7280,6 +7284,7 @@ export type Database = {
           title: string
           travel_time_minutes?: number | null
           updated_at?: string
+          visit_type?: string | null
         }
         Update: {
           analyzed_at?: string | null
@@ -7331,6 +7336,7 @@ export type Database = {
           title?: string
           travel_time_minutes?: number | null
           updated_at?: string
+          visit_type?: string | null
         }
         Relationships: [
           {
@@ -9143,6 +9149,7 @@ export type Database = {
         Args: { _app_code: string; _module_code: string; _user_id: string }
         Returns: boolean
       }
+      check_user_is_admin: { Args: { _user_id: string }; Returns: boolean }
       check_user_is_superadmin: { Args: { _user_id: string }; Returns: boolean }
       cleanup_old_audio_files: { Args: never; Returns: undefined }
       cleanup_orphan_transcripts: { Args: never; Returns: number }
@@ -9510,6 +9517,7 @@ export type Database = {
           lizenz_paid: number
           lizenz_total: number
           onboarding_id: string
+          paid_produkt_keys: string[]
           zubehoer_paid: number
           zubehoer_total: number
         }[]
@@ -9686,6 +9694,9 @@ export type Database = {
           id: string
           kleidung_bestellt_intern: boolean
           lizenzen_bereitgestellt_intern: boolean
+          mitfahrt_bezahlt_am: string
+          mitfahrt_rechnung_datum: string
+          mitfahrt_termin: string
           nachname: string
           notizen_intern: string
           onboarding_status: string
@@ -9693,6 +9704,7 @@ export type Database = {
           profile_id: string
           telefon: string
           trainer_freigabe: boolean
+          versandbestaetigung_gesendet_am: string
           vertrag_geprueft_intern: boolean
           vertrag_pdf_url: string
           vertragsbeginn: string
@@ -11675,6 +11687,11 @@ export type Database = {
         | "Interessent moechte Balkonkraftwerk"
         | "Mieterstrommodell ACHTUNG UMSETZBAR SIEHE AKADEMIE"
         | "Interessent wollte nur mal Infos"
+        | "THC-Vertrag widerrufen"
+        | "Laut THC technisch nicht machbar"
+        | "Finales AG zu teuer"
+        | "Kunde hat sich umentschieden"
+        | "Ehepartner/Familie dagegen"
       leistungseinheit_enum:
         | "pro Stück"
         | "pro Meter"
@@ -12280,6 +12297,11 @@ export const Constants = {
         "Interessent moechte Balkonkraftwerk",
         "Mieterstrommodell ACHTUNG UMSETZBAR SIEHE AKADEMIE",
         "Interessent wollte nur mal Infos",
+        "THC-Vertrag widerrufen",
+        "Laut THC technisch nicht machbar",
+        "Finales AG zu teuer",
+        "Kunde hat sich umentschieden",
+        "Ehepartner/Familie dagegen",
       ],
       leistungseinheit_enum: [
         "pro Stück",

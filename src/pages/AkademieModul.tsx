@@ -279,8 +279,9 @@ function AkademieModulContent({
   // Use Bunny progress if it's a Bunny stream - with two-phase logic
   // canUnlockTabs = 90% watched (unlock content tabs) OR already completed
   // canMarkComplete = 100% or video ended (enable completion button) OR already completed
-  const canUnlockTabs = isAlreadyCompleted || (isBunnyStream ? bunnyProgress.canUnlockTabs : fallbackProgress.canComplete);
-  const canMarkComplete = isAlreadyCompleted || (isBunnyStream ? bunnyProgress.canMarkComplete : fallbackProgress.canComplete);
+  const hasVideo = !!unterpunkt.videoUrl;
+  const canUnlockTabs = !hasVideo || isAlreadyCompleted || (isBunnyStream ? bunnyProgress.canUnlockTabs : fallbackProgress.canComplete);
+  const canMarkComplete = !hasVideo || isAlreadyCompleted || (isBunnyStream ? bunnyProgress.canMarkComplete : fallbackProgress.canComplete);
   const percentComplete = isBunnyStream ? bunnyProgress.percentComplete : fallbackProgress.percentComplete;
   const timeRemainingFormatted = isBunnyStream ? bunnyProgress.timeRemainingFormatted : fallbackProgress.timeRemainingFormatted;
   const isPlaying = isBunnyStream ? bunnyProgress.isPlaying : true;
