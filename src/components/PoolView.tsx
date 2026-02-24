@@ -203,49 +203,48 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
       </div>
 
       {/* Content */}
-      {viewMode === 'list' ? (
-        <div className="p-4 pt-3 space-y-4">
-          {poolOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center mt-8">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                <Map className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="font-semibold text-foreground mb-2">Keine verfügbaren Aufträge</h3>
-              <p className="text-sm text-muted-foreground">
-                Aktuell gibt es keine neuen Aufträge in deiner Region.
-              </p>
+      <div className={viewMode === 'list' ? 'p-4 pt-3 space-y-4' : 'hidden'}>
+        {poolOrders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center mt-8">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+              <Map className="w-8 h-8 text-muted-foreground" />
             </div>
-          ) : (
-            groupedOrders.map(group => (
-              <div key={group.label}>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                  {group.label}
-                </h3>
-                <div className="space-y-3">
-                  {group.orders.map(order => (
-                    <TechnicianOrderCard 
-                      key={order.id} 
-                      order={order} 
-                      onClick={() => onOrderClick(order)}
-                      showFullDetails={false} // Pool zeigt nur PLZ + Stadt
-                    />
-                  ))}
-                </div>
+            <h3 className="font-semibold text-foreground mb-2">Keine verfügbaren Aufträge</h3>
+            <p className="text-sm text-muted-foreground">
+              Aktuell gibt es keine neuen Aufträge in deiner Region.
+            </p>
+          </div>
+        ) : (
+          groupedOrders.map(group => (
+            <div key={group.label}>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                {group.label}
+              </h3>
+              <div className="space-y-3">
+                {group.orders.map(order => (
+                  <TechnicianOrderCard 
+                    key={order.id} 
+                    order={order} 
+                    onClick={() => onOrderClick(order)}
+                    showFullDetails={false}
+                  />
+                ))}
               </div>
-            ))
-          )}
-        </div>
-      ) : (
-        <div className="h-[calc(100vh-200px)]">
-          <PoolMap 
-            orders={poolOrders} 
-            onOrderClick={(auftragId) => {
-              const order = poolOrders.find(o => (o.auftragId || o.id) === auftragId);
-              if (order) onOrderClick(order);
-            }} 
-          />
-        </div>
-      )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className={viewMode === 'map' ? 'h-[calc(100vh-200px)]' : 'hidden'}>
+        <PoolMap 
+          orders={poolOrders}
+          isVisible={viewMode === 'map'}
+          onOrderClick={(auftragId) => {
+            const order = poolOrders.find(o => (o.auftragId || o.id) === auftragId);
+            if (order) onOrderClick(order);
+          }} 
+        />
+      </div>
     </div>
   );
 }

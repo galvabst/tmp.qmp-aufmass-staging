@@ -7,12 +7,13 @@ import { Loader2 } from 'lucide-react';
 interface PoolMapProps {
   orders: TechnicianOrder[];
   onOrderClick?: (auftragId: string) => void;
+  isVisible?: boolean;
 }
 
 interface PlzCluster {
   plz: string;
   city: string;
-  orders: TechnicianOrder[]; // deduplicated by auftragId
+  orders: TechnicianOrder[];
 }
 
 /** Deduplicate orders by auftragId, keep first entry per auftrag */
@@ -25,9 +26,10 @@ function deduplicateByAuftrag(orders: TechnicianOrder[]): TechnicianOrder[] {
   return Array.from(seen.values());
 }
 
-/** Group deduplicated orders by postalCode */
-function groupByPlz(orders: TechnicianOrder[]): Map<string, PlzCluster> {
+/** Group deduplicated orders by postalCode, also build a cityMap for fallback geocoding */
+function groupByPlz(orders: TechnicianOrder[]): { clusters: Map<string, PlzCluster>; cityMap: Map<string, string> } {
   const clusters = new Map<string, PlzCluster>();
+  const cityMap = new Map<string, string>();
   for (const o of orders) {
     if (!o.postalCode || o.postalCode.trim().length < 4) continue;
     const plz = o.postalCode.trim();
@@ -37,8 +39,12 @@ function groupByPlz(orders: TechnicianOrder[]): Map<string, PlzCluster> {
     } else {
       clusters.set(plz, { plz, city: o.city || '', orders: [o] });
     }
+    // Store city for fallback geocoding
+    if (o.city && o.city.trim().length > 0 && !cityMap.has(plz)) {
+      cityMap.set(plz, o.city.trim());
+    }
   }
-  return clusters;
+  return { clusters, cityMap };
 }
 
 function createClusterIcon(count: number) {
@@ -67,7 +73,7 @@ function createClusterIcon(count: number) {
   });
 }
 
-function buildClusterPopup(cluster: PlzCluster, onOrderClick?: (id: string) => void): string {
+function buildClusterPopup(cluster: PlzCluster): string {
   const header = `${cluster.plz} ${cluster.city}`;
   const countLabel = cluster.orders.length === 1 ? '1 Auftrag' : `${cluster.orders.length} Aufträge`;
 
@@ -93,20 +99,20 @@ function buildClusterPopup(cluster: PlzCluster, onOrderClick?: (id: string) => v
   </div>`;
 }
 
-export function PoolMap({ orders, onOrderClick }: PoolMapProps) {
+export function PoolMap({ orders, onOrderClick, isVisible = true }: PoolMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [coords, setCoords] = useState<Map<string, PlzCoordinate>>(new Map());
 
-  // Step 1+2: Deduplicate & cluster
-  const clusters = useMemo(() => {
+  // Deduplicate & cluster, extract cityMap for fallback
+  const { clusters, cityMap } = useMemo(() => {
     const deduped = deduplicateByAuftrag(orders);
     return groupByPlz(deduped);
   }, [orders]);
 
-  // Step 3: Geocode unique PLZs
+  // Geocode unique PLZs (parallel, with city fallback)
   useEffect(() => {
     const plzList = Array.from(clusters.keys());
     if (plzList.length === 0) {
@@ -117,7 +123,7 @@ export function PoolMap({ orders, onOrderClick }: PoolMapProps) {
     let cancelled = false;
     setIsGeocoding(true);
 
-    geocodePlzBatch(plzList).then((result) => {
+    geocodePlzBatch(plzList, cityMap).then((result) => {
       if (!cancelled) {
         setCoords(result);
         setIsGeocoding(false);
@@ -125,14 +131,14 @@ export function PoolMap({ orders, onOrderClick }: PoolMapProps) {
     });
 
     return () => { cancelled = true; };
-  }, [clusters]);
+  }, [clusters, cityMap]);
 
   // Init map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
-      center: [51.2, 10.5], // Center of Germany
+      center: [51.2, 10.5],
       zoom: 6,
       zoomControl: true,
     });
@@ -151,7 +157,15 @@ export function PoolMap({ orders, onOrderClick }: PoolMapProps) {
     };
   }, []);
 
-  // Step 4+5: Place markers
+  // invalidateSize when becoming visible
+  useEffect(() => {
+    if (isVisible && mapRef.current) {
+      // Small delay to let CSS transition complete
+      setTimeout(() => mapRef.current?.invalidateSize(), 50);
+    }
+  }, [isVisible]);
+
+  // Place markers
   useEffect(() => {
     const map = mapRef.current;
     const markerGroup = markersRef.current;
@@ -170,11 +184,10 @@ export function PoolMap({ orders, onOrderClick }: PoolMapProps) {
       });
 
       const popup = L.popup({ maxWidth: 300 }).setContent(
-        buildClusterPopup(cluster, onOrderClick)
+        buildClusterPopup(cluster)
       );
       marker.bindPopup(popup);
 
-      // Attach click listeners after popup opens
       marker.on('popupopen', () => {
         const popupEl = marker.getPopup()?.getElement();
         if (!popupEl) return;
