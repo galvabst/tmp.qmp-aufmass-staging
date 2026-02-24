@@ -1,0 +1,93 @@
+import { z } from 'zod';
+
+/** Zod schema for draft saving (all optional) */
+export const aufmassDraftSchema = z.object({
+  techniker_name: z.string().optional(),
+  techniker_telefon: z.string().optional(),
+  thermocheck_datum: z.string().optional(),
+  heizung_inbetriebnahme_datum: z.string().optional(),
+  heizung_funktionstuechtig: z.boolean().optional(),
+  bauantrag_datum: z.string().optional(),
+  fossile_brennstoffe_nach_austausch: z.boolean().optional(),
+  mehr_bilder_heizungsraum: z.boolean().optional(),
+  heizungsart: z.enum(['gas', 'oel', 'sonstige']).optional(),
+  heizungsart_sonstige: z.string().optional(),
+  oeltank_liter_gesamt: z.number().int().positive().optional(),
+  oeltank_anzahl: z.number().int().positive().optional(),
+  oeltank_liter_aktuell: z.number().int().min(0).optional(),
+  oeltank_transport_beschreibung: z.string().optional(),
+  heizkoerper_typ: z.enum(['heizkoerper', 'fussbodenheizung', 'beides']).optional(),
+  hat_erdung: z.boolean().optional(),
+  alternative_1_vorhanden: z.boolean().optional(),
+  alternative_2_vorhanden: z.boolean().optional(),
+  kunde_aufstellort_bestaetigt: z.boolean().optional(),
+  kunde_bestaetigung_vorname: z.string().optional(),
+  kunde_bestaetigung_nachname: z.string().optional(),
+  anzahl_duschen: z.number().int().min(0).optional(),
+  hat_regendusche: z.boolean().optional(),
+  anzahl_badewannen: z.number().int().min(0).optional(),
+  check_raeume_gescannt: z.boolean().optional(),
+  check_anzahl_raeume: z.boolean().optional(),
+  check_aufstellort_besprochen: z.boolean().optional(),
+  check_alle_bilder: z.boolean().optional(),
+  check_heizkoerper_aufgenommen: z.boolean().optional(),
+  bemerkungen: z.string().optional(),
+  anzahl_unbegehbare_raeume: z.number().int().min(0).max(5).optional(),
+  hat_pv_anlage: z.boolean().optional(),
+  agb_akzeptiert: z.boolean().optional(),
+});
+
+/** Zod schema for final submission (required fields enforced) */
+export const aufmassSubmitSchema = z.object({
+  techniker_name: z.string().min(1, 'Name erforderlich'),
+  techniker_telefon: z.string().min(1, 'Telefonnummer erforderlich'),
+  thermocheck_datum: z.string().min(1, 'Datum erforderlich'),
+  heizung_inbetriebnahme_datum: z.string().min(1, 'Inbetriebnahme-Datum erforderlich'),
+  heizung_funktionstuechtig: z.boolean({ required_error: 'Bitte auswählen' }),
+  bauantrag_datum: z.string().min(1, 'Bauantrag-Datum erforderlich'),
+  fossile_brennstoffe_nach_austausch: z.boolean({ required_error: 'Bitte auswählen' }),
+  mehr_bilder_heizungsraum: z.boolean(),
+  heizungsart: z.enum(['gas', 'oel', 'sonstige'], { required_error: 'Heizungsart wählen' }),
+  heizungsart_sonstige: z.string().optional(),
+  oeltank_liter_gesamt: z.number().int().positive().optional(),
+  oeltank_anzahl: z.number().int().positive().optional(),
+  oeltank_liter_aktuell: z.number().int().min(0).optional(),
+  oeltank_transport_beschreibung: z.string().optional(),
+  heizkoerper_typ: z.enum(['heizkoerper', 'fussbodenheizung', 'beides'], { required_error: 'Heizkörpertyp wählen' }),
+  hat_erdung: z.boolean({ required_error: 'Bitte auswählen' }),
+  alternative_1_vorhanden: z.boolean(),
+  alternative_2_vorhanden: z.boolean().optional(),
+  kunde_aufstellort_bestaetigt: z.literal(true, { errorMap: () => ({ message: 'Kundenbestätigung erforderlich' }) }),
+  kunde_bestaetigung_vorname: z.string().min(1, 'Vorname erforderlich'),
+  kunde_bestaetigung_nachname: z.string().min(1, 'Nachname erforderlich'),
+  anzahl_duschen: z.number().int().min(0, 'Bitte angeben'),
+  hat_regendusche: z.boolean({ required_error: 'Bitte auswählen' }),
+  anzahl_badewannen: z.number().int().min(0, 'Bitte angeben'),
+  check_raeume_gescannt: z.literal(true, { errorMap: () => ({ message: 'Bitte bestätigen' }) }),
+  check_anzahl_raeume: z.literal(true, { errorMap: () => ({ message: 'Bitte bestätigen' }) }),
+  check_aufstellort_besprochen: z.literal(true, { errorMap: () => ({ message: 'Bitte bestätigen' }) }),
+  check_alle_bilder: z.literal(true, { errorMap: () => ({ message: 'Bitte bestätigen' }) }),
+  check_heizkoerper_aufgenommen: z.literal(true, { errorMap: () => ({ message: 'Bitte bestätigen' }) }),
+  bemerkungen: z.string().optional(),
+  anzahl_unbegehbare_raeume: z.number().int().min(0).max(5),
+  hat_pv_anlage: z.boolean({ required_error: 'Bitte auswählen' }),
+  agb_akzeptiert: z.literal(true, { errorMap: () => ({ message: 'AGB müssen akzeptiert werden' }) }),
+}).superRefine((data, ctx) => {
+  // Conditional: Öl-Felder Pflicht bei heizungsart === 'oel'
+  if (data.heizungsart === 'oel') {
+    if (!data.oeltank_liter_gesamt) ctx.addIssue({ code: 'custom', path: ['oeltank_liter_gesamt'], message: 'Liter gesamt erforderlich' });
+    if (!data.oeltank_anzahl) ctx.addIssue({ code: 'custom', path: ['oeltank_anzahl'], message: 'Anzahl Öltanks erforderlich' });
+    if (data.oeltank_liter_aktuell == null) ctx.addIssue({ code: 'custom', path: ['oeltank_liter_aktuell'], message: 'Aktuelle Liter erforderlich' });
+    if (!data.oeltank_transport_beschreibung) ctx.addIssue({ code: 'custom', path: ['oeltank_transport_beschreibung'], message: 'Transport-Beschreibung erforderlich' });
+  }
+  // Conditional: Sonstige Heizungsart
+  if (data.heizungsart === 'sonstige' && !data.heizungsart_sonstige) {
+    ctx.addIssue({ code: 'custom', path: ['heizungsart_sonstige'], message: 'Bitte Heizungsart angeben' });
+  }
+});
+
+export type AufmassDraftData = z.infer<typeof aufmassDraftSchema>;
+export type AufmassSubmitData = z.infer<typeof aufmassSubmitSchema>;
+
+/** Form field names that are stored in the DB (excluding images and rooms) */
+export const FORM_DB_FIELDS = Object.keys(aufmassDraftSchema.shape) as (keyof AufmassDraftData)[];

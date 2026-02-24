@@ -1,10 +1,11 @@
-import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList } from 'lucide-react';
 import { TechnicianOrder, CheckinPhase, CHECKIN_PHASE_LABELS } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 interface TechnicianOrderDetailProps {
   order: TechnicianOrder;
@@ -27,6 +28,7 @@ export function TechnicianOrderDetail({
   onStartRework,
   showFullDetails = true,
 }: TechnicianOrderDetailProps) {
+  const navigate = useNavigate();
   const formattedDate = format(parseISO(order.scheduledDate), 'EEEE, d. MMMM yyyy', { locale: de });
   
   // Navigation URL - nur wenn volle Details sichtbar
@@ -262,6 +264,18 @@ export function TechnicianOrderDetail({
               <span className="text-xl font-bold text-foreground">{order.billableAmount.toFixed(2)} €</span>
             </div>
           </div>
+        )}
+
+        {/* Aufmaß Button - für gebuchte/laufende Aufträge */}
+        {(isBookedOrder || isInProgress) && (
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={() => navigate(`/thermocheck/aufmass/${order.id}`)}
+          >
+            <ClipboardList className="w-4 h-4 mr-2" />
+            Aufmaß erfassen
+          </Button>
         )}
       </div>
 

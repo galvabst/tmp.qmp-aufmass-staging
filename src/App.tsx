@@ -10,6 +10,8 @@ import SetPassword from "./pages/SetPassword";
 import Admin from "./pages/Admin";
 import AkademieModul from "./pages/AkademieModul";
 import NotFound from "./pages/NotFound";
+import { lazy, Suspense } from "react";
+const AufmassFormPage = lazy(() => import("@/features/aufmass/ui/AufmassFormPage"));
 import { ProtectedAdminRoute } from "@/components/auth/ProtectedAdminRoute";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,7 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/set-password" element={<SetPassword />} />
           <Route path="/akademie/modul/:modulId" element={<AkademieModul />} />
+          <Route path="/thermocheck/aufmass/:auftragId" element={<Suspense fallback={<div className="p-4">Laden...</div>}><AufmassFormPage /></Suspense>} />
           <Route 
             path="/admin" 
             element={

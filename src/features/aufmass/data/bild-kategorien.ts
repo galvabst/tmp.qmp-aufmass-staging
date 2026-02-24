@@ -1,0 +1,45 @@
+/** Labels und Mindestanzahl für VOT-Bild-Kategorien */
+
+export type VotBildKategorie =
+  | 'hausschuhe' | 'treppenabgang' | 'eingang_heizungsraum'
+  | 'heizungsraum' | 'heizungsraum_extra' | 'heizanlage' | 'oeltank' | 'heizungsanlage'
+  | 'heizkreisverteiler' | 'heizkoerper' | 'zaehlerschrank' | 'sicherungen' | 'zaehler'
+  | 'erdung' | 'hausanschlusskasten' | 'aufstellort_option_1' | 'aufstellort_umgebung_1'
+  | 'aufstellort_alt_1' | 'aufstellort_umgebung_alt_1' | 'aufstellort_alt_2'
+  | 'aufstellort_umgebung_alt_2' | 'unterschrift_aufstellort' | 'unterschrift_techniker'
+  | 'unterschrift_kunde_final' | 'pv_anlage' | 'unbegehbarer_raum';
+
+interface KategorieConfig {
+  label: string;
+  minAnzahl: number;
+  hinweis?: string;
+}
+
+export const BILD_KATEGORIEN: Record<VotBildKategorie, KategorieConfig> = {
+  hausschuhe: { label: 'Galvanek-Hausschuhe', minAnzahl: 1, hinweis: 'Foto deiner Hausschuhe beim Kunden' },
+  treppenabgang: { label: 'Treppenabgang', minAnzahl: 4, hinweis: 'Von oben, unten, links, rechts' },
+  eingang_heizungsraum: { label: 'Eingang Heizungsraum', minAnzahl: 3, hinweis: 'Von außen, von innen, Türbreite mit Meterstab' },
+  heizungsraum: { label: 'Heizungsraum', minAnzahl: 1, hinweis: 'Fotos in alle Himmelsrichtungen, 1 Bild mit Meterstab' },
+  heizungsraum_extra: { label: 'Heizungsraum (Extra)', minAnzahl: 1 },
+  heizanlage: { label: 'Heizanlage', minAnzahl: 2, hinweis: 'Heizanlage + Typenschild' },
+  oeltank: { label: 'Öltank', minAnzahl: 3, hinweis: 'Typenschild, alle Öltanks, kompletter Raum' },
+  heizungsanlage: { label: 'Heizungsanlage', minAnzahl: 3 },
+  heizkreisverteiler: { label: 'Heizkreisverteiler', minAnzahl: 1 },
+  heizkoerper: { label: 'Heizkörper', minAnzahl: 1, hinweis: 'Alle Heizkörper fotografieren!' },
+  zaehlerschrank: { label: 'Zählerschrank', minAnzahl: 3, hinweis: 'Offen, geschlossen, mit Umgebung' },
+  sicherungen: { label: 'Sicherungen', minAnzahl: 2, hinweis: 'Sicherungen im Detail' },
+  zaehler: { label: 'Zähler', minAnzahl: 1, hinweis: 'Zählernummer muss erkennbar sein' },
+  erdung: { label: 'Erdung', minAnzahl: 1, hinweis: 'Potentialausgleich' },
+  hausanschlusskasten: { label: 'Hausanschlusskasten (HAK)', minAnzahl: 1 },
+  aufstellort_option_1: { label: '1. Option Aufstellort', minAnzahl: 3 },
+  aufstellort_umgebung_1: { label: 'Umgebung 1. Option', minAnzahl: 3 },
+  aufstellort_alt_1: { label: '1. Alternative Aufstellort', minAnzahl: 3 },
+  aufstellort_umgebung_alt_1: { label: 'Umgebung 1. Alternative', minAnzahl: 3 },
+  aufstellort_alt_2: { label: '2. Alternative Aufstellort', minAnzahl: 3 },
+  aufstellort_umgebung_alt_2: { label: 'Umgebung 2. Alternative', minAnzahl: 3 },
+  unterschrift_aufstellort: { label: 'Unterschrift Aufstellort', minAnzahl: 1 },
+  unterschrift_techniker: { label: 'Unterschrift Techniker', minAnzahl: 1 },
+  unterschrift_kunde_final: { label: 'Unterschrift Kunde', minAnzahl: 1 },
+  pv_anlage: { label: 'PV-Anlage', minAnzahl: 1 },
+  unbegehbarer_raum: { label: 'Unbegehbarer Raum', minAnzahl: 1 },
+};
