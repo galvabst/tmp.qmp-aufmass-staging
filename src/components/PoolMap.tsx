@@ -63,23 +63,43 @@ function createClusterIcon(count: number) {
   });
 }
 
+/** Count unique auftragIds in a cluster */
+function uniqueAuftragCount(orders: TechnicianOrder[]): number {
+  const ids = new Set(orders.map(o => o.auftragId || o.id));
+  return ids.size;
+}
+
 function buildClusterPopup(cluster: PlzCluster): string {
   const header = `${cluster.plz} ${cluster.city}`;
-  const countLabel = cluster.orders.length === 1 ? '1 Auftrag' : `${cluster.orders.length} Aufträge`;
+  const auftragCount = uniqueAuftragCount(cluster.orders);
+  const countLabel = auftragCount === 1 ? '1 Auftrag' : `${auftragCount} Aufträge`;
 
-  const items = cluster.orders
-    .map((o) => {
-      const date = new Date(o.scheduledDate).toLocaleDateString('de-DE', {
+  // Group orders by auftragId
+  const grouped = new Map<string, TechnicianOrder[]>();
+  for (const o of cluster.orders) {
+    const key = o.auftragId || o.id;
+    const list = grouped.get(key) || [];
+    list.push(o);
+    grouped.set(key, list);
+  }
+
+  let items = '';
+  grouped.forEach((termine) => {
+    const name = termine[0].customerName;
+    items += `<div style="margin-bottom:8px;">
+      <div style="font-weight:600;font-size:14px;color:#111;margin-bottom:2px;">${name}</div>`;
+    for (const t of termine) {
+      const date = new Date(t.scheduledDate).toLocaleDateString('de-DE', {
         weekday: 'short',
         day: 'numeric',
         month: 'short',
       });
-      return `<div class="pool-popup-item" data-order-id="${o.id}" style="padding:6px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;">
-        <div style="font-weight:600;font-size:14px;color:#111;">${o.customerName}</div>
-        <div style="font-size:12px;color:#666;">📅 ${date} · ${o.scheduledTime}</div>
+      items += `<div class="pool-popup-item" data-order-id="${t.id}" style="padding:3px 0 3px 8px;cursor:pointer;border-bottom:1px solid #f5f5f5;">
+        <span style="font-size:12px;color:#666;">📅 ${date} · ${t.scheduledTime}</span>
       </div>`;
-    })
-    .join('');
+    }
+    items += `</div>`;
+  });
 
   return `<div style="min-width:200px;max-width:280px;font-family:ui-sans-serif,system-ui,sans-serif;padding:4px;">
     <div style="font-weight:700;font-size:15px;color:#111;margin-bottom:2px;">${header}</div>
@@ -173,7 +193,7 @@ export function PoolMap({ orders, onOrderClick, isVisible = true }: PoolMapProps
       if (!coord) return;
 
       const marker = L.marker([coord.lat, coord.lng], {
-        icon: createClusterIcon(cluster.orders.length),
+        icon: createClusterIcon(uniqueAuftragCount(cluster.orders)),
       });
 
       const popup = L.popup({ maxWidth: 300 }).setContent(

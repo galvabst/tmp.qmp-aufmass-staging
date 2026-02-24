@@ -10609,6 +10609,10 @@ export type Database = {
         Args: { p_arbeitspaket_id: string }
         Returns: Json
       }
+      reschedule_thermocheck_termin: {
+        Args: { p_auftrag_id: string; p_modus: string; p_termine?: Json }
+        Returns: undefined
+      }
       resolve_next_active_substatus: {
         Args: {
           p_start_substatus: Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
