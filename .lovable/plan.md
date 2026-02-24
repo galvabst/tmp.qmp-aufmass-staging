@@ -1,111 +1,50 @@
 
-# Pool-Karte: PLZ-basierte Cluster-Pins (Auftrag-dedupliziert)
 
-## Kernproblem
+# Testaccount livab32434@advarm.com freischalten
 
-Die Pool-Listenansicht zeigt aktuell Terminvorschlaege (1 Auftrag = bis zu 3 Eintraege). Fuer die Kartenansicht muessen wir nach **Auftrag** deduplizieren, damit z.B. "Holger Bennemann" (3 Terminvorschlaege, PLZ 06686) nur als 1 Pin zaehlt -- nicht 3.
+## Ist-Zustand
 
-Aktuell zeigt die Karte gar nichts, weil `lat`/`lng` fehlen und der Filter `o.lat && o.lng` greift.
+| Feld | Wert |
+|---|---|
+| completed_steps | profil, dokumente, bestellungen, equipment, akademie, coaching (6/7) |
+| current_step | nachweise |
+| onboarding_status | mitfahrt |
+| onboarding_substatus | mitfahrt_gebucht |
+| trainer_freigabe | true |
+| vertrag_geprueft_intern | true |
+| kleidung_bestellt_intern | true |
+| lizenzen_bereitgestellt_intern | true |
 
-## Datengrundlage (Live-Analyse)
+## Was fehlt
 
-23 unique Auftraege im Pool (pipeline_status = termin_abwarten, kein Techniker zugewiesen). Davon haben 3 Auftraege jeweils 3 Terminvorschlaege -- also 29 Listeneintraege, aber nur 23 unique Auftraege fuer die Karte.
+Nur der letzte Schritt `nachweise` muss in `completed_steps` aufgenommen werden. Danach muss `onboarding_status` auf `ready` stehen, damit der `isReady`-Check im Frontend greift.
 
-PLZ-Verteilung: 23 verschiedene PLZ, keine Dopplungen auf PLZ-Ebene aktuell. Bei wachsenden Daten werden PLZ-Cluster relevant.
-
----
-
-## Technische Umsetzung
-
-### Datei 1: `src/features/pool/utils/plz-geocoder.ts` (NEU)
-
-Geocoding-Utility fuer deutsche Postleitzahlen:
-
-- `geocodePlz(plz)`: Einzelne PLZ in Koordinaten aufloesen via OpenStreetMap Nominatim
-- `geocodePlzBatch(plzList)`: Batch-Aufloesung mit Deduplizierung
-- **LocalStorage-Cache**: Key `plz-geo-{plz}`, einmal gecacht = nie wieder abgefragt
-- **Rate-Limiting**: Sequentielle Abfragen mit 1s Delay (Nominatim-Vorgabe)
-- PLZ mit fuehrender Null (z.B. "06686") als String behandelt
-
-### Datei 2: `src/components/PoolMap.tsx` (KOMPLETT UMGEBAUT)
-
-Neues Interface: Akzeptiert `TechnicianOrder[]` statt `Order[]`
-
-Ablauf:
-1. Orders nach `auftragId` deduplizieren (ein Auftrag = ein Eintrag, egal wie viele Terminvorschlaege)
-2. Deduplizierte Auftraege nach `postalCode` gruppieren
-3. Fuer jede unique PLZ Koordinaten via Geocoder laden (async, mit Loading-State)
-4. Pro PLZ einen Cluster-Marker setzen
-
-**Cluster-Marker-Design:**
-- Rundes oranges Icon (#f97316) mit weisser Zahl (Anzahl Auftraege in dieser PLZ)
-- Groesse skaliert: 32px (1 Auftrag) bis 48px (5+ Auftraege)
-- Weisser Rand, Schatten
-
-**Popup beim Klick:**
-- PLZ + Stadt als Header
-- Anzahl Auftraege (nicht Termine!)
-- Liste der Kunden mit Name
-- Jeder Eintrag klickbar via `onOrderClick`
-
-### Datei 3: `src/components/PoolView.tsx` (KLEINE ANPASSUNG)
-
-- `mapOrders`-Mapping entfernen (PoolMap akzeptiert jetzt direkt `TechnicianOrder[]`)
-- `onOrderClick` Logik anpassen: Klick auf Cluster-Popup-Eintrag liefert `auftragId`, suche ersten passenden Termin
-
----
-
-## Deduplizierungs-Logik (kritisch)
+## Loesung: Eine SQL-Migration
 
 ```text
-Input:  29 TechnicianOrders (mit Termin-Dopplungen)
-        |
-        v
-Schritt 1: Gruppiere nach auftragId
-        -> Map<auftragId, TechnicianOrder[]>
-        -> 23 unique Auftraege
-        |
-        v  
-Schritt 2: Pro auftragId: nimm ersten Eintrag (fuer Name, PLZ, Stadt)
-        -> 23 deduplizierte Eintraege
-        |
-        v
-Schritt 3: Gruppiere nach postalCode
-        -> Map<plz, {city, orders[]}>
-        -> z.B. PLZ 06686 = 1 Auftrag (Bennemann)
-        |
-        v
-Schritt 4: Geocode jede unique PLZ -> Koordinaten
-        |
-        v
-Schritt 5: Pro PLZ ein Cluster-Marker mit Anzahl
+UPDATE thermocheck.contractor_onboarding
+SET 
+  completed_steps = ARRAY['profil','dokumente','bestellungen','equipment','akademie','coaching','nachweise'],
+  current_step = 'nachweise',
+  onboarding_status = 'ready',
+  onboarding_substatus = 'bereit'
+WHERE profile_id = 'd88929cb-5156-45e1-8082-b4c22c42c472';
 ```
 
-## Edge Cases
+Falls der `sync_onboarding_status`-Trigger den Status automatisch auf `ready` setzt wenn alle 7 Schritte komplett sind, wird das UPDATE konsistent sein. Falls der Trigger einen ungueltigen Substatus-Wert ablehnt, wird `onboarding_substatus` auf den korrekten ENUM-Wert gesetzt (muss ggf. geprueft werden -- `bereit` vs. anderer Wert).
 
-| Szenario | Verhalten |
-|---|---|
-| 3 Terminvorschlaege fuer 1 Auftrag | Wird als 1 Auftrag gezaehlt (Deduplizierung via auftragId) |
-| Mehrere Auftraege in gleicher PLZ | Cluster-Marker zeigt Summe, Popup listet alle Kunden |
-| PLZ nicht geocodierbar | console.warn, Marker wird uebersprungen |
-| Nominatim Rate-Limit | Sequentielle Abfragen mit 1s Delay |
-| 0 Pool-Orders | Leere Karte, kein Geocoding |
-| PLZ "06686" (fuehrende Null) | String-Handling, kein Problem |
-| Auftrag ohne PLZ | Wird uebersprungen |
-| Cache voll | try/catch um localStorage.setItem |
+## Validierung des isReady-Checks
 
-## Keine DB-Aenderung noetig
+Der Hook `useContractorOnboardingStatus` prueft:
+1. `onboarding_status = 'ready'` -- wird gesetzt
+2. `trainer_freigabe = true` -- bereits true
+3. `vertrag_geprueft_intern = true` -- bereits true
+4. `kleidung_bestellt_intern = true` -- bereits true
+5. `lizenzen_bereitgestellt_intern = true` -- bereits true
 
-- Rein Frontend: Geocoding client-seitig, Cache in LocalStorage
-- Keine neuen Tabellen/Spalten
-- Kein neues RLS
-- Kein neuer Storage-Zugriff
-- Bestehende `usePoolOrders`-Daten werden weiterverwendet
+Alle Bedingungen erfuellt. Nach der Migration wird der Pool sofort sichtbar.
 
-## Implementierungsschritte
+## Kein Frontend-Code noetig
 
-| # | Was | Datei |
-|---|---|---|
-| 1 | PLZ-Geocoder mit Cache + Rate-Limiting | `src/features/pool/utils/plz-geocoder.ts` |
-| 2 | PoolMap komplett umbauen (TechnicianOrder[], Deduplizierung, Cluster) | `src/components/PoolMap.tsx` |
-| 3 | PoolView anpassen (mapOrders-Mapping entfernen) | `src/components/PoolView.tsx` |
+Reine Daten-Korrektur in einer Zeile.
+
