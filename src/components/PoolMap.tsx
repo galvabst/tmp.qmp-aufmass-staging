@@ -141,10 +141,15 @@ export function PoolMap({ orders, onOrderClick, isVisible = true }: PoolMapProps
       center: [51.2, 10.5],
       zoom: 6,
       zoomControl: true,
+      attributionControl: false,
     });
 
+    L.control.attribution({ prefix: false })
+      .addAttribution('© <a href="https://openstreetmap.org" target="_blank" rel="noopener">OSM</a>')
+      .addTo(map);
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
+      attribution: '',
     }).addTo(map);
 
     markersRef.current = L.layerGroup().addTo(map);
@@ -217,7 +222,7 @@ export function PoolMap({ orders, onOrderClick, isVisible = true }: PoolMapProps
           <span className="text-sm text-muted-foreground">Standorte laden…</span>
         </div>
       )}
-      <div ref={containerRef} className="h-full w-full rounded-lg border border-border" />
+      <div ref={containerRef} className="h-full w-full" />
     </div>
   );
 }
