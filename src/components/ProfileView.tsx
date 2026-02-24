@@ -69,7 +69,7 @@ export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onS
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground safe-area-top">
+      <header className="bg-gradient-to-br from-primary to-primary/85 text-primary-foreground safe-area-top">
         <div className="p-6 pt-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4 flex-1">
@@ -131,8 +131,8 @@ export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onS
               )}
             </div>
           </div>
-          <div className="flex justify-center">
-            <GalvanekLogo size="md" className="opacity-90" />
+          <div className="flex justify-center mt-2">
+            <GalvanekLogo size="sm" variant="white" className="opacity-80" />
           </div>
         </div>
       </header>
