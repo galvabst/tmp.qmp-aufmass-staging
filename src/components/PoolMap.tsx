@@ -1,95 +1,139 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
-import { Order } from '@/types/order';
-
-// Fix for default marker icons in Leaflet with bundlers
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl:
-    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl:
-    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
+import { TechnicianOrder } from '@/types/technician';
+import { geocodePlzBatch, PlzCoordinate } from '@/features/pool/utils/plz-geocoder';
+import { Loader2 } from 'lucide-react';
 
 interface PoolMapProps {
-  orders: Order[];
-  onOrderClick?: (orderId: string) => void;
+  orders: TechnicianOrder[];
+  onOrderClick?: (auftragId: string) => void;
 }
 
-const PROJECT_TYPE_COLORS: Record<string, string> = {
-  'Küche': '#22c55e',
-  'Schrank': '#3b82f6',
-  'Bad': '#06b6d4',
-  'Garderobe': '#a855f7',
-  'Wohnzimmer': '#f59e0b',
-};
+interface PlzCluster {
+  plz: string;
+  city: string;
+  orders: TechnicianOrder[]; // deduplicated by auftragId
+}
 
-function createColoredIcon(color: string) {
+/** Deduplicate orders by auftragId, keep first entry per auftrag */
+function deduplicateByAuftrag(orders: TechnicianOrder[]): TechnicianOrder[] {
+  const seen = new Map<string, TechnicianOrder>();
+  for (const o of orders) {
+    const key = o.auftragId || o.id;
+    if (!seen.has(key)) seen.set(key, o);
+  }
+  return Array.from(seen.values());
+}
+
+/** Group deduplicated orders by postalCode */
+function groupByPlz(orders: TechnicianOrder[]): Map<string, PlzCluster> {
+  const clusters = new Map<string, PlzCluster>();
+  for (const o of orders) {
+    if (!o.postalCode || o.postalCode.trim().length < 4) continue;
+    const plz = o.postalCode.trim();
+    const existing = clusters.get(plz);
+    if (existing) {
+      existing.orders.push(o);
+    } else {
+      clusters.set(plz, { plz, city: o.city || '', orders: [o] });
+    }
+  }
+  return clusters;
+}
+
+function createClusterIcon(count: number) {
+  const size = count >= 5 ? 48 : count >= 3 ? 40 : 32;
+  const fontSize = count >= 5 ? 16 : count >= 3 ? 14 : 13;
   return L.divIcon({
-    className: 'custom-marker',
-    html: `
-      <div style="
-        background-color: ${color};
-        width: 28px;
-        height: 28px;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        border: 3px solid white;
-        box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-      "></div>
-    `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -28],
+    className: '',
+    html: `<div style="
+      background: #f97316;
+      width: ${size}px;
+      height: ${size}px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: ${fontSize}px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    ">${count}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -(size / 2 + 4)],
   });
 }
 
-function buildPopupHtml(order: Order) {
-  const typeColor = PROJECT_TYPE_COLORS[order.projectType] || '#6b7280';
-  
-  return `
-    <div style="min-width: 200px; padding: 8px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;">
-      <div style="font-weight: 600; font-size: 15px; margin-bottom: 4px; color: #111;">
-        ${order.customerName}
-      </div>
-      <div style="font-size: 13px; color: #666; margin-bottom: 8px;">
-        ${order.address}<br/>
-        ${order.postalCode} ${order.city}
-      </div>
+function buildClusterPopup(cluster: PlzCluster, onOrderClick?: (id: string) => void): string {
+  const header = `${cluster.plz} ${cluster.city}`;
+  const countLabel = cluster.orders.length === 1 ? '1 Auftrag' : `${cluster.orders.length} Aufträge`;
 
-      <div style="display: inline-block; font-size: 12px; padding: 3px 8px; border-radius: 6px; background: ${typeColor}; color: white; font-weight: 500; margin-bottom: 8px;">
-        ${order.projectType}
-      </div>
+  const items = cluster.orders
+    .map((o) => {
+      const auftragId = o.auftragId || o.id;
+      const date = new Date(o.scheduledDate).toLocaleDateString('de-DE', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      });
+      return `<div class="pool-popup-item" data-auftrag-id="${auftragId}" style="padding:6px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;">
+        <div style="font-weight:600;font-size:14px;color:#111;">${o.customerName}</div>
+        <div style="font-size:12px;color:#666;">📅 ${date} · ${o.scheduledTime}</div>
+      </div>`;
+    })
+    .join('');
 
-      <div style="font-size: 13px; color: #444; border-top: 1px solid #eee; padding-top: 8px;">
-        📅 ${new Date(order.scheduledDate).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })} um ${order.scheduledTime} Uhr
-      </div>
-      
-      <div style="font-size: 12px; color: #3b82f6; margin-top: 8px; text-align: center;">
-        Tippen für Details →
-      </div>
-    </div>
-  `;
+  return `<div style="min-width:200px;max-width:280px;font-family:ui-sans-serif,system-ui,sans-serif;padding:4px;">
+    <div style="font-weight:700;font-size:15px;color:#111;margin-bottom:2px;">${header}</div>
+    <div style="font-size:12px;color:#f97316;font-weight:600;margin-bottom:8px;">${countLabel}</div>
+    <div>${items}</div>
+  </div>`;
 }
 
 export function PoolMap({ orders, onOrderClick }: PoolMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [coords, setCoords] = useState<Map<string, PlzCoordinate>>(new Map());
+
+  // Step 1+2: Deduplicate & cluster
+  const clusters = useMemo(() => {
+    const deduped = deduplicateByAuftrag(orders);
+    return groupByPlz(deduped);
+  }, [orders]);
+
+  // Step 3: Geocode unique PLZs
+  useEffect(() => {
+    const plzList = Array.from(clusters.keys());
+    if (plzList.length === 0) {
+      setCoords(new Map());
+      return;
+    }
+
+    let cancelled = false;
+    setIsGeocoding(true);
+
+    geocodePlzBatch(plzList).then((result) => {
+      if (!cancelled) {
+        setCoords(result);
+        setIsGeocoding(false);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [clusters]);
 
   // Init map once
   useEffect(() => {
-    if (!containerRef.current) return;
-    if (mapRef.current) return;
-
-    // Center on Bavaria/Munich area for demo
-    const centerPoint: L.LatLngExpression = [48.3, 11.4];
+    if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, {
-      center: centerPoint,
-      zoom: 8,
+      center: [51.2, 10.5], // Center of Germany
+      zoom: 6,
       zoomControl: true,
     });
 
@@ -97,52 +141,70 @@ export function PoolMap({ orders, onOrderClick }: PoolMapProps) {
       attribution: '© OpenStreetMap',
     }).addTo(map);
 
-    const markers = L.layerGroup().addTo(map);
-
+    markersRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
-    markersRef.current = markers;
 
     return () => {
-      markers.clearLayers();
       map.remove();
       mapRef.current = null;
       markersRef.current = null;
     };
   }, []);
 
-  // Update markers when orders change
+  // Step 4+5: Place markers
   useEffect(() => {
     const map = mapRef.current;
-    const markers = markersRef.current;
-    if (!map || !markers) return;
+    const markerGroup = markersRef.current;
+    if (!map || !markerGroup) return;
 
-    markers.clearLayers();
+    markerGroup.clearLayers();
 
-    const validOrders = orders.filter(o => o.lat && o.lng);
+    const bounds: L.LatLngExpression[] = [];
 
-    validOrders.forEach((order) => {
-      const color = PROJECT_TYPE_COLORS[order.projectType] || '#6b7280';
-      const marker = L.marker([order.lat!, order.lng!], {
-        icon: createColoredIcon(color),
+    clusters.forEach((cluster, plz) => {
+      const coord = coords.get(plz);
+      if (!coord) return;
+
+      const marker = L.marker([coord.lat, coord.lng], {
+        icon: createClusterIcon(cluster.orders.length),
       });
 
-      marker.bindPopup(buildPopupHtml(order));
+      const popup = L.popup({ maxWidth: 300 }).setContent(
+        buildClusterPopup(cluster, onOrderClick)
+      );
+      marker.bindPopup(popup);
 
-      if (onOrderClick) {
-        marker.on('click', () => onOrderClick(order.id));
-      }
+      // Attach click listeners after popup opens
+      marker.on('popupopen', () => {
+        const popupEl = marker.getPopup()?.getElement();
+        if (!popupEl) return;
+        const items = popupEl.querySelectorAll('.pool-popup-item');
+        items.forEach((item) => {
+          item.addEventListener('click', () => {
+            const auftragId = item.getAttribute('data-auftrag-id');
+            if (auftragId && onOrderClick) onOrderClick(auftragId);
+          });
+        });
+      });
 
-      marker.addTo(markers);
+      marker.addTo(markerGroup);
+      bounds.push([coord.lat, coord.lng]);
     });
 
-    // Fit bounds if we have orders
-    if (validOrders.length > 0) {
-      const bounds = L.latLngBounds(validOrders.map(o => [o.lat!, o.lng!]));
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
+    if (bounds.length > 0) {
+      map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40], maxZoom: 10 });
     }
-  }, [orders, onOrderClick]);
+  }, [clusters, coords, onOrderClick]);
 
   return (
-    <div ref={containerRef} className="h-full w-full rounded-lg border border-border" />
+    <div className="relative h-full w-full">
+      {isGeocoding && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-card/90 backdrop-blur-sm border border-border rounded-full px-4 py-2 flex items-center gap-2 shadow-md">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Standorte laden…</span>
+        </div>
+      )}
+      <div ref={containerRef} className="h-full w-full rounded-lg border border-border" />
+    </div>
   );
 }
