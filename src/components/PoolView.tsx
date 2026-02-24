@@ -120,22 +120,7 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
     setSortBy('date');
   };
 
-  // Convert to format PoolMap expects
-  const mapOrders = poolOrders.map(o => ({
-    id: o.id,
-    customerName: o.customerName,
-    address: o.address,
-    city: o.city,
-    postalCode: o.postalCode,
-    scheduledDate: o.scheduledDate,
-    scheduledTime: o.scheduledTime,
-    description: o.description,
-    status: o.status as 'published',
-    createdAt: o.createdAt,
-    projectType: o.auftragstyp,
-    lat: o.lat,
-    lng: o.lng,
-  }));
+  // No mapping needed – PoolMap now accepts TechnicianOrder[] directly
 
   const hasActiveFilters = searchValue || typeFilter || plzFilter || sortBy !== 'date';
 
@@ -253,9 +238,9 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
       ) : (
         <div className="h-[calc(100vh-200px)]">
           <PoolMap 
-            orders={mapOrders} 
-            onOrderClick={(orderId) => {
-              const order = poolOrders.find(o => o.id === orderId);
+            orders={poolOrders} 
+            onOrderClick={(auftragId) => {
+              const order = poolOrders.find(o => (o.auftragId || o.id) === auftragId);
               if (order) onOrderClick(order);
             }} 
           />

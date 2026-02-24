@@ -10161,7 +10161,10 @@ export type Database = {
           referenz_nummer: string
           signier_datum_thc: string
           storno_datum: string
+          techniker_email: string
           techniker_name: string
+          techniker_telefon: string
+          termin_datum: string
           updated_at: string
           vertriebler_name: string
           wc1_durchgefuehrt_am: string
