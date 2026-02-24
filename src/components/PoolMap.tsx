@@ -16,17 +16,7 @@ interface PlzCluster {
   orders: TechnicianOrder[];
 }
 
-/** Deduplicate orders by auftragId, keep first entry per auftrag */
-function deduplicateByAuftrag(orders: TechnicianOrder[]): TechnicianOrder[] {
-  const seen = new Map<string, TechnicianOrder>();
-  for (const o of orders) {
-    const key = o.auftragId || o.id;
-    if (!seen.has(key)) seen.set(key, o);
-  }
-  return Array.from(seen.values());
-}
-
-/** Group deduplicated orders by postalCode, also build a cityMap for fallback geocoding */
+/** Group orders by postalCode, also build a cityMap for fallback geocoding */
 function groupByPlz(orders: TechnicianOrder[]): { clusters: Map<string, PlzCluster>; cityMap: Map<string, string> } {
   const clusters = new Map<string, PlzCluster>();
   const cityMap = new Map<string, string>();
@@ -79,13 +69,12 @@ function buildClusterPopup(cluster: PlzCluster): string {
 
   const items = cluster.orders
     .map((o) => {
-      const auftragId = o.auftragId || o.id;
       const date = new Date(o.scheduledDate).toLocaleDateString('de-DE', {
         weekday: 'short',
         day: 'numeric',
         month: 'short',
       });
-      return `<div class="pool-popup-item" data-auftrag-id="${auftragId}" style="padding:6px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;">
+      return `<div class="pool-popup-item" data-order-id="${o.id}" style="padding:6px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;">
         <div style="font-weight:600;font-size:14px;color:#111;">${o.customerName}</div>
         <div style="font-size:12px;color:#666;">📅 ${date} · ${o.scheduledTime}</div>
       </div>`;
@@ -106,10 +95,9 @@ export function PoolMap({ orders, onOrderClick, isVisible = true }: PoolMapProps
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [coords, setCoords] = useState<Map<string, PlzCoordinate>>(new Map());
 
-  // Deduplicate & cluster, extract cityMap for fallback
+  // Cluster orders by PLZ, extract cityMap for fallback
   const { clusters, cityMap } = useMemo(() => {
-    const deduped = deduplicateByAuftrag(orders);
-    return groupByPlz(deduped);
+    return groupByPlz(orders);
   }, [orders]);
 
   // Geocode unique PLZs (parallel, with city fallback)
@@ -199,8 +187,8 @@ export function PoolMap({ orders, onOrderClick, isVisible = true }: PoolMapProps
         const items = popupEl.querySelectorAll('.pool-popup-item');
         items.forEach((item) => {
           item.addEventListener('click', () => {
-            const auftragId = item.getAttribute('data-auftrag-id');
-            if (auftragId && onOrderClick) onOrderClick(auftragId);
+            const orderId = item.getAttribute('data-order-id');
+            if (orderId && onOrderClick) onOrderClick(orderId);
           });
         });
       });

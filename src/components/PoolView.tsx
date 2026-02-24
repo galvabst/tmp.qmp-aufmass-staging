@@ -219,8 +219,8 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
         <PoolMap 
           orders={poolOrders}
           isVisible={viewMode === 'map'}
-          onOrderClick={(auftragId) => {
-            const order = poolOrders.find(o => (o.auftragId || o.id) === auftragId);
+          onOrderClick={(orderId) => {
+            const order = poolOrders.find(o => o.id === orderId);
             if (order) onOrderClick(order);
           }} 
         />
