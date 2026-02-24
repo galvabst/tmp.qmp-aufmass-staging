@@ -9293,6 +9293,10 @@ export type Database = {
         }
         Returns: string
       }
+      decline_thermocheck_reschedule: {
+        Args: { p_auftrag_id: string }
+        Returns: Json
+      }
       delete_contractor: { Args: { p_id: string }; Returns: undefined }
       delete_produkt_recht_dokument: { Args: { p_id: string }; Returns: string }
       delete_thermocheck_idee: { Args: { p_id: string }; Returns: undefined }
