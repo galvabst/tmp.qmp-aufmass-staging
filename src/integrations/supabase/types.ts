@@ -9176,15 +9176,26 @@ export type Database = {
         Args: { p_contractor_arbeitspaket_id: string }
         Returns: boolean
       }
-      complete_thermocheck_wc1: {
-        Args: {
-          p_auftrag_id: string
-          p_quadratmeter: number
-          p_termine: Json
-          p_wohneinheiten: number
-        }
-        Returns: undefined
-      }
+      complete_thermocheck_wc1:
+        | {
+            Args: {
+              p_auftrag_id: string
+              p_quadratmeter: number
+              p_termine: Json
+              p_wohneinheiten: number
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_auftrag_id: string
+              p_fussbodenheizung?: boolean
+              p_quadratmeter: number
+              p_termine: Json
+              p_wohneinheiten: number
+            }
+            Returns: undefined
+          }
       compute_display_name: {
         Args: {
           p_fallback_email?: string
@@ -11324,6 +11335,10 @@ export type Database = {
         Args: { p_arbeitspaket_code: string; p_contractor_id: string }
         Returns: string
       }
+      submit_thermocheck_vot_formular: {
+        Args: { p_thermocheck_auftrag_id: string }
+        Returns: string
+      }
       suggest_appointment_slots_v2: {
         Args: {
           p_days_ahead?: number
@@ -11408,52 +11423,29 @@ export type Database = {
         }
         Returns: boolean
       }
-      update_thermocheck_auftrag_admin:
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_auftrag_id: string
-              p_created_at?: string
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_auftrag_id: string
-              p_created_at?: string
-              p_fussbodenheizung?: boolean
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
+      update_thermocheck_auftrag_admin: {
+        Args: {
+          p_abgerechnet?: boolean
+          p_auftrag_id: string
+          p_created_at?: string
+          p_fussbodenheizung?: boolean
+          p_info_vertrieb_pv_aufmass?: string
+          p_info_vertrieb_sonstiges?: string
+          p_info_vertrieb_thc_aufmass?: string
+          p_notizen?: string
+          p_pipeline_status?: string
+          p_quadratmeter?: number
+          p_rechnungsdatum?: string
+          p_rechnungsnummer?: string
+          p_signier_datum_thc?: string
+          p_storno_datum?: string
+          p_wc1_durchgefuehrt_am?: string
+          p_widerrufsbelehrung_url?: string
+          p_wohneinheiten?: number
+          p_zugewiesener_techniker_id?: string
+        }
+        Returns: undefined
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
