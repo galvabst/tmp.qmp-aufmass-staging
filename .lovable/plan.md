@@ -1,81 +1,45 @@
 
 
-# Pool-Karte: Attribution entfernen + Edge-to-Edge Map
+# Map: Alle Terminvorschlaege anzeigen statt nur einen
 
-## Probleme
+## Problem
 
-1. **Leaflet-Attribution mit Flagge**: Der Standard-Attributionstext "Leaflet | (c) OpenStreetMap" mit ukrainischer Flagge sieht unprofessionell aus
-2. **Karte endet abrupt**: Die Map hat `rounded-lg border border-border` -- dadurch entsteht ein haesslicher Rand, die Karte sollte randlos in den Screen fliessen
-3. **Zoom-Controls** sehen mit dem Standard-Leaflet-Styling generisch aus
+Die Funktion `deduplicateByAuftrag()` in `PoolMap.tsx` entfernt alle Terminvorschlaege bis auf den ersten pro Auftrag. Dadurch zeigt die Karte "1 Auftrag" statt "3 Auftraege" pro Standort. Der Techniker kann nicht den passenden Termin auswaehlen.
+
+## Ursache
+
+```text
+PoolMap.tsx Zeile 20-27:
+  deduplicateByAuftrag() -> behaelt nur den ersten Eintrag pro auftragId
+  -> 3 Terminvorschlaege werden zu 1 reduziert
+```
+
+Zusaetzlich matcht der `onOrderClick`-Handler in `PoolView.tsx` nach `auftragId`, was bei mehreren Terminen immer nur den ersten findet.
 
 ## Loesung
 
-### 1. Attribution minimieren (`PoolMap.tsx`)
+### 1. `src/components/PoolMap.tsx`
 
-Leaflet erfordert rechtlich die OpenStreetMap-Attribution, aber das Flaggen-Prefix und "Leaflet" koennen entfernt werden. Loesung:
-- `attributionControl: false` beim Map-Init setzen
-- Eigene minimale Attribution hinzufuegen: nur "(c) OSM" als kleiner, dezenter Text
-- Alternativ: Attribution per CSS stark verkleinern und transparent machen
+- **`deduplicateByAuftrag()` entfernen** -- die Funktion wird nicht mehr aufgerufen
+- In `groupByPlz()` direkt die ungefilterten Orders verwenden
+- Die Popup-Items zeigen jetzt alle Terminvorschlaege mit Datum/Uhrzeit an
+- Der Click-Handler im Popup nutzt die Termin-ID (`order.id`) statt `auftragId`, damit der richtige Terminvorschlag geoeffnet wird
 
-### 2. Edge-to-Edge Map (`PoolMap.tsx`)
+### 2. `src/components/PoolView.tsx`
 
-- `rounded-lg border border-border` vom Map-Container entfernen
-- Der Map-Container soll die volle Breite und Hoehe einnehmen ohne Rundung oder Border
-- Dadurch fliesst die Karte nahtlos in den unteren Bildschirmrand
+- Den `onOrderClick`-Handler in der Map-Komponente aendern: statt nach `auftragId` wird nach `order.id` (Termin-ID) gesucht
+- So findet der Handler den exakten Terminvorschlag, den der Techniker in der Karte angeklickt hat
 
-### 3. Zoom-Controls stylen (`PoolMap.tsx` oder globales CSS)
+## Ergebnis
 
-- Leaflet Zoom-Buttons per CSS an das App-Design anpassen (abgerundeter, subtilere Schatten)
-
----
-
-## Technische Aenderungen
-
-### Datei: `src/components/PoolMap.tsx`
-
-**Map-Init aendern (Zeile 140-144):**
-```text
-const map = L.map(containerRef.current, {
-  center: [51.2, 10.5],
-  zoom: 6,
-  zoomControl: true,
-  attributionControl: false,  // Standard-Attribution deaktivieren
-});
-
-// Minimale Attribution hinzufuegen
-L.control.attribution({ prefix: false })
-  .addAttribution('(c) <a href="https://openstreetmap.org">OSM</a>')
-  .addTo(map);
-```
-
-**Map-Container stylen (Zeile 220):**
-```text
-Vorher:  className="h-full w-full rounded-lg border border-border"
-Nachher: className="h-full w-full"
-```
-
-### Datei: `src/index.css` (optional)
-
-Leaflet Zoom-Buttons und Attribution per CSS verfeinern:
-```text
-.leaflet-control-attribution {
-  font-size: 10px;
-  opacity: 0.5;
-  background: transparent !important;
-}
-
-.leaflet-control-zoom a {
-  border-radius: 8px !important;
-  /* subtilere Schatten */
-}
-```
-
----
+- Karte zeigt "3 Auftraege" pro Standort (wenn 3 Terminvorschlaege existieren)
+- Popup listet alle 3 Termine mit jeweiligem Datum und Uhrzeit
+- Klick auf einen Termin oeffnet genau diesen Terminvorschlag in der Detailansicht
 
 ## Dateien
 
 | Datei | Aenderung |
 |---|---|
-| `src/components/PoolMap.tsx` | `attributionControl: false`, eigene minimale Attribution, Border/Rounding entfernen |
-| `src/index.css` | Optional: Leaflet-Controls feiner stylen |
+| `src/components/PoolMap.tsx` | `deduplicateByAuftrag` entfernen, Orders direkt an `groupByPlz` geben |
+| `src/components/PoolView.tsx` | `onOrderClick` nach `order.id` statt `auftragId` matchen |
 
