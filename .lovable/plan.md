@@ -1,68 +1,74 @@
 
 
-# Pool-Header Redesign + Map-Bug Fix
+# Pool-Karte: Attribution entfernen + Edge-to-Edge Map
 
 ## Probleme
 
-1. **"29 in deiner Region"** ist falsch -- es sind 29 insgesamt verfuegbare Auftraege, nicht regional gefiltert
-2. **Karten-Tab funktioniert nicht** -- Map-Container bekommt keine Hoehe weil `h-[calc(100vh-200px)]` nicht greift wenn die Filter darueber dynamische Hoehe haben
-3. **Logo: Orange auf Orange** sieht schlecht aus, zu klein, schlecht lesbar
-4. **UI insgesamt zu generisch** -- soll hochwertiger/professioneller wirken (Apple-Aesthetik)
+1. **Leaflet-Attribution mit Flagge**: Der Standard-Attributionstext "Leaflet | (c) OpenStreetMap" mit ukrainischer Flagge sieht unprofessionell aus
+2. **Karte endet abrupt**: Die Map hat `rounded-lg border border-border` -- dadurch entsteht ein haesslicher Rand, die Karte sollte randlos in den Screen fliessen
+3. **Zoom-Controls** sehen mit dem Standard-Leaflet-Styling generisch aus
 
-## Design-Konzept: Premium Header
+## Loesung
 
-Statt dem aktuellen flachen Orange-Header mit eingequetschtem Logo wird ein cleaner, minimalistischer Header im Apple-Stil gebaut:
+### 1. Attribution minimieren (`PoolMap.tsx`)
 
-```text
-+--------------------------------------------------+
-|  Galvanek (Logo, weiss invertiert)    [Liste|Map] |
-|                                                    |
-|  Verfuegbare Auftraege                             |
-|  29 Auftraege                                      |
-+--------------------------------------------------+
-```
+Leaflet erfordert rechtlich die OpenStreetMap-Attribution, aber das Flaggen-Prefix und "Leaflet" koennen entfernt werden. Loesung:
+- `attributionControl: false` beim Map-Init setzen
+- Eigene minimale Attribution hinzufuegen: nur "(c) OSM" als kleiner, dezenter Text
+- Alternativ: Attribution per CSS stark verkleinern und transparent machen
 
-### Design-Prinzipien:
-- **Logo weiss invertiert** auf dem orangenen Header statt dem schwarz-orangenen PNG -- dadurch sieht man es klar
-- Logo **links oben** positioniert, nicht rechts gequetscht neben dem Tab-Switcher
-- **Subtiler Gradient** statt flachem Orange: `from-primary to-primary/90`
-- **Groesserer, luftigerer Header** mit mehr Padding
-- **"29 Auftraege"** statt "29 in deiner Region" (korrekte Beschreibung)
-- **Tab-Switcher** mit Glassmorphism-Effekt (backdrop-blur, semi-transparenter Hintergrund)
-- **Order Cards** mit subtileren Schatten und leichtem Hover-Effekt
+### 2. Edge-to-Edge Map (`PoolMap.tsx`)
 
-### Profil-Header ebenfalls aufgeraeumt:
-- Logo dort ebenfalls weiss invertiert oder ganz entfernen (redundant)
+- `rounded-lg border border-border` vom Map-Container entfernen
+- Der Map-Container soll die volle Breite und Hoehe einnehmen ohne Rundung oder Border
+- Dadurch fliesst die Karte nahtlos in den unteren Bildschirmrand
+
+### 3. Zoom-Controls stylen (`PoolMap.tsx` oder globales CSS)
+
+- Leaflet Zoom-Buttons per CSS an das App-Design anpassen (abgerundeter, subtilere Schatten)
 
 ---
 
 ## Technische Aenderungen
 
-### 1. `src/components/GalvanekLogo.tsx`
-- Neue Variante `variant?: 'default' | 'white'` hinzufuegen
-- Bei `white`: CSS-Filter `brightness(0) invert(1)` auf das PNG anwenden -- damit wird das schwarze Logo weiss, ohne ein zweites Asset zu brauchen
+### Datei: `src/components/PoolMap.tsx`
 
-### 2. `src/components/PoolView.tsx` -- Header Redesign
-- Logo nach links oben, weisse Variante
-- Text aendern: `{poolOrders.length} Aufträge` statt `{poolOrders.length} in deiner Region`
-- Header-Layout umstrukturieren: Logo + Title links, Tab-Switcher rechts
-- Subtiler Gradient-Hintergrund
-- Tab-Switcher mit `bg-white/15 backdrop-blur-sm` fuer Glassmorphism
-- Mehr Padding/Spacing fuer Premium-Gefuehl
+**Map-Init aendern (Zeile 140-144):**
+```text
+const map = L.map(containerRef.current, {
+  center: [51.2, 10.5],
+  zoom: 6,
+  zoomControl: true,
+  attributionControl: false,  // Standard-Attribution deaktivieren
+});
 
-### 3. `src/components/PoolView.tsx` -- Map-Bug Fix
-- Map-Container: Statt feste `h-[calc(100vh-200px)]` eine flexible Berechnung nutzen
-- `flex-1` Layout verwenden: Header + Filter als feste Elemente, Content-Bereich fuellt den Rest
-- Gesamtes Layout auf `flex flex-col h-screen` umstellen
+// Minimale Attribution hinzufuegen
+L.control.attribution({ prefix: false })
+  .addAttribution('(c) <a href="https://openstreetmap.org">OSM</a>')
+  .addTo(map);
+```
 
-### 4. `src/components/TechnicianOrderCard.tsx` -- Subtile Verbesserungen
-- Leicht verfeinerte Schatten und Hover-Animationen
-- Badge-Styling eleganter: statt harter secondary-Farbe ein subtileres Chip-Design
+**Map-Container stylen (Zeile 220):**
+```text
+Vorher:  className="h-full w-full rounded-lg border border-border"
+Nachher: className="h-full w-full"
+```
 
-### 5. `src/components/ProfileView.tsx` -- Logo-Bereich aufgeraeumt
-- Logo weisse Variante verwenden oder alternativ entfernen (da Header bereits orange ist)
+### Datei: `src/index.css` (optional)
 
-### 6. `src/components/FilterRow.tsx` -- keine Aenderungen noetig
+Leaflet Zoom-Buttons und Attribution per CSS verfeinern:
+```text
+.leaflet-control-attribution {
+  font-size: 10px;
+  opacity: 0.5;
+  background: transparent !important;
+}
+
+.leaflet-control-zoom a {
+  border-radius: 8px !important;
+  /* subtilere Schatten */
+}
+```
 
 ---
 
@@ -70,8 +76,6 @@ Statt dem aktuellen flachen Orange-Header mit eingequetschtem Logo wird ein clea
 
 | Datei | Aenderung |
 |---|---|
-| `src/components/GalvanekLogo.tsx` | `variant='white'` mit CSS-Filter |
-| `src/components/PoolView.tsx` | Header-Redesign, Text-Fix, Map-Height-Fix mit Flex-Layout |
-| `src/components/TechnicianOrderCard.tsx` | Subtilere Card-Aesthetik |
-| `src/components/ProfileView.tsx` | Logo-Variante anpassen |
+| `src/components/PoolMap.tsx` | `attributionControl: false`, eigene minimale Attribution, Border/Rounding entfernen |
+| `src/index.css` | Optional: Leaflet-Controls feiner stylen |
 
