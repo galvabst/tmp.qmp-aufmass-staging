@@ -1,45 +1,57 @@
 
 
-# Map: Alle Terminvorschlaege anzeigen statt nur einen
+# Karten-Marker: Auftraege zaehlen, Terminvorschlaege im Popup auflisten
 
 ## Problem
 
-Die Funktion `deduplicateByAuftrag()` in `PoolMap.tsx` entfernt alle Terminvorschlaege bis auf den ersten pro Auftrag. Dadurch zeigt die Karte "1 Auftrag" statt "3 Auftraege" pro Standort. Der Techniker kann nicht den passenden Termin auswaehlen.
+Aktuell zeigt der Marker "3" an einem Standort, obwohl es nur 1 Auftrag mit 3 Terminvorschlaegen ist. Das ist irrefuehrend -- der Techniker denkt, es gaebe 3 verschiedene Auftraege in der Naehe.
 
-## Ursache
+## Gewuenschtes Verhalten
+
+- **Marker-Zahl** = Anzahl einzigartiger Auftraege (dedupliziert nach `auftragId`)
+- **Popup** zeigt pro Auftrag den Kundennamen, darunter die einzelnen Terminvorschlaege mit Datum/Uhrzeit
+- **Klick auf einen Terminvorschlag** oeffnet genau diesen Vorschlag in der Detailansicht
 
 ```text
-PoolMap.tsx Zeile 20-27:
-  deduplicateByAuftrag() -> behaelt nur den ersten Eintrag pro auftragId
-  -> 3 Terminvorschlaege werden zu 1 reduziert
+Marker: [1]
+
+Popup:
++----------------------------------+
+| 91242 Ottensoos                  |
+| 1 Auftrag                       |
+|                                  |
+| Dirk Weihrauch                   |
+|   Do., 26. Feb. · Ganztaegig    |
+|   Sa., 28. Feb. · Ganztaegig    |
+|   Fr., 13. Maerz · 13:00-16:00  |
++----------------------------------+
 ```
 
-Zusaetzlich matcht der `onOrderClick`-Handler in `PoolView.tsx` nach `auftragId`, was bei mehreren Terminen immer nur den ersten findet.
+## Technische Aenderungen
 
-## Loesung
+### `src/components/PoolMap.tsx`
 
-### 1. `src/components/PoolMap.tsx`
+**1. Neues Interface fuer Auftrag-Gruppierung:**
 
-- **`deduplicateByAuftrag()` entfernen** -- die Funktion wird nicht mehr aufgerufen
-- In `groupByPlz()` direkt die ungefilterten Orders verwenden
-- Die Popup-Items zeigen jetzt alle Terminvorschlaege mit Datum/Uhrzeit an
-- Der Click-Handler im Popup nutzt die Termin-ID (`order.id`) statt `auftragId`, damit der richtige Terminvorschlag geoeffnet wird
+Innerhalb jedes PLZ-Clusters werden die Orders zusaetzlich nach `auftragId` gruppiert. So entsteht eine zweistufige Struktur: PLZ -> Auftraege -> Terminvorschlaege.
 
-### 2. `src/components/PoolView.tsx`
+**2. `createClusterIcon` bekommt die Anzahl einzigartiger Auftraege:**
 
-- Den `onOrderClick`-Handler in der Map-Komponente aendern: statt nach `auftragId` wird nach `order.id` (Termin-ID) gesucht
-- So findet der Handler den exakten Terminvorschlag, den der Techniker in der Karte angeklickt hat
+Statt `cluster.orders.length` wird die Anzahl einzigartiger `auftragId`-Werte gezaehlt und als Marker-Zahl verwendet.
 
-## Ergebnis
+**3. `buildClusterPopup` wird umgebaut:**
 
-- Karte zeigt "3 Auftraege" pro Standort (wenn 3 Terminvorschlaege existieren)
-- Popup listet alle 3 Termine mit jeweiligem Datum und Uhrzeit
-- Klick auf einen Termin oeffnet genau diesen Terminvorschlag in der Detailansicht
+- Zaehlt einzigartige Auftraege fuer die Ueberschrift ("1 Auftrag" / "3 Auftraege")
+- Gruppiert Orders nach `auftragId`
+- Zeigt pro Auftrag: Kundenname als Ueberschrift
+- Darunter: jeden Terminvorschlag mit Datum und Uhrzeit als klickbares Item
+- Jedes Termin-Item hat weiterhin `data-order-id` mit der Termin-ID (`order.id`) fuer praezise Navigation
+
+**4. Keine Aenderungen an `PoolView.tsx` noetig** -- der `onOrderClick`-Handler matcht bereits nach `order.id`.
 
 ## Dateien
 
 | Datei | Aenderung |
 |---|---|
-| `src/components/PoolMap.tsx` | `deduplicateByAuftrag` entfernen, Orders direkt an `groupByPlz` geben |
-| `src/components/PoolView.tsx` | `onOrderClick` nach `order.id` statt `auftragId` matchen |
+| `src/components/PoolMap.tsx` | Marker-Count auf unique Auftraege, Popup mit Auftrag-Gruppierung und Terminvorschlag-Liste |
 
