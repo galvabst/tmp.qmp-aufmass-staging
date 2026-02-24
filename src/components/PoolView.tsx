@@ -6,8 +6,7 @@ import { PoolMap } from './PoolMap';
 import { TechnicianOrderCard } from './TechnicianOrderCard';
 import { FilterRow } from './FilterRow';
 import { AUFTRAGSTYP_VALUES, AUFTRAGSTYP_LABELS, enumToOptions } from '@/lib/enums';
-import { format, parseISO, isToday, isTomorrow, isThisWeek, isAfter, startOfDay, addDays } from 'date-fns';
-import { de } from 'date-fns/locale';
+import { parseISO, isToday, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GalvanekLogo } from '@/components/GalvanekLogo';
 
@@ -43,7 +42,6 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
   // Apply filters and sorting
   const poolOrders = useMemo(() => {
     let filtered = allPoolOrders.filter(order => {
-      // Search filter
       if (searchValue) {
         const searchLower = searchValue.toLowerCase();
         const matchesSearch = 
@@ -52,21 +50,11 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
           order.postalCode.includes(searchValue);
         if (!matchesSearch) return false;
       }
-      
-      // Type filter
-      if (typeFilter && order.auftragstyp !== typeFilter) {
-        return false;
-      }
-      
-      // PLZ filter
-      if (plzFilter && !order.postalCode.startsWith(plzFilter)) {
-        return false;
-      }
-      
+      if (typeFilter && order.auftragstyp !== typeFilter) return false;
+      if (plzFilter && !order.postalCode.startsWith(plzFilter)) return false;
       return true;
     });
     
-    // Sort
     filtered.sort((a, b) => {
       if (sortBy === 'date') {
         return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime();
@@ -92,15 +80,10 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
     
     poolOrders.forEach(order => {
       const orderDate = parseISO(order.scheduledDate);
-      if (isToday(orderDate)) {
-        todayOrders.push(order);
-      } else if (isTomorrow(orderDate)) {
-        tomorrowOrders.push(order);
-      } else if (isAfter(orderDate, tomorrow) && !isAfter(orderDate, endOfWeek)) {
-        thisWeekOrders.push(order);
-      } else {
-        laterOrders.push(order);
-      }
+      if (isToday(orderDate)) todayOrders.push(order);
+      else if (isTomorrow(orderDate)) tomorrowOrders.push(order);
+      else if (isAfter(orderDate, tomorrow) && !isAfter(orderDate, endOfWeek)) thisWeekOrders.push(order);
+      else laterOrders.push(order);
     });
     
     if (todayOrders.length > 0) groups.push({ label: 'Heute', orders: todayOrders });
@@ -120,47 +103,45 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
     setSortBy('date');
   };
 
-  // No mapping needed – PoolMap now accepts TechnicianOrder[] directly
-
   const hasActiveFilters = searchValue || typeFilter || plzFilter || sortBy !== 'date';
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground safe-area-top sticky top-0 z-10">
-        <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold">Verfügbare Aufträge</h1>
-              <p className="text-primary-foreground/80 text-sm">
-                {poolOrders.length} in deiner Region
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <GalvanekLogo size="sm" />
-              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')}>
-                <TabsList className="bg-primary-foreground/10">
-                  <TabsTrigger 
-                    value="list" 
-                    className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary"
-                  >
-                    <List className="w-4 h-4" />
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="map"
-                    className="data-[state=active]:bg-primary-foreground data-[state=active]:text-primary"
-                  >
-                    <Map className="w-4 h-4" />
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
+    <div className="flex flex-col h-screen bg-background pb-20">
+      {/* Premium Header */}
+      <header className="bg-gradient-to-br from-primary to-primary/85 text-primary-foreground safe-area-top shrink-0">
+        <div className="px-5 pt-5 pb-4">
+          {/* Top row: Logo + Tab Switcher */}
+          <div className="flex items-center justify-between mb-4">
+            <GalvanekLogo size="sm" variant="white" className="opacity-95" />
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')}>
+              <TabsList className="bg-white/15 backdrop-blur-sm border border-white/10">
+                <TabsTrigger 
+                  value="list" 
+                  className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm text-white/80"
+                >
+                  <List className="w-4 h-4" />
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="map"
+                  className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm text-white/80"
+                >
+                  <Map className="w-4 h-4" />
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          {/* Title */}
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Verfügbare Aufträge</h1>
+            <p className="text-primary-foreground/70 text-sm mt-0.5">
+              {poolOrders.length} Aufträge
+            </p>
           </div>
         </div>
       </header>
 
       {/* Filters */}
-      <div className="px-4 pt-4 space-y-3">
+      <div className="px-4 pt-4 space-y-3 shrink-0">
         <FilterRow
           searchValue={searchValue}
           onSearchChange={setSearchValue}
@@ -172,7 +153,6 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
           onReset={hasActiveFilters ? handleReset : undefined}
         />
         
-        {/* Additional Filters Row */}
         <div className="flex gap-2">
           {plzOptions.length > 0 && (
             <Select value={plzFilter} onValueChange={setPlzFilter}>
@@ -202,8 +182,8 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
         </div>
       </div>
 
-      {/* Content */}
-      <div className={viewMode === 'list' ? 'p-4 pt-3 space-y-4' : 'hidden'}>
+      {/* Content – both views always rendered, toggled via CSS */}
+      <div className={viewMode === 'list' ? 'flex-1 overflow-y-auto p-4 pt-3 space-y-4' : 'hidden'}>
         {poolOrders.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center mt-8">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
@@ -217,7 +197,7 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
         ) : (
           groupedOrders.map(group => (
             <div key={group.label}>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 {group.label}
               </h3>
               <div className="space-y-3">
@@ -235,7 +215,7 @@ export function PoolView({ orders, onOrderClick }: PoolViewProps) {
         )}
       </div>
 
-      <div className={viewMode === 'map' ? 'h-[calc(100vh-200px)]' : 'hidden'}>
+      <div className={viewMode === 'map' ? 'flex-1 min-h-0' : 'hidden'}>
         <PoolMap 
           orders={poolOrders}
           isVisible={viewMode === 'map'}

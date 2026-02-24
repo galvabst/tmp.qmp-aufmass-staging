@@ -28,12 +28,12 @@ export function TechnicianOrderCard({
   return (
     <button
       onClick={onClick}
-      className="w-full bg-card rounded-xl p-4 shadow-card text-left hover:bg-secondary/50 transition-colors active:scale-[0.99]"
+      className="w-full bg-card rounded-2xl p-4 shadow-sm border border-border/50 text-left hover:shadow-md hover:border-border transition-all duration-200 active:scale-[0.98]"
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs font-medium bg-primary/10 text-primary border-0">
               {AUFTRAGSTYP_LABELS[order.auftragstyp]}
             </Badge>
           </div>
