@@ -12,6 +12,8 @@ import { TechnicianOrderDetail } from '@/components/TechnicianOrderDetail';
 import { TechnicianOrder, TechnicianProfile, CheckinPhase } from '@/types/technician';
 import { usePoolOrders } from '@/hooks/usePoolOrders';
 import { useMyAssignedOrders } from '@/hooks/useMyAssignedOrders';
+import { useMyPendingProposals } from '@/hooks/useMyPendingProposals';
+import { RescheduleModal } from '@/components/RescheduleModal';
 import { supabase } from '@/integrations/supabase/client';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
@@ -52,6 +54,7 @@ const Index = () => {
   // Fetch real orders from DB
   const { data: dbPoolOrders, isLoading: isOrdersLoading } = usePoolOrders();
   const { data: dbAssignedOrders } = useMyAssignedOrders();
+  const { data: pendingReschedules, refetch: refetchPending } = useMyPendingProposals();
   const [orders, setOrders] = useState<TechnicianOrder[]>([]);
   
   // Sync DB orders into local state (merge pool + assigned)
@@ -391,6 +394,13 @@ const Index = () => {
             setIsPreviewMode(true);
             toast.info('Vorschau-Modus gestartet');
           }}
+        />
+      )}
+
+      {(pendingReschedules?.length ?? 0) > 0 && (
+        <RescheduleModal
+          reschedules={pendingReschedules!}
+          onDone={() => refetchPending()}
         />
       )}
 
