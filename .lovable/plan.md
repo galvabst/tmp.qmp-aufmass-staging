@@ -1,28 +1,80 @@
 
 
-## Trainer-Bypass auf alle Onboarding-Schritte erweitern
+## Trainer-Flag automatisch aus IAM synchronisieren
 
-### Problem
-Trainer (erfahrene Thermocheckler) muessen aktuell trotzdem Bestellungen, Dokumente und Equipment durchlaufen, obwohl sie das alles bereits haben. Nur Akademie, Coaching und Nachweise werden uebersprungen.
-
-### Loesung
-Den bestehenden `isTrainer`-Bypass in `isStepComplete` auf **alle** Schritte ausweiten: Profil, Dokumente, Bestellungen und Equipment. So koennen Trainer das komplette Onboarding durchklicken ohne reale Validierungen.
+### Architektur-Entscheidung
+- **IAM-Schema** (`iam.user_app_roles`): Definiert WER Trainer ist (Rolle `aufmass_trainer`) -- wird im Directory gepflegt
+- **Domain-Schema** (`thermocheck.contractor_onboarding.is_trainer`): Wird vom Frontend gelesen -- Single Source of Truth fuer Onboarding-Logik
+- **Sync-Mechanismus**: Ein Trigger auf `iam.user_app_roles` haelt das Flag automatisch aktuell -- keine doppelte Pflege noetig
 
 ### Technischer Plan
 
-| Datei | Aenderung |
+| Schritt | Beschreibung |
 |---|---|
-| `src/hooks/useOnboardingState.ts` | In `isStepComplete`: `if (isTrainer) return true;` fuer die Cases `dokumente`, `bestellungen` und `equipment` hinzufuegen (Profil behaelt Validierung -- Trainer sollen trotzdem Name/Foto pruefen) |
+| **SQL-Migration** | Trigger-Funktion + Trigger + einmaliger Backfill |
 
-Konkret wird in der `isStepComplete`-Funktion bei folgenden Cases jeweils `if (isTrainer) return true;` ergaenzt:
-- **dokumente** (Zeile 451): Gewerbeschein-Upload wird uebersprungen
-- **bestellungen** (Zeile 454): Pflichtbestellungen werden uebersprungen
-- **equipment** (Zeile 459): Drohne/iPhone/Massband-Validierung wird uebersprungen
+#### 1. Trigger-Funktion
 
-Der Profil-Schritt bleibt bestehen, damit Trainer zumindest ihr Foto und ihre Daten pruefen.
+```text
+CREATE FUNCTION thermocheck.sync_is_trainer_from_iam()
+RETURNS TRIGGER
+
+Logik:
+- Bei INSERT auf iam.user_app_roles:
+  Pruefe ob die app_role_id zur Rolle 'aufmass_trainer' gehoert
+  Falls ja: UPDATE contractor_onboarding SET is_trainer = true WHERE profile_id = NEW.user_id
+
+- Bei DELETE auf iam.user_app_roles:
+  Pruefe ob die app_role_id zur Rolle 'aufmass_trainer' gehoert
+  Falls ja: UPDATE contractor_onboarding SET is_trainer = false WHERE profile_id = OLD.user_id
+```
+
+#### 2. Trigger
+
+```text
+CREATE TRIGGER trg_sync_is_trainer
+AFTER INSERT OR DELETE ON iam.user_app_roles
+FOR EACH ROW
+EXECUTE FUNCTION thermocheck.sync_is_trainer_from_iam();
+```
+
+#### 3. Backfill (einmalig, in derselben Migration)
+
+Alle bestehenden User mit `aufmass_trainer`-Rolle bekommen `is_trainer = true`:
+
+```text
+UPDATE thermocheck.contractor_onboarding co
+SET is_trainer = true
+FROM iam.user_app_roles uar
+JOIN iam.app_roles ar ON ar.id = uar.app_role_id
+WHERE ar.role_code = 'aufmass_trainer'
+  AND uar.user_id = co.profile_id
+  AND co.is_trainer = false;
+```
+
+### Kein Frontend-Code betroffen
+- `useIsTrainer` liest bereits aus `contractor_onboarding.is_trainer` -- bleibt wie es ist
+- `useOnboardingState` nutzt bereits `isTrainer` fuer den Bypass -- bleibt wie es ist
+
+### Datenfluss
+
+```text
+Directory (Admin UI)
+       |
+       v
+iam.user_app_roles (aufmass_trainer)
+       |
+       v  [Trigger: sync_is_trainer_from_iam]
+       |
+thermocheck.contractor_onboarding.is_trainer = true
+       |
+       v  [useIsTrainer Hook]
+       |
+Frontend: Trainer-Bypass aktiv
+```
 
 ### Auswirkung
-- Trainer koennen sofort durch alle Schritte navigieren ("Weiter"-Button immer aktiv)
-- Normale Bewerber sind nicht betroffen (kein `isTrainer`-Flag)
-- Keine DB-Migration noetig -- reine Frontend-Logik
-
+- Artur Penner wird sofort als Trainer erkannt (Backfill)
+- Zukuenftige Rollenaenderungen im Directory werden automatisch synchronisiert
+- Keine doppelte Datenpflege -- IAM ist die einzige Eingabestelle
+- Domain-Schema bleibt sauber getrennt vom IAM-Schema
