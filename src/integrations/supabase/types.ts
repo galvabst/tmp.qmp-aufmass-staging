@@ -9691,6 +9691,8 @@ export type Database = {
           email: string
           erstellt_am: string
           erstellt_von: string
+          gebuchter_coach_name: string
+          gebuchter_coaching_termin: string
           id: string
           kleidung_bestellt_intern: boolean
           lizenzen_bereitgestellt_intern: boolean
@@ -11343,6 +11345,10 @@ export type Database = {
       toggle_produkt_recht_dokument_status: {
         Args: { p_id: string; p_ist_aktiv: boolean }
         Returns: boolean
+      }
+      transition_contractor_to_mitfahrt: {
+        Args: { p_contractor_id: string }
+        Returns: undefined
       }
       unlockrows: { Args: { "": string }; Returns: number }
       update_contractor: {

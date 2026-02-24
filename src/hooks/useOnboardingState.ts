@@ -450,14 +450,17 @@ export function useOnboardingState(
       case 'dokumente':
         // Preview-Modus: Dokumente-Validierung überspringen
         if (isPreview) return true;
+        if (isTrainer) return true;
         return !!(state.gewerbescheinUrl || state.gewerbescheinSpaeter);
       case 'bestellungen':
         // Preview-Modus: Bestellungen-Validierung überspringen (für Development)
         if (isPreview) return true;
+        if (isTrainer) return true;
         const requiredCount = state.oberteilAuswahl === 'beides' ? 7 : 6;
         return state.bestellungenBestaetigt.length >= requiredCount;
       case 'equipment':
         if (isPreview) return true;
+        if (isTrainer) return true;
         const itemValid = (item: { hatEigenes: boolean; nachweisUrl?: string } | undefined) =>
           !!item && (
             (item.hatEigenes === true && !!item.nachweisUrl) ||
