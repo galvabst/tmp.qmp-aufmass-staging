@@ -1,149 +1,104 @@
 
 
-# Plan: Aufmass-Seite reparieren — Kundenname + Bild-Upload
+# Plan: PV-Aufmass-Formular als bedingtes Zusatzmodul + Kamera-Fix
 
-## Root-Cause-Analyse (verifiziert durch DB-Queries + Network Logs)
+## Status-Update: Was jetzt funktioniert
 
-### Das eigentliche Problem: Falsche ID in der URL
+Die Network Logs beweisen, dass die vorherigen Fixes greifen:
 
-Die `TechnicianOrderDetail` navigiert zur Aufmass-Seite mit:
-```typescript
-navigate(`/thermocheck/aufmass/${order.id}`)
-```
-
-`order.id` ist die **terminvorschlag_id** (`fc3ab3f5-...`), NICHT die auftrag_id (`58ee2606-...`).
-
-Beweis aus der DB:
-```
-terminvorschlag fc3ab3f5... → thermocheck_auftrag_id = 58ee2606...
-terminvorschlag a52364d9... → thermocheck_auftrag_id = bc486cb7...
-```
-
-Das hat 3 Folge-Fehler:
-
-| Fehler | Ursache | Beweis |
+| Problem | Status | Beweis |
 |---|---|---|
-| Kundenname = "Unbekannt" | `v_thermocheck_auftraege?id=eq.fc3ab3f5...` findet 0 Rows (ID existiert dort nicht) | Network: Response Body `[]` |
-| Auto-Create 409 FK-Verletzung | INSERT mit `thermocheck_auftrag_id=fc3ab3f5...` — FK referenziert `thermocheck_auftraege(id)`, diese ID existiert dort nicht | Network: 409, "Key is not present in table thermocheck_auftraege" |
-| Upload-Buttons disabled | Kein Formular erstellt → votFormularId = undefined → `disabled={!votFormularId}` = true | Screenshot: Buttons sichtbar aber ohne Funktion |
+| Kundenname "Unbekannt" | GELOEST | URL `cb4f5fa5` = auftragId "Toni Vogler", Query gibt Daten zurueck (200) |
+| Auto-Create Formular | GELOEST | POST `thermocheck_vot_formulare` → 201, ID `55feddc1-...` erstellt |
+| Upload-Buttons disabled | GELOEST | votFormularId existiert, Buttons sollten aktiv sein |
+| Kamera oeffnet File-Picker | ERWARTET | `capture="environment"` wird nur auf echten Mobilgeraeten (iPhone/Android) honoriert. Im Lovable Desktop-Preview oeffnet der Browser immer den File-Picker — das ist Standard-Browser-Verhalten, kein Bug |
 
-### Warum der Kundenname korrekt waere mit der richtigen ID
+## Zwei separate Themen
 
-Auftrag `58ee2606...` hat:
-- `kunde_vorname = "Adam"`
-- `kunde_nachname = "Hauczinger"`
-- `lead_name = "Adam Hauczinger"`
-- `lead_id = "587a1a6d-516d-40b1-bf03-7970cb42562f"`
+### Thema 1: Kamera-Button UX-Verbesserung (klein)
 
-Mit der korrekten ID wuerde `kundenName = "Adam Hauczinger"` korrekt angezeigt.
+Der aktuelle Kamera-Button nutzt bereits `input.capture = 'environment'` (Zeile 185 in PhotoUploadField). Auf echten Mobilgeraeten oeffnet das die Kamera. Im Desktop-Preview ist das technisch nicht moeglich ohne `getUserMedia()` + eigene Video-UI.
 
----
+Empfehlung: Kein Code-Change noetig. Der Button funktioniert korrekt auf dem Zielgeraet (Handy des Technikers). Im Desktop-Preview ist die Datei-Auswahl das erwartete Fallback.
 
-## Loesung: 3 Aenderungen
+### Thema 2: PV-Aufmass-Formular (gross — neues Feature)
 
-### 1. TechnicianOrderDetail.tsx — Navigation mit auftragId statt terminId
+Der User hat ein umfangreiches PV-Formular als Referenz gezeigt. Dieses soll als **bedingte Erweiterung** des bestehenden ThermoCheck-Formulars erscheinen, wenn der Kunde bei "Haben Sie bereits eine PV-Anlage?" mit **Nein** antwortet.
 
-Zeile 622 aendern:
-
-```typescript
-// VORHER (falsch):
-onClick={() => navigate(`/thermocheck/aufmass/${order.id}`)}
-
-// NACHHER (korrekt):
-onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}
-```
-
-`order.auftragId` ist bereits in `TechnicianOrder` definiert und wird von `useMyAssignedOrders` korrekt befuellt (Zeile 118: `auftragId: termin.thermocheck_auftrag_id`).
-
-### 2. Dateinamenschema: Kunde + Kategorie + Nummer
-
-In `useVotBilder.ts` Zeile 82:
-
-```typescript
-// VORHER:
-dateiname: `${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,
-
-// NACHHER:
-dateiname: `kunde_${sanitizeLeadName(leadName)}_${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,
-```
-
-Dafuer `sanitizeLeadName` aus `storage-path.ts` importieren.
-
-Beispiel-Ergebnis: `kunde_hauczinger_hausschuhe_001.jpg`
-
-### 3. Auto-Create Fehlerbehandlung verbessern
-
-In `AufmassFormPage.tsx`: Die auto-create Logik ist korrekt, WENN die richtige auftragId verwendet wird. Aber zur Robustheit: den 409-Fehler (FK violation) abfangen und dem User eine klare Meldung zeigen.
-
-```typescript
-// In der .then()-Callback:
-if (error) {
-  if (error.code === '23503') {
-    console.error('Auftrag existiert nicht:', auftragId);
-    // Kein Toast — die Seite zeigt bereits Fallback-Daten
-  } else {
-    console.warn('Auto-Create fehlgeschlagen:', error.message);
-  }
-}
-```
-
----
-
-## Betroffene Dateien
-
-| Datei | Aenderung |
-|---|---|
-| `src/components/TechnicianOrderDetail.tsx` Zeile 622 | `order.id` → `order.auftragId \|\| order.id` |
-| `src/features/aufmass/hooks/useVotBilder.ts` Zeile 82 | Dateiname: `kunde_{name}_{kategorie}_{nr}.{ext}` |
-| `src/features/aufmass/ui/AufmassFormPage.tsx` Zeile 64-69 | Robustere Fehlerbehandlung im Auto-Create |
-
----
-
-## User-Flow nach Fix
+Das PV-Formular umfasst laut Referenz ca. 25-30 Felder in ~8 Abschnitten:
 
 ```text
-1. Techniker klickt "Aufmaß erfassen" auf Auftrag Hauczinger
-2. Navigation: /thermocheck/aufmass/58ee2606-... (auftragId, NICHT terminId)
-3. AufmassFormPage laedt:
-   a) v_thermocheck_auftraege?id=eq.58ee2606... → 1 Row mit kunde_vorname="Adam", kunde_nachname="Hauczinger"
-   b) useVotFormular → kein Formular → auto-create mit thermocheck_auftrag_id=58ee2606... → FK OK → formular erstellt
-   c) votFormularId = UUID → Upload-Buttons aktiv
-4. kundenName = "Adam Hauczinger" (nicht mehr "Unbekannt")
-5. leadName = "Adam Hauczinger", leadId = "587a1a6d..."
-6. Techniker klickt "Datei" oder "Kamera" → Upload funktioniert
-7. Dateiname in DB: "kunde_adam_hauczinger_hausschuhe_001.jpg"
-8. Storage-Pfad: "operations/leads/adam_hauczinger_587a1a6d.../thermocheck-auftrag_58ee2606.../hausschuhe_001.jpg"
+ThermoCheck-Formular (15 Schritte, existiert)
+    ↓
+Step 13: "Haben Sie bereits eine PV-Anlage?"
+    ├── Ja → Foto-Upload der bestehenden PV (existiert)
+    └── Nein → PV-Aufmass-Formular (NEU, ~8 zusaetzliche Steps)
+        ├── Allgemein (Solarthermie, Denkmalschutz, Lager)
+        ├── Dach (Form, Neigung, Ausrichtung, Sparren)
+        ├── Dachziegel (Typ, Bilder vorne/hinten, Neigung)
+        ├── Gerüst (Hindernisse, Fassade, oeffentl. Flaeche)
+        ├── DC-Kabelfuehrung (Fassade, Dachhaut, >10m)
+        ├── Unterkonstruktion (Verschattung, Belueftung)
+        ├── Blitzschutz (vorhanden, geprueft, abbaubar)
+        └── PV-Abschluss (Kommentar, Bestaetigung, Unterschrift)
 ```
 
----
+### Kritische Fragen fuer die Implementation
 
-## RLS-Validierung (aktuelle Rolle: user)
+Bevor ich das PV-Formular baue, muss ich folgendes klaeren:
 
-| Tabelle | Operation | Policy | Funktioniert? |
-|---|---|---|---|
-| v_thermocheck_auftraege | SELECT | `USING (true)` fuer authenticated | Ja |
-| thermocheck_vot_formulare | INSERT | `WITH CHECK (true)` fuer authenticated | Ja |
-| thermocheck_vot_formulare | SELECT | `USING (true)` fuer authenticated | Ja |
-| thermocheck_vot_bilder | INSERT | `WITH CHECK (auth.uid() IS NOT NULL)` | Ja |
-| thermocheck_vot_bilder | SELECT | `USING (auth.uid() IS NOT NULL)` | Ja |
-| storage.objects (galvanek_bau) | INSERT | `bucket_id='galvanek_bau' AND auth.uid() IS NOT NULL` | Ja |
-| storage.objects (galvanek_bau) | SELECT | `bucket_id='galvanek_bau' AND auth.uid() IS NOT NULL` | Ja |
+**1. Datenbankstruktur**: Die bestehende `thermocheck_vot_formulare` hat ~30 Spalten fuer das THC-Formular. Das PV-Formular bringt ~25-30 weitere Felder. Optionen:
+- **Option A**: Eigene Tabelle `thermocheck_pv_formulare` (1:1 zu `thermocheck_vot_formulare`) — sauber getrennt, eigene Validierung
+- **Option B**: Spalten in `thermocheck_vot_formulare` ergaenzen — einfacher, aber Tabelle wird gross (60+ Spalten)
 
----
+**2. Bild-Kategorien**: Das PV-Formular braucht neue Bild-Kategorien:
+- `pv_dach` (Bilder vom Dach)
+- `pv_drohne` (Drohnenfotos)
+- `pv_sparrenabstand` (Messung)
+- `pv_dachziegel` (vorne/hinten)
+- `pv_hindernisse` (Geruest-Hindernisse)
+- `pv_geruest_oeffentlich` (oeffentl. Flaeche)
+- `pv_blitzschutz` (Blitzschutzanlage)
 
-## Edge Cases
+**3. Stepper-Logik**: Wenn `hat_pv_anlage === false`, muessen die PV-Steps dynamisch nach Step 13 eingefuegt werden. Die Step-Anzahl im Header wechselt von 15 auf ~23.
 
-| Szenario | Handling |
+**4. Feldliste aus der Referenz** (zu validieren):
+
+| Abschnitt | Felder |
 |---|---|
-| Alter Link mit terminId | Auftrag-Query findet 0 Rows → auftrag=null → kundenName="Unbekannt". Auto-Create schlaegt fehl (FK) aber wird graceful abgefangen |
-| order.auftragId fehlt (pool orders) | Fallback auf `order.id` (Pool-Orders haben kein auftragId Feld) |
-| Concurrent auto-create (StrictMode) | `autoCreatingRef` Flag + UNIQUE constraint auf thermocheck_auftrag_id |
-| Formular existiert bereits | `useVotFormular` laedt es, auto-create wird uebersprungen |
-| Auftrag geloescht | `.maybeSingle()` gibt null, UI zeigt Fallback |
+| Allgemein | solarthermie_vorhanden (bool), denkmalschutz (enum: denkmal/ensemble/nein), lagermoeglichkeit (bool), lagermoeglichkeit_beschreibung (text) |
+| Dach | dachform (enum), dachausrichtung (text), dachneigung (number), sparrenabstand (text), trapezdach (bool), trapezdach_art (text), attika_vorhanden (bool), attika_masse (text), aufdachdaemmung (bool), aufdachdaemmung_dicke (number), thermodach (bool) |
+| Dachziegel | ziegel_lose (enum: ja/nein/nicht_erkennbar), dacheindeckung_art (text), ziegel_neigung (enum: positiv/negativ), ziegel_neigung_grad (number) |
+| Geruest | hindernisse_vorhanden (bool), fassade_gedaemmt (bool), fassade_daemmung_dicke (text), oeffentliche_flaeche (bool) |
+| DC-Kabel | dc_fassade_moeglich (bool), dc_dachhaut_moeglich (bool), dc_ueber_10m (bool), module_gleiches_gebaeude (bool), gebaeude_entfernung (number) |
+| Unterkonstruktion | verschattungen_vorhanden (bool), verschattungen_beschreibung (text), belueftungsrohre (bool), blitzschutz_vorhanden (bool), hauszufuehrung (enum: keller/freileitung), blitzschutz_geprueft (bool), blitzschutz_abbaubar (bool) |
+| Abschluss | pv_kommentar (text), pv_bestaetigung (bool), pv_unterschrift (storage path) |
 
----
+Das sind ~30 neue Felder + 7 neue Bild-Kategorien.
 
-## Keine DB-Migration noetig
+### Empfohlene Phased-Approach
 
-Reine Code-Aenderungen in 3 Dateien. Alle DB-Strukturen, FKs und RLS-Policies sind korrekt.
+**Phase 1** (dieser Prompt): DB-Migration + Bild-Kategorien + Schema
+- Neue Tabelle `thermocheck.thermocheck_pv_formulare` mit allen Feldern
+- Neue Bild-Kategorien in `bild-kategorien.ts`
+- Zod-Schema `pv-aufmass-schema.ts`
+- RLS Policies (gleich wie VOT: authenticated INSERT/SELECT)
+
+**Phase 2** (naechster Prompt): UI Sections + Stepper-Integration
+- 8 neue Section-Komponenten unter `src/features/aufmass/ui/sections/pv/`
+- Dynamischer Stepper der PV-Steps zeigt wenn `hat_pv_anlage === false`
+- Hook `useVotPvFormular` fuer CRUD
+
+**Phase 3**: Validierung + Edge Cases + Tests
+
+### Risiko-Analyse
+
+| Risiko | Bewertung | Mitigation |
+|---|---|---|
+| Formular wird zu lang (23 Steps) | Mittel | Klare visuelle Trennung "THC Teil" vs "PV Teil" im Stepper |
+| DB-Tabelle zu breit | Gering | Eigene Tabelle `pv_formulare` vermeidet das |
+| Storage-Pfad-Konsistenz | Gering | Gleicher Bucket, gleiche Ordnerstruktur |
+| Stepper-Performance | Gering | Lazy-Rendering ist bereits implementiert |
+
+Soll ich mit Phase 1 (DB + Schema + Kategorien) starten, oder moechtest du erst die Feldliste validieren/korrigieren?
 
