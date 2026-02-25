@@ -1,38 +1,19 @@
 
 
-# RescheduleModal: Nicht wegklickbar + PLZ/Ort + Ablehnungs-Warnung
+# Fix: Ablehnen-Button im RescheduleModal wird abgeschnitten
 
-## Aenderungen
+## Problem
 
-### 1. Modal nicht wegklickbar machen
-- `onOpenChange` entfernen bzw. ignorieren (kein Schliessen per X oder Overlay-Klick)
-- `DialogContent` bekommt `onPointerDownOutside` und `onEscapeKeyDown` mit `preventDefault`
-- Das X-Icon im DialogContent ausblenden (via `[&>button]:hidden` class)
+Der "Alle ablehnen"-Button existiert im Code, wird aber auf dem Bildschirm abgeschnitten. Das `DialogContent` hat keine Hoehenbegrenzung mit Scroll, sodass der untere Teil des Modals (Warnung + Button) ueber den sichtbaren Bereich hinausragt.
 
-### 2. PLZ und Ort im Modal anzeigen
-Die View `v_thermocheck_auftraege` hat `kunde_plz` und `kunde_ort`. Diese Felder werden im Hook `useMyPendingProposals` mitgeladen und im Interface `PendingReschedule` ergaenzt. Im Modal erscheint dann z.B. "44894 Bochum" unter dem Kundennamen.
+## Loesung
 
-### 3. Warnhinweis vor dem Ablehnen-Button
-Ein orangefarbener Hinweistext oberhalb des Ablehnen-Buttons:
-> "⚠️ Das Ablehnen von Aufträgen wirkt sich negativ auf deine Bewertung aus."
+Eine einzige Aenderung in `src/components/RescheduleModal.tsx`: Dem `DialogContent` die Klassen `max-h-[90vh] overflow-y-auto` hinzufuegen, damit der Inhalt bei kleinen Bildschirmen scrollbar wird und der Ablehnen-Button erreichbar ist.
 
 ## Technische Details
 
-### `src/hooks/useMyPendingProposals.ts`
-- Step 2 Query: `select=id,kunde_vorname,kunde_nachname,kunde_plz,kunde_ort` ergaenzen
-- `PendingReschedule` Interface: `plz` und `ort` Felder hinzufuegen
-- Beim Grouping die neuen Felder durchreichen
-
 ### `src/components/RescheduleModal.tsx`
-- `Dialog onOpenChange` so aendern, dass Schliessen verhindert wird
-- `DialogContent`: `onPointerDownOutside={e => e.preventDefault()}` und `onEscapeKeyDown={e => e.preventDefault()}` hinzufuegen, Close-Button via `[&>button]:hidden` ausblenden
-- PLZ + Ort in der Beschreibung anzeigen: "Dein Termin bei **Thomas Wermke** in **44894 Bochum** wurde verschoben."
-- Warntext als Alert/Hinweis vor dem Ablehnen-Button
+- Zeile 109: `className="max-w-md [&>button]:hidden"` aendern zu `className="max-w-md max-h-[90vh] overflow-y-auto [&>button]:hidden"`
 
-### Dateien
-
-| Datei | Aenderung |
-|---|---|
-| `src/hooks/useMyPendingProposals.ts` | `kunde_plz`, `kunde_ort` laden und im Interface exponieren |
-| `src/components/RescheduleModal.tsx` | Nicht-schliessbar, PLZ/Ort anzeigen, Ablehnungs-Warnung |
+Das ist alles. Der Button und die Logik sind bereits vollstaendig implementiert – er war nur nicht sichtbar.
 
