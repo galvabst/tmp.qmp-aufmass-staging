@@ -17,6 +17,8 @@ export interface PendingProposal {
 export interface PendingReschedule {
   auftragId: string;
   customerName: string;
+  plz: string;
+  ort: string;
   proposals: PendingProposal[];
 }
 
@@ -55,12 +57,12 @@ export function useMyPendingProposals() {
 
       // Step 2: Fetch auftraege assigned to me with pipeline_status = termin_abwarten
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&pipeline_status=eq.termin_abwarten&select=id,kunde_vorname,kunde_nachname`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&pipeline_status=eq.termin_abwarten&select=id,kunde_vorname,kunde_nachname,kunde_plz,kunde_ort`,
         { headers }
       );
       if (!auftraegeRes.ok) return [];
 
-      const auftraege: { id: string; kunde_vorname: string | null; kunde_nachname: string | null }[] = await auftraegeRes.json();
+      const auftraege: { id: string; kunde_vorname: string | null; kunde_nachname: string | null; kunde_plz: string | null; kunde_ort: string | null }[] = await auftraegeRes.json();
       if (!auftraege.length) return [];
 
       const auftragIds = auftraege.map(a => a.id);
@@ -104,11 +106,16 @@ export function useMyPendingProposals() {
         grouped.set(t.thermocheck_auftrag_id, list);
       }
 
-      return Array.from(grouped.entries()).map(([auftragId, proposals]) => ({
-        auftragId,
-        customerName: proposals[0].customerName,
-        proposals,
-      }));
+      return Array.from(grouped.entries()).map(([auftragId, proposals]) => {
+        const auftrag = auftragMap.get(auftragId);
+        return {
+          auftragId,
+          customerName: proposals[0].customerName,
+          plz: auftrag?.kunde_plz || "",
+          ort: auftrag?.kunde_ort || "",
+          proposals,
+        };
+      });
     },
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
