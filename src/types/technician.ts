@@ -95,6 +95,9 @@ export interface TechnicianOrder {
   submittedAt?: string;
   approvedAt?: string;
   auftragId?: string;
+  // Booking confirmation tracking
+  buchungBestaetigtAm?: string;
+  vortagBestaetigtAm?: string;
 }
 
 // Technician Profile

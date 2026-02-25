@@ -1,11 +1,15 @@
-import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { TechnicianOrder, CheckinPhase, CHECKIN_PHASE_LABELS } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 interface TechnicianOrderDetailProps {
   order: TechnicianOrder;
@@ -15,7 +19,7 @@ interface TechnicianOrderDetailProps {
   onStartCheckin?: (phase: CheckinPhase) => void;
   onCheckout?: (phase: CheckinPhase) => void;
   onStartRework?: () => void;
-  showFullDetails?: boolean; // false = Pool (nur PLZ+Stadt), true = nach Annahme
+  showFullDetails?: boolean;
 }
 
 export function TechnicianOrderDetail({ 
@@ -29,9 +33,12 @@ export function TechnicianOrderDetail({
   showFullDetails = true,
 }: TechnicianOrderDetailProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [confirmingBooking, setConfirmingBooking] = useState(false);
+  const [confirmingVortag, setConfirmingVortag] = useState(false);
+
   const formattedDate = format(parseISO(order.scheduledDate), 'EEEE, d. MMMM yyyy', { locale: de });
   
-  // Navigation URL - nur wenn volle Details sichtbar
   const fullAddress = `${order.address}, ${order.postalCode} ${order.city}`;
   const mapsUrl = `https://maps.google.com/maps?daddr=${encodeURIComponent(fullAddress)}`;
 
@@ -42,21 +49,60 @@ export function TechnicianOrderDetail({
   const isReworkRequired = order.status === 'rework_required';
   const isSubmitted = order.status === 'submitted' || order.status === 'in_review';
   const isApproved = order.status === 'approved';
-  
-  // Datenschutz: Pool-Auftraege zeigen nur PLZ + Stadt
   const canShowFullDetails = showFullDetails && !isPoolOrder;
   
+  // Confirmation status
+  const buchungDone = !!order.buchungBestaetigtAm;
+  const vortagDone = !!order.vortagBestaetigtAm;
+  const terminSoon = isToday(parseISO(order.scheduledDate)) || isTomorrow(parseISO(order.scheduledDate));
+  const showVortagTask = buchungDone && terminSoon;
+
   // Phase tracking
   const vorOrtStarted = !!order.vorOrtCheckinAt;
   const vorOrtCompleted = !!order.vorOrtCheckoutAt;
   const nachbearbeitungStarted = !!order.nachbearbeitungCheckinAt;
   const nachbearbeitungCompleted = !!order.nachbearbeitungCheckoutAt;
   
-  // Determine current action state
   const canStartVorOrt = isBookedOrder && !vorOrtStarted;
   const canCheckoutVorOrt = isInProgress && order.checkinPhase === 'vor_ort' && vorOrtStarted && !vorOrtCompleted;
   const canStartNachbearbeitung = isInProgress && vorOrtCompleted && !nachbearbeitungStarted;
   const canCheckoutNachbearbeitung = isInProgress && order.checkinPhase === 'nachbearbeitung' && nachbearbeitungStarted && !nachbearbeitungCompleted;
+
+  const handleConfirmBooking = async () => {
+    if (!order.auftragId) return;
+    setConfirmingBooking(true);
+    try {
+      const { data, error } = await supabase.rpc('confirm_thermocheck_booking', {
+        p_auftrag_id: order.auftragId,
+      } as any);
+      if (error) throw error;
+      toast.success('Buchung als bestätigt markiert');
+      queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
+    } catch (err: any) {
+      console.error('[confirmBooking]', err);
+      toast.error(err.message || 'Fehler beim Bestätigen');
+    } finally {
+      setConfirmingBooking(false);
+    }
+  };
+
+  const handleConfirmVortag = async () => {
+    if (!order.auftragId) return;
+    setConfirmingVortag(true);
+    try {
+      const { data, error } = await supabase.rpc('confirm_thermocheck_vortag', {
+        p_auftrag_id: order.auftragId,
+      } as any);
+      if (error) throw error;
+      toast.success('Vortag-Bestätigung markiert');
+      queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
+    } catch (err: any) {
+      console.error('[confirmVortag]', err);
+      toast.error(err.message || 'Fehler beim Bestätigen');
+    } finally {
+      setConfirmingVortag(false);
+    }
+  };
 
   const getStatusBadgeVariant = () => {
     switch (order.status) {
@@ -98,6 +144,107 @@ export function TechnicianOrderDetail({
           <h2 className="text-xl font-bold text-foreground">{order.customerName}</h2>
         </div>
 
+        {/* Confirmation Tasks Card - only for booked orders */}
+        {isBookedOrder && (
+          <div className="bg-card rounded-xl p-4 shadow-card">
+            <p className="font-medium text-foreground mb-3">Aufgaben</p>
+            <div className="space-y-3">
+              {/* Task 1: Buchungsbestätigung */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {buchungDone ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-orange-500" />
+                  )}
+                  <div>
+                    <p className={`text-sm font-medium ${buchungDone ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+                      Buchung bestätigen
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {buchungDone
+                        ? `Bestätigt am ${format(parseISO(order.buchungBestaetigtAm!), 'd. MMM, HH:mm', { locale: de })} Uhr`
+                        : 'Kunden per E-Mail kontaktieren & Termin bestätigen'}
+                    </p>
+                  </div>
+                </div>
+                {!buchungDone && (
+                  <Button
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); handleConfirmBooking(); }}
+                    disabled={confirmingBooking}
+                    className="shrink-0"
+                  >
+                    {confirmingBooking ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Erledigt'}
+                  </Button>
+                )}
+              </div>
+
+              {/* Task 2: Vortag-Bestätigung */}
+              {showVortagTask && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {vortagDone ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <Phone className="w-5 h-5 text-orange-500" />
+                    )}
+                    <div>
+                      <p className={`text-sm font-medium ${vortagDone ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+                        Vortag: Termin rückbestätigen
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {vortagDone
+                          ? `Bestätigt am ${format(parseISO(order.vortagBestaetigtAm!), 'd. MMM, HH:mm', { locale: de })} Uhr`
+                          : 'Kunden anrufen & Termin nochmal bestätigen'}
+                      </p>
+                    </div>
+                  </div>
+                  {!vortagDone && (
+                    <Button
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); handleConfirmVortag(); }}
+                      disabled={confirmingVortag}
+                      className="shrink-0"
+                    >
+                      {confirmingVortag ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Erledigt'}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Contact - prominent for booked orders */}
+        {canShowFullDetails && (order.contactPhone || order.contactEmail) && (
+          <div className="bg-card rounded-xl p-4 shadow-card">
+            <p className="font-medium text-foreground mb-3">Kontaktdaten</p>
+            <div className="space-y-3">
+              {order.contactPhone && (
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Phone className="w-5 h-5 text-primary" />
+                  </div>
+                  <a href={`tel:${order.contactPhone}`} className="font-medium text-primary hover:underline">
+                    {order.contactPhone}
+                  </a>
+                </div>
+              )}
+              {order.contactEmail && (
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Mail className="w-5 h-5 text-primary" />
+                  </div>
+                  <a href={`mailto:${order.contactEmail}`} className="font-medium text-primary hover:underline text-sm break-all">
+                    {order.contactEmail}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Date & Time */}
         <div className="bg-card rounded-xl p-4 shadow-card">
           <div className="flex items-start gap-3">
@@ -111,7 +258,7 @@ export function TechnicianOrderDetail({
           </div>
         </div>
 
-        {/* Address - Datenschutz beachten */}
+        {/* Address */}
         <div className="bg-card rounded-xl p-4 shadow-card">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
@@ -144,34 +291,6 @@ export function TechnicianOrderDetail({
           )}
         </div>
 
-        {/* Contact - nur nach Annahme */}
-        {canShowFullDetails && order.contactPhone && (
-          <div className="bg-card rounded-xl p-4 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Phone className="w-5 h-5 text-primary" />
-              </div>
-              <a href={`tel:${order.contactPhone}`} className="font-medium text-primary hover:underline">
-                {order.contactPhone}
-              </a>
-            </div>
-          </div>
-        )}
-
-        {/* E-Mail - nur nach Annahme */}
-        {canShowFullDetails && order.contactEmail && (
-          <div className="bg-card rounded-xl p-4 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Mail className="w-5 h-5 text-primary" />
-              </div>
-              <a href={`mailto:${order.contactEmail}`} className="font-medium text-primary hover:underline">
-                {order.contactEmail}
-              </a>
-            </div>
-          </div>
-        )}
-
         {/* Description */}
         {order.description && (
           <div className="bg-card rounded-xl p-4 shadow-card">
@@ -195,19 +314,14 @@ export function TechnicianOrderDetail({
           </div>
         )}
 
-        {/* Check-in/out Phase Status (for in_progress orders) */}
+        {/* Check-in/out Phase Status */}
         {(isInProgress || isSubmitted || isApproved || isReworkRequired) && (
           <div className="bg-card rounded-xl p-4 shadow-card">
             <p className="font-medium text-foreground mb-3">Arbeitsfortschritt</p>
             <div className="space-y-3">
-              {/* Vor-Ort Phase */}
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  vorOrtCompleted 
-                    ? 'bg-green-500 text-white' 
-                    : vorOrtStarted 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-muted text-muted-foreground'
+                  vorOrtCompleted ? 'bg-green-500 text-white' : vorOrtStarted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                 }`}>
                   {vorOrtCompleted ? '✓' : '1'}
                 </div>
@@ -223,15 +337,9 @@ export function TechnicianOrderDetail({
                   )}
                 </div>
               </div>
-              
-              {/* Nachbearbeitung Phase */}
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  nachbearbeitungCompleted 
-                    ? 'bg-green-500 text-white' 
-                    : nachbearbeitungStarted 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-muted text-muted-foreground'
+                  nachbearbeitungCompleted ? 'bg-green-500 text-white' : nachbearbeitungStarted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                 }`}>
                   {nachbearbeitungCompleted ? '✓' : '2'}
                 </div>
@@ -266,7 +374,7 @@ export function TechnicianOrderDetail({
           </div>
         )}
 
-        {/* Aufmaß Button - für gebuchte/laufende Aufträge */}
+        {/* Aufmaß Button */}
         {(isBookedOrder || isInProgress) && (
           <Button
             className="w-full"
@@ -281,92 +389,40 @@ export function TechnicianOrderDetail({
 
       {/* Action Bar */}
       <div className="fixed bottom-20 left-0 right-0 p-4 bg-background border-t border-border safe-area-bottom">
-        {/* Pool Order: Accept/Reject */}
         {isPoolOrder && onAccept && onReject && (
           <div className="flex gap-3">
-            <Button 
-              variant="outline" 
-              className="flex-1" 
-              onClick={onReject}
-            >
-              Ablehnen
-            </Button>
-            <Button 
-              className="flex-1 bg-green-600 hover:bg-green-700" 
-              onClick={onAccept}
-            >
-              Annehmen
-            </Button>
+            <Button variant="outline" className="flex-1" onClick={onReject}>Ablehnen</Button>
+            <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={onAccept}>Annehmen</Button>
           </div>
         )}
-        
-        {/* Booked Order: Start Vor-Ort Check-in */}
         {canStartVorOrt && onStartCheckin && (
-          <Button 
-            className="w-full bg-primary" 
-            onClick={() => onStartCheckin('vor_ort')}
-          >
-            <Clock className="w-4 h-4 mr-2" />
-            Check-in Vor-Ort starten
+          <Button className="w-full bg-primary" onClick={() => onStartCheckin('vor_ort')}>
+            <Clock className="w-4 h-4 mr-2" />Check-in Vor-Ort starten
           </Button>
         )}
-        
-        {/* In Progress - Vor-Ort: Checkout */}
         {canCheckoutVorOrt && onCheckout && (
-          <Button 
-            className="w-full bg-green-600 hover:bg-green-700" 
-            onClick={() => onCheckout('vor_ort')}
-          >
-            Vor-Ort abschließen
-          </Button>
+          <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => onCheckout('vor_ort')}>Vor-Ort abschließen</Button>
         )}
-        
-        {/* In Progress - Ready for Nachbearbeitung */}
         {canStartNachbearbeitung && onStartCheckin && (
-          <Button 
-            className="w-full bg-primary" 
-            onClick={() => onStartCheckin('nachbearbeitung')}
-          >
-            <Clock className="w-4 h-4 mr-2" />
-            Nachbearbeitung starten
+          <Button className="w-full bg-primary" onClick={() => onStartCheckin('nachbearbeitung')}>
+            <Clock className="w-4 h-4 mr-2" />Nachbearbeitung starten
           </Button>
         )}
-        
-        {/* In Progress - Nachbearbeitung: Checkout & Submit */}
         {canCheckoutNachbearbeitung && onCheckout && (
-          <Button 
-            className="w-full bg-green-600 hover:bg-green-700" 
-            onClick={() => onCheckout('nachbearbeitung')}
-          >
-            Abschließen & Einreichen
-          </Button>
+          <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => onCheckout('nachbearbeitung')}>Abschließen & Einreichen</Button>
         )}
-        
-        {/* Rework Required: Start Rework */}
         {isReworkRequired && onStartRework && (
-          <Button 
-            className="w-full bg-amber-600 hover:bg-amber-700" 
-            onClick={onStartRework}
-          >
-            Nacharbeit starten
-          </Button>
+          <Button className="w-full bg-amber-600 hover:bg-amber-700" onClick={onStartRework}>Nacharbeit starten</Button>
         )}
-        
-        {/* Submitted/In Review: View Only */}
         {isSubmitted && (
           <div className="text-center text-muted-foreground py-2">
-            <Clock className="w-5 h-5 mx-auto mb-1" />
-            <p className="text-sm">Warte auf Prüfung...</p>
+            <Clock className="w-5 h-5 mx-auto mb-1" /><p className="text-sm">Warte auf Prüfung...</p>
           </div>
         )}
-        
-        {/* Approved: Confirmed */}
         {isApproved && (
           <div className="text-center text-green-600 dark:text-green-400 py-2">
             <p className="font-medium">✓ Abgenommen</p>
-            {order.approvedAt && (
-              <p className="text-sm">am {format(parseISO(order.approvedAt), 'd. MMMM yyyy', { locale: de })}</p>
-            )}
+            {order.approvedAt && <p className="text-sm">am {format(parseISO(order.approvedAt), 'd. MMMM yyyy', { locale: de })}</p>}
           </div>
         )}
       </div>
