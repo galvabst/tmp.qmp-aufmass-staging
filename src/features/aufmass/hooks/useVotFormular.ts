@@ -1,9 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { AufmassDraftData, FORM_DB_FIELDS } from '../data/aufmass-schema';
 import { toast } from 'sonner';
-
-const THERMOCHECK_HEADERS = { 'Accept-Profile': 'thermocheck', 'Content-Profile': 'thermocheck' };
 
 /** Load existing VOT formular for a thermocheck auftrag (or null) */
 export function useVotFormular(thermocheckAuftragId: string | undefined) {
@@ -11,12 +9,11 @@ export function useVotFormular(thermocheckAuftragId: string | undefined) {
     queryKey: ['vot-formular', thermocheckAuftragId],
     enabled: !!thermocheckAuftragId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseTC
         .from('thermocheck_vot_formulare' as any)
         .select('*')
         .eq('thermocheck_auftrag_id', thermocheckAuftragId!)
-        .maybeSingle()
-        .setHeader('Accept-Profile', 'thermocheck');
+        .maybeSingle();
 
       if (error) throw error;
       return data as Record<string, any> | null;
@@ -57,29 +54,26 @@ export function useUpsertVotFormular() {
       }
 
       // Check if exists
-      const { data: existing } = await supabase
+      const { data: existing } = await supabaseTC
         .from('thermocheck_vot_formulare' as any)
         .select('id')
         .eq('thermocheck_auftrag_id', thermocheckAuftragId)
-        .maybeSingle()
-        .setHeader('Accept-Profile', 'thermocheck');
+        .maybeSingle();
 
       if (existing) {
         // Update
-        const { data, error } = await supabase
+        const { data, error } = await supabaseTC
           .from('thermocheck_vot_formulare' as any)
           .update(dbPayload)
           .eq('id', (existing as any).id)
           .select()
-          .single()
-          .setHeader('Accept-Profile', 'thermocheck')
-          .setHeader('Content-Profile', 'thermocheck');
+          .single();
 
         if (error) throw error;
         return data;
       } else {
         // Insert
-        const { data, error } = await supabase
+        const { data, error } = await supabaseTC
           .from('thermocheck_vot_formulare' as any)
           .insert({
             thermocheck_auftrag_id: thermocheckAuftragId,
@@ -87,9 +81,7 @@ export function useUpsertVotFormular() {
             ...dbPayload,
           })
           .select()
-          .single()
-          .setHeader('Accept-Profile', 'thermocheck')
-          .setHeader('Content-Profile', 'thermocheck');
+          .single();
 
         if (error) throw error;
         return data;

@@ -20,7 +20,7 @@ import { UnbegehbareRaeumeSection } from './sections/UnbegehbareRaeumeSection';
 import { PvAnlageSection } from './sections/PvAnlageSection';
 import { AbschlussSection } from './sections/AbschlussSection';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
-import { supabase } from '@/integrations/supabase/client';
+import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
@@ -36,12 +36,11 @@ export default function AufmassFormPage() {
     queryKey: ['thermocheck-auftrag-detail', auftragId],
     enabled: !!auftragId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseTC
         .from('v_thermocheck_auftraege' as any)
         .select('*')
         .eq('id', auftragId!)
-        .single()
-        .setHeader('Accept-Profile', 'thermocheck');
+        .single();
       if (error) throw error;
       return data as Record<string, any>;
     },
@@ -77,11 +76,14 @@ export default function AufmassFormPage() {
   useEffect(() => {
     if (!session?.user) return;
     const meta = session.user.user_metadata;
-    if (!form.getValues('techniker_name') && meta?.full_name) {
-      form.setValue('techniker_name', meta.full_name);
+    if (!form.getValues('techniker_name') && meta?.name) {
+      form.setValue('techniker_name', meta.name);
     }
-    if (!form.getValues('techniker_telefon') && meta?.phone) {
-      form.setValue('techniker_telefon', meta.phone);
+    if (!form.getValues('techniker_telefon') && meta?.telefon) {
+      form.setValue('techniker_telefon', meta.telefon);
+    }
+    if (!form.getValues('thermocheck_datum')) {
+      form.setValue('thermocheck_datum', new Date().toISOString().split('T')[0]);
     }
   }, [session]);
 
