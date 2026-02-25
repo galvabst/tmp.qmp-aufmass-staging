@@ -42,17 +42,17 @@ export function BookingsView({ orders, onOrderClick }: BookingsViewProps) {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground safe-area-top sticky top-0 z-10">
+      <header className="bg-gradient-to-br from-primary to-primary/85 text-primary-foreground safe-area-top sticky top-0 z-10">
         <div className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold">Meine Buchungen</h1>
-              <p className="text-primary-foreground/80 text-sm">
+              <h1 className="text-2xl font-bold tracking-tight">Meine Buchungen</h1>
+              <p className="text-primary-foreground/70 text-sm">
                 {bookedOrders.length} anstehende Termine
                 {pendingTasks > 0 && ` · ${pendingTasks} offene Aufgaben`}
               </p>
             </div>
-            <GalvanekLogo size="sm" />
+            <GalvanekLogo size="sm" variant="white" className="opacity-95" />
           </div>
         </div>
       </header>

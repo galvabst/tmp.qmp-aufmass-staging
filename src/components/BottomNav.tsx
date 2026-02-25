@@ -53,7 +53,7 @@ export function BottomNav({
                   </span>
                 )}
               </div>
-              <span className={cn('text-[9px] mt-0.5', isActive && 'font-semibold')}>
+              <span className={cn('text-[10px] mt-0.5', isActive && 'font-semibold')}>
                 {tab.label}
               </span>
             </button>
