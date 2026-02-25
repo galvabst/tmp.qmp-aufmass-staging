@@ -1,80 +1,90 @@
 
 
-# Plan: Bild-Upload reparieren — Auto-Erstellung des Formulars + Fehlerbehandlung
+# Plan: Aufmass-Seite reparieren — Kundenname + Bild-Upload
 
-## Root-Cause-Analyse (verifiziert durch DB + Network Logs)
+## Root-Cause-Analyse (verifiziert durch DB-Queries + Network Logs)
 
-### Warum Upload nicht funktioniert
+### Das eigentliche Problem: Falsche ID in der URL
 
-Die Upload-Buttons ("Datei" / "Kamera") sind **disabled**, weil `votFormularId` immer `undefined` ist.
-
-Beweis-Kette:
-
-```text
-1. Seite laedt → useVotFormular query → kein Formular existiert → formular = null
-2. votFormularId = (formular as any)?.id → undefined
-3. PhotoUploadField erhaelt votFormularId={undefined}
-4. Button: disabled={isUploading || !votFormularId} → disabled={true}
-5. handleFileUpload: if (!files || !votFormularId) return; → Upload bricht sofort ab
+Die `TechnicianOrderDetail` navigiert zur Aufmass-Seite mit:
+```typescript
+navigate(`/thermocheck/aufmass/${order.id}`)
 ```
 
-Das Formular wird erst bei Klick auf "Speichern" erstellt. Aber der User klickt nie "Speichern" bevor er Fotos hochlaedt – er erwartet, dass die Buttons sofort funktionieren. Die Buttons sehen auch nicht disabled aus (kein visueller Hinweis).
+`order.id` ist die **terminvorschlag_id** (`fc3ab3f5-...`), NICHT die auftrag_id (`58ee2606-...`).
 
-### Zweites Problem: Auftrag-Query wirft 406
-
-```text
-GET v_thermocheck_auftraege?id=eq.a52364d9-... → 406
-"The result contains 0 rows" / "Cannot coerce to single JSON object"
+Beweis aus der DB:
+```
+terminvorschlag fc3ab3f5... → thermocheck_auftrag_id = 58ee2606...
+terminvorschlag a52364d9... → thermocheck_auftrag_id = bc486cb7...
 ```
 
-Die View benutzt `.single()` – wenn der Auftrag nicht existiert oder 0 Rows zurueckgibt, wirft PostgREST einen 406. Das sollte `.maybeSingle()` sein, damit die App nicht crasht.
+Das hat 3 Folge-Fehler:
 
-### Drittes Problem: Dateinamen
+| Fehler | Ursache | Beweis |
+|---|---|---|
+| Kundenname = "Unbekannt" | `v_thermocheck_auftraege?id=eq.fc3ab3f5...` findet 0 Rows (ID existiert dort nicht) | Network: Response Body `[]` |
+| Auto-Create 409 FK-Verletzung | INSERT mit `thermocheck_auftrag_id=fc3ab3f5...` — FK referenziert `thermocheck_auftraege(id)`, diese ID existiert dort nicht | Network: 409, "Key is not present in table thermocheck_auftraege" |
+| Upload-Buttons disabled | Kein Formular erstellt → votFormularId = undefined → `disabled={!votFormularId}` = true | Screenshot: Buttons sichtbar aber ohne Funktion |
 
-Die Storage-Pfade sind korrekt (`kategorie_001.jpg`), aber der `dateiname`-Wert in der DB speichert den Originalnamen vom Geraet (z.B. `IMG_20240315.jpg`). Fuer spaetere Zuordnung sollte der `dateiname` den Kategorie-Namen enthalten.
+### Warum der Kundenname korrekt waere mit der richtigen ID
+
+Auftrag `58ee2606...` hat:
+- `kunde_vorname = "Adam"`
+- `kunde_nachname = "Hauczinger"`
+- `lead_name = "Adam Hauczinger"`
+- `lead_id = "587a1a6d-516d-40b1-bf03-7970cb42562f"`
+
+Mit der korrekten ID wuerde `kundenName = "Adam Hauczinger"` korrekt angezeigt.
 
 ---
 
-## Loesung
+## Loesung: 3 Aenderungen
 
-### Fix 1: Auto-Erstellung des Formular-Records bei Seitenaufruf
+### 1. TechnicianOrderDetail.tsx — Navigation mit auftragId statt terminId
 
-In `AufmassFormPage.tsx`: Wenn die Seite laedt und kein Formular existiert, wird automatisch ein `entwurf`-Record in `thermocheck_vot_formulare` erstellt. Dadurch ist `votFormularId` sofort verfuegbar.
+Zeile 622 aendern:
 
 ```typescript
-// Neuer useEffect in AufmassFormPage.tsx:
-useEffect(() => {
-  if (formularLoading || formular || !auftragId || !userId || autoCreating) return;
-  // Kein Formular vorhanden → auto-erstellen
-  setAutoCreating(true);
-  supabaseTC
-    .from('thermocheck_vot_formulare')
-    .insert({ thermocheck_auftrag_id: auftragId, eingereicht_von: userId, status: 'entwurf' })
-    .select()
-    .single()
-    .then(({ data, error }) => {
-      if (!error) queryClient.invalidateQueries({ queryKey: ['vot-formular', auftragId] });
-      setAutoCreating(false);
-    });
-}, [formularLoading, formular, auftragId, userId]);
+// VORHER (falsch):
+onClick={() => navigate(`/thermocheck/aufmass/${order.id}`)}
+
+// NACHHER (korrekt):
+onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}
 ```
 
-**Resultat**: Upload-Buttons sind sofort aktiv nach Seitenaufruf.
+`order.auftragId` ist bereits in `TechnicianOrder` definiert und wird von `useMyAssignedOrders` korrekt befuellt (Zeile 118: `auftragId: termin.thermocheck_auftrag_id`).
 
-### Fix 2: `.single()` → `.maybeSingle()` fuer Auftrag-Query
+### 2. Dateinamenschema: Kunde + Kategorie + Nummer
 
-In `AufmassFormPage.tsx` Zeile 43: `.single()` durch `.maybeSingle()` ersetzen. Verhindert den 406-Fehler bei nicht-existierenden Auftraegen.
-
-### Fix 3: Dateinamen-Verbesserung
-
-In `useVotBilder.ts` beim Insert: `dateiname` auf `${kategorie}_${paddedIndex}.${ext}` setzen statt den Original-Dateinamen zu speichern.
+In `useVotBilder.ts` Zeile 82:
 
 ```typescript
-// Vorher:
-dateiname: file.name,  // z.B. "IMG_20240315.jpg"
+// VORHER:
+dateiname: `${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,
 
-// Nachher:
-dateiname: `${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,  // z.B. "hausschuhe_001.jpg"
+// NACHHER:
+dateiname: `kunde_${sanitizeLeadName(leadName)}_${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,
+```
+
+Dafuer `sanitizeLeadName` aus `storage-path.ts` importieren.
+
+Beispiel-Ergebnis: `kunde_hauczinger_hausschuhe_001.jpg`
+
+### 3. Auto-Create Fehlerbehandlung verbessern
+
+In `AufmassFormPage.tsx`: Die auto-create Logik ist korrekt, WENN die richtige auftragId verwendet wird. Aber zur Robustheit: den 409-Fehler (FK violation) abfangen und dem User eine klare Meldung zeigen.
+
+```typescript
+// In der .then()-Callback:
+if (error) {
+  if (error.code === '23503') {
+    console.error('Auftrag existiert nicht:', auftragId);
+    // Kein Toast — die Seite zeigt bereits Fallback-Daten
+  } else {
+    console.warn('Auto-Create fehlgeschlagen:', error.message);
+  }
+}
 ```
 
 ---
@@ -83,31 +93,57 @@ dateiname: `${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,  // z.
 
 | Datei | Aenderung |
 |---|---|
-| `src/features/aufmass/ui/AufmassFormPage.tsx` | Auto-Create Formular + `.maybeSingle()` |
-| `src/features/aufmass/hooks/useVotBilder.ts` | Dateiname auf Kategorie-basiert aendern |
+| `src/components/TechnicianOrderDetail.tsx` Zeile 622 | `order.id` → `order.auftragId \|\| order.id` |
+| `src/features/aufmass/hooks/useVotBilder.ts` Zeile 82 | Dateiname: `kunde_{name}_{kategorie}_{nr}.{ext}` |
+| `src/features/aufmass/ui/AufmassFormPage.tsx` Zeile 64-69 | Robustere Fehlerbehandlung im Auto-Create |
+
+---
+
+## User-Flow nach Fix
+
+```text
+1. Techniker klickt "Aufmaß erfassen" auf Auftrag Hauczinger
+2. Navigation: /thermocheck/aufmass/58ee2606-... (auftragId, NICHT terminId)
+3. AufmassFormPage laedt:
+   a) v_thermocheck_auftraege?id=eq.58ee2606... → 1 Row mit kunde_vorname="Adam", kunde_nachname="Hauczinger"
+   b) useVotFormular → kein Formular → auto-create mit thermocheck_auftrag_id=58ee2606... → FK OK → formular erstellt
+   c) votFormularId = UUID → Upload-Buttons aktiv
+4. kundenName = "Adam Hauczinger" (nicht mehr "Unbekannt")
+5. leadName = "Adam Hauczinger", leadId = "587a1a6d..."
+6. Techniker klickt "Datei" oder "Kamera" → Upload funktioniert
+7. Dateiname in DB: "kunde_adam_hauczinger_hausschuhe_001.jpg"
+8. Storage-Pfad: "operations/leads/adam_hauczinger_587a1a6d.../thermocheck-auftrag_58ee2606.../hausschuhe_001.jpg"
+```
+
+---
+
+## RLS-Validierung (aktuelle Rolle: user)
+
+| Tabelle | Operation | Policy | Funktioniert? |
+|---|---|---|---|
+| v_thermocheck_auftraege | SELECT | `USING (true)` fuer authenticated | Ja |
+| thermocheck_vot_formulare | INSERT | `WITH CHECK (true)` fuer authenticated | Ja |
+| thermocheck_vot_formulare | SELECT | `USING (true)` fuer authenticated | Ja |
+| thermocheck_vot_bilder | INSERT | `WITH CHECK (auth.uid() IS NOT NULL)` | Ja |
+| thermocheck_vot_bilder | SELECT | `USING (auth.uid() IS NOT NULL)` | Ja |
+| storage.objects (galvanek_bau) | INSERT | `bucket_id='galvanek_bau' AND auth.uid() IS NOT NULL` | Ja |
+| storage.objects (galvanek_bau) | SELECT | `bucket_id='galvanek_bau' AND auth.uid() IS NOT NULL` | Ja |
+
+---
 
 ## Edge Cases
 
 | Szenario | Handling |
 |---|---|
-| Auto-Create laeuft doppelt (StrictMode) | `autoCreating` State-Flag verhindert doppelten Insert. DB hat unique constraint auf `thermocheck_auftrag_id` falls vorhanden, sonst idempotent durch sofortiges Query-Invalidate |
-| User navigiert weg bevor Auto-Create fertig | Kein Problem – der Record bleibt als `entwurf` bestehen |
-| Auftrag existiert nicht | `.maybeSingle()` gibt null zurueck, UI zeigt Fallback |
-| Concurrent Uploads (schnelle Klicks) | `upsert: true` im Storage verhindert Konflikte |
-| Keine Foreign-Key auf thermocheck_auftrag_id | Verifiziert: kein FK constraint, Insert geht auch wenn Auftrag fehlt |
+| Alter Link mit terminId | Auftrag-Query findet 0 Rows → auftrag=null → kundenName="Unbekannt". Auto-Create schlaegt fehl (FK) aber wird graceful abgefangen |
+| order.auftragId fehlt (pool orders) | Fallback auf `order.id` (Pool-Orders haben kein auftragId Feld) |
+| Concurrent auto-create (StrictMode) | `autoCreatingRef` Flag + UNIQUE constraint auf thermocheck_auftrag_id |
+| Formular existiert bereits | `useVotFormular` laedt es, auto-create wird uebersprungen |
+| Auftrag geloescht | `.maybeSingle()` gibt null, UI zeigt Fallback |
 
-## RLS-Validierung
+---
 
-| Tabelle | Operation | Policy | Funktioniert? |
-|---|---|---|---|
-| thermocheck_vot_formulare | INSERT | `auth_insert_vot`: `WITH CHECK (true)` | Ja, jeder authentifizierte User |
-| thermocheck_vot_formulare | SELECT | `auth_select_vot`: `USING (true)` | Ja |
-| thermocheck_vot_bilder | INSERT | `auth_insert_vot_bilder`: `WITH CHECK (auth.uid() IS NOT NULL)` | Ja |
-| storage.objects (galvanek_bau) | INSERT | `galvanek_bau_insert`: `WITH CHECK (bucket_id = 'galvanek_bau' AND auth.uid() IS NOT NULL)` | Ja |
+## Keine DB-Migration noetig
 
-Alle Policies sind korrekt. Kein RLS-Blocker.
-
-## Keine Migration noetig
-
-Reine Code-Aenderungen. Alle DB-Strukturen und Policies sind korrekt.
+Reine Code-Aenderungen in 3 Dateien. Alle DB-Strukturen, FKs und RLS-Policies sind korrekt.
 
