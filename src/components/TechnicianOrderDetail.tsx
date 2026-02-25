@@ -100,7 +100,7 @@ export function TechnicianOrderDetail({
   const shortDate = format(parseISO(order.scheduledDate), 'd. MMMM yyyy', { locale: de });
   
   const fullAddress = `${order.address}, ${order.postalCode} ${order.city}`;
-  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullAddress)}`;
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
   // Status flags
   const isPoolOrder = order.status === 'published';
