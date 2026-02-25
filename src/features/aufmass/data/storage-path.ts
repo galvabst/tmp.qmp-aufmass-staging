@@ -1,6 +1,6 @@
 /**
  * Storage-Pfad-Generierung für Thermocheck VOT-Formular Bilder.
- * Bucket: galvanikbau (privat)
+ * Bucket: galvanek_bau (privat)
  * Struktur: operations/leads/{sanitized_lead_name}_{lead_id}/thermocheck-auftrag_{auftrag_id}/{kategorie}_{nr}.{ext}
  */
 
@@ -48,4 +48,4 @@ export function buildImageStoragePath(
   return `${base}/${kategorie}_${paddedIndex}.${extension}`;
 }
 
-export const STORAGE_BUCKET = 'galvanikbau';
+export const STORAGE_BUCKET = 'galvanek_bau';
