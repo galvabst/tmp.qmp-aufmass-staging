@@ -265,7 +265,7 @@ export default function AufmassFormPage() {
   return (
     <div>
       <button
-        onClick={() => navigate(-1)}
+        onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}
         className="fixed top-4 left-4 z-20 p-2 bg-primary-foreground/20 backdrop-blur-sm rounded-full hover:bg-primary-foreground/30 transition-colors"
       >
         <ArrowLeft className="w-5 h-5 text-primary-foreground" />
