@@ -7,7 +7,10 @@ export type VotBildKategorie =
   | 'erdung' | 'hausanschlusskasten' | 'aufstellort_option_1' | 'aufstellort_umgebung_1'
   | 'aufstellort_alt_1' | 'aufstellort_umgebung_alt_1' | 'aufstellort_alt_2'
   | 'aufstellort_umgebung_alt_2' | 'unterschrift_aufstellort' | 'unterschrift_techniker'
-  | 'unterschrift_kunde_final' | 'pv_anlage' | 'unbegehbarer_raum';
+  | 'unterschrift_kunde_final' | 'pv_anlage' | 'unbegehbarer_raum'
+  // PV-Aufmass Kategorien
+  | 'pv_dach' | 'pv_drohne' | 'pv_sparrenabstand' | 'pv_dachziegel'
+  | 'pv_hindernisse' | 'pv_geruest_oeffentlich' | 'pv_blitzschutz';
 
 interface KategorieConfig {
   label: string;
@@ -42,4 +45,12 @@ export const BILD_KATEGORIEN: Record<VotBildKategorie, KategorieConfig> = {
   unterschrift_kunde_final: { label: 'Unterschrift Kunde', minAnzahl: 1 },
   pv_anlage: { label: 'PV-Anlage', minAnzahl: 1 },
   unbegehbarer_raum: { label: 'Unbegehbarer Raum', minAnzahl: 1 },
+  // PV-Aufmass Kategorien
+  pv_dach: { label: 'Bilder vom Dach', minAnzahl: 3, hinweis: 'Alle Hindernisse müssen gut zu sehen sein, Bilder müssen für Modulplanung nutzbar sein' },
+  pv_drohne: { label: 'Drohnenfotos vom Dach', minAnzahl: 1 },
+  pv_sparrenabstand: { label: 'Sparrenabstand-Messung', minAnzahl: 1, hinweis: 'Messung des Abstands zwischen den Sparren' },
+  pv_dachziegel: { label: 'Dachziegel (vorne/hinten)', minAnzahl: 2, hinweis: 'Vorderseite und Rückseite, idealerweise mit Maßband' },
+  pv_hindernisse: { label: 'Hindernisse Gerüst', minAnzahl: 1, hinweis: '1-2 Fotos der Hindernisse für die Gerüstplanung' },
+  pv_geruest_oeffentlich: { label: 'Gerüst öffentl. Fläche', minAnzahl: 1, hinweis: 'Bilder vom geplanten Gerüststandort auf öffentlicher Fläche' },
+  pv_blitzschutz: { label: 'Blitzschutzanlage', minAnzahl: 1, hinweis: 'Bilder von der Blitzschutzanlage' },
 };
