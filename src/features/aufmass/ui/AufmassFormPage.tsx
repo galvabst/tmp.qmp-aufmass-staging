@@ -275,7 +275,24 @@ export default function AufmassFormPage() {
   return (
     <div>
       <button
-        onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}
+        onClick={() => {
+          const historyIndex =
+            typeof (window.history.state as { idx?: number } | null)?.idx === 'number'
+              ? ((window.history.state as { idx?: number }).idx ?? 0)
+              : 0;
+
+          if (historyIndex > 0) {
+            navigate(-1);
+            setTimeout(() => {
+              if (window.location.pathname.startsWith('/thermocheck/aufmass/')) {
+                navigate('/');
+              }
+            }, 250);
+            return;
+          }
+
+          navigate('/');
+        }}
         className="fixed top-4 left-4 z-20 p-2 bg-primary-foreground/20 backdrop-blur-sm rounded-full hover:bg-primary-foreground/30 transition-colors"
       >
         <ArrowLeft className="w-5 h-5 text-primary-foreground" />
