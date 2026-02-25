@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import { CalendarClock, Check, X, Loader2 } from "lucide-react";
+import { CalendarClock, Check, X, Loader2, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -104,16 +104,23 @@ export function RescheduleModal({ reschedules, onDone }: RescheduleModalProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); onDone(); } }}>
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={() => {}}>
+      <DialogContent
+        className="max-w-md [&>button]:hidden"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
             <CalendarClock className="w-5 h-5 text-orange-500" />
             <DialogTitle className="text-lg">Termin verschoben</DialogTitle>
           </div>
           <DialogDescription>
-            Dein Termin bei <strong>{current.customerName}</strong> wurde
-            verschoben. Wähle einen neuen Termin oder lehne alle ab.
+            Dein Termin bei <strong>{current.customerName}</strong>
+            {(current.plz || current.ort) && (
+              <> in <strong>{[current.plz, current.ort].filter(Boolean).join(" ")}</strong></>
+            )}{" "}
+            wurde verschoben. Wähle einen neuen Termin oder lehne alle ab.
           </DialogDescription>
         </DialogHeader>
 
@@ -148,9 +155,14 @@ export function RescheduleModal({ reschedules, onDone }: RescheduleModalProps) {
           ))}
         </div>
 
+        <div className="flex items-start gap-2 mt-4 p-3 rounded-lg bg-orange-50 border border-orange-200 text-orange-800 text-xs">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>Das Ablehnen von Aufträgen wirkt sich negativ auf deine Bewertung aus.</span>
+        </div>
+
         <Button
           variant="destructive"
-          className="w-full mt-4"
+          className="w-full mt-2"
           onClick={handleDeclineAll}
           disabled={accepting !== null || declining}
         >
