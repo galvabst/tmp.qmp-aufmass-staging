@@ -1,52 +1,34 @@
 
 
-# Plan: Aufmaß-Button sichtbarer machen
+# Plan: Navigation-Link Fix — ERR_BLOCKED_BY_RESPONSE
 
 ## Problem
 
-Der "Aufmaß erfassen"-Button (Zeile 617-627 in `TechnicianOrderDetail.tsx`) ist als `variant="outline"` gestylt — ein duenner Rahmen auf weissem Hintergrund, der zwischen den Cards untergeht. Auf dem Screenshot ist er kaum erkennbar. Ausserdem sitzt er zwischen dem Content und der fixen Action-Bar am unteren Rand, wo er leicht uebersehen oder ueberlappt wird.
+Der "Navigation starten"-Button verwendet `window.open(mapsUrl, '_blank')`. Google blockiert das mit COOP/CORP-Headern (`ERR_BLOCKED_BY_RESPONSE`), wenn die Seite von einer fremden Origin geoeffnet wird. Das ist ein bekanntes Problem mit `window.open()` und Google Maps.
 
 ## Loesung
 
-Den Button deutlich prominenter gestalten:
-
-1. **Eigene Card** statt nackter Button — gleicher Stil wie die anderen Info-Cards (rounded-xl, shadow-card, padding)
-2. **Primary-Farbe** statt outline — `bg-primary text-primary-foreground` damit er im Orange der CI sofort auffaellt
-3. **Groessere Darstellung** — `size="lg"` fuer mehr Tap-Target auf Mobile
-4. **Icon + Text deutlicher** — ClipboardList-Icon bleibt, Text wird "Aufmaß-Formular öffnen"
+Den `<button>` durch einen nativen `<a href="..." target="_blank" rel="noopener noreferrer">` ersetzen. Browser behandeln native Link-Klicks anders als programmatische `window.open()`-Aufrufe — sie unterliegen nicht den COOP-Restriktionen. Auf Mobilgeraeten oeffnet ein `<a>`-Link zu Google Maps ausserdem automatisch die native Maps-App (Intent auf Android, Universal Link auf iOS).
 
 ## Aenderung
 
-### `src/components/TechnicianOrderDetail.tsx` (Zeilen 617-627)
+### `src/components/TechnicianOrderDetail.tsx` (Zeilen 522-531)
 
-Vorher:
+`<button onClick={() => window.open(mapsUrl, '_blank')}>` wird zu:
+
 ```tsx
-{(isBookedOrder || isInProgress) && (
-  <Button className="w-full" variant="outline"
-    onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}>
-    <ClipboardList className="w-4 h-4 mr-2" />
-    Aufmaß erfassen
-  </Button>
-)}
+<a
+  href={mapsUrl}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="mt-3 w-full flex items-center justify-center gap-2 p-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+>
+  <Navigation className="w-4 h-4" />
+  Navigation starten
+</a>
 ```
 
-Nachher:
-```tsx
-{(isBookedOrder || isInProgress) && (
-  <div className="bg-card rounded-xl p-4 shadow-card">
-    <Button
-      size="lg"
-      className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-base font-semibold"
-      onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}
-    >
-      <ClipboardList className="w-5 h-5 mr-2" />
-      Aufmaß-Formular öffnen
-    </Button>
-  </div>
-)}
-```
-
-Der Button bekommt eine eigene Card-Umrandung und Primary-Styling (Orange), sodass er visuell genauso gewichtet wird wie der "Navigation starten"-Button und sofort ins Auge faellt.
+Kein `window.open()`, kein `onClick`, kein JavaScript — nur ein nativer HTML-Link. Das umgeht die COOP-Blockade komplett und funktioniert auf allen Plattformen.
 
 ## Dateien
 
