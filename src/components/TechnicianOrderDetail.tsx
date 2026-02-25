@@ -520,14 +520,15 @@ Mit freundlichen Grüßen`;
             )}
           </div>
           {canShowFullDetails && (
-            <button
-              type="button"
-              onClick={() => window.open(mapsUrl, '_blank')}
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="mt-3 w-full flex items-center justify-center gap-2 p-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
             >
               <Navigation className="w-4 h-4" />
               Navigation starten
-            </button>
+            </a>
           )}
         </div>
 
