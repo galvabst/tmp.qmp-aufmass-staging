@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react';
+import { useState, useEffect, useCallback, useId, type ChangeEvent } from 'react';
 import { Camera, Upload, X, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { BILD_KATEGORIEN, VotBildKategorie } from '../../data/bild-kategorien';
 import { VotBild, useUploadVotBild, useDeleteVotBild, getSignedImageUrl } from '../../hooks/useVotBilder';
 import { toast } from 'sonner';
@@ -68,8 +67,11 @@ export function PhotoUploadField({
   const uploadMutation = useUploadVotBild();
   const deleteMutation = useDeleteVotBild();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Unique IDs for label-input association (iOS Safari safe)
+  const reactId = useId();
+  const fileInputId = `file-${reactId}`;
+  const cameraInputId = `camera-${reactId}`;
 
   // Load signed URLs for thumbnails
   useEffect(() => {
@@ -115,11 +117,13 @@ export function PhotoUploadField({
 
   const handleInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     void handleFileUpload(event.target.files);
+    // Reset so same file can be re-selected
     event.target.value = '';
   }, [handleFileUpload]);
 
   const isUploading = uploadMutation.isPending;
   const missingCount = Math.max(0, config.minAnzahl - existingBilder.length);
+  const inputsDisabled = isUploading || !votFormularId;
 
   return (
     <div className="space-y-3">
@@ -160,50 +164,55 @@ export function PhotoUploadField({
         </div>
       )}
 
-      {/* Upload buttons */}
+      {/* Upload buttons — uses native <label htmlFor> instead of programmatic .click()
+           This is the ONLY reliable method on iOS Safari. */}
       {!disabled && (
         <div className="flex gap-2">
+          {/* Hidden file inputs — must be in the DOM for <label> association */}
           <input
-            ref={fileInputRef}
+            id={fileInputId}
             type="file"
             accept="image/*"
             multiple
             onChange={handleInputChange}
-            className="absolute -left-[9999px] top-auto h-px w-px opacity-0"
+            disabled={inputsDisabled}
+            className="sr-only"
             tabIndex={-1}
-            aria-hidden="true"
           />
           <input
-            ref={cameraInputRef}
+            id={cameraInputId}
             type="file"
             accept="image/*"
             capture="environment"
             onChange={handleInputChange}
-            className="absolute -left-[9999px] top-auto h-px w-px opacity-0"
+            disabled={inputsDisabled}
+            className="sr-only"
             tabIndex={-1}
-            aria-hidden="true"
           />
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={isUploading || !votFormularId}
-            onClick={() => fileInputRef.current?.click()}
+          {/* Label styled as button — native tap triggers file picker on all browsers */}
+          <label
+            htmlFor={inputsDisabled ? undefined : fileInputId}
+            className={`inline-flex items-center gap-1.5 rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors ${
+              inputsDisabled
+                ? 'opacity-50 pointer-events-none'
+                : 'cursor-pointer hover:bg-accent hover:text-accent-foreground active:bg-accent/80'
+            }`}
           >
             {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             Datei
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={isUploading || !votFormularId}
-            onClick={() => cameraInputRef.current?.click()}
+          </label>
+          <label
+            htmlFor={inputsDisabled ? undefined : cameraInputId}
+            className={`inline-flex items-center gap-1.5 rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm transition-colors ${
+              inputsDisabled
+                ? 'opacity-50 pointer-events-none'
+                : 'cursor-pointer hover:bg-accent hover:text-accent-foreground active:bg-accent/80'
+            }`}
           >
             <Camera className="w-4 h-4" />
             Kamera
-          </Button>
+          </label>
         </div>
       )}
     </div>
