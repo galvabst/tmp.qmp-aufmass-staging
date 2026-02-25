@@ -176,17 +176,27 @@ export default function AufmassFormPage() {
       : [...BASE_STEPS, ABSCHLUSS_STEP];
   }, [showPvSteps]);
 
-  const handleSaveDraft = async () => {
+  const handleSaveDraft = async (silent = false) => {
     if (!auftragId || !userId) return;
     const values = form.getValues();
-    await upsertMutation.mutateAsync({ thermocheckAuftragId: auftragId, formData: values, userId });
+    await upsertMutation.mutateAsync({ thermocheckAuftragId: auftragId, formData: values, userId, silent });
 
     // Also save PV draft if active
     if (showPvSteps && votFormularId) {
       const pvValues = pvForm.getValues();
-      await pvUpsertMutation.mutateAsync({ votFormularId, formData: pvValues, userId });
+      await pvUpsertMutation.mutateAsync({ votFormularId, formData: pvValues, userId, silent });
     }
   };
+
+  // Auto-save every 2 minutes
+  useEffect(() => {
+    if (isReadOnly || !auftragId || !userId) return;
+    const interval = setInterval(() => {
+      if (upsertMutation.isPending || pvUpsertMutation.isPending) return;
+      handleSaveDraft(true);
+    }, 120_000);
+    return () => clearInterval(interval);
+  }, [isReadOnly, auftragId, userId, showPvSteps, votFormularId]);
 
   const handleSubmit = async () => {
     if (!auftragId || !userId) return;

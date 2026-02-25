@@ -31,11 +31,13 @@ export function useUpsertVotFormular() {
       formData,
       userId,
       isSubmit = false,
+      silent = false,
     }: {
       thermocheckAuftragId: string;
       formData: Partial<AufmassDraftData>;
       userId: string;
       isSubmit?: boolean;
+      silent?: boolean;
     }) => {
       // Filter to only DB fields
       const dbPayload: Record<string, any> = {};
@@ -43,6 +45,10 @@ export function useUpsertVotFormular() {
         if (formData[key] !== undefined) {
           dbPayload[key] = formData[key];
         }
+      }
+      // Sanitize empty strings to null (prevents DB date parse errors)
+      for (const key of Object.keys(dbPayload)) {
+        if (dbPayload[key] === '') dbPayload[key] = null;
       }
 
       if (isSubmit) {
@@ -89,6 +95,7 @@ export function useUpsertVotFormular() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['vot-formular', variables.thermocheckAuftragId] });
+      if (variables.silent) return;
       if (variables.isSubmit) {
         toast.success('Formular eingereicht!');
       } else {
