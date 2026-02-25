@@ -64,6 +64,8 @@ export default function AufmassFormPage() {
       .then(({ error }) => {
         if (!error) {
           queryClient.invalidateQueries({ queryKey: ['vot-formular', auftragId] });
+        } else if (error.code === '23503') {
+          console.error('Auftrag existiert nicht (FK-Verletzung):', auftragId);
         } else {
           console.warn('Auto-Create Formular fehlgeschlagen:', error.message);
         }
