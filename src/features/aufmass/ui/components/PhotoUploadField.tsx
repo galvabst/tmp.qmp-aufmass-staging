@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react';
 import { Camera, Upload, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BILD_KATEGORIEN, VotBildKategorie } from '../../data/bild-kategorien';
@@ -68,6 +68,8 @@ export function PhotoUploadField({
   const uploadMutation = useUploadVotBild();
   const deleteMutation = useDeleteVotBild();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Load signed URLs for thumbnails
   useEffect(() => {
@@ -110,6 +112,11 @@ export function PhotoUploadField({
   const handleDelete = useCallback(async (bild: VotBild) => {
     await deleteMutation.mutateAsync({ bild });
   }, [deleteMutation]);
+
+  const handleInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    void handleFileUpload(event.target.files);
+    event.target.value = '';
+  }, [handleFileUpload]);
 
   const isUploading = uploadMutation.isPending;
   const missingCount = Math.max(0, config.minAnzahl - existingBilder.length);
@@ -156,24 +163,33 @@ export function PhotoUploadField({
       {/* Upload buttons */}
       {!disabled && (
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleInputChange}
+            className="absolute -left-[9999px] top-auto h-px w-px opacity-0"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleInputChange}
+            className="absolute -left-[9999px] top-auto h-px w-px opacity-0"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+
           <Button
             type="button"
             variant="outline"
             size="sm"
             disabled={isUploading || !votFormularId}
-            onClick={() => {
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = 'image/*';
-              input.multiple = true;
-              input.style.display = 'none';
-              document.body.appendChild(input);
-              input.onchange = () => {
-                handleFileUpload(input.files);
-                input.remove();
-              };
-              input.click();
-            }}
+            onClick={() => fileInputRef.current?.click()}
           >
             {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             Datei
@@ -183,19 +199,7 @@ export function PhotoUploadField({
             variant="outline"
             size="sm"
             disabled={isUploading || !votFormularId}
-            onClick={() => {
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = 'image/*';
-              input.capture = 'environment';
-              input.style.display = 'none';
-              document.body.appendChild(input);
-              input.onchange = () => {
-                handleFileUpload(input.files);
-                input.remove();
-              };
-              input.click();
-            }}
+            onClick={() => cameraInputRef.current?.click()}
           >
             <Camera className="w-4 h-4" />
             Kamera
