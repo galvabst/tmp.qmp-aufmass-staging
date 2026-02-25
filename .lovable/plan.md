@@ -1,69 +1,56 @@
 
 
-# Plan: Mobile-Fixes — Zurueck-Button + Datei-Upload
+# Plan: Aufmaß-Button sichtbarer machen
 
-## Probleme
+## Problem
 
-Zwei separate Mobile-Bugs:
+Der "Aufmaß erfassen"-Button (Zeile 617-627 in `TechnicianOrderDetail.tsx`) ist als `variant="outline"` gestylt — ein duenner Rahmen auf weissem Hintergrund, der zwischen den Cards untergeht. Auf dem Screenshot ist er kaum erkennbar. Ausserdem sitzt er zwischen dem Content und der fixen Action-Bar am unteren Rand, wo er leicht uebersehen oder ueberlappt wird.
 
-### 1. Zurueck-Button nicht tappbar
+## Loesung
 
-Der Zurueck-Pfeil oben links ist `fixed top-4 left-4 z-20` und liegt damit im **Safe-Area-Bereich** (Notch/Dynamic Island auf iPhones). Mobile Browser blockieren Touches in diesem Bereich. Ausserdem ueberlappt er mit dem sticky Header, was auf Touch-Geraeten zu Event-Konflikten fuehrt.
+Den Button deutlich prominenter gestalten:
 
-**Fix**: Den Zurueck-Button aus dem separaten `<button>` entfernen und stattdessen **in den Header** des Steppers integrieren. So ist er immer sichtbar, immer tappbar, und ausserhalb der Safe Area.
+1. **Eigene Card** statt nackter Button — gleicher Stil wie die anderen Info-Cards (rounded-xl, shadow-card, padding)
+2. **Primary-Farbe** statt outline — `bg-primary text-primary-foreground` damit er im Orange der CI sofort auffaellt
+3. **Groessere Darstellung** — `size="lg"` fuer mehr Tap-Target auf Mobile
+4. **Icon + Text deutlicher** — ClipboardList-Icon bleibt, Text wird "Aufmaß-Formular öffnen"
 
-### 2. Datei/Kamera-Buttons funktionieren nicht
+## Aenderung
 
-`document.createElement('input')` + `input.click()` ohne das Element ins DOM einzufuegen funktioniert auf **iOS Safari nicht**. Mobile Browser verlangen, dass das Input-Element Teil des DOMs ist, bevor ein programmatischer Click als User-Geste akzeptiert wird.
+### `src/components/TechnicianOrderDetail.tsx` (Zeilen 617-627)
 
-**Fix**: Das Input-Element ans DOM anhaengen (`document.body.appendChild`), Click ausfuehren, und nach dem Change-Event wieder entfernen (`input.remove()`).
-
-## Aenderungen
-
-### 1. `src/features/aufmass/ui/AufmassFormStepper.tsx`
-
-Neuer Prop `onBack: () => void` fuer die Exit-Navigation. Der Zurueck-Button wird links im Header neben dem Step-Icon platziert:
-
-```text
-Header-Layout (vorher):
-  [Icon] [Step-Titel]          [Visited-Badge]
-
-Header-Layout (nachher):
-  [←] [Icon] [Step-Titel]     [Visited-Badge]
+Vorher:
+```tsx
+{(isBookedOrder || isInProgress) && (
+  <Button className="w-full" variant="outline"
+    onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}>
+    <ClipboardList className="w-4 h-4 mr-2" />
+    Aufmaß erfassen
+  </Button>
+)}
 ```
 
-Der `←`-Button ruft `onBack()` auf und ist klar vom internen "vorheriger Step"-Button in der Bottom-Navigation getrennt.
-
-### 2. `src/features/aufmass/ui/AufmassFormPage.tsx`
-
-- Den separaten `<button>` mit `fixed top-4 left-4` **entfernen**
-- Stattdessen `onBack` als Prop an `AufmassFormStepper` uebergeben mit der gleichen Navigationslogik (History-Check + Fallback auf `/`)
-
-### 3. `src/features/aufmass/ui/components/PhotoUploadField.tsx`
-
-Beide Button-Clicks (Datei + Kamera) aendern: Input-Element ins DOM einfuegen bevor `.click()` aufgerufen wird, und danach wieder entfernen:
-
-```typescript
-const input = document.createElement('input');
-input.type = 'file';
-input.accept = 'image/*';
-input.multiple = true;
-input.style.display = 'none';      // NEU
-document.body.appendChild(input);   // NEU
-input.onchange = () => {
-  handleFileUpload(input.files);
-  input.remove();                   // NEU: Cleanup
-};
-input.click();
+Nachher:
+```tsx
+{(isBookedOrder || isInProgress) && (
+  <div className="bg-card rounded-xl p-4 shadow-card">
+    <Button
+      size="lg"
+      className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-base font-semibold"
+      onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}
+    >
+      <ClipboardList className="w-5 h-5 mr-2" />
+      Aufmaß-Formular öffnen
+    </Button>
+  </div>
+)}
 ```
 
-Gleiche Aenderung fuer den Kamera-Button (mit `capture = 'environment'`).
+Der Button bekommt eine eigene Card-Umrandung und Primary-Styling (Orange), sodass er visuell genauso gewichtet wird wie der "Navigation starten"-Button und sofort ins Auge faellt.
 
 ## Dateien
 
 | Aktion | Datei |
 |---|---|
-| Aendern | `src/features/aufmass/ui/AufmassFormStepper.tsx` |
-| Aendern | `src/features/aufmass/ui/AufmassFormPage.tsx` |
-| Aendern | `src/features/aufmass/ui/components/PhotoUploadField.tsx` |
+| Aendern | `src/components/TechnicianOrderDetail.tsx` |
 
