@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { ArrowLeft } from 'lucide-react';
 import { AufmassDraftData } from '../data/aufmass-schema';
 import { PvAufmassDraftData } from '../data/pv-aufmass-schema';
 import { useVotFormular, useUpsertVotFormular } from '../hooks/useVotFormular';
@@ -272,43 +271,32 @@ export default function AufmassFormPage() {
 
   const isSaving = upsertMutation.isPending || pvUpsertMutation.isPending;
 
-  return (
-    <div>
-      <button
-        onClick={() => {
-          const historyIndex =
-            typeof (window.history.state as { idx?: number } | null)?.idx === 'number'
-              ? ((window.history.state as { idx?: number }).idx ?? 0)
-              : 0;
-
-          if (historyIndex > 0) {
-            navigate(-1);
-            setTimeout(() => {
-              if (window.location.pathname.startsWith('/thermocheck/aufmass/')) {
-                navigate('/');
-              }
-            }, 250);
-            return;
-          }
-
+  const handleBack = () => {
+    const historyIndex = (window.history.state as any)?.idx ?? 0;
+    if (historyIndex > 0) {
+      navigate(-1);
+      setTimeout(() => {
+        if (window.location.pathname.startsWith('/thermocheck/aufmass/')) {
           navigate('/');
-        }}
-        className="fixed top-4 left-4 z-20 p-2 bg-primary-foreground/20 backdrop-blur-sm rounded-full hover:bg-primary-foreground/30 transition-colors"
-      >
-        <ArrowLeft className="w-5 h-5 text-primary-foreground" />
-      </button>
+        }
+      }, 250);
+      return;
+    }
+    navigate('/');
+  };
 
-      <AufmassFormStepper
-        steps={steps}
-        renderStep={renderStep}
-        onSaveDraft={handleSaveDraft}
-        onSubmit={handleSubmit}
-        isSaving={isSaving}
-        isSubmitting={isSaving}
-        isReadOnly={isReadOnly}
-      >
-        {[]}
-      </AufmassFormStepper>
-    </div>
+  return (
+    <AufmassFormStepper
+      steps={steps}
+      renderStep={renderStep}
+      onBack={handleBack}
+      onSaveDraft={handleSaveDraft}
+      onSubmit={handleSubmit}
+      isSaving={isSaving}
+      isSubmitting={isSaving}
+      isReadOnly={isReadOnly}
+    >
+      {[]}
+    </AufmassFormStepper>
   );
 }

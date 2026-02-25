@@ -166,7 +166,12 @@ export function PhotoUploadField({
               input.type = 'file';
               input.accept = 'image/*';
               input.multiple = true;
-              input.onchange = () => handleFileUpload(input.files);
+              input.style.display = 'none';
+              document.body.appendChild(input);
+              input.onchange = () => {
+                handleFileUpload(input.files);
+                input.remove();
+              };
               input.click();
             }}
           >
@@ -183,7 +188,12 @@ export function PhotoUploadField({
               input.type = 'file';
               input.accept = 'image/*';
               input.capture = 'environment';
-              input.onchange = () => handleFileUpload(input.files);
+              input.style.display = 'none';
+              document.body.appendChild(input);
+              input.onchange = () => {
+                handleFileUpload(input.files);
+                input.remove();
+              };
               input.click();
             }}
           >

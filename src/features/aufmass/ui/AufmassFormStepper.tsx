@@ -12,6 +12,7 @@ interface AufmassFormStepperProps {
   children: React.ReactNode[];
   steps: StepConfig[];
   renderStep: (index: number) => React.ReactNode;
+  onBack: () => void;
   onSaveDraft: () => void;
   onSubmit: () => void;
   isSaving: boolean;
@@ -23,6 +24,7 @@ export function AufmassFormStepper({
   children,
   steps,
   renderStep,
+  onBack,
   onSaveDraft,
   onSubmit,
   isSaving,
@@ -57,6 +59,14 @@ export function AufmassFormStepper({
       <header className="bg-gradient-to-r from-primary to-primary/85 text-primary-foreground safe-area-top sticky top-0 z-10 shadow-lg">
         <div className="p-4 pb-3">
           <div className="flex items-center gap-3 mb-3">
+            <button
+              type="button"
+              onClick={onBack}
+              className="shrink-0 w-10 h-10 rounded-xl bg-primary-foreground/15 flex items-center justify-center backdrop-blur-sm active:bg-primary-foreground/25 transition-colors"
+              aria-label="Zurück"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <div className="w-10 h-10 rounded-xl bg-primary-foreground/15 flex items-center justify-center text-xl backdrop-blur-sm">
               {steps[currentStep].icon}
             </div>
