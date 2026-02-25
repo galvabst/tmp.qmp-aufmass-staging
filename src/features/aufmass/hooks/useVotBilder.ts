@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { STORAGE_BUCKET, buildImageStoragePath } from '../data/storage-path';
 import { VotBildKategorie } from '../data/bild-kategorien';
 import { toast } from 'sonner';
@@ -21,13 +22,12 @@ export function useVotBilder(votFormularId: string | undefined) {
     queryKey: ['vot-bilder', votFormularId],
     enabled: !!votFormularId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseTC
         .from('thermocheck_vot_bilder' as any)
         .select('*')
         .eq('vot_formular_id', votFormularId!)
         .order('kategorie')
-        .order('reihenfolge')
-        .setHeader('Accept-Profile', 'thermocheck');
+        .order('reihenfolge');
 
       if (error) throw error;
       return (data ?? []) as unknown as VotBild[];
@@ -65,15 +65,15 @@ export function useUploadVotBild() {
       const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       const storagePath = buildImageStoragePath(leadName, leadId, auftragId, kategorie, reihenfolge, ext);
 
-      // Upload to storage
+      // Upload to storage (uses default client – storage is in public schema)
       const { error: uploadError } = await supabase.storage
         .from(STORAGE_BUCKET)
         .upload(storagePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
-      // Insert metadata
-      const { data, error: insertError } = await supabase
+      // Insert metadata (uses thermocheck client)
+      const { data, error: insertError } = await supabaseTC
         .from('thermocheck_vot_bilder' as any)
         .insert({
           vot_formular_id: votFormularId,
@@ -83,9 +83,7 @@ export function useUploadVotBild() {
           reihenfolge,
         })
         .select()
-        .single()
-        .setHeader('Accept-Profile', 'thermocheck')
-        .setHeader('Content-Profile', 'thermocheck');
+        .single();
 
       if (insertError) throw insertError;
       return data as unknown as VotBild;
@@ -106,20 +104,18 @@ export function useDeleteVotBild() {
 
   return useMutation({
     mutationFn: async ({ bild }: { bild: VotBild }) => {
-      // Delete from storage
+      // Delete from storage (default client)
       const { error: storageError } = await supabase.storage
         .from(STORAGE_BUCKET)
         .remove([bild.storage_path]);
 
       if (storageError) console.warn('Storage-Löschfehler (ignoriert):', storageError);
 
-      // Delete metadata
-      const { error: deleteError } = await supabase
+      // Delete metadata (thermocheck client)
+      const { error: deleteError } = await supabaseTC
         .from('thermocheck_vot_bilder' as any)
         .delete()
-        .eq('id', bild.id)
-        .setHeader('Accept-Profile', 'thermocheck')
-        .setHeader('Content-Profile', 'thermocheck');
+        .eq('id', bild.id);
 
       if (deleteError) throw deleteError;
     },

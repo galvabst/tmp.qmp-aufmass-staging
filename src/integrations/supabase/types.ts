@@ -9208,6 +9208,16 @@ export type Database = {
             }
             Returns: undefined
           }
+      complete_thermocheck_wc1_and_close_thc_wp: {
+        Args: {
+          p_auftrag_id: string
+          p_fussbodenheizung?: boolean
+          p_quadratmeter: number
+          p_termine: Json
+          p_wohneinheiten: number
+        }
+        Returns: undefined
+      }
       compute_display_name: {
         Args: {
           p_fallback_email?: string
