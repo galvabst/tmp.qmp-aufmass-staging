@@ -235,23 +235,51 @@ Deno.serve(async (req) => {
       const menge = item.menge || 1;
 
       if (produkt.erlaubt_mehrfach) {
-        const { error: insertError } = await supabaseAdmin
+        // Check if a pending order already exists for this product
+        const { data: existingMulti } = await supabaseAdmin
           .schema("thermocheck")
           .from("contractor_bestellungen")
-          .insert({
-            onboarding_id: onboarding.id,
-            produkt_typ: produkt.produkt_typ,
-            produkt_key: item.produkt_key,
-            stripe_session_id: session.id,
-            stripe_payment_status: "pending",
-            stripe_customer_id: customerId,
-            betrag_netto: produkt.preis_netto,
-            betrag_brutto: produkt.preis_brutto,
-            groesse: item.groesse || null,
-            menge,
-          });
-        if (insertError) console.error("[create-checkout-session] Insert error:", insertError);
-        else console.log(`[create-checkout-session] Order created: ${item.produkt_key} x${menge}`);
+          .select("id")
+          .eq("onboarding_id", onboarding.id)
+          .eq("produkt_key", item.produkt_key)
+          .eq("stripe_payment_status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingMulti) {
+          // Update existing pending row instead of creating a new one
+          const { error: updateError } = await supabaseAdmin
+            .schema("thermocheck")
+            .from("contractor_bestellungen")
+            .update({
+              stripe_session_id: session.id,
+              stripe_customer_id: customerId,
+              groesse: item.groesse || null,
+              menge,
+            })
+            .eq("id", existingMulti.id);
+          if (updateError) console.error("[create-checkout-session] Update error:", updateError);
+          else console.log(`[create-checkout-session] Updated existing pending order: ${item.produkt_key} x${menge}`);
+        } else {
+          const { error: insertError } = await supabaseAdmin
+            .schema("thermocheck")
+            .from("contractor_bestellungen")
+            .insert({
+              onboarding_id: onboarding.id,
+              produkt_typ: produkt.produkt_typ,
+              produkt_key: item.produkt_key,
+              stripe_session_id: session.id,
+              stripe_payment_status: "pending",
+              stripe_customer_id: customerId,
+              betrag_netto: produkt.preis_netto,
+              betrag_brutto: produkt.preis_brutto,
+              groesse: item.groesse || null,
+              menge,
+            });
+          if (insertError) console.error("[create-checkout-session] Insert error:", insertError);
+          else console.log(`[create-checkout-session] Order created: ${item.produkt_key} x${menge}`);
+        }
       } else {
         // Single-order: upsert existing pending
         const { data: existing } = await supabaseAdmin
