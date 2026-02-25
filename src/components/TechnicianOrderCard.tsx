@@ -28,7 +28,7 @@ export function TechnicianOrderCard({
   return (
     <button
       onClick={onClick}
-      className="w-full bg-card rounded-2xl p-4 shadow-sm border border-border/50 text-left hover:shadow-md hover:border-border transition-all duration-200 active:scale-[0.98]"
+      className="w-full bg-card rounded-2xl p-4 shadow-card border border-border/50 text-left hover:shadow-md hover:border-border transition-all duration-200 active:scale-[0.98]"
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
