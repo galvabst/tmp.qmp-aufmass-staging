@@ -1,122 +1,77 @@
 
 
-# Plan: Aufmass-Formular reparieren – Schema-Fix, Pre-Fill, Upload-Fix
+# Plan: Einheitliches Premium-Design ueber alle Views
 
-## Root-Cause-Analyse (aus Network Logs verifiziert)
+## Problem-Analyse
 
-### Problem 1: Formular laedt ewig / zeigt falsche Daten
-**Ursache**: Alle Supabase-Client-Anfragen an `v_thermocheck_auftraege` und `thermocheck_vot_formulare` senden `Accept-Profile: public` statt `Accept-Profile: thermocheck`. Die `.setHeader('Accept-Profile', 'thermocheck')` Aufrufe werden vom Supabase JS Client **ignoriert**, weil sie NACH `.maybeSingle()` bzw `.single()` aufgerufen werden – zu diesem Zeitpunkt ist der Query bereits gebaut.
+Aktuell gibt es 3 verschiedene Header-Stile in der App:
 
-**Beweis aus Network Logs:**
-```
-GET /rest/v1/v_thermocheck_auftraege → 404
-Response: "Could not find the table 'public.v_thermocheck_auftraege'"
+| View | Header-Stil | Logo | Problem |
+|---|---|---|---|
+| PoolView | `bg-gradient-to-br from-primary to-primary/85` | `variant="white"` ✓ | Referenz-Design |
+| ProfileView | `bg-gradient-to-br from-primary to-primary/85` | `variant="white"` ✓ | OK |
+| BookingsView | `bg-primary` (flach) | `size="sm"` (SCHWARZ!) | Logo schwarz auf orange |
+| ActiveOrdersView | `bg-primary` (flach) | `size="sm"` (SCHWARZ!) | Logo schwarz auf orange |
+| ReviewView | `bg-primary` (flach) | `size="sm"` (SCHWARZ!) | Logo schwarz auf orange |
+| ForumView | `bg-card border-b` (weiss) | Kein Logo | Komplett anderer Stil |
 
-GET /rest/v1/thermocheck_vot_formulare → 404  
-Response: "Could not find the table 'public.thermocheck_vot_formulare'"
-```
+Die Screenshots zeigen: BookingsView hat das schwarze Logo auf orangem Hintergrund. Das sieht unprofessionell aus.
 
-Beide Tabellen existieren nur im `thermocheck`-Schema (DB-verifiziert).
+## Loesung: Einheitlicher Premium-Header
 
-### Problem 2: Name/Telefon nicht pre-filled
-**Ursache**: Code prueft `user_metadata.full_name` und `user_metadata.phone`, aber die tatsaechlichen JWT-Felder heissen `name` und `telefon`:
-```json
-// Tatsaechliche user_metadata:
-{"name": "Artur Penner", "telefon": "+49 1512 9559457", "vorname": "Artur", "nachname": "Penner"}
-```
+Alle 6 Views bekommen den gleichen Header-Stil wie PoolView (das "Apple-Design"):
+- Gradient: `bg-gradient-to-br from-primary to-primary/85`
+- Logo: `<GalvanekLogo size="sm" variant="white" className="opacity-95" />`
+- Typografie: `text-2xl font-bold tracking-tight` fuer Titel
+- Subtitle: `text-primary-foreground/70 text-sm`
 
-### Problem 3: Kundenname zeigt "Unbekannt"
-**Ursache**: Da die Auftrag-Daten nicht laden (Problem 1), greift der Fallback: `kundenName = 'Unbekannt'`.
+## Betroffene Dateien & Aenderungen
 
-### Problem 4: Bilder koennen nicht hochgeladen werden
-**Zwei Ursachen:**
-1. `votFormularId` ist `undefined` (weil der Formular-Query scheitert → Problem 1), deshalb sind Upload-Buttons disabled (`disabled={!votFormularId}`)
-2. **Fehlende Storage RLS Policy**: Der `galvanikbau` Bucket hat **keine INSERT-Policy** fuer `storage.objects`. SELECT, UPDATE, DELETE existieren – aber INSERT fehlt komplett.
+### 1. `src/components/BookingsView.tsx` (Zeile 45-58)
+- Header: `bg-primary` → `bg-gradient-to-br from-primary to-primary/85`
+- Logo: `<GalvanekLogo size="sm" />` → `<GalvanekLogo size="sm" variant="white" className="opacity-95" />`
+- Titel: `text-xl` → `text-2xl font-bold tracking-tight`
+- Subtitle: `text-primary-foreground/80` → `text-primary-foreground/70`
 
-### Problem 5: ThermoCheck-Datum nicht pre-filled
-**Ursache**: Kein Code zum Pre-Fill. Das Datum kann aus den `thermocheck_terminvorschlaege` (angenommener Termin) abgeleitet werden, oder direkt als Tagesdatum gesetzt werden.
+### 2. `src/components/ActiveOrdersView.tsx` (Zeile 104-116)
+- Gleiche Aenderungen wie BookingsView
 
----
+### 3. `src/components/ReviewView.tsx` (Zeile 38-50)
+- Gleiche Aenderungen wie BookingsView
 
-## Loesung
+### 4. `src/features/forum/ui/ForumView.tsx` (Zeile 38)
+- Header komplett ersetzen: `bg-card border-b` → Premium-Gradient-Header mit Logo
+- Filter-Buttons: Glassmorphism-Stil (`bg-white/15 backdrop-blur-sm border-white/10`) passend zum PoolView Tab-Switcher
+- "Frage stellen" Button: `bg-white text-primary` statt Standard-Primary (damit er auf Orange sichtbar ist)
 
-### Fix 1: Dedizierter Supabase Client fuer thermocheck-Schema
+### 5. `src/components/TechnicianOrderCard.tsx`
+- Karte leicht verfeinern: `rounded-2xl` bleibt, `shadow-sm` → `shadow-card` fuer Konsistenz mit dem Design-System
 
-Neuer Client `supabaseTC` der mit `db: { schema: 'thermocheck' }` konfiguriert wird. Dies ist der saubere Ansatz – keine fragilen `.setHeader()`-Aufrufe mehr.
+### 6. `src/components/BottomNav.tsx`
+- Leichte Verfeinerung: Schriftgroesse von `text-[9px]` → `text-[10px]` fuer bessere Lesbarkeit
+- Icon-Stroke bei aktiv: bereits `stroke-[2.5px]` ✓
 
-**Neue Datei**: `src/integrations/supabase/thermocheck-client.ts`
-```typescript
-import { createClient } from '@supabase/supabase-js';
+## Design-Sprache (Apple-inspiriert)
 
-export const supabaseTC = createClient(
-  SUPABASE_URL, SUPABASE_KEY,
-  { db: { schema: 'thermocheck' }, auth: { ... } }
-);
-```
-
-**Betroffene Hooks (alle `setHeader` entfernen, `supabaseTC` nutzen):**
-- `useVotFormular.ts` – alle Queries + Mutations
-- `useVotBilder.ts` – alle Queries + Mutations (Metadata-Teil)
-- `AufmassFormPage.tsx` – Auftrag-Query
-
-### Fix 2: Pre-Fill Techniker-Daten korrigieren
-
-In `AufmassFormPage.tsx`, Zeile 80-85:
-```typescript
-// VORHER (falsche Keys):
-meta?.full_name  →  meta?.name
-meta?.phone      →  meta?.telefon
-```
-
-Zusaetzlich: `thermocheck_datum` mit heutigem Datum pre-fillen falls leer.
-
-### Fix 3: Storage INSERT Policy anlegen
-
-SQL Migration:
-```sql
-CREATE POLICY "galvanikbau_insert" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'galvanikbau' AND auth.uid() IS NOT NULL
-  );
+```text
+┌─────────────────────────────────┐
+│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │  ← Gradient Header (orange)
+│ Logo (weiss)        [Actions]   │
+│ Titel (2xl, bold, tracking)     │
+│ Subtitle (70% opacity)         │
+├─────────────────────────────────┤
+│                                 │  ← Weisser Content-Bereich
+│  ┌───────────────────────────┐  │
+│  │ Card (rounded-2xl,       │  │
+│  │       shadow-card)       │  │
+│  └───────────────────────────┘  │
+│                                 │
+├─────────────────────────────────┤
+│ ○ Pool  ○ Buch  ○ Aktiv  ○ ... │  ← Bottom Nav
+└─────────────────────────────────┘
 ```
 
-### Fix 4: Kundenname aus Auftrag-Daten
+## Keine DB-Aenderungen, keine neuen Dependencies
 
-Loest sich automatisch sobald Fix 1 greift – die Auftrag-Daten laden dann korrekt mit `kunde_vorname`/`kunde_nachname` aus der View.
-
----
-
-## Betroffene Dateien
-
-| Datei | Aenderung |
-|---|---|
-| `src/integrations/supabase/thermocheck-client.ts` | **NEU** – Supabase Client mit `schema: 'thermocheck'` |
-| `src/features/aufmass/hooks/useVotFormular.ts` | `supabase` → `supabaseTC`, alle `.setHeader()` entfernen |
-| `src/features/aufmass/hooks/useVotBilder.ts` | `supabase` → `supabaseTC` fuer DB-Queries (Storage bleibt bei normalem Client) |
-| `src/features/aufmass/ui/AufmassFormPage.tsx` | Auftrag-Query auf `supabaseTC`, Pre-Fill Keys korrigieren, Datum-Prefill |
-| SQL Migration | Storage INSERT Policy fuer `galvanikbau` Bucket |
-
----
-
-## Edge Cases
-
-| Szenario | Handling |
-|---|---|
-| `supabaseTC` Auth-Session | Teilt sich `localStorage` mit dem Haupt-Client → gleiche Session, kein doppeltes Login |
-| Formular existiert noch nicht | `votFormularId` bleibt `undefined` bis erstes Speichern → Upload erst nach erstem "Speichern" moeglich. Das ist korrekt, da die Bilder eine FK-Referenz zum Formular brauchen |
-| user_metadata fehlt komplett | Optional Chaining greift, Felder bleiben leer |
-| Auftrag-ID existiert nicht | Query gibt `null` zurueck, Skeleton bleibt stehen (bestehendes Verhalten) |
-| Concurrent Upload | `upsert: true` in Storage verhindert Konflikte |
-
-## Rollen-Matrix
-
-| Aktion | Authentifizierter User | Unauthentifiziert |
-|---|---|---|
-| SELECT thermocheck_vot_formulare | Ja (RLS: `true`) | Nein |
-| INSERT thermocheck_vot_formulare | Ja (RLS: auth check) | Nein |
-| Storage INSERT galvanikbau | Ja (nach Fix) | Nein |
-| Storage SELECT galvanikbau | Ja (RLS: `auth.uid() IS NOT NULL`) | Nein |
-
-## Keine Datenmigration noetig
-Die Tabellen sind korrekt, die Daten existieren. Nur der Zugriffspfad (Schema-Header) war falsch.
+Rein visuelle Anpassungen in 5 Dateien. Alle Aenderungen nutzen existierende CSS-Variablen und Tailwind-Klassen.
 
