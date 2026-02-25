@@ -79,7 +79,7 @@ export function useUploadVotBild() {
           vot_formular_id: votFormularId,
           kategorie,
           storage_path: storagePath,
-          dateiname: file.name,
+          dateiname: `${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,
           reihenfolge,
         })
         .select()

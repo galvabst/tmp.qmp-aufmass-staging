@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { ArrowLeft } from 'lucide-react';
@@ -21,7 +21,7 @@ import { PvAnlageSection } from './sections/PvAnlageSection';
 import { AbschlussSection } from './sections/AbschlussSection';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
@@ -40,7 +40,7 @@ export default function AufmassFormPage() {
         .from('v_thermocheck_auftraege' as any)
         .select('*')
         .eq('id', auftragId!)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data as Record<string, any>;
     },
@@ -49,6 +49,27 @@ export default function AufmassFormPage() {
   // Load existing formular
   const { data: formular, isLoading: formularLoading } = useVotFormular(auftragId);
   const votFormularId = (formular as any)?.id as string | undefined;
+
+  // Auto-create formular record if none exists (so upload buttons work immediately)
+  const queryClient = useQueryClient();
+  const autoCreatingRef = useRef(false);
+  useEffect(() => {
+    if (formularLoading || formular || !auftragId || !userId || autoCreatingRef.current) return;
+    autoCreatingRef.current = true;
+    supabaseTC
+      .from('thermocheck_vot_formulare' as any)
+      .insert({ thermocheck_auftrag_id: auftragId, eingereicht_von: userId, status: 'entwurf' } as any)
+      .select()
+      .single()
+      .then(({ error }) => {
+        if (!error) {
+          queryClient.invalidateQueries({ queryKey: ['vot-formular', auftragId] });
+        } else {
+          console.warn('Auto-Create Formular fehlgeschlagen:', error.message);
+        }
+        autoCreatingRef.current = false;
+      });
+  }, [formularLoading, formular, auftragId, userId, queryClient]);
 
   // Load bilder
   const { data: bilder = [] } = useVotBilder(votFormularId);
