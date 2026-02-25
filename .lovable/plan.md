@@ -1,54 +1,69 @@
 
 
-# Plan: Auto-Save alle 2 Minuten + Date-Bug-Fix
+# Plan: Mobile-Fixes — Zurueck-Button + Datei-Upload
 
-## Zusammenfassung
+## Probleme
 
-Zwei Aenderungen:
+Zwei separate Mobile-Bugs:
 
-1. **Auto-Save**: Alle 2 Minuten wird das Formular automatisch im Hintergrund gespeichert (ohne Toast-Benachrichtigung, damit der Techniker nicht gestoert wird). Nur wenn das Formular nicht read-only ist und Daten vorhanden sind.
+### 1. Zurueck-Button nicht tappbar
 
-2. **Bug-Fix**: Aktuell schlaegt das Speichern fehl (400-Error: `invalid input syntax for type date: ""`), weil leere Datums-Strings (`""`) an die DB gesendet werden. Leere Strings muessen vor dem Speichern zu `null` konvertiert werden.
+Der Zurueck-Pfeil oben links ist `fixed top-4 left-4 z-20` und liegt damit im **Safe-Area-Bereich** (Notch/Dynamic Island auf iPhones). Mobile Browser blockieren Touches in diesem Bereich. Ausserdem ueberlappt er mit dem sticky Header, was auf Touch-Geraeten zu Event-Konflikten fuehrt.
+
+**Fix**: Den Zurueck-Button aus dem separaten `<button>` entfernen und stattdessen **in den Header** des Steppers integrieren. So ist er immer sichtbar, immer tappbar, und ausserhalb der Safe Area.
+
+### 2. Datei/Kamera-Buttons funktionieren nicht
+
+`document.createElement('input')` + `input.click()` ohne das Element ins DOM einzufuegen funktioniert auf **iOS Safari nicht**. Mobile Browser verlangen, dass das Input-Element Teil des DOMs ist, bevor ein programmatischer Click als User-Geste akzeptiert wird.
+
+**Fix**: Das Input-Element ans DOM anhaengen (`document.body.appendChild`), Click ausfuehren, und nach dem Change-Event wieder entfernen (`input.remove()`).
 
 ## Aenderungen
 
-### 1. `src/features/aufmass/hooks/useVotFormular.ts` — Leere Strings sanitizen
+### 1. `src/features/aufmass/ui/AufmassFormStepper.tsx`
 
-Im `mutationFn` nach dem Payload-Aufbau alle leeren Strings zu `null` konvertieren:
+Neuer Prop `onBack: () => void` fuer die Exit-Navigation. Der Zurueck-Button wird links im Header neben dem Step-Icon platziert:
 
-```typescript
-// Nach der Payload-Schleife:
-for (const key of Object.keys(dbPayload)) {
-  if (dbPayload[key] === '') dbPayload[key] = null;
-}
+```text
+Header-Layout (vorher):
+  [Icon] [Step-Titel]          [Visited-Badge]
+
+Header-Layout (nachher):
+  [←] [Icon] [Step-Titel]     [Visited-Badge]
 ```
 
-Ausserdem: `onSuccess` bekommt einen optionalen `silent`-Parameter. Wenn `silent === true`, wird kein Toast angezeigt (fuer Auto-Save).
+Der `←`-Button ruft `onBack()` auf und ist klar vom internen "vorheriger Step"-Button in der Bottom-Navigation getrennt.
 
-### 2. `src/features/aufmass/hooks/usePvFormular.ts` — Gleiche Sanitization
+### 2. `src/features/aufmass/ui/AufmassFormPage.tsx`
 
-Gleiche leere-String-zu-null-Konvertierung im PV-Upsert-Hook.
+- Den separaten `<button>` mit `fixed top-4 left-4` **entfernen**
+- Stattdessen `onBack` als Prop an `AufmassFormStepper` uebergeben mit der gleichen Navigationslogik (History-Check + Fallback auf `/`)
 
-### 3. `src/features/aufmass/ui/AufmassFormPage.tsx` — Auto-Save Timer
+### 3. `src/features/aufmass/ui/components/PhotoUploadField.tsx`
 
-Ein `useEffect` mit `setInterval` (120_000ms = 2 Minuten):
+Beide Button-Clicks (Datei + Kamera) aendern: Input-Element ins DOM einfuegen bevor `.click()` aufgerufen wird, und danach wieder entfernen:
 
-- Prueft ob `auftragId`, `userId` vorhanden und `!isReadOnly`
-- Ruft `handleSaveDraft` auf, aber mit `silent: true` damit kein Toast erscheint
-- Cleanup: `clearInterval` bei Unmount
-- Kein Auto-Save waehrend eines manuellen Saves (`isSaving`)
+```typescript
+const input = document.createElement('input');
+input.type = 'file';
+input.accept = 'image/*';
+input.multiple = true;
+input.style.display = 'none';      // NEU
+document.body.appendChild(input);   // NEU
+input.onchange = () => {
+  handleFileUpload(input.files);
+  input.remove();                   // NEU: Cleanup
+};
+input.click();
+```
 
-### Technische Details
-
-**Silent-Save**: Die Mutations bekommen ein `silent`-Flag. Bei `silent: true` wird der `onSuccess`-Toast unterdrueckt. So sieht der Techniker nur Toasts bei manuellem Speichern, nicht alle 2 Minuten.
-
-**Date-Bug**: Das Problem ist, dass HTML-`<input type="date">` einen leeren String `""` zurueckgibt wenn nichts eingegeben wurde. PostgreSQL akzeptiert das nicht als gueltige Date-Eingabe — es muss `null` sein.
+Gleiche Aenderung fuer den Kamera-Button (mit `capture = 'environment'`).
 
 ## Dateien
 
 | Aktion | Datei |
 |---|---|
-| Aendern | `src/features/aufmass/hooks/useVotFormular.ts` |
-| Aendern | `src/features/aufmass/hooks/usePvFormular.ts` |
+| Aendern | `src/features/aufmass/ui/AufmassFormStepper.tsx` |
 | Aendern | `src/features/aufmass/ui/AufmassFormPage.tsx` |
+| Aendern | `src/features/aufmass/ui/components/PhotoUploadField.tsx` |
 
