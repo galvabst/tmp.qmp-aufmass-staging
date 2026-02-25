@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { ArrowLeft } from 'lucide-react';
@@ -65,8 +65,6 @@ export default function AufmassFormPage() {
     if (!formular) return;
     const f = formular as Record<string, any>;
     const values: Partial<AufmassDraftData> = {};
-    const fields = Object.keys(form.getValues()) as (keyof AufmassDraftData)[];
-    // Load all existing values
     for (const key of Object.keys(f)) {
       if (key in form.getValues() || form.getValues()[key as keyof AufmassDraftData] !== undefined) {
         (values as any)[key] = f[key];
@@ -101,7 +99,6 @@ export default function AufmassFormPage() {
   const handleSubmit = async () => {
     if (!auftragId || !userId) return;
     const values = form.getValues();
-    // Basic validation
     if (!values.techniker_name || !values.thermocheck_datum || !values.agb_akzeptiert) {
       toast.error('Bitte alle Pflichtfelder ausfüllen');
       return;
@@ -113,62 +110,56 @@ export default function AufmassFormPage() {
   if (auftragLoading || formularLoading) {
     return (
       <div className="min-h-screen bg-background p-4 space-y-4">
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-20 w-full rounded-2xl" />
+        <Skeleton className="h-48 w-full rounded-2xl" />
+        <Skeleton className="h-48 w-full rounded-2xl" />
       </div>
     );
   }
 
   const sharedProps = { bilder, votFormularId, leadName, leadId, auftragId: auftragId!, disabled: isReadOnly };
 
+  // Render only the active step — avoids mounting all 15 sections at once
+  const renderStep = (index: number) => {
+    switch (index) {
+      case 0: return <TechnikerDatenSection form={form} {...sharedProps} />;
+      case 1: return <KundendatenSection form={form} kundenName={kundenName} disabled={isReadOnly} />;
+      case 2: return <PhotoOnlySection kategorie="treppenabgang" {...sharedProps} />;
+      case 3: return <PhotoOnlySection kategorie="eingang_heizungsraum" {...sharedProps} />;
+      case 4: return <HeizungsraumSection form={form} {...sharedProps} />;
+      case 5: return <HeizungsartSection form={form} {...sharedProps} />;
+      case 6: return <PhotoOnlySection kategorie="heizungsanlage" {...sharedProps} />;
+      case 7: return <HeizkoerperSection form={form} {...sharedProps} />;
+      case 8: return <ElektrikSection form={form} {...sharedProps} />;
+      case 9: return <AufstellortSection form={form} {...sharedProps} />;
+      case 10: return <SanitaerSection form={form} disabled={isReadOnly} />;
+      case 11: return <ChecklisteSection form={form} {...sharedProps} />;
+      case 12: return <UnbegehbareRaeumeSection form={form} {...sharedProps} />;
+      case 13: return <PvAnlageSection form={form} {...sharedProps} />;
+      case 14: return <AbschlussSection form={form} {...sharedProps} />;
+      default: return null;
+    }
+  };
+
   return (
     <div>
       {/* Back button overlay */}
       <button
         onClick={() => navigate(-1)}
-        className="fixed top-4 left-4 z-20 p-2 bg-primary-foreground/20 rounded-full"
+        className="fixed top-4 left-4 z-20 p-2 bg-primary-foreground/20 backdrop-blur-sm rounded-full hover:bg-primary-foreground/30 transition-colors"
       >
         <ArrowLeft className="w-5 h-5 text-primary-foreground" />
       </button>
 
       <AufmassFormStepper
+        renderStep={renderStep}
         onSaveDraft={handleSaveDraft}
         onSubmit={handleSubmit}
         isSaving={upsertMutation.isPending}
         isSubmitting={upsertMutation.isPending}
         isReadOnly={isReadOnly}
       >
-        {/* 1 */ }
-        <TechnikerDatenSection form={form} {...sharedProps} />
-        {/* 2 */}
-        <KundendatenSection form={form} kundenName={kundenName} disabled={isReadOnly} />
-        {/* 3 */}
-        <PhotoOnlySection kategorie="treppenabgang" {...sharedProps} />
-        {/* 4 */}
-        <PhotoOnlySection kategorie="eingang_heizungsraum" {...sharedProps} />
-        {/* 5 */}
-        <HeizungsraumSection form={form} {...sharedProps} />
-        {/* 6 */}
-        <HeizungsartSection form={form} {...sharedProps} />
-        {/* 7 */}
-        <PhotoOnlySection kategorie="heizungsanlage" {...sharedProps} />
-        {/* 8 */}
-        <HeizkoerperSection form={form} {...sharedProps} />
-        {/* 9 */}
-        <ElektrikSection form={form} {...sharedProps} />
-        {/* 10 */}
-        <AufstellortSection form={form} {...sharedProps} />
-        {/* 11 */}
-        <SanitaerSection form={form} disabled={isReadOnly} />
-        {/* 12 */}
-        <ChecklisteSection form={form} {...sharedProps} />
-        {/* 13 */}
-        <UnbegehbareRaeumeSection form={form} {...sharedProps} />
-        {/* 14 */}
-        <PvAnlageSection form={form} {...sharedProps} />
-        {/* 15 */}
-        <AbschlussSection form={form} {...sharedProps} />
+        {[]}
       </AufmassFormStepper>
     </div>
   );
