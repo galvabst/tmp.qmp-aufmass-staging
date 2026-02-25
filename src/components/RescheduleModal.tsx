@@ -106,7 +106,7 @@ export function RescheduleModal({ reschedules, onDone }: RescheduleModalProps) {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
-        className="max-w-md [&>button]:hidden"
+        className="max-w-md max-h-[90vh] overflow-y-auto [&>button]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
