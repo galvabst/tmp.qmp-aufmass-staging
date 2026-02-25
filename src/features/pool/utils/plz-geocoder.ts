@@ -7,11 +7,29 @@ export interface PlzCoordinate {
 
 const CACHE_PREFIX = "plz-geo-";
 
+/** Pad PLZ to 5 digits with leading zeros (e.g. "7549" → "07549") */
+export function normalizePlz(plz: string): string {
+  const trimmed = plz.trim();
+  if (trimmed.length >= 5) return trimmed;
+  return trimmed.padStart(5, "0");
+}
+
+/** Validate coordinates are within plausible Germany bounds */
+function isValidDeCoord(lat: number, lng: number): boolean {
+  return lat >= 47 && lat <= 55.1 && lng >= 5 && lng <= 16;
+}
+
 function getCached(plz: string): PlzCoordinate | null {
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + plz);
     if (!raw) return null;
-    return JSON.parse(raw) as PlzCoordinate;
+    const parsed = JSON.parse(raw) as PlzCoordinate;
+    // Reject old cached entries with invalid coordinates
+    if (!isValidDeCoord(parsed.lat, parsed.lng)) {
+      localStorage.removeItem(CACHE_PREFIX + plz);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -25,35 +43,17 @@ function setCache(plz: string, coord: PlzCoordinate): void {
   }
 }
 
-/**
- * Primary: zippopotam.us (no rate limit, CORS-enabled)
- */
-async function fetchFromZippopotam(plz: string): Promise<PlzCoordinate | null> {
-  try {
-    const res = await fetch(`https://api.zippopotam.us/de/${encodeURIComponent(plz)}`);
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    const place = data?.places?.[0];
-    if (!place) return null;
-
-    return {
-      plz,
-      lat: parseFloat(place.latitude),
-      lng: parseFloat(place.longitude),
-      city: place["place name"] || "",
-    };
-  } catch {
-    return null;
-  }
+/** Throttle helper – wait ms milliseconds */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Fallback: Nominatim search by city name (single call, only used for failed PLZs)
+ * Primary: Nominatim (OpenStreetMap) – reliable for German PLZs
  */
-async function fetchFromNominatimByCity(plz: string, city: string): Promise<PlzCoordinate | null> {
+async function fetchFromNominatim(plz: string): Promise<PlzCoordinate | null> {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(city)}&country=de&format=json&limit=1`;
+    const url = `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(plz)}&country=de&format=json&limit=1`;
     const res = await fetch(url, {
       headers: { "User-Agent": "GalvanekTechApp/1.0" },
     });
@@ -62,11 +62,19 @@ async function fetchFromNominatimByCity(plz: string, city: string): Promise<PlzC
     const data = await res.json();
     if (!data || data.length === 0) return null;
 
+    const lat = parseFloat(data[0].lat);
+    const lng = parseFloat(data[0].lon);
+
+    if (!isValidDeCoord(lat, lng)) {
+      console.warn(`[plz-geocoder] Nominatim returned out-of-range coords for PLZ ${plz}: ${lat}, ${lng}`);
+      return null;
+    }
+
     return {
       plz,
-      lat: parseFloat(data[0].lat),
-      lng: parseFloat(data[0].lon),
-      city: data[0].display_name?.split(",")[0]?.trim() || city,
+      lat,
+      lng,
+      city: data[0].display_name?.split(",")[0]?.trim() || "",
     };
   } catch {
     return null;
@@ -74,34 +82,31 @@ async function fetchFromNominatimByCity(plz: string, city: string): Promise<PlzC
 }
 
 /**
- * Geocode a single PLZ. Checks cache, then zippopotam, then optional city fallback.
+ * Geocode a single PLZ. Checks cache, then Nominatim.
  */
-export async function geocodePlz(plz: string, city?: string): Promise<PlzCoordinate | null> {
+export async function geocodePlz(plz: string, _city?: string): Promise<PlzCoordinate | null> {
   if (!plz || plz.trim().length < 4) return null;
 
-  const cached = getCached(plz);
+  const normalized = normalizePlz(plz);
+
+  const cached = getCached(normalized);
   if (cached) return cached;
 
-  // Primary: zippopotam.us
-  let result = await fetchFromZippopotam(plz);
-
-  // Fallback: Nominatim by city name
-  if (!result && city && city.trim().length > 0) {
-    console.info(`[plz-geocoder] PLZ ${plz} not found, trying city fallback: "${city}"`);
-    result = await fetchFromNominatimByCity(plz, city);
-  }
+  const result = await fetchFromNominatim(normalized);
 
   if (result) {
-    setCache(plz, result);
-    return result;
+    // Store with normalized PLZ
+    const entry = { ...result, plz: normalized };
+    setCache(normalized, entry);
+    return entry;
   }
 
-  console.warn(`[plz-geocoder] No result for PLZ ${plz}${city ? ` (city: ${city})` : ""}`);
+  console.warn(`[plz-geocoder] No result for PLZ ${normalized}`);
   return null;
 }
 
 /**
- * Batch-geocode a list of PLZ strings – parallel, with optional city fallback map.
+ * Batch-geocode a list of PLZ strings – sequential with throttling for Nominatim rate limits.
  */
 export async function geocodePlzBatch(
   plzList: string[],
@@ -113,26 +118,30 @@ export async function geocodePlzBatch(
   // Separate cached vs uncached
   const uncached: string[] = [];
   for (const plz of unique) {
-    const cached = getCached(plz);
+    const normalized = normalizePlz(plz);
+    const cached = getCached(normalized);
     if (cached) {
       result.set(plz, cached);
+      // Also set by normalized key for lookup consistency
+      if (plz !== normalized) result.set(normalized, cached);
     } else {
       uncached.push(plz);
     }
   }
 
-  // Parallel fetch for all uncached PLZs
-  if (uncached.length > 0) {
-    const promises = uncached.map((plz) => {
-      const city = cityMap?.get(plz);
-      return geocodePlz(plz, city).then((coord) => ({ plz, coord }));
-    });
-
-    const settled = await Promise.allSettled(promises);
-    for (const entry of settled) {
-      if (entry.status === "fulfilled" && entry.value.coord) {
-        result.set(entry.value.plz, entry.value.coord);
-      }
+  // Sequential fetch with 200ms throttle for Nominatim
+  for (let i = 0; i < uncached.length; i++) {
+    const plz = uncached[i];
+    const city = cityMap?.get(plz);
+    const coord = await geocodePlz(plz, city);
+    if (coord) {
+      result.set(plz, coord);
+      const normalized = normalizePlz(plz);
+      if (plz !== normalized) result.set(normalized, coord);
+    }
+    // Throttle: wait 200ms between requests (skip after last)
+    if (i < uncached.length - 1) {
+      await delay(200);
     }
   }
 
