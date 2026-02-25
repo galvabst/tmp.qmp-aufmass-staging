@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
-import { STORAGE_BUCKET, buildImageStoragePath } from '../data/storage-path';
+import { STORAGE_BUCKET, buildImageStoragePath, sanitizeLeadName } from '../data/storage-path';
 import { VotBildKategorie } from '../data/bild-kategorien';
 import { toast } from 'sonner';
 
@@ -79,7 +79,7 @@ export function useUploadVotBild() {
           vot_formular_id: votFormularId,
           kategorie,
           storage_path: storagePath,
-          dateiname: `${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,
+          dateiname: `kunde_${sanitizeLeadName(leadName)}_${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,
           reihenfolge,
         })
         .select()

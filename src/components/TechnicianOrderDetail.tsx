@@ -619,7 +619,7 @@ Mit freundlichen Grüßen`;
           <Button
             className="w-full"
             variant="outline"
-            onClick={() => navigate(`/thermocheck/aufmass/${order.id}`)}
+            onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}
           >
             <ClipboardList className="w-4 h-4 mr-2" />
             Aufmaß erfassen
