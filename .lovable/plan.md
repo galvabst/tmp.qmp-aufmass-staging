@@ -1,102 +1,122 @@
 
 
-# Fix: RescheduleModal - Accept schlaegt fehl mit "Auftrag bereits vergeben"
+# Buchungsbestaetigung-Workflow fuer Techniker
 
-## Problem-Analyse
+## Problem
 
-Der `RescheduleModal` ruft beim Annehmen `accept_pool_order` auf. Diese RPC hat eine Pruefung:
+Nach der Annahme eines Pool-Auftrags erscheint der Termin sofort in "Meine Buchungen" mit Status "Gebucht". Der Kunde weiss aber nicht, wann der Techniker tatsaechlich kommt (er hat 3 Vorschlaege gemacht, einer wurde gewaehlt). Es fehlt ein Prozess, in dem der Techniker:
 
-```sql
-IF v_current_techniker IS NOT NULL THEN
-  RETURN json_build_object('success', false, 'error', 'Auftrag bereits vergeben');
-END IF;
-```
+1. Den Kunden per E-Mail kontaktiert und den Termin bestaetigt
+2. Am Vortag nochmal anruft und den Termin rueckbestaetigt
 
-Bei Reschedules ist der Auftrag aber **bereits dem Techniker zugewiesen** (`zugewiesener_techniker_id` ist gesetzt). Deswegen scheitert die Annahme. Das ist korrekt fuer Pool-Auftraege, aber falsch fuer Reschedules.
+Aktuell gibt es keinerlei Tracking dafuer.
 
-**Aktuelle Datenbank-Situation (live verifiziert):**
-- Auftrag `a5fd85a1` hat `pipeline_status = 'termin_abwarten'` UND `zugewiesener_techniker_id = d27fc078` (= Thomas Wermke Auftrag)
-- 3 Terminvorschlaege mit `status = 'vorgeschlagen'` existieren
-- `accept_pool_order` schlaegt fehl, weil der Techniker-Check blockt
+## User Stories
+
+**Story 1 – Buchungsbestaetigung senden**
+Nach Annahme → Techniker sieht in BookingsView "Buchung bestaetigen" als offene Aufgabe → kontaktiert Kunden per E-Mail → markiert als erledigt in der App
+
+**Story 2 – Vortag-Bestaetigung**
+Am Tag vor dem Termin → Karte zeigt "Vortag: Termin bestaetigen" → Techniker ruft an → markiert als erledigt
+
+**Story 3 – Visuelles Feedback**
+BookingsView zeigt pro Buchung den Aufgaben-Status: oranges Badge "Bestätigung ausstehend", oder gruenes Haekchen wenn erledigt
 
 ## Loesung
 
-Neue dedizierte RPC `accept_thermocheck_reschedule` fuer den Reschedule-Anwendungsfall. Separate RPC statt Modifikation von `accept_pool_order`, weil die Semantik unterschiedlich ist:
-- **Pool**: Unzugewiesener Auftrag → Techniker zuweisen + annehmen
-- **Reschedule**: Bereits zugewiesener Auftrag → Nur Termin wechseln
-
-### Neue RPC: `thermocheck.accept_thermocheck_reschedule(p_termin_id uuid)`
-
-Logik:
-1. `contractor_onboarding.id` fuer `auth.uid()` ermitteln
-2. `thermocheck_auftrag_id` vom Termin laden
-3. Auftrag sperren (`FOR UPDATE`) → Race-Condition-Schutz
-4. Validieren: `zugewiesener_techniker_id = v_contractor_id` (muss dem aufrufenden Techniker gehoeren)
-5. Validieren: `pipeline_status = 'termin_abwarten'`
-6. Gewaehlten Termin: `status = 'angenommen'`, `angenommen_von = auth.uid()`, `angenommen_am = now()`
-7. Andere Vorschlaege: `status = 'abgelehnt'`
-8. `pipeline_status` auf `wc1_durchfuehren` setzen
-9. `zugewiesener_techniker_id` bleibt unveraendert
-
-### Public Wrapper
+### 1. Datenbank: 2 neue Spalten auf `thermocheck_auftraege`
 
 ```sql
-CREATE FUNCTION public.accept_thermocheck_reschedule(p_termin_id uuid)
-RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
-AS $$ BEGIN RETURN thermocheck.accept_thermocheck_reschedule(p_termin_id); END; $$;
+ALTER TABLE thermocheck.thermocheck_auftraege
+  ADD COLUMN buchung_bestaetigt_am timestamptz,
+  ADD COLUMN vortag_bestaetigt_am  timestamptz;
 ```
 
-### Decline-RPC Pruefung
+Kein neuer ENUM noetig. Kein Pipeline-Wechsel noetig – `wc1_durchfuehren` bleibt der Status, die Bestaetigungen sind Aufgaben-Tracking innerhalb dieses Status. Der existierende Pipeline-Status `termin_bestaetigt` koennte spaeter als automatischer Trigger verwendet werden, ist aber fuer MVP nicht noetig.
 
-`decline_thermocheck_reschedule` wurde verifiziert und funktioniert korrekt:
-- Prueft `zugewiesener_techniker_id = v_contractor_id` (Ownership-Check)
-- Setzt alle `vorgeschlagen` auf `abgelehnt`
-- Loescht `zugewiesener_techniker_id` → Auftrag erscheint im Pool (`usePoolOrders` filtert auf `zugewiesener_techniker_id=is.null`)
-- `pipeline_status` bleibt `termin_abwarten` → Pool-Bedingung erfuellt
+### 2. View aktualisieren: `v_thermocheck_auftraege`
 
-### Frontend: `src/components/RescheduleModal.tsx`
+Die View listet Spalten explizit auf (kein `ta.*`). Muss um `ta.buchung_bestaetigt_am` und `ta.vortag_bestaetigt_am` erweitert werden via `CREATE OR REPLACE VIEW`.
 
-`handleAccept` aendern: `accept_thermocheck_reschedule` statt `accept_pool_order` aufrufen.
+### 3. Zwei RPCs (mit Ownership-Check)
 
-### Types: `src/integrations/supabase/types.ts`
+**`thermocheck.confirm_thermocheck_booking(p_auftrag_id uuid)`**
+- Ermittelt `contractor_onboarding.id` fuer `auth.uid()`
+- Prueft: `zugewiesener_techniker_id = contractor_id` (nur eigene Auftraege)
+- Prueft: `pipeline_status = 'wc1_durchfuehren'`
+- Setzt `buchung_bestaetigt_am = now()`
+- Gibt `{success: true}` zurueck
 
-Neue RPC-Signatur `accept_thermocheck_reschedule` hinzufuegen (gleiche Signatur wie `accept_pool_order`).
+**`thermocheck.confirm_thermocheck_vortag(p_auftrag_id uuid)`**
+- Gleicher Ownership-Check
+- Setzt `vortag_bestaetigt_am = now()`
+- Gibt `{success: true}` zurueck
+
+Beide mit Public Wrapper (`SECURITY DEFINER`, `SET search_path = 'public'`).
+
+### 4. Frontend: `useMyAssignedOrders` erweitern
+
+Der Hook fetcht aktuell nur von `v_thermocheck_auftraege`. Zwei neue Felder zum SELECT hinzufuegen: `buchung_bestaetigt_am,vortag_bestaetigt_am`. Diese an `TechnicianOrder` Interface durchreichen.
+
+### 5. Frontend: `TechnicianOrder` Type erweitern
+
+```typescript
+// Neue optionale Felder
+buchungBestaetigtAm?: string;
+vortagBestaetigtAm?: string;
+```
+
+### 6. Frontend: `BookingsView` ueberarbeiten
+
+Pro Buchungskarte zwei Aufgaben-Indikatoren anzeigen:
+
+- **Aufgabe 1: "Buchung bestaetigen"** – Orange Badge wenn `buchungBestaetigtAm` null, gruenes Haekchen wenn gesetzt
+- **Aufgabe 2: "Vortag bestaetigen"** – Nur sichtbar wenn Termin morgen oder heute ist UND `buchungBestaetigtAm` gesetzt. Orange Badge wenn `vortagBestaetigtAm` null, gruenes Haekchen wenn gesetzt
+
+### 7. Frontend: `TechnicianOrderDetail` erweitern
+
+Im Detail-View der Buchung:
+- Wenn `buchungBestaetigtAm` null → "Buchung bestaetigen" Button zeigen (ruft `confirm_thermocheck_booking` RPC auf)
+- Wenn Termin morgen/heute UND `vortagBestaetigtAm` null → "Vortag bestaetigen" Button zeigen (ruft `confirm_thermocheck_vortag` RPC auf)
+- Kontaktdaten (Telefon, E-Mail) prominenter darstellen, da der Techniker sie fuer die Bestaetigung braucht
+
+### 8. Types: `supabase/types.ts`
+
+Neue RPC-Signaturen `confirm_thermocheck_booking` und `confirm_thermocheck_vortag` hinzufuegen.
 
 ## Rollen-Matrix
 
-| Rolle | accept_thermocheck_reschedule | Ergebnis |
+| Rolle | confirm_thermocheck_booking | confirm_thermocheck_vortag |
 |---|---|---|
-| user (zugewiesener Techniker) | Ja | Erfolgreich - eigener Auftrag |
-| user (anderer Techniker) | Nein | "Auftrag nicht zugewiesen" |
-| user (ohne contractor_onboarding) | Nein | "Kein Contractor-Profil" |
-| admin/manager | Nein | Kein contractor_onboarding-Eintrag |
+| Zugewiesener Techniker | Ja – eigener Auftrag | Ja – eigener Auftrag |
+| Anderer Techniker | Nein – Ownership-Check | Nein – Ownership-Check |
+| Admin/Superadmin | Nein – kein contractor_onboarding | Nein |
 
-| Rolle | decline_thermocheck_reschedule | Ergebnis |
-|---|---|---|
-| user (zugewiesener Techniker) | Ja | Techniker entfernt, zurueck im Pool |
-| user (anderer Techniker) | Nein | "nicht zugewiesen" |
+RLS auf `thermocheck_auftraege`: UPDATE ist `true` fuer authentifizierte User, aber die RPCs haben eigene Ownership-Checks. Kein RLS-Risiko weil die RPCs SECURITY DEFINER sind und intern validieren.
 
 ## Edge Cases
 
 | Szenario | Handling |
 |---|---|
-| Techniker nimmt an, aber Auftrag wurde parallel von Admin umgewiesen | FOR UPDATE Lock + ownership-check blockt |
-| 3 Vorschlaege, 1 angenommen | 1x angenommen, 2x abgelehnt |
-| 1 Vorschlag | 1x angenommen, 0x abgelehnt |
-| Termin-ID existiert nicht | "Termin nicht gefunden" |
-| Auftrag nicht mehr in termin_abwarten | "Auftrag nicht im Reschedule-Status" |
-| Doppelklick / zweimal annehmen | FOR UPDATE + status-check blockiert |
+| Doppelklick auf "Bestaetigen" | Idempotent – setzt `now()` erneut, kein Fehler |
+| Buchung bestaetigen bei falschem pipeline_status | RPC prueft `wc1_durchfuehren` |
+| Vortag bestaetigen ohne Buchungsbestaetigung | Frontend zeigt Button erst wenn Buchung bestaetigt |
+| Auftrag wurde zwischenzeitlich storniert | Pipeline-Check im RPC blockt |
+| Termin in der Vergangenheit | Kein technisches Problem – Techniker kann nachholen |
 
 ## Datenmigration
 
-Keine noetig. Der einzige aktive Reschedule-Auftrag (`a5fd85a1`) hat korrekte Daten. Nach Deploy der neuen RPC funktioniert der Annehmen-Flow sofort.
+Bestehende 12 gebuchte Auftraege (alle `wc1_durchfuehren` mit `zugewiesener_techniker_id = d27fc078`) haben `buchung_bestaetigt_am = NULL` und `vortag_bestaetigt_am = NULL`. Das ist korrekt – sie erscheinen als "Bestaetigung ausstehend" in der UI. Keine Migration noetig.
 
 ## Dateien
 
 | Datei | Aenderung |
 |---|---|
-| SQL Migration | Neue RPC `thermocheck.accept_thermocheck_reschedule` + public Wrapper |
-| `src/components/RescheduleModal.tsx` | `accept_pool_order` → `accept_thermocheck_reschedule` |
-| `src/integrations/supabase/types.ts` | Neue RPC-Signatur |
-| `.lovable/validation-reschedule-accept.md` | Validierungsdokumentation |
+| SQL Migration | ALTER TABLE + View-Update + 2 RPCs + 2 Public Wrappers |
+| `src/types/technician.ts` | +2 optionale Felder |
+| `src/hooks/useMyAssignedOrders.ts` | SELECT um 2 Spalten erweitern, Mapping ergaenzen |
+| `src/components/BookingsView.tsx` | Aufgaben-Badges pro Karte |
+| `src/components/TechnicianOrderDetail.tsx` | Bestaetigungs-Buttons + RPC-Calls |
+| `src/integrations/supabase/types.ts` | 2 neue RPC-Signaturen |
+| `.lovable/validation-booking-confirmation.md` | Validierungsdoku |
 
