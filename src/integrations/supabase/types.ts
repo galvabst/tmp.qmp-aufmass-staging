@@ -9209,6 +9209,14 @@ export type Database = {
         }
         Returns: string
       }
+      confirm_thermocheck_booking: {
+        Args: { p_auftrag_id: string }
+        Returns: Json
+      }
+      confirm_thermocheck_vortag: {
+        Args: { p_auftrag_id: string }
+        Returns: Json
+      }
       consume_token: {
         Args: {
           p_consumption_action: string

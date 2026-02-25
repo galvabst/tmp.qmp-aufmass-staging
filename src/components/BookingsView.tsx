@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Clock, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, Clock, ChevronRight, CheckCircle2, AlertCircle, Phone } from 'lucide-react';
 import { TechnicianOrder } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS } from '@/lib/enums';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
@@ -18,6 +18,11 @@ function formatDateLabel(dateStr: string): string {
   return format(date, 'EEEE, d. MMMM', { locale: de });
 }
 
+function isTerminSoon(dateStr: string): boolean {
+  const date = parseISO(dateStr);
+  return isToday(date) || isTomorrow(date);
+}
+
 export function BookingsView({ orders, onOrderClick }: BookingsViewProps) {
   const bookedOrders = orders
     .filter(o => o.status === 'booked')
@@ -31,6 +36,9 @@ export function BookingsView({ orders, onOrderClick }: BookingsViewProps) {
     return acc;
   }, {} as Record<string, TechnicianOrder[]>);
 
+  // Count pending tasks
+  const pendingTasks = bookedOrders.filter(o => !o.buchungBestaetigtAm).length;
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
@@ -41,6 +49,7 @@ export function BookingsView({ orders, onOrderClick }: BookingsViewProps) {
               <h1 className="text-xl font-bold">Meine Buchungen</h1>
               <p className="text-primary-foreground/80 text-sm">
                 {bookedOrders.length} anstehende Termine
+                {pendingTasks > 0 && ` · ${pendingTasks} offene Aufgaben`}
               </p>
             </div>
             <GalvanekLogo size="sm" />
@@ -67,39 +76,75 @@ export function BookingsView({ orders, onOrderClick }: BookingsViewProps) {
                 {formatDateLabel(dateKey)}
               </h2>
               <div className="space-y-3">
-                {dateOrders.map(order => (
-                  <button
-                    key={order.id}
-                    onClick={() => onOrderClick(order)}
-                    className="w-full bg-card rounded-xl p-4 shadow-card text-left hover:bg-secondary/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary" className="text-xs">
-                            {AUFTRAGSTYP_LABELS[order.auftragstyp]}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {order.scheduledTime} Uhr
+                {dateOrders.map(order => {
+                  const buchungDone = !!order.buchungBestaetigtAm;
+                  const vortagDone = !!order.vortagBestaetigtAm;
+                  const showVortag = buchungDone && isTerminSoon(order.scheduledDate);
+
+                  return (
+                    <button
+                      key={order.id}
+                      onClick={() => onOrderClick(order)}
+                      className="w-full bg-card rounded-xl p-4 shadow-card text-left hover:bg-secondary/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="secondary" className="text-xs">
+                              {AUFTRAGSTYP_LABELS[order.auftragstyp]}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {order.scheduledTime} Uhr
+                            </span>
+                          </div>
+                          <h3 className="font-semibold text-foreground">{order.customerName}</h3>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                            <MapPin className="w-3 h-3" />
+                            {order.address}, {order.city}
+                          </p>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                      </div>
+
+                      {/* Confirmation task badges */}
+                      <div className="mt-3 pt-3 border-t border-border space-y-2">
+                        {/* Task 1: Buchungsbestätigung */}
+                        <div className="flex items-center gap-2">
+                          {buchungDone ? (
+                            <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 text-orange-500 shrink-0" />
+                          )}
+                          <span className={`text-xs font-medium ${buchungDone ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                            {buchungDone ? 'Buchung bestätigt' : 'Buchung bestätigen'}
                           </span>
                         </div>
-                        <h3 className="font-semibold text-foreground">{order.customerName}</h3>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                          <MapPin className="w-3 h-3" />
-                          {order.address}, {order.city}
-                        </p>
+
+                        {/* Task 2: Vortag-Bestätigung (nur wenn Buchung bestätigt + Termin morgen/heute) */}
+                        {showVortag && (
+                          <div className="flex items-center gap-2">
+                            {vortagDone ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
+                            ) : (
+                              <Phone className="w-4 h-4 text-orange-500 shrink-0" />
+                            )}
+                            <span className={`text-xs font-medium ${vortagDone ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                              {vortagDone ? 'Vortag bestätigt' : 'Vortag: Termin rückbestätigen'}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                    {order.billableAmount && (
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <span className="text-sm text-muted-foreground">Vergütung: </span>
-                        <span className="font-semibold text-foreground">{order.billableAmount.toFixed(2)} €</span>
-                      </div>
-                    )}
-                  </button>
-                ))}
+
+                      {order.billableAmount && (
+                        <div className="mt-2 pt-2 border-t border-border">
+                          <span className="text-sm text-muted-foreground">Vergütung: </span>
+                          <span className="font-semibold text-foreground">{order.billableAmount.toFixed(2)} €</span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}

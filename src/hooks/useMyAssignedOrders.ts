@@ -27,6 +27,8 @@ interface AuftragRow {
   kunde_email: string | null;
   pipeline_status: string | null;
   zugewiesener_techniker_id: string | null;
+  buchung_bestaetigt_am: string | null;
+  vortag_bestaetigt_am: string | null;
 }
 
 async function getAuthHeaders() {
@@ -71,7 +73,7 @@ export function useMyAssignedOrders() {
 
       // Step 2: Fetch auftraege assigned to contractor_onboarding.id
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am`,
         { headers }
       );
 
@@ -126,6 +128,8 @@ export function useMyAssignedOrders() {
           createdAt: termin.created_at,
           contactPhone: auftrag?.kunde_telefon || undefined,
           contactEmail: auftrag?.kunde_email || undefined,
+          buchungBestaetigtAm: auftrag?.buchung_bestaetigt_am || undefined,
+          vortagBestaetigtAm: auftrag?.vortag_bestaetigt_am || undefined,
         };
       });
 
