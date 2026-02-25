@@ -1,71 +1,91 @@
 
 
-# Plan: Google Maps Navigation — ERR_BLOCKED_BY_RESPONSE Fix
+# Analyse: Warum bleiben Bestellungen auf "pending"?
 
-## Analyse
+## Zwei Probleme gefunden
 
-Das Problem tritt nur im Lovable-Preview auf (Desktop). Der Screenshot zeigt die URL `google.com/maps/dir/?api=1&destination=...` mit `ERR_BLOCKED_BY_RESPONSE`. 
+### Problem 1: Webhook-Funktion ist nicht (oder veraltet) deployed
 
-**Root Cause**: Der `/maps/dir/`-Endpoint von Google setzt strikte `Cross-Origin-Opener-Policy: same-origin`-Header. Wenn der Link aus einem Preview-Iframe geoeffnet wird, blockiert Google das Rendern der Seite — auch bei `<a target="_blank" rel="noopener noreferrer">`.
+**Beweis:**
+- **Alle** bezahlten Bestellungen haben `webhook_received_at = NULL` — das bedeutet, die aktuelle Webhook-Logik (die `webhook_received_at` setzt) wurde **nie** ausgefuehrt
+- Das Stripe-Event `evt_1T4oayLnjPqrEfxxzy5ErhxQ` (checkout.session.completed um 20:22:13) existiert **nicht** im `contractor_audit_log` — obwohl die aktuelle Codeversion immer einen Audit-Eintrag schreibt
+- Keine Edge-Function-Logs fuer `stripe-webhook` verfuegbar
+- Stripe zeigt 200 OK — also laeuft *irgendeine* Version, aber nicht die aktuelle aus dem Repository
 
-**Beweisfuehrung**: In `OrderDetail.tsx` (Zeile 27) wird bereits das einfachere Format `https://maps.google.com/?q=ADDRESS` verwendet — dieses Format ist weniger restriktiv mit COOP. In `TechnicianOrderDetail.tsx` (Zeile 103) wird dagegen `https://www.google.com/maps/dir/?api=1&destination=ADDRESS` verwendet — genau das Format, das blockiert wird.
+**Fazit:** Die `stripe-webhook`-Edge-Function muss **neu deployed** werden. Der Code im Repository ist korrekt, aber er laeuft nicht auf Supabase.
+
+### Problem 2: `erlaubt_mehrfach = true` erzeugt verwaiste Pending-Rows
+
+Das T-Shirt-Produkt hat `erlaubt_mehrfach = true`. Dadurch erstellt `create-checkout-session` bei **jedem** Checkout-Klick eine **neue** Zeile statt die vorherige zu aktualisieren:
+
+```text
+Klick 1 → Row A (session X, pending)
+User bricht ab
+Klick 2 → Row B (session Y, pending)  ← Row A bleibt pending!
+User bezahlt
+Webhook  → Row B → paid               ← Row A bleibt FUER IMMER pending
+```
+
+Ergebnis: 3 pending T-Shirt-Bestellungen fuer `onboarding_id = 0e72061a`, jede mit einer anderen `stripe_session_id`.
 
 ## Loesung
 
-Zwei Aenderungen:
+### Schritt 1: Webhook neu deployen (kein Code-Aenderung noetig)
 
-1. **URL-Format aendern**: Von `/maps/dir/?api=1&destination=` auf `https://www.google.com/maps/search/?api=1&query=` wechseln. Der `/search/`-Endpoint hat weniger strikte COOP-Header als `/dir/`. Alternativ das noch einfachere `https://maps.google.com/?q=` verwenden, das in `OrderDetail.tsx` bereits funktioniert.
+Die `stripe-webhook`-Funktion muss einmalig deployed werden. Der Code ist bereits korrekt.
 
-2. **Fallback via `window.location.assign`**: Falls der `<a>`-Link trotzdem blockiert wird, einen onClick-Handler hinzufuegen, der als Fallback `window.location.assign(mapsUrl)` nutzt. Das navigiert die aktuelle Seite weg (statt neuen Tab), umgeht aber COOP komplett. Der Nutzer drueckt "Zurueck" um zur App zu kommen.
+### Schritt 2: Code-Fix in `create-checkout-session` (verhindert verwaiste Rows)
 
-### Technische Details
+**Datei:** `supabase/functions/create-checkout-session/index.ts`
 
-**`src/components/TechnicianOrderDetail.tsx`** — 2 Stellen:
+Fuer `erlaubt_mehrfach`-Produkte: Vor dem INSERT einer neuen Zeile, die **letzte pending-Bestellung** desselben Produkts fuer denselben Onboarding-Nutzer suchen und **updaten** statt neu zu erstellen. Nur wenn keine pending-Bestellung existiert, wird eine neue Zeile eingefuegt.
 
-**Zeile 103** — URL-Format aendern:
-```tsx
-// Vorher:
-const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullAddress)}`;
+```typescript
+// Zeilen 237-253: erlaubt_mehrfach-Block aendern
+if (produkt.erlaubt_mehrfach) {
+  // Erst pruefen, ob bereits eine pending-Bestellung existiert
+  const { data: existingMulti } = await supabaseAdmin
+    .schema("thermocheck")
+    .from("contractor_bestellungen")
+    .select("id")
+    .eq("onboarding_id", onboarding.id)
+    .eq("produkt_key", item.produkt_key)
+    .eq("stripe_payment_status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-// Nachher:
-const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
+  if (existingMulti) {
+    // Update statt Insert
+    await supabaseAdmin
+      .schema("thermocheck")
+      .from("contractor_bestellungen")
+      .update({
+        stripe_session_id: session.id,
+        stripe_customer_id: customerId,
+        groesse: item.groesse || null,
+        menge,
+      })
+      .eq("id", existingMulti.id);
+  } else {
+    // Neue Zeile nur wenn keine pending existiert
+    await supabaseAdmin
+      .schema("thermocheck")
+      .from("contractor_bestellungen")
+      .insert({ /* ... bestehender Code ... */ });
+  }
+}
 ```
 
-**Zeilen 522-531** — Fallback onClick hinzufuegen:
-```tsx
-<a
-  href={mapsUrl}
-  target="_blank"
-  rel="noopener noreferrer"
-  onClick={(e) => {
-    // Fallback: wenn der Link blockiert wird (Preview/iframe),
-    // navigiere direkt in diesem Tab
-    setTimeout(() => {
-      window.location.assign(mapsUrl);
-    }, 500);
-  }}
-  className="mt-3 w-full flex items-center justify-center gap-2 p-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
->
-  <Navigation className="w-4 h-4" />
-  Navigation starten
-</a>
-```
+### Schritt 3: Verwaiste Pending-Rows bereinigen
 
-Nein — der setTimeout-Fallback ist unzuverlaessig und verursacht doppelte Navigation auf der Published-URL. Besser: nur das URL-Format aendern und fertig. Falls es im Preview weiterhin nicht geht, liegt das am Sandbox-Attribut des iframes, das Lovable selbst setzt — dagegen koennen wir im Code nichts tun.
-
-**Finaler Plan: Nur URL-Format aendern** (1 Zeile):
-
-```tsx
-const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
-```
+Die bestehenden verwaisten Pending-Bestellungen, deren Stripe-Sessions bereits abgelaufen sind, sollten auf `failed` gesetzt werden. Das kann per SQL-Update erfolgen.
 
 ## Dateien
 
 | Aktion | Datei |
 |---|---|
-| Aendern | `src/components/TechnicianOrderDetail.tsx` (Zeile 103) |
-
-## Hinweis
-
-Falls der Fehler nach dieser Aenderung weiterhin **nur im Preview** auftritt, ist das eine Lovable-Preview-Sandbox-Limitation (das iframe hat restriktive `sandbox`-Attribute). Auf der **Published URL** (`quick-measure-pro.lovable.app`) und auf dem Handy sollte es funktionieren. Den endgueltigen Test bitte dort machen.
+| Deploy | `supabase/functions/stripe-webhook/index.ts` |
+| Aendern | `supabase/functions/create-checkout-session/index.ts` (erlaubt_mehrfach-Logik) |
+| Daten-Update | Verwaiste pending-Bestellungen auf `failed` setzen |
 
