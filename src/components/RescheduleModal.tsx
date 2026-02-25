@@ -42,7 +42,7 @@ export function RescheduleModal({ reschedules, onDone }: RescheduleModalProps) {
   const handleAccept = async (terminId: string) => {
     setAccepting(terminId);
     try {
-      const { data, error } = await supabase.rpc("accept_pool_order", {
+      const { data, error } = await supabase.rpc("accept_thermocheck_reschedule" as any, {
         p_termin_id: terminId,
       });
 

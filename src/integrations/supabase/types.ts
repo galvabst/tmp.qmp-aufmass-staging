@@ -8716,6 +8716,10 @@ export type Database = {
       }
       _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       accept_pool_order: { Args: { p_termin_id: string }; Returns: Json }
+      accept_thermocheck_reschedule: {
+        Args: { p_termin_id: string }
+        Returns: Json
+      }
       accept_thermocheck_termin: {
         Args: { p_terminvorschlag_id: string }
         Returns: undefined
