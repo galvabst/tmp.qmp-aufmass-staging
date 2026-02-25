@@ -1,36 +1,54 @@
 
 
-# Plan: Zurueck-Navigation aus dem Aufmass-Formular reparieren
+# Plan: Auto-Save alle 2 Minuten + Date-Bug-Fix
 
-## Problem
+## Zusammenfassung
 
-Der Zurueck-Button oben links im Aufmass-Formular nutzt `navigate(-1)` (Browser-History). Wenn der User direkt ueber einen Link auf die Aufmass-Seite kommt (z.B. geteilter Link, Lesezeichen, oder Page-Refresh), gibt es keinen History-Eintrag — der Button tut dann nichts.
+Zwei Aenderungen:
 
-## Loesung
+1. **Auto-Save**: Alle 2 Minuten wird das Formular automatisch im Hintergrund gespeichert (ohne Toast-Benachrichtigung, damit der Techniker nicht gestoert wird). Nur wenn das Formular nicht read-only ist und Daten vorhanden sind.
 
-`navigate(-1)` durch eine robuste Navigation ersetzen, die:
-1. Zurueck navigiert wenn History vorhanden ist
-2. Sonst zur Startseite (`/`) faellt
+2. **Bug-Fix**: Aktuell schlaegt das Speichern fehl (400-Error: `invalid input syntax for type date: ""`), weil leere Datums-Strings (`""`) an die DB gesendet werden. Leere Strings muessen vor dem Speichern zu `null` konvertiert werden.
 
-## Aenderung
+## Aenderungen
 
-### `src/features/aufmass/ui/AufmassFormPage.tsx`
+### 1. `src/features/aufmass/hooks/useVotFormular.ts` — Leere Strings sanitizen
 
-Die Zurueck-Button onClick-Logik aendern:
+Im `mutationFn` nach dem Payload-Aufbau alle leeren Strings zu `null` konvertieren:
 
-```tsx
-// Alt:
-onClick={() => navigate(-1)}
-
-// Neu:
-onClick={() => {
-  if (window.history.length > 1) {
-    navigate(-1);
-  } else {
-    navigate('/');
-  }
-}}
+```typescript
+// Nach der Payload-Schleife:
+for (const key of Object.keys(dbPayload)) {
+  if (dbPayload[key] === '') dbPayload[key] = null;
+}
 ```
 
-Eine einzige Zeile wird geaendert — sonst nichts.
+Ausserdem: `onSuccess` bekommt einen optionalen `silent`-Parameter. Wenn `silent === true`, wird kein Toast angezeigt (fuer Auto-Save).
+
+### 2. `src/features/aufmass/hooks/usePvFormular.ts` — Gleiche Sanitization
+
+Gleiche leere-String-zu-null-Konvertierung im PV-Upsert-Hook.
+
+### 3. `src/features/aufmass/ui/AufmassFormPage.tsx` — Auto-Save Timer
+
+Ein `useEffect` mit `setInterval` (120_000ms = 2 Minuten):
+
+- Prueft ob `auftragId`, `userId` vorhanden und `!isReadOnly`
+- Ruft `handleSaveDraft` auf, aber mit `silent: true` damit kein Toast erscheint
+- Cleanup: `clearInterval` bei Unmount
+- Kein Auto-Save waehrend eines manuellen Saves (`isSaving`)
+
+### Technische Details
+
+**Silent-Save**: Die Mutations bekommen ein `silent`-Flag. Bei `silent: true` wird der `onSuccess`-Toast unterdrueckt. So sieht der Techniker nur Toasts bei manuellem Speichern, nicht alle 2 Minuten.
+
+**Date-Bug**: Das Problem ist, dass HTML-`<input type="date">` einen leeren String `""` zurueckgibt wenn nichts eingegeben wurde. PostgreSQL akzeptiert das nicht als gueltige Date-Eingabe — es muss `null` sein.
+
+## Dateien
+
+| Aktion | Datei |
+|---|---|
+| Aendern | `src/features/aufmass/hooks/useVotFormular.ts` |
+| Aendern | `src/features/aufmass/hooks/usePvFormular.ts` |
+| Aendern | `src/features/aufmass/ui/AufmassFormPage.tsx` |
 
