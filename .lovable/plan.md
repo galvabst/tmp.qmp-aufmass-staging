@@ -1,111 +1,122 @@
 
 
-# Plan: Workflow-Reihenfolge umkehren, Navigation fixen, Checkliste hinzufuegen
+# Plan: Aufmass-Formular reparieren – Schema-Fix, Pre-Fill, Upload-Fix
 
-## Analyse der 3 Probleme
+## Root-Cause-Analyse (aus Network Logs verifiziert)
 
-### Problem 1: Workflow-Reihenfolge ist falsch
-Aktuell: Erst E-Mail → dann Anruf am Vortag.
-Richtig: **Erst Anruf** (Termin absprechen, sofort nach Annahme) → **dann E-Mail am Vortag** (schriftliche Bestaetigung als Nachweis).
+### Problem 1: Formular laedt ewig / zeigt falsche Daten
+**Ursache**: Alle Supabase-Client-Anfragen an `v_thermocheck_auftraege` und `thermocheck_vot_formulare` senden `Accept-Profile: public` statt `Accept-Profile: thermocheck`. Die `.setHeader('Accept-Profile', 'thermocheck')` Aufrufe werden vom Supabase JS Client **ignoriert**, weil sie NACH `.maybeSingle()` bzw `.single()` aufgerufen werden – zu diesem Zeitpunkt ist der Query bereits gebaut.
 
-### Problem 2: "Navigation starten" oeffnet Google Maps im iframe → ERR_BLOCKED_BY_RESPONSE
-Google Maps blockiert iframe-Embedding via X-Frame-Options. Der Link `https://maps.google.com/maps?daddr=...` funktioniert nur in einem nativen Browser-Tab. Da die App in einem Lovable-Preview-iframe laeuft, wird der Link geblockt. Loesung: Statt `<a>` mit `target="_blank"` → `window.open()` verwenden, oder die Adresse einfach als kopierbaren Text darstellen (konsistent mit dem "keine Links"-Prinzip). Da auf dem Handy Google Maps per Deep-Link (`geo:` oder `https://www.google.com/maps/dir/...`) oeffnet, reicht `window.open` mit der URL.
+**Beweis aus Network Logs:**
+```
+GET /rest/v1/v_thermocheck_auftraege → 404
+Response: "Could not find the table 'public.v_thermocheck_auftraege'"
 
-### Problem 3: Checkliste fehlt
-Es sollen Abhak-Schritte als Arbeitspaket erscheinen:
-- Adresse verifiziert (stimmt die Adresse? Richtiges Objekt?)
-- Raumzugang bestaetigt (alle Raeume zugaenglich fuer Heizlastberechnung?)
+GET /rest/v1/thermocheck_vot_formulare → 404  
+Response: "Could not find the table 'public.thermocheck_vot_formulare'"
+```
 
-Diese Checkliste ist Teil der Anruf-Aufgabe (wird im Telefonat geklaert).
+Beide Tabellen existieren nur im `thermocheck`-Schema (DB-verifiziert).
+
+### Problem 2: Name/Telefon nicht pre-filled
+**Ursache**: Code prueft `user_metadata.full_name` und `user_metadata.phone`, aber die tatsaechlichen JWT-Felder heissen `name` und `telefon`:
+```json
+// Tatsaechliche user_metadata:
+{"name": "Artur Penner", "telefon": "+49 1512 9559457", "vorname": "Artur", "nachname": "Penner"}
+```
+
+### Problem 3: Kundenname zeigt "Unbekannt"
+**Ursache**: Da die Auftrag-Daten nicht laden (Problem 1), greift der Fallback: `kundenName = 'Unbekannt'`.
+
+### Problem 4: Bilder koennen nicht hochgeladen werden
+**Zwei Ursachen:**
+1. `votFormularId` ist `undefined` (weil der Formular-Query scheitert → Problem 1), deshalb sind Upload-Buttons disabled (`disabled={!votFormularId}`)
+2. **Fehlende Storage RLS Policy**: Der `galvanikbau` Bucket hat **keine INSERT-Policy** fuer `storage.objects`. SELECT, UPDATE, DELETE existieren – aber INSERT fehlt komplett.
+
+### Problem 5: ThermoCheck-Datum nicht pre-filled
+**Ursache**: Kein Code zum Pre-Fill. Das Datum kann aus den `thermocheck_terminvorschlaege` (angenommener Termin) abgeleitet werden, oder direkt als Tagesdatum gesetzt werden.
+
+---
 
 ## Loesung
 
-### Aufgabe 1 – Anruf direkt nach Annahme
-- Accordion "Termin telefonisch absprechen"
-- Anruf-Leitfaden mit Skript (kopierbarer Text)
-- Telefonnummer als Text mit Kopier-Button
-- **Checkliste** (interaktive Checkboxen, lokaler State):
-  - [ ] Termin mit Kunde abgesprochen
-  - [ ] Adresse verifiziert – richtiges Objekt
-  - [ ] Raumzugang bestaetigt – alle Raeume zugaenglich
-- "Als erledigt markieren" Button → erst aktiv wenn alle 3 Checkboxen gesetzt
-- Ruft `confirm_thermocheck_booking` RPC auf
+### Fix 1: Dedizierter Supabase Client fuer thermocheck-Schema
 
-### Aufgabe 2 – E-Mail am Vortag (schriftlicher Nachweis)
-- Accordion "Terminbestaetigung per E-Mail senden"
-- Hinweis/Disclaimer: "Diese E-Mail dient als schriftlicher Nachweis, dass der Termin stattfindet."
-- Arbeitsanweisung (nummerierte Liste)
-- Kopierbarer Betreff + E-Mail-Text
-- Kunden-E-Mail als Text mit Kopier-Button
-- "Als erledigt markieren" Button → ruft `confirm_thermocheck_vortag` RPC auf
+Neuer Client `supabaseTC` der mit `db: { schema: 'thermocheck' }` konfiguriert wird. Dies ist der saubere Ansatz – keine fragilen `.setHeader()`-Aufrufe mehr.
 
-### Navigation starten → Fix
-- `<a href={mapsUrl} target="_blank">` durch `<button onClick={() => window.open(mapsUrl, '_blank')}>` ersetzen. Das oeffnet Google Maps in einem neuen Tab statt im iframe.
-- Alternativ: Adresse als kopierbaren Text + Hinweis "In Google Maps oeffnen" als Button mit `window.open`.
+**Neue Datei**: `src/integrations/supabase/thermocheck-client.ts`
+```typescript
+import { createClient } from '@supabase/supabase-js';
 
-## E-Mail Template (angepasst – jetzt fuer Vortag-Bestaetigung)
-
-**Betreff:**
-```
-Terminbestätigung Feinaufmaß – {Datum}
+export const supabaseTC = createClient(
+  SUPABASE_URL, SUPABASE_KEY,
+  { db: { schema: 'thermocheck' }, auth: { ... } }
+);
 ```
 
-**Text:**
-```
-Sehr geehrte/r {Kundenname},
+**Betroffene Hooks (alle `setHeader` entfernen, `supabaseTC` nutzen):**
+- `useVotFormular.ts` – alle Queries + Mutations
+- `useVotBilder.ts` – alle Queries + Mutations (Metadata-Teil)
+- `AufmassFormPage.tsx` – Auftrag-Query
 
-wie soeben telefonisch besprochen, bestätige ich hiermit schriftlich Ihren Termin für das Feinaufmaß:
+### Fix 2: Pre-Fill Techniker-Daten korrigieren
 
-Datum: {Datum}
-Uhrzeit: {Uhrzeit} Uhr
-Adresse: {Strasse}, {PLZ} {Ort}
-
-Bitte stellen Sie sicher, dass alle Räume am Termintag zugänglich sind, damit die Heizlastberechnung vollständig durchgeführt werden kann.
-
-Falls sich etwas ändern sollte, melden Sie sich bitte zeitnah unter dieser E-Mail-Adresse.
-
-Mit freundlichen Grüßen
+In `AufmassFormPage.tsx`, Zeile 80-85:
+```typescript
+// VORHER (falsche Keys):
+meta?.full_name  →  meta?.name
+meta?.phone      →  meta?.telefon
 ```
 
-## Anruf-Leitfaden (angepasst – jetzt fuer Erstanruf)
+Zusaetzlich: `thermocheck_datum` mit heutigem Datum pre-fillen falls leer.
 
+### Fix 3: Storage INSERT Policy anlegen
+
+SQL Migration:
+```sql
+CREATE POLICY "galvanikbau_insert" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'galvanikbau' AND auth.uid() IS NOT NULL
+  );
 ```
-"Guten Tag, mein Name ist [Ihr Name] von der Galvanek Bau GmbH.
-Ich bin Ihr Feinaufmaßtechniker. Sie hatten einen Terminvorschlag
-für den {Datum} um {Uhrzeit} Uhr gemacht.
 
-Ich wollte den Termin kurz mit Ihnen absprechen – passt das bei Ihnen?
+### Fix 4: Kundenname aus Auftrag-Daten
 
-Außerdem möchte ich sicherstellen:
-- Ist die Adresse {Adresse} korrekt?
-- Sind am Termin alle Räume für mich zugänglich?
-  Das ist wichtig für die korrekte Heizlastberechnung.
+Loest sich automatisch sobald Fix 1 greift – die Auftrag-Daten laden dann korrekt mit `kunde_vorname`/`kunde_nachname` aus der View.
 
-[Falls ja:] Sehr gut, ich schicke Ihnen vorab noch eine
-schriftliche Bestätigung per E-Mail.
-[Falls nein:] Kein Problem, dann klären wir einen neuen Termin."
-```
+---
 
 ## Betroffene Dateien
 
 | Datei | Aenderung |
 |---|---|
-| `src/components/TechnicianOrderDetail.tsx` | Aufgaben-Reihenfolge tauschen, Checkliste mit Checkboxen einbauen, E-Mail wird zu Vortag-Aufgabe, Navigation-Fix |
+| `src/integrations/supabase/thermocheck-client.ts` | **NEU** – Supabase Client mit `schema: 'thermocheck'` |
+| `src/features/aufmass/hooks/useVotFormular.ts` | `supabase` → `supabaseTC`, alle `.setHeader()` entfernen |
+| `src/features/aufmass/hooks/useVotBilder.ts` | `supabase` → `supabaseTC` fuer DB-Queries (Storage bleibt bei normalem Client) |
+| `src/features/aufmass/ui/AufmassFormPage.tsx` | Auftrag-Query auf `supabaseTC`, Pre-Fill Keys korrigieren, Datum-Prefill |
+| SQL Migration | Storage INSERT Policy fuer `galvanikbau` Bucket |
 
-Keine DB-Aenderungen noetig. RPCs bleiben gleich (`confirm_thermocheck_booking` = Anruf erledigt, `confirm_thermocheck_vortag` = E-Mail gesendet). Keine neuen Abhaengigkeiten.
+---
 
 ## Edge Cases
 
 | Szenario | Handling |
 |---|---|
-| Checkboxen werden gesetzt aber Button nicht geklickt | State geht beim Verlassen verloren → kein Problem, RPC nicht aufgerufen |
-| Navigation-Button im iframe | `window.open` oeffnet neuen Tab, umgeht iframe-Blocking |
-| Techniker vergisst Checkbox | Button disabled solange nicht alle gesetzt |
-| Vortag-E-Mail ohne vorherigen Anruf | UI zeigt E-Mail-Task erst wenn Anruf bestaetigt |
+| `supabaseTC` Auth-Session | Teilt sich `localStorage` mit dem Haupt-Client → gleiche Session, kein doppeltes Login |
+| Formular existiert noch nicht | `votFormularId` bleibt `undefined` bis erstes Speichern → Upload erst nach erstem "Speichern" moeglich. Das ist korrekt, da die Bilder eine FK-Referenz zum Formular brauchen |
+| user_metadata fehlt komplett | Optional Chaining greift, Felder bleiben leer |
+| Auftrag-ID existiert nicht | Query gibt `null` zurueck, Skeleton bleibt stehen (bestehendes Verhalten) |
+| Concurrent Upload | `upsert: true` in Storage verhindert Konflikte |
 
-## Technische Details
+## Rollen-Matrix
 
-- Checkboxen: `@radix-ui/react-checkbox` (bereits installiert) + lokaler `useState<Record<string, boolean>>`
-- `window.open(url, '_blank')` statt `<a target="_blank">` fuer Maps
-- Datei bleibt unter 600 Zeilen (aktuell 596, Checkliste ersetzt bestehenden Content)
+| Aktion | Authentifizierter User | Unauthentifiziert |
+|---|---|---|
+| SELECT thermocheck_vot_formulare | Ja (RLS: `true`) | Nein |
+| INSERT thermocheck_vot_formulare | Ja (RLS: auth check) | Nein |
+| Storage INSERT galvanikbau | Ja (nach Fix) | Nein |
+| Storage SELECT galvanikbau | Ja (RLS: `auth.uid() IS NOT NULL`) | Nein |
+
+## Keine Datenmigration noetig
+Die Tabellen sind korrekt, die Daten existieren. Nur der Zugriffspfad (Schema-Header) war falsch.
 
