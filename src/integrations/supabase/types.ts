@@ -9180,6 +9180,14 @@ export type Database = {
         Args: { p_contractor_arbeitspaket_id: string }
         Returns: boolean
       }
+      complete_thc_arbeitspaket: {
+        Args: {
+          p_auftrag_arbeitspaket_id: string
+          p_auftrag_id: string
+          p_override_substatus?: string
+        }
+        Returns: Json
+      }
       complete_thermocheck_wc1:
         | {
             Args: {
@@ -10105,6 +10113,7 @@ export type Database = {
           title: string
         }[]
       }
+      get_thc_arbeitspaket: { Args: { p_auftrag_id: string }; Returns: Json }
       get_thermocheck_auftraege: {
         Args: {
           p_limit?: number
@@ -11445,6 +11454,15 @@ export type Database = {
           p_titel?: string
         }
         Returns: boolean
+      }
+      update_thc_fortschritt: {
+        Args: {
+          p_abgeschlossen?: boolean
+          p_datei_url?: string
+          p_fortschritt_id: string
+          p_wert?: string
+        }
+        Returns: undefined
       }
       update_thermocheck_auftrag_admin: {
         Args: {

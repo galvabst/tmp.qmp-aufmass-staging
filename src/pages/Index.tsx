@@ -343,6 +343,7 @@ const Index = () => {
         onCheckout={(phase) => handleCheckout(currentOrder.id, phase)}
         onStartRework={() => handleStartRework(currentOrder.id)}
         showFullDetails={showFullDetails}
+        technicianName={profile.name !== '–' ? profile.name : undefined}
       />
     );
   }
