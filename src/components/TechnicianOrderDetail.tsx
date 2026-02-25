@@ -616,14 +616,16 @@ Mit freundlichen Grüßen`;
 
         {/* Aufmaß Button */}
         {(isBookedOrder || isInProgress) && (
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}
-          >
-            <ClipboardList className="w-4 h-4 mr-2" />
-            Aufmaß erfassen
-          </Button>
+          <div className="bg-card rounded-xl p-4 shadow-card">
+            <Button
+              size="lg"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-base font-semibold"
+              onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}
+            >
+              <ClipboardList className="w-5 h-5 mr-2" />
+              Aufmaß-Formular öffnen
+            </Button>
+          </div>
         )}
       </div>
 
