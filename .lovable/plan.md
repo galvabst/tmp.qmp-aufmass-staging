@@ -1,57 +1,46 @@
 
 
-# Karten-Marker: Auftraege zaehlen, Terminvorschlaege im Popup auflisten
+# Fix: Karten-Marker im Meer wegen fehlerhafter Geocoding-Daten
 
 ## Problem
 
-Aktuell zeigt der Marker "3" an einem Standort, obwohl es nur 1 Auftrag mit 3 Terminvorschlaegen ist. Das ist irrefuehrend -- der Techniker denkt, es gaebe 3 verschiedene Auftraege in der Naehe.
-
-## Gewuenschtes Verhalten
-
-- **Marker-Zahl** = Anzahl einzigartiger Auftraege (dedupliziert nach `auftragId`)
-- **Popup** zeigt pro Auftrag den Kundennamen, darunter die einzelnen Terminvorschlaege mit Datum/Uhrzeit
-- **Klick auf einen Terminvorschlag** oeffnet genau diesen Vorschlag in der Detailansicht
+Die Marker landen im Meer, weil die API **zippopotam.us** fuer viele deutsche PLZs **komplett falsche Koordinaten** liefert:
 
 ```text
-Marker: [1]
-
-Popup:
-+----------------------------------+
-| 91242 Ottensoos                  |
-| 1 Auftrag                       |
-|                                  |
-| Dirk Weihrauch                   |
-|   Do., 26. Feb. · Ganztaegig    |
-|   Sa., 28. Feb. · Ganztaegig    |
-|   Fr., 13. Maerz · 13:00-16:00  |
-+----------------------------------+
+PLZ 44894 Bochum:   longitude="51.4925" (eigentlich lat!), latitude="05911" (Unsinn)
+PLZ 06118 Halle:    longitude="51.5175",                    latitude="15002" (Unsinn)
+PLZ 45326 Essen:    longitude="51.4844",                    latitude="05113" (Unsinn)
+PLZ 91242 Ottensoos: longitude="11.35",   latitude="49.5167" (korrekt!)
 ```
+
+Die `latitude`-Werte sind bei vielen Eintraegen abgeschnittene Zahlen (5-stellig statt Dezimalgrad). Die API ist schlicht unzuverlaessig fuer Deutschland.
+
+## Loesung
+
+**Nominatim (OpenStreetMap) als primaere Geocoding-Quelle verwenden** statt zippopotam.us. Nominatim liefert zuverlaessige Koordinaten fuer deutsche PLZs.
+
+Zusaetzlich: PLZs mit fuehrender Null normalisieren (DB enthaelt z.B. `7549` statt `07549`).
 
 ## Technische Aenderungen
 
-### `src/components/PoolMap.tsx`
+### `src/features/pool/utils/plz-geocoder.ts`
 
-**1. Neues Interface fuer Auftrag-Gruppierung:**
+1. **PLZ-Normalisierung**: Neue Hilfsfunktion `normalizePlz()` die PLZs auf 5 Stellen mit fuehrender Null auffuellt (`"7549"` → `"07549"`)
 
-Innerhalb jedes PLZ-Clusters werden die Orders zusaetzlich nach `auftragId` gruppiert. So entsteht eine zweistufige Struktur: PLZ -> Auftraege -> Terminvorschlaege.
+2. **Primaere Quelle wechseln**: `fetchFromZippopotam()` entfernen oder als letzten Fallback behalten. Neue primaere Funktion `fetchFromNominatim(plz)` die per `postalcode`-Parameter sucht:
+   ```
+   https://nominatim.openstreetmap.org/search?postalcode=44894&country=de&format=json&limit=1
+   ```
 
-**2. `createClusterIcon` bekommt die Anzahl einzigartiger Auftraege:**
+3. **Validierung der Koordinaten**: Pruefen ob die zurueckgegebenen Werte in einem plausiblen Bereich fuer Deutschland liegen (lat 47-55, lng 5-16). Falsche Werte verwerfen statt cachen.
 
-Statt `cluster.orders.length` wird die Anzahl einzigartiger `auftragId`-Werte gezaehlt und als Marker-Zahl verwendet.
+4. **Rate-Limiting fuer Nominatim**: Requests serialisieren mit 200ms Pause (Nominatim erlaubt max 1 req/s). Die `geocodePlzBatch` wird von parallel auf sequentiell mit Throttling umgestellt.
 
-**3. `buildClusterPopup` wird umgebaut:**
+5. **LocalStorage-Cache bleibt**, aber ungueltige Eintraege aus dem alten Cache werden durch die Validierung automatisch verworfen (alte Eintraege mit falschen Koordinaten werden nicht mehr gelesen wenn sie ausserhalb des DE-Bereichs liegen).
 
-- Zaehlt einzigartige Auftraege fuer die Ueberschrift ("1 Auftrag" / "3 Auftraege")
-- Gruppiert Orders nach `auftragId`
-- Zeigt pro Auftrag: Kundenname als Ueberschrift
-- Darunter: jeden Terminvorschlag mit Datum und Uhrzeit als klickbares Item
-- Jedes Termin-Item hat weiterhin `data-order-id` mit der Termin-ID (`order.id`) fuer praezise Navigation
-
-**4. Keine Aenderungen an `PoolView.tsx` noetig** -- der `onOrderClick`-Handler matcht bereits nach `order.id`.
-
-## Dateien
+### Dateien
 
 | Datei | Aenderung |
 |---|---|
-| `src/components/PoolMap.tsx` | Marker-Count auf unique Auftraege, Popup mit Auftrag-Gruppierung und Terminvorschlag-Liste |
+| `src/features/pool/utils/plz-geocoder.ts` | Nominatim als primaere Quelle, PLZ-Normalisierung, Koordinaten-Validierung, Throttling |
 
