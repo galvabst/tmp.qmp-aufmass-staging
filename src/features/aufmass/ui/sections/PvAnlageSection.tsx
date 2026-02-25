@@ -52,6 +52,13 @@ export function PvAnlageSection({ form, bilder, votFormularId, leadName, leadId,
           disabled={disabled}
         />
       )}
+
+      {hatPv === false && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+          <p className="text-sm text-primary font-medium">📋 Das PV-Aufmaß-Formular wird in den nächsten Schritten erfasst.</p>
+          <p className="text-xs text-muted-foreground mt-1">8 weitere Schritte für Dach, Ziegel, Gerüst, Kabel, Unterkonstruktion, Blitzschutz und Abschluss.</p>
+        </div>
+      )}
     </div>
   );
 }

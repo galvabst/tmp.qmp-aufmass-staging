@@ -1,11 +1,13 @@
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { ArrowLeft } from 'lucide-react';
 import { AufmassDraftData } from '../data/aufmass-schema';
+import { PvAufmassDraftData } from '../data/pv-aufmass-schema';
 import { useVotFormular, useUpsertVotFormular } from '../hooks/useVotFormular';
+import { usePvFormular, useUpsertPvFormular } from '../hooks/usePvFormular';
 import { useVotBilder } from '../hooks/useVotBilder';
-import { AufmassFormStepper } from './AufmassFormStepper';
+import { AufmassFormStepper, StepConfig } from './AufmassFormStepper';
 import { TechnikerDatenSection } from './sections/TechnikerDatenSection';
 import { KundendatenSection } from './sections/KundendatenSection';
 import { PhotoOnlySection } from './sections/PhotoOnlySection';
@@ -19,11 +21,49 @@ import { ChecklisteSection } from './sections/ChecklisteSection';
 import { UnbegehbareRaeumeSection } from './sections/UnbegehbareRaeumeSection';
 import { PvAnlageSection } from './sections/PvAnlageSection';
 import { AbschlussSection } from './sections/AbschlussSection';
+import { PvAllgemeinSection } from './sections/pv/PvAllgemeinSection';
+import { PvDachSection } from './sections/pv/PvDachSection';
+import { PvDachziegelSection } from './sections/pv/PvDachziegelSection';
+import { PvGeruestSection } from './sections/pv/PvGeruestSection';
+import { PvDcKabelSection } from './sections/pv/PvDcKabelSection';
+import { PvUnterkonstruktionSection } from './sections/pv/PvUnterkonstruktionSection';
+import { PvBlitzschutzSection } from './sections/pv/PvBlitzschutzSection';
+import { PvAbschlussSection } from './sections/pv/PvAbschlussSection';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+
+const BASE_STEPS: StepConfig[] = [
+  { title: 'Techniker-Daten', icon: '👤' },
+  { title: 'Kundendaten', icon: '🏠' },
+  { title: 'Treppenabgang', icon: '🪜' },
+  { title: 'Eingang Heizungsraum', icon: '🚪' },
+  { title: 'Heizungsraum', icon: '🔥' },
+  { title: 'Heizungsart', icon: '⚡' },
+  { title: 'Heizungsanlage', icon: '🔧' },
+  { title: 'Heizkörper', icon: '♨️' },
+  { title: 'Elektrik & Zähler', icon: '⚡' },
+  { title: 'Aufstellort', icon: '📍' },
+  { title: 'Sanitär', icon: '🚿' },
+  { title: 'Checkliste', icon: '✅' },
+  { title: 'Unbegehbare Räume', icon: '🚫' },
+  { title: 'PV-Anlage', icon: '☀️' },
+];
+
+const PV_STEPS: StepConfig[] = [
+  { title: 'PV: Allgemein', icon: '☀️' },
+  { title: 'PV: Dach', icon: '🏠' },
+  { title: 'PV: Dachziegel', icon: '🧱' },
+  { title: 'PV: Gerüst', icon: '🏗️' },
+  { title: 'PV: DC-Kabelführung', icon: '🔌' },
+  { title: 'PV: Unterkonstruktion', icon: '📐' },
+  { title: 'PV: Blitzschutz', icon: '⚡' },
+  { title: 'PV: Abschluss', icon: '✍️' },
+];
+
+const ABSCHLUSS_STEP: StepConfig = { title: 'Abschluss', icon: '✍️' };
 
 export default function AufmassFormPage() {
   const { auftragId } = useParams<{ auftragId: string }>();
@@ -31,7 +71,7 @@ export default function AufmassFormPage() {
   const { session } = useSupabaseSession();
   const userId = session?.user?.id;
 
-  // Load auftrag data (for lead info + prefill)
+  // Load auftrag data
   const { data: auftrag, isLoading: auftragLoading } = useQuery({
     queryKey: ['thermocheck-auftrag-detail', auftragId],
     enabled: !!auftragId,
@@ -50,7 +90,7 @@ export default function AufmassFormPage() {
   const { data: formular, isLoading: formularLoading } = useVotFormular(auftragId);
   const votFormularId = (formular as any)?.id as string | undefined;
 
-  // Auto-create formular record if none exists (so upload buttons work immediately)
+  // Auto-create formular record if none exists
   const queryClient = useQueryClient();
   const autoCreatingRef = useRef(false);
   useEffect(() => {
@@ -76,13 +116,19 @@ export default function AufmassFormPage() {
   // Load bilder
   const { data: bilder = [] } = useVotBilder(votFormularId);
 
+  // THC form
   const upsertMutation = useUpsertVotFormular();
+  const form = useForm<AufmassDraftData>({ defaultValues: {} });
 
-  const form = useForm<AufmassDraftData>({
-    defaultValues: {},
-  });
+  // PV form
+  const pvForm = useForm<PvAufmassDraftData>({ defaultValues: {} });
+  const { data: pvFormular, isLoading: pvFormularLoading } = usePvFormular(votFormularId);
+  const pvUpsertMutation = useUpsertPvFormular();
 
-  // Prefill form when data loads
+  // Watch hat_pv_anlage for dynamic steps
+  const hatPv = form.watch('hat_pv_anlage');
+
+  // Prefill THC form when data loads
   useEffect(() => {
     if (!formular) return;
     const f = formular as Record<string, any>;
@@ -94,6 +140,13 @@ export default function AufmassFormPage() {
     }
     form.reset({ ...form.getValues(), ...values });
   }, [formular]);
+
+  // Prefill PV form when data loads
+  useEffect(() => {
+    if (!pvFormular) return;
+    const f = pvFormular as Record<string, any>;
+    pvForm.reset({ ...pvForm.getValues(), ...f });
+  }, [pvFormular]);
 
   // Prefill techniker data from profile
   useEffect(() => {
@@ -115,10 +168,24 @@ export default function AufmassFormPage() {
   const leadId = (auftrag as any)?.lead_id || '';
   const kundenName = `${(auftrag as any)?.kunde_vorname || ''} ${(auftrag as any)?.kunde_nachname || ''}`.trim() || 'Unbekannt';
 
+  // Dynamic steps based on hat_pv_anlage
+  const showPvSteps = hatPv === false;
+  const steps = useMemo(() => {
+    return showPvSteps
+      ? [...BASE_STEPS, ...PV_STEPS, ABSCHLUSS_STEP]
+      : [...BASE_STEPS, ABSCHLUSS_STEP];
+  }, [showPvSteps]);
+
   const handleSaveDraft = async () => {
     if (!auftragId || !userId) return;
     const values = form.getValues();
     await upsertMutation.mutateAsync({ thermocheckAuftragId: auftragId, formData: values, userId });
+
+    // Also save PV draft if active
+    if (showPvSteps && votFormularId) {
+      const pvValues = pvForm.getValues();
+      await pvUpsertMutation.mutateAsync({ votFormularId, formData: pvValues, userId });
+    }
   };
 
   const handleSubmit = async () => {
@@ -128,6 +195,13 @@ export default function AufmassFormPage() {
       toast.error('Bitte alle Pflichtfelder ausfüllen');
       return;
     }
+
+    // Submit PV first if active
+    if (showPvSteps && votFormularId) {
+      const pvValues = pvForm.getValues();
+      await pvUpsertMutation.mutateAsync({ votFormularId, formData: pvValues, userId, isSubmit: true });
+    }
+
     await upsertMutation.mutateAsync({ thermocheckAuftragId: auftragId, formData: values, userId, isSubmit: true });
     navigate(-1);
   };
@@ -143,9 +217,10 @@ export default function AufmassFormPage() {
   }
 
   const sharedProps = { bilder, votFormularId, leadName, leadId, auftragId: auftragId!, disabled: isReadOnly };
+  const pvSharedProps = { pvForm, bilder, votFormularId, leadName, leadId, auftragId: auftragId!, disabled: isReadOnly };
 
-  // Render only the active step — avoids mounting all 15 sections at once
   const renderStep = (index: number) => {
+    // Base THC steps (0-13)
     switch (index) {
       case 0: return <TechnikerDatenSection form={form} {...sharedProps} />;
       case 1: return <KundendatenSection form={form} kundenName={kundenName} disabled={isReadOnly} />;
@@ -161,14 +236,34 @@ export default function AufmassFormPage() {
       case 11: return <ChecklisteSection form={form} {...sharedProps} />;
       case 12: return <UnbegehbareRaeumeSection form={form} {...sharedProps} />;
       case 13: return <PvAnlageSection form={form} {...sharedProps} />;
-      case 14: return <AbschlussSection form={form} {...sharedProps} />;
-      default: return null;
+      default: break;
     }
+
+    // If PV steps are active (indices 14-21)
+    if (showPvSteps) {
+      switch (index) {
+        case 14: return <PvAllgemeinSection pvForm={pvForm} disabled={isReadOnly} />;
+        case 15: return <PvDachSection {...pvSharedProps} />;
+        case 16: return <PvDachziegelSection {...pvSharedProps} />;
+        case 17: return <PvGeruestSection {...pvSharedProps} />;
+        case 18: return <PvDcKabelSection pvForm={pvForm} disabled={isReadOnly} />;
+        case 19: return <PvUnterkonstruktionSection pvForm={pvForm} disabled={isReadOnly} />;
+        case 20: return <PvBlitzschutzSection {...pvSharedProps} />;
+        case 21: return <PvAbschlussSection {...pvSharedProps} />;
+        case 22: return <AbschlussSection form={form} {...sharedProps} />;
+        default: return null;
+      }
+    }
+
+    // Without PV: index 14 = Abschluss
+    if (index === 14) return <AbschlussSection form={form} {...sharedProps} />;
+    return null;
   };
+
+  const isSaving = upsertMutation.isPending || pvUpsertMutation.isPending;
 
   return (
     <div>
-      {/* Back button overlay */}
       <button
         onClick={() => navigate(-1)}
         className="fixed top-4 left-4 z-20 p-2 bg-primary-foreground/20 backdrop-blur-sm rounded-full hover:bg-primary-foreground/30 transition-colors"
@@ -177,11 +272,12 @@ export default function AufmassFormPage() {
       </button>
 
       <AufmassFormStepper
+        steps={steps}
         renderStep={renderStep}
         onSaveDraft={handleSaveDraft}
         onSubmit={handleSubmit}
-        isSaving={upsertMutation.isPending}
-        isSubmitting={upsertMutation.isPending}
+        isSaving={isSaving}
+        isSubmitting={isSaving}
         isReadOnly={isReadOnly}
       >
         {[]}

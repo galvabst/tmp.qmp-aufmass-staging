@@ -1,33 +1,16 @@
-import { useState, ReactElement, cloneElement, isValidElement } from 'react';
+import { useState, useEffect, ReactElement, cloneElement, isValidElement } from 'react';
 import { ArrowLeft, ArrowRight, Save, Send, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
-interface StepConfig {
+export interface StepConfig {
   title: string;
   icon: string;
 }
 
-const STEPS: StepConfig[] = [
-  { title: 'Techniker-Daten', icon: '👤' },
-  { title: 'Kundendaten', icon: '🏠' },
-  { title: 'Treppenabgang', icon: '🪜' },
-  { title: 'Eingang Heizungsraum', icon: '🚪' },
-  { title: 'Heizungsraum', icon: '🔥' },
-  { title: 'Heizungsart', icon: '⚡' },
-  { title: 'Heizungsanlage', icon: '🔧' },
-  { title: 'Heizkörper', icon: '♨️' },
-  { title: 'Elektrik & Zähler', icon: '⚡' },
-  { title: 'Aufstellort', icon: '📍' },
-  { title: 'Sanitär', icon: '🚿' },
-  { title: 'Checkliste', icon: '✅' },
-  { title: 'Unbegehbare Räume', icon: '🚫' },
-  { title: 'PV-Anlage', icon: '☀️' },
-  { title: 'Abschluss', icon: '✍️' },
-];
-
 interface AufmassFormStepperProps {
   children: React.ReactNode[];
+  steps: StepConfig[];
   renderStep: (index: number) => React.ReactNode;
   onSaveDraft: () => void;
   onSubmit: () => void;
@@ -38,6 +21,7 @@ interface AufmassFormStepperProps {
 
 export function AufmassFormStepper({
   children,
+  steps,
   renderStep,
   onSaveDraft,
   onSubmit,
@@ -47,7 +31,15 @@ export function AufmassFormStepper({
 }: AufmassFormStepperProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
-  const totalSteps = STEPS.length;
+  const totalSteps = steps.length;
+
+  // Clamp step when steps count changes dynamically
+  useEffect(() => {
+    if (currentStep >= totalSteps) {
+      setCurrentStep(totalSteps - 1);
+    }
+  }, [totalSteps, currentStep]);
+
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
   const canGoBack = currentStep > 0;
@@ -66,13 +58,13 @@ export function AufmassFormStepper({
         <div className="p-4 pb-3">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-primary-foreground/15 flex items-center justify-center text-xl backdrop-blur-sm">
-              {STEPS[currentStep].icon}
+              {steps[currentStep].icon}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-primary-foreground/60 font-medium tracking-wide uppercase">
                 Schritt {currentStep + 1} / {totalSteps}
               </p>
-              <h1 className="text-lg font-bold truncate">{STEPS[currentStep].title}</h1>
+              <h1 className="text-lg font-bold truncate">{steps[currentStep].title}</h1>
             </div>
             {visitedSteps.size > 1 && (
               <div className="flex items-center gap-1 bg-primary-foreground/10 rounded-full px-2.5 py-1">
@@ -86,7 +78,7 @@ export function AufmassFormStepper({
 
         {/* Step dots */}
         <div className="px-4 pb-3 flex gap-1 overflow-x-auto scrollbar-hide">
-          {STEPS.map((step, i) => (
+          {steps.map((step, i) => (
             <button
               key={i}
               type="button"
