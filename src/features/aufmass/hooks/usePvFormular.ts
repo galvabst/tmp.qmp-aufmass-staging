@@ -30,17 +30,23 @@ export function useUpsertPvFormular() {
       formData,
       userId,
       isSubmit = false,
+      silent = false,
     }: {
       votFormularId: string;
       formData: Partial<PvAufmassDraftData>;
       userId: string;
       isSubmit?: boolean;
+      silent?: boolean;
     }) => {
       const dbPayload: Record<string, any> = {};
       for (const key of PV_FORM_DB_FIELDS) {
         if (formData[key] !== undefined) {
           dbPayload[key] = formData[key];
         }
+      }
+      // Sanitize empty strings to null (prevents DB date parse errors)
+      for (const key of Object.keys(dbPayload)) {
+        if (dbPayload[key] === '') dbPayload[key] = null;
       }
 
       if (isSubmit) {
@@ -81,6 +87,7 @@ export function useUpsertPvFormular() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['pv-formular', variables.votFormularId] });
+      if (variables.silent) return;
       if (variables.isSubmit) {
         toast.success('PV-Formular eingereicht!');
       } else {
