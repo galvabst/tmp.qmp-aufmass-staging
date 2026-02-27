@@ -1,63 +1,56 @@
 
 
-# Plan: Stripe Checkout — Rechnungsadresse + MwSt-Ausweisung
+# Fix: `customer_tax_location_invalid` — `customer_update` hinzufuegen
 
-## Problem
-1. Keine Rechnungsadresse wird abgefragt — Stripe-Rechnungen haben keine Kundenadresse
-2. Keine MwSt wird auf der Rechnung ausgewiesen — Stripe zeigt keinen Steuersatz
+## Analyse
 
-## Loesung
+Der Fehler ist eindeutig: Stripe verlangt bei `automatic_tax: { enabled: true }` eine Adresse am Customer-Objekt. Da bestehende Kunden keine haben, muss `customer_update: { address: 'auto' }` gesetzt werden — aber **nur** wenn `customer` (nicht `customer_email`) uebergeben wird.
 
-### Schritt 1: `billing_address_collection` hinzufuegen
+## Validierung
 
-**Datei:** `supabase/functions/create-checkout-session/index.ts` (Zeile 211)
+**User Flow:** User klickt "Bestellen" → `useStripeCheckout` ruft Edge Function → Edge Function erstellt Stripe Customer (falls neu) → erstellt Checkout Session → Redirect zu `checkout.stripe.com`.
 
-Beim `stripe.checkout.sessions.create()` den Parameter `billing_address_collection: 'required'` hinzufuegen. Damit muss der Kunde im Checkout seine Rechnungsadresse eingeben. Stripe speichert diese automatisch am Customer-Objekt.
+**Edge Cases geprueft:**
 
-### Schritt 2: MwSt automatisch berechnen lassen
+1. **Neuer Kunde (kein `customerId`)**: `customer_email` wird verwendet, `customer_update` = `undefined` → Stripe erstellt neuen Customer mit Adresse aus Checkout. Korrekt.
+2. **Bestehender Kunde ohne Adresse**: `customer` wird gesetzt, `customer_update: { address: 'auto' }` → Stripe uebernimmt Adresse aus Checkout auf Customer. **Das ist der Fix.**
+3. **Bestehender Kunde mit Adresse**: `customer_update: { address: 'auto' }` ueberschreibt mit neuer Eingabe → Akzeptabel, User kann Adresse korrigieren.
+4. **Subscription-Modus**: `customer_update` funktioniert identisch fuer `mode: 'subscription'`. Kein Unterschied.
+5. **Multi-Item Checkout**: Kein Einfluss — `customer_update` ist session-level, nicht item-level.
 
-Stripe bietet dafuer `automatic_tax: { enabled: true }`. Das setzt voraus:
+**RLS/IAM**: Nicht betroffen — die Aenderung ist rein Stripe-API-seitig, keine DB-Aenderung.
 
-1. **Im Stripe Dashboard**: Tax-Einstellungen aktivieren unter *Settings > Tax*. Dort Herkunftsadresse (eure Firmenadresse) hinterlegen und den deutschen Steuersatz (19% MwSt) konfigurieren.
-2. **Bei den Produkten/Preisen in Stripe**: Die Preise muessen als `tax_behavior: 'inclusive'` (MwSt enthalten) oder `'exclusive'` (MwSt wird aufgeschlagen) markiert sein. Das muss im Stripe Dashboard bei jedem Preis gesetzt werden.
-3. **Im Code**: `automatic_tax: { enabled: true }` zur Session hinzufuegen.
+**Keine Migration noetig**: Kein Schema-Change, keine Datenbereinigung fuer diesen Fix.
 
-**Alternativ** (einfacher, kein Tax-Setup noetig): Einen festen `tax_rate` in Stripe anlegen (19% MwSt, inclusive) und diesen bei jedem `line_item` als `tax_rates` mitgeben. Das ist weniger flexibel, aber sofort einsetzbar ohne Dashboard-Konfiguration.
-
-### Code-Aenderung
+## Aenderung
 
 **Datei:** `supabase/functions/create-checkout-session/index.ts`
 
+Zeile 217, nach `automatic_tax`:
+
 ```typescript
-// Zeile 211-228: Session-Erstellung erweitern
+// Zeilen 211-229 ersetzen mit:
 const session = await stripe.checkout.sessions.create({
   mode,
   customer: customerId,
   customer_email: !customerId ? userEmail : undefined,
   line_items,
-  billing_address_collection: 'required',    // NEU
-  automatic_tax: { enabled: true },           // NEU — MwSt
+  billing_address_collection: 'required',
+  automatic_tax: { enabled: true },
+  customer_update: customerId ? { address: 'auto' } : undefined,
   success_url: successUrl,
   cancel_url: cancelUrl,
-  metadata: { ... },
+  metadata: {
+    user_id: userId,
+    onboarding_id: onboarding.id,
+    produkt_keys: produktKeys.join(","),
+    produkt_key: produktKeys[0],
+    groesse: items[0].groesse || "",
+    menge: String(items[0].menge || 1),
+  },
   locale: "de",
 });
 ```
 
-### Voraussetzung im Stripe Dashboard
-
-Damit `automatic_tax` funktioniert, muss **einmalig** im Stripe Dashboard konfiguriert werden:
-
-1. **Settings > Tax > Tax registrations**: Deutsche USt-Registrierung hinzufuegen (USt-ID eintragen)
-2. **Settings > Tax > Origin address**: Eure Firmenadresse als Herkunftsadresse
-3. **Produkte/Preise**: Bei jedem Preis `tax_behavior` auf `inclusive` oder `exclusive` setzen
-
-Falls das zu aufwaendig ist, gibt es die manuelle Alternative mit festem Steuersatz — dann muss ich einen `tax_rate` im Code referenzieren.
-
-## Dateien
-
-| Aktion | Datei |
-|---|---|
-| Aendern | `supabase/functions/create-checkout-session/index.ts` (2 Zeilen) |
-| Dashboard | Stripe Tax-Einstellungen konfigurieren (einmalig) |
+Einzige Aenderung: Eine Zeile hinzufuegen (`customer_update`). Danach Edge Function deployen.
 
