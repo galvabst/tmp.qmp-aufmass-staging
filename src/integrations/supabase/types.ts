@@ -8445,6 +8445,66 @@ export type Database = {
         }
         Relationships: []
       }
+      ghost_syncs_view: {
+        Row: {
+          created_at: string | null
+          deal_name: string | null
+          detected_at: string | null
+          detection_source: string | null
+          error_details: string | null
+          error_node: string | null
+          execution_id: string | null
+          id: string | null
+          last_retry_at: string | null
+          owner_email: string | null
+          owner_name: string | null
+          referenz_nummer: string | null
+          resolved_at: string | null
+          retry_count: number | null
+          stage: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deal_name?: string | null
+          detected_at?: string | null
+          detection_source?: string | null
+          error_details?: string | null
+          error_node?: string | null
+          execution_id?: string | null
+          id?: string | null
+          last_retry_at?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          referenz_nummer?: string | null
+          resolved_at?: string | null
+          retry_count?: number | null
+          stage?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deal_name?: string | null
+          detected_at?: string | null
+          detection_source?: string | null
+          error_details?: string | null
+          error_node?: string | null
+          execution_id?: string | null
+          id?: string | null
+          last_retry_at?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          referenz_nummer?: string | null
+          resolved_at?: string | null
+          retry_count?: number | null
+          stage?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       leads_with_details: {
         Row: {
           abschluss_datum: string | null
@@ -8723,6 +8783,10 @@ export type Database = {
       accept_thermocheck_termin: {
         Args: { p_terminvorschlag_id: string }
         Returns: undefined
+      }
+      acknowledge_thermocheck_storno: {
+        Args: { p_auftrag_id: string }
+        Returns: Json
       }
       addauth: { Args: { "": string }; Returns: boolean }
       addgeometrycolumn:
@@ -10242,7 +10306,7 @@ export type Database = {
           ganztaegig: boolean
           id: string
           sortierung: number
-          status: "vorgeschlagen" | "angenommen" | "abgelehnt"
+          status: "vorgeschlagen" | "angenommen" | "abgelehnt" | "storniert"
           thermocheck_auftrag_id: string
           zeit_bis: string
           zeit_von: string

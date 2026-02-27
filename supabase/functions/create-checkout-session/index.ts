@@ -213,6 +213,8 @@ Deno.serve(async (req) => {
       customer: customerId,
       customer_email: !customerId ? userEmail : undefined,
       line_items,
+      billing_address_collection: 'required',
+      automatic_tax: { enabled: true },
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: {
