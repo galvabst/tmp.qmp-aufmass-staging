@@ -1,56 +1,55 @@
 
 
-# Fix: `customer_tax_location_invalid` — `customer_update` hinzufuegen
-
-## Analyse
-
-Der Fehler ist eindeutig: Stripe verlangt bei `automatic_tax: { enabled: true }` eine Adresse am Customer-Objekt. Da bestehende Kunden keine haben, muss `customer_update: { address: 'auto' }` gesetzt werden — aber **nur** wenn `customer` (nicht `customer_email`) uebergeben wird.
-
-## Validierung
-
-**User Flow:** User klickt "Bestellen" → `useStripeCheckout` ruft Edge Function → Edge Function erstellt Stripe Customer (falls neu) → erstellt Checkout Session → Redirect zu `checkout.stripe.com`.
-
-**Edge Cases geprueft:**
-
-1. **Neuer Kunde (kein `customerId`)**: `customer_email` wird verwendet, `customer_update` = `undefined` → Stripe erstellt neuen Customer mit Adresse aus Checkout. Korrekt.
-2. **Bestehender Kunde ohne Adresse**: `customer` wird gesetzt, `customer_update: { address: 'auto' }` → Stripe uebernimmt Adresse aus Checkout auf Customer. **Das ist der Fix.**
-3. **Bestehender Kunde mit Adresse**: `customer_update: { address: 'auto' }` ueberschreibt mit neuer Eingabe → Akzeptabel, User kann Adresse korrigieren.
-4. **Subscription-Modus**: `customer_update` funktioniert identisch fuer `mode: 'subscription'`. Kein Unterschied.
-5. **Multi-Item Checkout**: Kein Einfluss — `customer_update` ist session-level, nicht item-level.
-
-**RLS/IAM**: Nicht betroffen — die Aenderung ist rein Stripe-API-seitig, keine DB-Aenderung.
-
-**Keine Migration noetig**: Kein Schema-Change, keine Datenbereinigung fuer diesen Fix.
+# Info-Banner auf der Bestellseite
 
 ## Aenderung
 
-**Datei:** `supabase/functions/create-checkout-session/index.ts`
+**Datei:** `src/components/onboarding/steps/OrdersStep.tsx`
 
-Zeile 217, nach `automatic_tax`:
+Ein Info-Banner oberhalb der Produktkarten einfuegen (vor dem `<div className="bg-card rounded-2xl ...">`) — sowohl in der Oberteil-Ansicht als auch in der Standard-Produkt-Ansicht.
 
-```typescript
-// Zeilen 211-229 ersetzen mit:
-const session = await stripe.checkout.sessions.create({
-  mode,
-  customer: customerId,
-  customer_email: !customerId ? userEmail : undefined,
-  line_items,
-  billing_address_collection: 'required',
-  automatic_tax: { enabled: true },
-  customer_update: customerId ? { address: 'auto' } : undefined,
-  success_url: successUrl,
-  cancel_url: cancelUrl,
-  metadata: {
-    user_id: userId,
-    onboarding_id: onboarding.id,
-    produkt_keys: produktKeys.join(","),
-    produkt_key: produktKeys[0],
-    groesse: items[0].groesse || "",
-    menge: String(items[0].menge || 1),
-  },
-  locale: "de",
-});
+### Design
+
+Dezentes Info-Banner mit hellblauem/neutralem Hintergrund, abgerundete Ecken, Info-Icon (`Info` von lucide-react). Drei kurze Punkte:
+
+1. **Individualdruck** — Alle Kleidungsstuecke werden mit deinem Namen individuell bedruckt
+2. **Faire Preise** — Wir geben die Preise der Druckerei 1:1 an dich weiter, ohne Aufschlag
+3. **Steuerlich absetzbar** — Die Kosten koennten als Betriebsausgaben absetzbar sein — bitte sprich das mit deinem Steuerberater ab
+
+### Komponente
+
+Neue Komponente `PriceInfoBanner` direkt in `OrdersStep.tsx` (oder als separate kleine Datei). Wird nur bei Kleidungs-Produkten angezeigt (nicht bei Lizenzen wie Scanner/Google Workspace).
+
+### Platzierung
+
+- **Oberteil-Ansicht (Zeile ~197):** Direkt nach `<div className="space-y-6">`, vor den Auswahl-Buttons
+- **Standard-Produkt-Ansicht (Zeile ~436):** Direkt nach `<div className="space-y-6">`, vor der Produkt-Card — aber nur wenn `currentProduct` ein Kleidungsprodukt ist (`tshirt`, `poloshirt`, `pullover`, `schlappen`, `ausweiskarte`)
+- **Beides-Ansicht (Zeile ~349):** Nach dem "Auswahl aendern"-Button
+
+### Code-Skizze
+
+```tsx
+function PriceInfoBanner() {
+  return (
+    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
+      <div className="flex items-start gap-2.5">
+        <Info className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
+        <div className="space-y-1.5 text-sm text-blue-900">
+          <p><span className="font-medium">Individualdruck</span> — Jedes Stueck wird mit deinem Namen personalisiert</p>
+          <p><span className="font-medium">Faire Preise</span> — Druckereipreise 1:1 weitergegeben, ohne Aufschlag</p>
+          <p><span className="font-medium">Steuerlich absetzbar?</span> — Die Kosten koennten als Betriebsausgaben absetzbar sein. Sprich das bitte mit deinem Steuerberater ab.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 ```
 
-Einzige Aenderung: Eine Zeile hinzufuegen (`customer_update`). Danach Edge Function deployen.
+### Sichtbarkeit
+
+Nur bei Kleidungsprodukten anzeigen. Bei Lizenzen (scanner-lizenz, google-workspace) und Coaching nicht anzeigen — dort passt "Individualdruck" und "Druckereipreise" nicht.
+
+| Aktion | Datei |
+|---|---|
+| Aendern | `src/components/onboarding/steps/OrdersStep.tsx` |
 
