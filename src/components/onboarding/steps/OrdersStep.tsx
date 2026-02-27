@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingCart, Check, ArrowLeft, Loader2, Info, Palette, BadgeEuro, Receipt } from 'lucide-react';
+import { ShoppingCart, Check, ArrowLeft, Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingProduct, ClothingVariant, OberteilAuswahl } from '@/types/onboarding';
@@ -49,23 +49,14 @@ const OBERTEIL_VARIANTEN: ClothingVariant[] = [
 
 function PriceInfoBanner() {
   return (
-    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-      <div className="flex items-start gap-3">
-        <Info className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-        <div className="space-y-2 text-sm text-foreground">
-          <div className="flex items-start gap-2">
-            <Palette className="w-4 h-4 text-primary/60 mt-0.5 shrink-0" />
-            <p><span className="font-semibold">Individualdruck</span> — Jedes Stück wird mit deinem Namen personalisiert.</p>
-          </div>
-          <div className="flex items-start gap-2">
-            <BadgeEuro className="w-4 h-4 text-primary/60 mt-0.5 shrink-0" />
-            <p><span className="font-semibold">Faire Preise</span> — Druckereipreise werden 1:1 weitergegeben, ohne Aufschlag.</p>
-          </div>
-          <div className="flex items-start gap-2">
-            <Receipt className="w-4 h-4 text-primary/60 mt-0.5 shrink-0" />
-            <p><span className="font-semibold">Steuerlich absetzbar?</span> — Die Kosten könnten als Betriebsausgaben absetzbar sein. Sprich das bitte mit deinem Steuerberater ab.</p>
-          </div>
-        </div>
+    <div className="rounded-2xl bg-muted/50 px-5 py-4">
+      <div className="flex gap-3">
+        <Info className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Jedes Kleidungsstück wird <span className="text-foreground font-medium">individuell mit deinem Namen</span> bedruckt. 
+          Die Druckereipreise geben wir <span className="text-foreground font-medium">1:1 ohne Aufschlag</span> weiter. 
+          Die Kosten könnten als Betriebsausgaben absetzbar sein — sprich das mit deinem Steuerberater ab.
+        </p>
       </div>
     </div>
   );
