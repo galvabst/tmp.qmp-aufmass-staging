@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
       line_items,
       billing_address_collection: 'required',
     automatic_tax: { enabled: true },
-    customer_update: customerId ? { address: 'auto' } : undefined,
+    customer_update: customerId ? { address: 'auto', name: 'auto' } : undefined,
     success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: {
