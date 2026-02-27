@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingCart, Check, ArrowLeft, Loader2 } from 'lucide-react';
+import { ShoppingCart, Check, ArrowLeft, Loader2, Info, Palette, BadgeEuro, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingProduct, ClothingVariant, OberteilAuswahl } from '@/types/onboarding';
@@ -47,6 +47,30 @@ const OBERTEIL_VARIANTEN: ClothingVariant[] = [
   },
 ];
 
+function PriceInfoBanner() {
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+      <div className="flex items-start gap-3">
+        <Info className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+        <div className="space-y-2 text-sm text-foreground">
+          <div className="flex items-start gap-2">
+            <Palette className="w-4 h-4 text-primary/60 mt-0.5 shrink-0" />
+            <p><span className="font-semibold">Individualdruck</span> — Jedes Stück wird mit deinem Namen personalisiert.</p>
+          </div>
+          <div className="flex items-start gap-2">
+            <BadgeEuro className="w-4 h-4 text-primary/60 mt-0.5 shrink-0" />
+            <p><span className="font-semibold">Faire Preise</span> — Druckereipreise werden 1:1 weitergegeben, ohne Aufschlag.</p>
+          </div>
+          <div className="flex items-start gap-2">
+            <Receipt className="w-4 h-4 text-primary/60 mt-0.5 shrink-0" />
+            <p><span className="font-semibold">Steuerlich absetzbar?</span> — Die Kosten könnten als Betriebsausgaben absetzbar sein. Sprich das bitte mit deinem Steuerberater ab.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface OrdersStepProps {
   products: OnboardingProduct[];
   orderedProducts: string[];
@@ -90,6 +114,9 @@ export function OrdersStep({
       </div>
     );
   }
+
+  const KLEIDUNG_IDS = ['tshirt', 'poloshirt', 'pullover', 'schlappen', 'ausweiskarte', 'oberteil'];
+  const isKleidungsProdukt = (id: string) => KLEIDUNG_IDS.includes(id);
 
   // Sortiere Produkte nach Reihenfolge
   const sortedProducts = [...products].sort((a, b) => a.reihenfolge - b.reihenfolge);
@@ -195,6 +222,7 @@ export function OrdersStep({
 
     return (
       <div className="space-y-6">
+        <PriceInfoBanner />
         {/* Auswahl-Buttons */}
         {!oberteilAuswahl && (
           <>
@@ -434,6 +462,7 @@ export function OrdersStep({
   // Standard-Produkt-Ansicht
   return (
     <div className="space-y-6">
+      {isKleidungsProdukt(currentProduct.id) && <PriceInfoBanner />}
       {/* Einzelnes Produkt groß darstellen */}
       <div className="bg-card rounded-2xl p-6 shadow-card">
         {/* Produktbild - mit Slideshow falls mehrere Bilder oder Pullover */}
