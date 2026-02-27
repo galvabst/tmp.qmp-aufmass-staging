@@ -1,91 +1,63 @@
 
 
-# Analyse: Warum bleiben Bestellungen auf "pending"?
+# Plan: Stripe Checkout — Rechnungsadresse + MwSt-Ausweisung
 
-## Zwei Probleme gefunden
-
-### Problem 1: Webhook-Funktion ist nicht (oder veraltet) deployed
-
-**Beweis:**
-- **Alle** bezahlten Bestellungen haben `webhook_received_at = NULL` — das bedeutet, die aktuelle Webhook-Logik (die `webhook_received_at` setzt) wurde **nie** ausgefuehrt
-- Das Stripe-Event `evt_1T4oayLnjPqrEfxxzy5ErhxQ` (checkout.session.completed um 20:22:13) existiert **nicht** im `contractor_audit_log` — obwohl die aktuelle Codeversion immer einen Audit-Eintrag schreibt
-- Keine Edge-Function-Logs fuer `stripe-webhook` verfuegbar
-- Stripe zeigt 200 OK — also laeuft *irgendeine* Version, aber nicht die aktuelle aus dem Repository
-
-**Fazit:** Die `stripe-webhook`-Edge-Function muss **neu deployed** werden. Der Code im Repository ist korrekt, aber er laeuft nicht auf Supabase.
-
-### Problem 2: `erlaubt_mehrfach = true` erzeugt verwaiste Pending-Rows
-
-Das T-Shirt-Produkt hat `erlaubt_mehrfach = true`. Dadurch erstellt `create-checkout-session` bei **jedem** Checkout-Klick eine **neue** Zeile statt die vorherige zu aktualisieren:
-
-```text
-Klick 1 → Row A (session X, pending)
-User bricht ab
-Klick 2 → Row B (session Y, pending)  ← Row A bleibt pending!
-User bezahlt
-Webhook  → Row B → paid               ← Row A bleibt FUER IMMER pending
-```
-
-Ergebnis: 3 pending T-Shirt-Bestellungen fuer `onboarding_id = 0e72061a`, jede mit einer anderen `stripe_session_id`.
+## Problem
+1. Keine Rechnungsadresse wird abgefragt — Stripe-Rechnungen haben keine Kundenadresse
+2. Keine MwSt wird auf der Rechnung ausgewiesen — Stripe zeigt keinen Steuersatz
 
 ## Loesung
 
-### Schritt 1: Webhook neu deployen (kein Code-Aenderung noetig)
+### Schritt 1: `billing_address_collection` hinzufuegen
 
-Die `stripe-webhook`-Funktion muss einmalig deployed werden. Der Code ist bereits korrekt.
+**Datei:** `supabase/functions/create-checkout-session/index.ts` (Zeile 211)
 
-### Schritt 2: Code-Fix in `create-checkout-session` (verhindert verwaiste Rows)
+Beim `stripe.checkout.sessions.create()` den Parameter `billing_address_collection: 'required'` hinzufuegen. Damit muss der Kunde im Checkout seine Rechnungsadresse eingeben. Stripe speichert diese automatisch am Customer-Objekt.
+
+### Schritt 2: MwSt automatisch berechnen lassen
+
+Stripe bietet dafuer `automatic_tax: { enabled: true }`. Das setzt voraus:
+
+1. **Im Stripe Dashboard**: Tax-Einstellungen aktivieren unter *Settings > Tax*. Dort Herkunftsadresse (eure Firmenadresse) hinterlegen und den deutschen Steuersatz (19% MwSt) konfigurieren.
+2. **Bei den Produkten/Preisen in Stripe**: Die Preise muessen als `tax_behavior: 'inclusive'` (MwSt enthalten) oder `'exclusive'` (MwSt wird aufgeschlagen) markiert sein. Das muss im Stripe Dashboard bei jedem Preis gesetzt werden.
+3. **Im Code**: `automatic_tax: { enabled: true }` zur Session hinzufuegen.
+
+**Alternativ** (einfacher, kein Tax-Setup noetig): Einen festen `tax_rate` in Stripe anlegen (19% MwSt, inclusive) und diesen bei jedem `line_item` als `tax_rates` mitgeben. Das ist weniger flexibel, aber sofort einsetzbar ohne Dashboard-Konfiguration.
+
+### Code-Aenderung
 
 **Datei:** `supabase/functions/create-checkout-session/index.ts`
 
-Fuer `erlaubt_mehrfach`-Produkte: Vor dem INSERT einer neuen Zeile, die **letzte pending-Bestellung** desselben Produkts fuer denselben Onboarding-Nutzer suchen und **updaten** statt neu zu erstellen. Nur wenn keine pending-Bestellung existiert, wird eine neue Zeile eingefuegt.
-
 ```typescript
-// Zeilen 237-253: erlaubt_mehrfach-Block aendern
-if (produkt.erlaubt_mehrfach) {
-  // Erst pruefen, ob bereits eine pending-Bestellung existiert
-  const { data: existingMulti } = await supabaseAdmin
-    .schema("thermocheck")
-    .from("contractor_bestellungen")
-    .select("id")
-    .eq("onboarding_id", onboarding.id)
-    .eq("produkt_key", item.produkt_key)
-    .eq("stripe_payment_status", "pending")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existingMulti) {
-    // Update statt Insert
-    await supabaseAdmin
-      .schema("thermocheck")
-      .from("contractor_bestellungen")
-      .update({
-        stripe_session_id: session.id,
-        stripe_customer_id: customerId,
-        groesse: item.groesse || null,
-        menge,
-      })
-      .eq("id", existingMulti.id);
-  } else {
-    // Neue Zeile nur wenn keine pending existiert
-    await supabaseAdmin
-      .schema("thermocheck")
-      .from("contractor_bestellungen")
-      .insert({ /* ... bestehender Code ... */ });
-  }
-}
+// Zeile 211-228: Session-Erstellung erweitern
+const session = await stripe.checkout.sessions.create({
+  mode,
+  customer: customerId,
+  customer_email: !customerId ? userEmail : undefined,
+  line_items,
+  billing_address_collection: 'required',    // NEU
+  automatic_tax: { enabled: true },           // NEU — MwSt
+  success_url: successUrl,
+  cancel_url: cancelUrl,
+  metadata: { ... },
+  locale: "de",
+});
 ```
 
-### Schritt 3: Verwaiste Pending-Rows bereinigen
+### Voraussetzung im Stripe Dashboard
 
-Die bestehenden verwaisten Pending-Bestellungen, deren Stripe-Sessions bereits abgelaufen sind, sollten auf `failed` gesetzt werden. Das kann per SQL-Update erfolgen.
+Damit `automatic_tax` funktioniert, muss **einmalig** im Stripe Dashboard konfiguriert werden:
+
+1. **Settings > Tax > Tax registrations**: Deutsche USt-Registrierung hinzufuegen (USt-ID eintragen)
+2. **Settings > Tax > Origin address**: Eure Firmenadresse als Herkunftsadresse
+3. **Produkte/Preise**: Bei jedem Preis `tax_behavior` auf `inclusive` oder `exclusive` setzen
+
+Falls das zu aufwaendig ist, gibt es die manuelle Alternative mit festem Steuersatz — dann muss ich einen `tax_rate` im Code referenzieren.
 
 ## Dateien
 
 | Aktion | Datei |
 |---|---|
-| Deploy | `supabase/functions/stripe-webhook/index.ts` |
-| Aendern | `supabase/functions/create-checkout-session/index.ts` (erlaubt_mehrfach-Logik) |
-| Daten-Update | Verwaiste pending-Bestellungen auf `failed` setzen |
+| Aendern | `supabase/functions/create-checkout-session/index.ts` (2 Zeilen) |
+| Dashboard | Stripe Tax-Einstellungen konfigurieren (einmalig) |
 
