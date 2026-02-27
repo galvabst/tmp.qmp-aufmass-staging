@@ -214,9 +214,16 @@ Deno.serve(async (req) => {
       customer_email: !customerId ? userEmail : undefined,
       line_items,
       billing_address_collection: 'required',
-    automatic_tax: { enabled: true },
-    customer_update: customerId ? { address: 'auto', name: 'auto' } : undefined,
-    success_url: successUrl,
+      automatic_tax: { enabled: true },
+      customer_update: customerId ? { address: 'auto', name: 'auto' } : undefined,
+      custom_fields: [
+        {
+          key: 'rechnungsname',
+          label: { type: 'custom', custom: 'Vollständiger Name / Firma (für Rechnung)' },
+          type: 'text',
+        },
+      ],
+      success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: {
         user_id: userId,
