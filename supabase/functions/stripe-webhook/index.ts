@@ -157,6 +157,18 @@ Deno.serve(async (req) => {
 
         actionType = "checkout_completed";
 
+        // Sync custom_fields name to Stripe customer
+        try {
+          const customFields = (session as any).custom_fields;
+          const rechnungsname = customFields?.find((f: any) => f.key === 'rechnungsname')?.text?.value;
+          if (rechnungsname && session.customer) {
+            await stripe.customers.update(session.customer as string, { name: rechnungsname });
+            console.log(`[stripe-webhook] Updated customer name to: ${rechnungsname}`);
+          }
+        } catch (nameErr) {
+          console.error("[stripe-webhook] Error updating customer name:", nameErr);
+        }
+
         // Multi-order lookup
         let result = await findOrdersForSession(supabase, session);
 
