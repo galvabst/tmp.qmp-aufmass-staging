@@ -39,8 +39,9 @@ const Index = () => {
     errorMessage: dbErrorMessage,
     hasRecord: hasContractorRecord,
     onboardingRecord,
+    isFetched: isDbFetched,
     refetch: refetchOnboardingStatus,
-  } = useContractorOnboardingStatus();
+  } = useContractorOnboardingStatus(session?.user?.id);
   
   const isAdmin = useIsAdmin();
 
@@ -269,7 +270,7 @@ const Index = () => {
     return <AuthRequiredScreen />;
   }
   
-  if (isDbLoading || isAdmin === undefined) {
+  if (isDbLoading || isAdmin === undefined || !isDbFetched) {
     return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
   }
 

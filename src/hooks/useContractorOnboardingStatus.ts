@@ -35,6 +35,8 @@ interface UseContractorOnboardingStatusResult {
   onboardingRecord: ContractorOnboardingRecord | null;
   /** Whether a contractor_onboarding record exists for this user */
   hasRecord: boolean;
+  /** Whether the query has completed at least once */
+  isFetched: boolean;
   /** Refetch function */
   refetch: () => void;
 }
@@ -51,17 +53,11 @@ interface UseContractorOnboardingStatusResult {
  * 2. onboarding_substatus = 'einsatzbereit' (via onboarding_status = 'ready')
  * 3. trainer_freigabe = true
  */
-export function useContractorOnboardingStatus(): UseContractorOnboardingStatusResult {
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['contractor-onboarding-status'],
+export function useContractorOnboardingStatus(userId?: string | null): UseContractorOnboardingStatusResult {
+  const { data, isLoading, error, refetch, isFetched } = useQuery({
+    queryKey: ['contractor-onboarding-status', userId],
+    enabled: !!userId,
     queryFn: async (): Promise<{ record: ContractorOnboardingRecord | null; errorMessage: string | null }> => {
-      // First check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        console.log('[ContractorOnboardingStatus] No authenticated user');
-        return { record: null, errorMessage: null };
-      }
-
       // Call the public wrapper RPC function using Supabase client
       // This is cleaner than manual fetch and handles auth automatically
       const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_contractor_onboarding');
@@ -87,7 +83,7 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
 
       // Check for empty result (legitimate "no record" case)
       if (!rpcData || (Array.isArray(rpcData) && rpcData.length === 0)) {
-        console.log('[ContractorOnboardingStatus] No contractor_onboarding record found for user:', session.user.id);
+        console.log('[ContractorOnboardingStatus] No contractor_onboarding record found for user:', userId);
         return { record: null, errorMessage: null };
       }
 
@@ -154,6 +150,7 @@ export function useContractorOnboardingStatus(): UseContractorOnboardingStatusRe
     errorMessage,
     onboardingRecord,
     hasRecord: !!onboardingRecord,
+    isFetched,
     refetch,
   };
 }

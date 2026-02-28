@@ -9981,6 +9981,16 @@ export type Database = {
           thc_count: number
         }[]
       }
+      get_lead_pipeline_stats: {
+        Args: { p_mitarbeiter_id?: string }
+        Returns: {
+          cnt: number
+          gewonnen_final_count: number
+          status_field: string
+          status_value: string
+          total_leads: number
+        }[]
+      }
       get_lead_stats_aggregated: {
         Args: { p_mitarbeiter_id?: string }
         Returns: {
