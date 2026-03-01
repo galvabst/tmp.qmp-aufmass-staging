@@ -92,28 +92,34 @@ export function PhotoUploadField({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingBilder]);
 
-  const handleFileUpload = useCallback(async (files: FileList | null) => {
-    if (!files || !votFormularId) return;
+  const handleFileUpload = useCallback(async (files: File[]) => {
+    if (files.length === 0 || !votFormularId) return;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+    let uploadedCount = 0;
+    for (const file of files) {
       if (!file.type.startsWith('image/')) {
         toast.error(`${file.name} ist kein Bild`);
         continue;
       }
 
-      const compressed = await compressImage(file);
-      const nextIndex = existingBilder.length + i + 1;
+      try {
+        const compressed = await compressImage(file);
+        const nextIndex = existingBilder.length + uploadedCount + 1;
 
-      await uploadMutation.mutateAsync({
-        file: compressed,
-        votFormularId,
-        kategorie,
-        leadName,
-        leadId,
-        auftragId,
-        reihenfolge: nextIndex,
-      });
+        await uploadMutation.mutateAsync({
+          file: compressed,
+          votFormularId,
+          kategorie,
+          leadName,
+          leadId,
+          auftragId,
+          reihenfolge: nextIndex,
+        });
+        uploadedCount++;
+      } catch (err) {
+        console.error(`Upload fehlgeschlagen für ${file.name}:`, err);
+        // toast already shown by mutation onError – continue with remaining files
+      }
     }
   }, [votFormularId, existingBilder.length, kategorie, leadName, leadId, auftragId, uploadMutation]);
 
@@ -122,9 +128,10 @@ export function PhotoUploadField({
   }, [deleteMutation]);
 
   const handleInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    void handleFileUpload(event.target.files);
-    // Reset so same file can be re-selected
-    event.target.value = '';
+    // Copy FileList to stable array BEFORE resetting the input
+    const fileArray = Array.from(event.target.files ?? []);
+    event.target.value = ''; // Reset so same file can be re-selected
+    void handleFileUpload(fileArray);
   }, [handleFileUpload]);
 
   const isUploading = uploadMutation.isPending;
