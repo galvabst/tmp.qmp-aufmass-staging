@@ -489,7 +489,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       return null;
     }
     
-    if (isDbReady) {
+    // Trainer brauchen keine Freigabe – sie SIND die Trainer
+    if (isDbReady || dbStatus?.isTrainer) {
       return <OnboardingComplete onContinue={onComplete} />;
     }
     
