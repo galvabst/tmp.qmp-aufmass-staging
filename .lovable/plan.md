@@ -1,35 +1,38 @@
 
+## Fix-Plan: Mehrfach-Upload aus Galerie lädt nur 1 Bild
 
-# Fix: Foto-Vorschau zeigt immer dasselbe Bild
+### Befund
+Ich habe den Upload-Flow geprüft. In `PhotoUploadField.tsx` wird im `onChange` sofort `event.target.value = ''` gesetzt, **bevor** der asynchrone Mehrfach-Upload fertig ist.  
+Da `event.target.files` (FileList) an das Input gebunden ist, kann sie dadurch während der Schleife geleert werden – dann bleibt effektiv nur das erste Bild übrig.
 
-## Root Cause
+Zusätzlich: Dein Screenshot ist von der **Published URL**. Die aktuell im Code vorhandenen letzten Fixes (Timestamp-Pfad) sind dort vermutlich noch nicht live.
 
-Zwei zusammenwirkende Probleme:
+### Umsetzung (Datei)
+`src/features/aufmass/ui/components/PhotoUploadField.tsx`
 
-### 1. Storage-Pfad-Kollision (Hauptursache)
-`buildImageStoragePath` erzeugt deterministische Pfade: `{kategorie}_{001}.jpg`, `{kategorie}_{002}.jpg` etc. Der Upload nutzt `upsert: true`. Wenn ein Bild gelöscht und ein neues hochgeladen wird, kann der neue Index mit einem existierenden Pfad kollidieren und die Datei im Storage überschreiben. Beide Metadaten-Einträge zeigen dann auf dieselbe physische Datei.
+1. **FileList sofort in ein stabiles Array kopieren**
+   - `const files = Array.from(event.target.files ?? [])`
+   - Dann `event.target.value = ''`
+   - Danach Upload mit dem Array starten (nicht mit live `FileList`)
 
-### 2. Thumbnail-State wird komplett ersetzt
-`setThumbnails(urls)` in der `useEffect` ersetzt bei jedem Lauf den gesamten State statt zu mergen. Bei schnellen Uploads (Effect feuert mehrfach parallel) kann ein älterer Lauf einen neueren überschreiben.
+2. **Upload-Handler auf `File[]` umstellen**
+   - Signatur von `FileList | null` auf `File[]`
+   - Schleife läuft stabil über alle ausgewählten Bilder
 
-## Lösung
+3. **Robuste Reihenfolge-Zählung im Batch**
+   - `baseIndex = existingBilder.length`
+   - Nur bei tatsächlich hochgeladenen Bildern hochzählen (kein Fehlsprung bei ungültigen Dateien)
 
-### A) Eindeutige Storage-Pfade (`storage-path.ts`)
-Einen kurzen Timestamp-Suffix an den Dateinamen hängen, um Kollisionen zu verhindern:
-```
-{kategorie}_{index}_{timestamp}.{ext}
-```
-So überschreibt `upsert: true` keine fremden Dateien mehr.
+4. **Fehler pro Datei abfangen, Batch nicht komplett abbrechen**
+   - Wenn ein Bild fehlschlägt: Toast + weiter mit den restlichen Bildern
 
-### B) Thumbnails mergen statt ersetzen (`PhotoUploadField.tsx`)
-- `setThumbnails(prev => ({ ...prev, ...urls }))` statt komplettem Replace
-- Abbruch-Flag für veraltete Effect-Runs (stale closure protection)
-- Nur fehlende URLs nachladen statt alle bei jedem Render
+### Technische Details (kurz & klar)
+- **Root Cause:** Live-`FileList` wird durch sofortiges Reset des Inputs während async Upload unzuverlässig.
+- **Kein DB-Migrationsbedarf:** Problem liegt im Frontend Event-/State-Handling.
+- **Betroffene Komponente:** nur `PhotoUploadField`; keine anderen Upload-Komponenten mit gleichem Muster gefunden.
 
-## Dateien
-
-| Datei | Änderung |
-|---|---|
-| `storage-path.ts` | Timestamp in `buildImageStoragePath` |
-| `PhotoUploadField.tsx` | Thumbnail-Laden mit Merge + Stale-Protection |
-
+### Validierung nach Fix
+1. Auf mobil und desktop je 3–5 Bilder über **Datei** auswählen.
+2. Prüfen: Anzahl Thumbnails = Anzahl ausgewählter Bilder.
+3. In DB prüfen: entsprechende Anzahl neuer `thermocheck_vot_bilder`-Zeilen.
+4. Falls Test auf Published erfolgen soll: nach Merge/Deploy einmal **publizieren**, sonst testest du weiter den alten Stand.
