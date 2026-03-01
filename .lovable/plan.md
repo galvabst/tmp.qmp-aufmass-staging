@@ -1,36 +1,35 @@
 
 
-# Fix: Native Date-Inputs durch Shadcn DatePicker ersetzen
+# Fix: Foto-Vorschau zeigt immer dasselbe Bild
 
-## Problem
+## Root Cause
 
-Die nativen `<input type="date">` Felder zeigen auf mobilen Geräten und in manchen Browsern einen Year-Scroller, der bei historischen Daten (Bauantrag 1950er, Heizungs-Inbetriebnahme 1990er) extrem umständlich zu bedienen ist. Man muss ewig scrollen.
+Zwei zusammenwirkende Probleme:
+
+### 1. Storage-Pfad-Kollision (Hauptursache)
+`buildImageStoragePath` erzeugt deterministische Pfade: `{kategorie}_{001}.jpg`, `{kategorie}_{002}.jpg` etc. Der Upload nutzt `upsert: true`. Wenn ein Bild gelöscht und ein neues hochgeladen wird, kann der neue Index mit einem existierenden Pfad kollidieren und die Datei im Storage überschreiben. Beide Metadaten-Einträge zeigen dann auf dieselbe physische Datei.
+
+### 2. Thumbnail-State wird komplett ersetzt
+`setThumbnails(urls)` in der `useEffect` ersetzt bei jedem Lauf den gesamten State statt zu mergen. Bei schnellen Uploads (Effect feuert mehrfach parallel) kann ein älterer Lauf einen neueren überschreiben.
 
 ## Lösung
 
-Alle 3 `type="date"` Inputs im Aufmaß-Formular durch Shadcn Popover + Calendar ersetzen. Die Calendar-Komponente bekommt eine Jahres-/Monats-Dropdown-Navigation, damit man direkt z.B. "1985" auswählen kann statt jahrelang zu scrollen.
+### A) Eindeutige Storage-Pfade (`storage-path.ts`)
+Einen kurzen Timestamp-Suffix an den Dateinamen hängen, um Kollisionen zu verhindern:
+```
+{kategorie}_{index}_{timestamp}.{ext}
+```
+So überschreibt `upsert: true` keine fremden Dateien mehr.
 
-### Betroffene Dateien
+### B) Thumbnails mergen statt ersetzen (`PhotoUploadField.tsx`)
+- `setThumbnails(prev => ({ ...prev, ...urls }))` statt komplettem Replace
+- Abbruch-Flag für veraltete Effect-Runs (stale closure protection)
+- Nur fehlende URLs nachladen statt alle bei jedem Render
 
-| Datei | Felder |
+## Dateien
+
+| Datei | Änderung |
 |---|---|
-| `KundendatenSection.tsx` | `heizung_inbetriebnahme_datum`, `bauantrag_datum` |
-| `TechnikerDatenSection.tsx` | `thermocheck_datum` |
-
-### Umsetzung
-
-1. **Neue Komponente `AufmassDatePicker.tsx`** erstellen — wiederverwendbar für alle 3 Felder:
-   - Shadcn Popover + Calendar
-   - Dropdown-Selects für Jahr (1900-2026) und Monat oben im Calendar
-   - Wert wird als `YYYY-MM-DD` String gespeichert (kompatibel mit bestehendem Schema)
-   - Props: `value`, `onChange`, `disabled`, `placeholder`
-
-2. **KundendatenSection** und **TechnikerDatenSection** aktualisieren — `<Input type="date">` durch `<AufmassDatePicker>` ersetzen, mit `form.watch()` / `form.setValue()` statt `register()`.
-
-### Verhalten
-
-- Klick öffnet Popover mit Kalender
-- Oben: Jahr-Select (1900-2026) + Monat-Select — direktes Springen
-- Kalender zeigt Tage des gewählten Monats
-- Auswahl schließt Popover und setzt den Wert
+| `storage-path.ts` | Timestamp in `buildImageStoragePath` |
+| `PhotoUploadField.tsx` | Thumbnail-Laden mit Merge + Stale-Protection |
 
