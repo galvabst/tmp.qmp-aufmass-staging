@@ -10322,6 +10322,10 @@ export type Database = {
           zeit_von: string
         }[]
       }
+      get_thermocheck_vot_data: {
+        Args: { p_auftrag_id: string }
+        Returns: Json
+      }
       get_user_accessible_apps: {
         Args: { _user_id?: string }
         Returns: {
