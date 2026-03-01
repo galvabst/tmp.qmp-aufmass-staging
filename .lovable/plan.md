@@ -1,52 +1,75 @@
 
 
-# Fix: Flash of "Kein Contractor-Zugang" Screen
+# Fix: Trainer `is_trainer` wird nicht gesetzt (Race Condition + fehlender UPDATE-Trigger)
 
-## Root Cause
+## Root Cause (verifiziert via DB-Abfrage)
 
-In `useContractorOnboardingStatus`, the query runs immediately and calls `getSession()` inside the queryFn. On login, the query can fire before the auth state change propagates, returning "no authenticated user" → `hasContractorRecord = false`. This causes `Index.tsx` to briefly show `NoContractorAccessScreen` before the query re-fetches with the valid session.
+Mark Röder (`7db5fbb8`): Rolle zugewiesen um `15:25:35.274`, Onboarding-Record erstellt um `15:25:35.327` — **53ms später**. Der bestehende Trigger `trg_sync_is_trainer` auf `iam.user_app_roles` feuert ein `UPDATE` auf ein Record, das noch nicht existiert → 0 Zeilen betroffen → `is_trainer` bleibt `false`.
 
-## Fix
+Zusätzlich: Der bestehende Trigger reagiert nur auf `INSERT` und `DELETE`, nicht auf `UPDATE`. Rollenwechsel werden nicht erfasst.
 
-**File: `src/hooks/useContractorOnboardingStatus.ts`**
+## Fix: 2 Trigger-Änderungen
 
-Pass the session from `useSupabaseSession()` and use `enabled: !!session` so the query only runs when a session exists. Remove the internal `getSession()` call.
+### 1. BEFORE INSERT Trigger auf `contractor_onboarding`
+Beim Erstellen des Onboarding-Records wird geprüft, ob der User bereits die `aufmass_trainer`-Rolle hat. Falls ja → `is_trainer := true` direkt im `NEW` Record setzen.
 
-**File: `src/pages/Index.tsx`**
+```sql
+CREATE OR REPLACE FUNCTION thermocheck.sync_is_trainer_on_onboarding_insert()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM iam.user_app_roles uar
+    JOIN iam.app_roles ar ON ar.id = uar.app_role_id
+    WHERE uar.user_id = NEW.profile_id AND ar.role_code = 'aufmass_trainer'
+  ) THEN
+    NEW.is_trainer := true;
+  END IF;
+  RETURN NEW;
+END; $$;
 
-Pass session to the hook (or the hook reads it internally). Add a guard: if `isAdmin` is resolved but the contractor query is still in its initial state (hasn't fetched yet), keep showing the loading screen.
-
-### Concrete changes
-
-1. **`useContractorOnboardingStatus.ts`**: Add `userId` parameter, use `enabled: !!userId`, use `userId` in queryKey. Remove internal `getSession()` call — use the passed userId directly.
-
-2. **`Index.tsx`**: Pass `session?.user?.id` to the hook. The existing guard `isDbLoading || isAdmin === undefined` already covers loading, but because `useQuery` with `enabled: false` has `isLoading: false` and `data: undefined`, we need to also check `!session || isDbLoading` to prevent the flash.
-
-Specifically in Index.tsx, change the guard:
-```tsx
-// Before
-if (isDbLoading || isAdmin === undefined) {
-  return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
-}
-
-// After — also gate on "query hasn't run yet"
-const isStillInitializing = isDbLoading || isAdmin === undefined || (session && !onboardingRecord && !isDbError && !hasRecord);
-// hasRecord is false when query hasn't returned OR genuinely no record.
-// We need a more reliable signal: use fetchStatus from react-query
+CREATE TRIGGER trg_sync_is_trainer_on_insert
+  BEFORE INSERT ON thermocheck.contractor_onboarding
+  FOR EACH ROW EXECUTE FUNCTION thermocheck.sync_is_trainer_on_onboarding_insert();
 ```
 
-Better approach: expose `isFetched` from the hook (react-query provides this). Then:
+### 2. Bestehenden IAM-Trigger erweitern (INSERT+UPDATE+DELETE)
 
-```tsx
-if (isDbLoading || isAdmin === undefined || !isDbFetched) {
-  return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
-}
+```sql
+-- Drop + Recreate mit UPDATE-Support
+DROP TRIGGER IF EXISTS trg_sync_is_trainer ON iam.user_app_roles;
+
+CREATE OR REPLACE FUNCTION thermocheck.sync_is_trainer_from_iam()
+-- ... erweitert um TG_OP = 'UPDATE' Handling
+-- Bei UPDATE: altes role_code prüfen (false setzen), neues role_code prüfen (true setzen)
+
+CREATE TRIGGER trg_sync_is_trainer
+  AFTER INSERT OR UPDATE OR DELETE ON iam.user_app_roles
+  FOR EACH ROW EXECUTE FUNCTION thermocheck.sync_is_trainer_from_iam();
 ```
 
-### Changes summary
+### 3. Backfill: Bestehende Inkonsistenzen korrigieren
 
-| File | Change |
+```sql
+UPDATE thermocheck.contractor_onboarding co
+SET is_trainer = true
+FROM iam.user_app_roles uar
+JOIN iam.app_roles ar ON ar.id = uar.app_role_id
+WHERE ar.role_code = 'aufmass_trainer'
+  AND uar.user_id = co.profile_id
+  AND co.is_trainer = false;
+```
+
+Dies betrifft aktuell Mark Röder (`7db5fbb8`), der `is_trainer = false` hat obwohl die Rolle zugewiesen ist.
+
+## Keine Frontend-Änderungen nötig
+
+Die Frontend-Logik ist korrekt — das Problem liegt ausschließlich in der Datenbank-Trigger-Reihenfolge.
+
+## Änderungen
+
+| Was | Datei/Ort |
 |---|---|
-| `src/hooks/useContractorOnboardingStatus.ts` | Add `enabled: !!userId` param, expose `isFetched`, remove internal `getSession()` |
-| `src/pages/Index.tsx` | Pass `session?.user?.id`, use `isFetched` in loading guard |
+| Neuer BEFORE INSERT Trigger | Migration (DB) |
+| Bestehenden IAM-Trigger erweitern | Migration (DB) |
+| Backfill falsche Records | Migration (DB) |
 
