@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { PhotoUploadField } from '../components/PhotoUploadField';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
+import { AufmassDatePicker } from '../components/AufmassDatePicker';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -16,7 +17,7 @@ interface Props {
 }
 
 export function TechnikerDatenSection({ form, bilder, votFormularId, leadName, leadId, auftragId, disabled }: Props) {
-  const { register, formState: { errors } } = form;
+  const { register, watch, setValue, formState: { errors } } = form;
 
   return (
     <div className="space-y-6">
@@ -53,8 +54,13 @@ export function TechnikerDatenSection({ form, bilder, votFormularId, leadName, l
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="thermocheck_datum">Datum ThermoCheck *</Label>
-          <Input id="thermocheck_datum" type="date" {...register('thermocheck_datum')} disabled={disabled} />
+          <Label>Datum ThermoCheck *</Label>
+          <AufmassDatePicker
+            value={watch('thermocheck_datum') || ''}
+            onChange={(v) => setValue('thermocheck_datum', v)}
+            disabled={disabled}
+            placeholder="Datum wählen"
+          />
           {errors.thermocheck_datum && <p className="text-xs text-destructive">{errors.thermocheck_datum.message}</p>}
         </div>
       </div>

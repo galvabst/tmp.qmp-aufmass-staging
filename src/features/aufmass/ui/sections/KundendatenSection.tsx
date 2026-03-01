@@ -1,7 +1,8 @@
 import { UseFormReturn } from 'react-hook-form';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AufmassDraftData } from '../../data/aufmass-schema';
+import { AufmassDatePicker } from '../components/AufmassDatePicker';
+import { Input } from '@/components/ui/input';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -21,8 +22,13 @@ export function KundendatenSection({ form, kundenName, disabled }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="heizung_inbetriebnahme_datum">Inbetriebnahme Datum der bestehenden Heizung *</Label>
-        <Input id="heizung_inbetriebnahme_datum" type="date" {...register('heizung_inbetriebnahme_datum')} disabled={disabled} />
+        <Label>Inbetriebnahme Datum der bestehenden Heizung *</Label>
+        <AufmassDatePicker
+          value={watch('heizung_inbetriebnahme_datum') || ''}
+          onChange={(v) => setValue('heizung_inbetriebnahme_datum', v)}
+          disabled={disabled}
+          placeholder="Datum wählen"
+        />
         {errors.heizung_inbetriebnahme_datum && <p className="text-xs text-destructive">{errors.heizung_inbetriebnahme_datum.message}</p>}
       </div>
 
@@ -48,8 +54,13 @@ export function KundendatenSection({ form, kundenName, disabled }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="bauantrag_datum">Datum des Bauantrags des Gebäudes *</Label>
-        <Input id="bauantrag_datum" type="date" {...register('bauantrag_datum')} disabled={disabled} />
+        <Label>Datum des Bauantrags des Gebäudes *</Label>
+        <AufmassDatePicker
+          value={watch('bauantrag_datum') || ''}
+          onChange={(v) => setValue('bauantrag_datum', v)}
+          disabled={disabled}
+          placeholder="Datum wählen"
+        />
         {errors.bauantrag_datum && <p className="text-xs text-destructive">{errors.bauantrag_datum.message}</p>}
       </div>
 
