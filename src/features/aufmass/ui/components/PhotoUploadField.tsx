@@ -73,17 +73,23 @@ export function PhotoUploadField({
   const fileInputId = `file-${reactId}`;
   const cameraInputId = `camera-${reactId}`;
 
-  // Load signed URLs for thumbnails
+  // Load signed URLs for thumbnails — merge incrementally, skip already-loaded
   useEffect(() => {
+    let stale = false;
     const loadUrls = async () => {
-      const urls: Record<string, string> = {};
-      for (const bild of existingBilder) {
+      const missing = existingBilder.filter(b => !thumbnails[b.id]);
+      if (missing.length === 0) return;
+      const newUrls: Record<string, string> = {};
+      for (const bild of missing) {
+        if (stale) return;
         const url = await getSignedImageUrl(bild.storage_path);
-        if (url) urls[bild.id] = url;
+        if (url) newUrls[bild.id] = url;
       }
-      setThumbnails(urls);
+      if (!stale) setThumbnails(prev => ({ ...prev, ...newUrls }));
     };
     if (existingBilder.length > 0) loadUrls();
+    return () => { stale = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingBilder]);
 
   const handleFileUpload = useCallback(async (files: FileList | null) => {

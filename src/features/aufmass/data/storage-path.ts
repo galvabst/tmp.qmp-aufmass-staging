@@ -45,7 +45,8 @@ export function buildImageStoragePath(
 ): string {
   const base = buildAuftragStoragePath(leadName, leadId, auftragId);
   const paddedIndex = String(index).padStart(3, '0');
-  return `${base}/${kategorie}_${paddedIndex}.${extension}`;
+  const timestamp = Date.now();
+  return `${base}/${kategorie}_${paddedIndex}_${timestamp}.${extension}`;
 }
 
 export const STORAGE_BUCKET = 'galvanek_bau';
