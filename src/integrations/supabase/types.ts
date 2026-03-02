@@ -10485,6 +10485,7 @@ export type Database = {
       }
       is_admin: { Args: { user_id?: string }; Returns: boolean }
       is_closer: { Args: { _user_id?: string }; Returns: boolean }
+      is_innendienst: { Args: { p_user_id?: string }; Returns: boolean }
       is_month_locked: {
         Args: { p_month: number; p_year: number }
         Returns: boolean

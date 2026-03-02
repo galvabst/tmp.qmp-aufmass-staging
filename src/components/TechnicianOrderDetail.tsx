@@ -1,4 +1,5 @@
 import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList, CheckCircle2, AlertCircle, Loader2, Copy, Check } from 'lucide-react';
+import { AuftragChatSection } from '@/features/chat/ui/AuftragChatSection';
 import { TechnicianOrder, CheckinPhase, CHECKIN_PHASE_LABELS } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
@@ -209,7 +210,7 @@ Mit freundlichen Grüßen`;
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-40">
       {/* Header */}
       <header className="bg-primary text-primary-foreground safe-area-top sticky top-0 z-10">
         <div className="p-4 flex items-center gap-3">
@@ -544,6 +545,11 @@ Mit freundlichen Grüßen`;
             </a>
           )}
         </div>
+
+        {/* Auftragschat – nur bei zugewiesenen Aufträgen */}
+        {order.auftragId && !isPoolOrder && (
+          <AuftragChatSection auftragId={order.auftragId} />
+        )}
 
         {/* Description */}
         {order.description && (
