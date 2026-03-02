@@ -229,10 +229,23 @@ Mit freundlichen Grüßen`;
       <div className="p-4 space-y-4">
         {/* Customer & Type */}
         <div className="bg-card rounded-xl p-4 shadow-card">
-          <Badge variant="secondary" className="mb-2">
-            {AUFTRAGSTYP_LABELS[order.auftragstyp]}
-          </Badge>
-          <h2 className="text-xl font-bold text-foreground">{order.customerName}</h2>
+          <div className="flex items-start justify-between">
+            <div>
+              <Badge variant="secondary" className="mb-2">
+                {AUFTRAGSTYP_LABELS[order.auftragstyp]}
+              </Badge>
+              <h2 className="text-xl font-bold text-foreground">{order.customerName}</h2>
+            </div>
+            {order.billableAmount != null && (
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Vergütung</p>
+                <p className="text-lg font-bold text-foreground flex items-center gap-1">
+                  <Euro className="w-4 h-4" />
+                  {order.billableAmount.toFixed(2)}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ===== Aufgaben-Card with Accordion – only for booked orders ===== */}
