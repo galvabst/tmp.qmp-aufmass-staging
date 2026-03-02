@@ -51,8 +51,9 @@ async function getAuthHeaders() {
 
 /** Derive frontend status from DB timestamps + pipeline_status */
 function deriveStatus(auftrag: AuftragRow): 'booked' | 'in_progress' | 'submitted' {
-  // Submitted: eingereicht_am set OR pipeline moved past wc1_durchfuehren
-  if (auftrag.eingereicht_am || auftrag.pipeline_status === 'vot_formular_abfragen') {
+  // Submitted: eingereicht_am set OR pipeline already past the VOT work phase
+  const submittedStages = ['vot_auswertung_ag', 'ergebnis_abwarten', 'ergebnis_ausstehend', 'gewonnen', 'angebotstermin_abfragen'];
+  if (auftrag.eingereicht_am || (auftrag.pipeline_status && submittedStages.includes(auftrag.pipeline_status))) {
     return 'submitted';
   }
   // In progress: vor_ort_checkin started but not yet submitted

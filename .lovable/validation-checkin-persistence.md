@@ -11,11 +11,11 @@
 
 ### RPC-Logik
 - **Ownership-Check**: `zugewiesener_techniker_id = contractor_onboarding.id` (aufgelöst via `auth.uid()`)
-- **Pipeline-Status-Check**: Nur bei `wc1_durchfuehren` erlaubt
+- **Pipeline-Status-Check**: Nur bei `vot_formular_abfragen` oder `vot_formular_in_verzug` erlaubt
 - **Idempotent**: Bereits gesetzte Timestamps → success ohne Update
 - **Phase-Reihenfolge**: Nachbearbeitung nur nach Vor-Ort-Checkout
 - **Row-Lock**: `FOR UPDATE` verhindert Race Conditions
-- **Nachbearbeitung-Checkout**: Setzt `pipeline_status = 'vot_formular_abfragen'`
+- **Nachbearbeitung-Checkout**: Setzt `pipeline_status = 'vot_auswertung_ag'`
 
 ### Frontend
 - `useMyAssignedOrders.ts`: Status-Ableitung aus Zeitstempeln statt lokaler State
