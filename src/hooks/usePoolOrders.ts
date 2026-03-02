@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TechnicianOrder } from "@/types/technician";
+import { useMyThermocheckGrundpreis } from "@/hooks/useContractorGrundpreise";
 
 const SUPABASE_URL = "https://keplsvhudmfaagixttql.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlcGxzdmh1ZG1mYWFnaXh0dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0OTQ4MzIsImV4cCI6MjA3MjA3MDgzMn0.pfrd37wSwqnofDinrv60YOtCqnYTc9BXq08m_TSVTNY";
@@ -41,6 +42,8 @@ async function getAuthHeaders() {
 }
 
 export function usePoolOrders() {
+  const { data: thermocheckPreis } = useMyThermocheckGrundpreis();
+
   return useQuery({
     queryKey: ["pool-orders"],
     queryFn: async (): Promise<TechnicianOrder[]> => {
@@ -106,6 +109,7 @@ export function usePoolOrders() {
           createdAt: termin.created_at,
           contactPhone: auftrag?.kunde_telefon || undefined,
           contactEmail: auftrag?.kunde_email || undefined,
+          billableAmount: thermocheckPreis ?? undefined,
         };
       });
 

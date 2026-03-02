@@ -36,6 +36,7 @@ interface AuftragRow {
   nachbearbeitung_checkout_at: string | null;
   eingereicht_am: string | null;
   eingereicht_von: string | null;
+  vereinbarter_preis: number | null;
 }
 
 async function getAuthHeaders() {
@@ -107,7 +108,7 @@ export function useMyAssignedOrders() {
 
       // Step 2: Fetch auftraege assigned to contractor_onboarding.id (including check-in timestamps)
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis`,
         { headers }
       );
 
@@ -175,6 +176,7 @@ export function useMyAssignedOrders() {
           nachbearbeitungCheckinAt: auftrag?.nachbearbeitung_checkin_at || undefined,
           nachbearbeitungCheckoutAt: auftrag?.nachbearbeitung_checkout_at || undefined,
           submittedAt: auftrag?.eingereicht_am || undefined,
+          billableAmount: auftrag?.vereinbarter_preis ?? undefined,
         };
       });
 
