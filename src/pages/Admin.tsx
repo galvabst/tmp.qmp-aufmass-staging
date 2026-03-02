@@ -5,6 +5,7 @@ import { ObjectOrderListView } from '@/features/object-orders/ui/ObjectOrderList
 import { BookingListView } from '@/features/bookings/ui/BookingListView';
 import { CheckinListView } from '@/features/checkins/ui/CheckinListView';
 import { QGQueueView } from '@/features/quality-gate/ui/QGQueueView';
+import { AkademieAdminView } from '@/features/admin/ui/akademie/AkademieAdminView';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<AdminTab>('contractors');
@@ -22,6 +23,7 @@ export default function Admin() {
       {activeTab === 'bookings' && <BookingListView />}
       {activeTab === 'checkins' && <CheckinListView />}
       {activeTab === 'quality-gate' && <QGQueueView />}
+      {activeTab === 'akademie' && <AkademieAdminView />}
 
       <AdminBottomNav 
         activeTab={activeTab}
