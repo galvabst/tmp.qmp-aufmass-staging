@@ -29,6 +29,13 @@ interface AuftragRow {
   zugewiesener_techniker_id: string | null;
   buchung_bestaetigt_am: string | null;
   vortag_bestaetigt_am: string | null;
+  // Check-in/out timestamps
+  vor_ort_checkin_at: string | null;
+  vor_ort_checkout_at: string | null;
+  nachbearbeitung_checkin_at: string | null;
+  nachbearbeitung_checkout_at: string | null;
+  eingereicht_am: string | null;
+  eingereicht_von: string | null;
 }
 
 async function getAuthHeaders() {
@@ -40,6 +47,32 @@ async function getAuthHeaders() {
     "Accept-Profile": "thermocheck",
     "Content-Type": "application/json",
   };
+}
+
+/** Derive frontend status from DB timestamps + pipeline_status */
+function deriveStatus(auftrag: AuftragRow): 'booked' | 'in_progress' | 'submitted' {
+  // Submitted: eingereicht_am set OR pipeline moved past wc1_durchfuehren
+  if (auftrag.eingereicht_am || auftrag.pipeline_status === 'vot_formular_abfragen') {
+    return 'submitted';
+  }
+  // In progress: vor_ort_checkin started but not yet submitted
+  if (auftrag.vor_ort_checkin_at) {
+    return 'in_progress';
+  }
+  return 'booked';
+}
+
+/** Derive current checkin phase from timestamps */
+function deriveCheckinPhase(auftrag: AuftragRow): 'vor_ort' | 'nachbearbeitung' | undefined {
+  // Active nachbearbeitung: checked in but not checked out
+  if (auftrag.nachbearbeitung_checkin_at && !auftrag.nachbearbeitung_checkout_at) {
+    return 'nachbearbeitung';
+  }
+  // Active vor_ort: checked in but not checked out
+  if (auftrag.vor_ort_checkin_at && !auftrag.vor_ort_checkout_at) {
+    return 'vor_ort';
+  }
+  return undefined;
 }
 
 export function useMyAssignedOrders() {
@@ -71,9 +104,9 @@ export function useMyAssignedOrders() {
 
       const contractorId = onboardingRows[0].id;
 
-      // Step 2: Fetch auftraege assigned to contractor_onboarding.id
+      // Step 2: Fetch auftraege assigned to contractor_onboarding.id (including check-in timestamps)
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von`,
         { headers }
       );
 
@@ -113,6 +146,10 @@ export function useMyAssignedOrders() {
           ? "Ganztägig"
           : `${termin.zeit_von?.slice(0, 5) || ""} – ${termin.zeit_bis?.slice(0, 5) || ""}`;
 
+        // Derive status and phase from DB timestamps
+        const derivedStatus = auftrag ? deriveStatus(auftrag) : 'booked';
+        const derivedPhase = auftrag ? deriveCheckinPhase(auftrag) : undefined;
+
         return {
           id: termin.id,
           auftragId: termin.thermocheck_auftrag_id,
@@ -123,13 +160,20 @@ export function useMyAssignedOrders() {
           scheduledDate: termin.datum,
           scheduledTime: timeStr,
           description: "Thermocheck-Termin",
-          status: "booked" as const,
+          status: derivedStatus,
           auftragstyp: "thermocheck" as const,
           createdAt: termin.created_at,
           contactPhone: auftrag?.kunde_telefon || undefined,
           contactEmail: auftrag?.kunde_email || undefined,
           buchungBestaetigtAm: auftrag?.buchung_bestaetigt_am || undefined,
           vortagBestaetigtAm: auftrag?.vortag_bestaetigt_am || undefined,
+          // Persisted check-in/out timestamps
+          checkinPhase: derivedPhase,
+          vorOrtCheckinAt: auftrag?.vor_ort_checkin_at || undefined,
+          vorOrtCheckoutAt: auftrag?.vor_ort_checkout_at || undefined,
+          nachbearbeitungCheckinAt: auftrag?.nachbearbeitung_checkin_at || undefined,
+          nachbearbeitungCheckoutAt: auftrag?.nachbearbeitung_checkout_at || undefined,
+          submittedAt: auftrag?.eingereicht_am || undefined,
         };
       });
 
