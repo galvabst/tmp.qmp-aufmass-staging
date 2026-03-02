@@ -129,7 +129,9 @@ export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
                   </div>
                   <div className="flex items-center gap-1 font-semibold text-foreground">
                     <Euro className="w-4 h-4" />
-                    {order.billableAmount?.toFixed(2)} €
+                    {order.billableAmount != null
+                      ? `${order.billableAmount.toFixed(2)} €`
+                      : '–'}
                   </div>
                 </div>
               </button>
