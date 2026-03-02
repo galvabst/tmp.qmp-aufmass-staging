@@ -35,6 +35,12 @@ export const aufmassDraftSchema = z.object({
   anzahl_unbegehbare_raeume: z.number().int().min(0).max(5).optional(),
   hat_pv_anlage: z.boolean().optional(),
   agb_akzeptiert: z.boolean().optional(),
+  distanz_ausseneinheit_kernloch: z.number().min(0).optional(),
+  distanz_kernloch_innengeraet: z.number().min(0).optional(),
+  anzahl_durchbrueche_kernloch: z.number().int().min(0).optional(),
+  aufstellort_aenderung: z.boolean().optional(),
+  distanz_alter_neuer_aufstellort: z.number().min(0).optional(),
+  raumscan_url: z.string().optional(),
 });
 
 /** Zod schema for final submission (required fields enforced) */
@@ -72,6 +78,12 @@ export const aufmassSubmitSchema = z.object({
   anzahl_unbegehbare_raeume: z.number().int().min(0).max(5),
   hat_pv_anlage: z.boolean({ required_error: 'Bitte auswählen' }),
   agb_akzeptiert: z.literal(true, { errorMap: () => ({ message: 'AGB müssen akzeptiert werden' }) }),
+  distanz_ausseneinheit_kernloch: z.number().min(0, 'Bitte angeben'),
+  distanz_kernloch_innengeraet: z.number().min(0, 'Bitte angeben'),
+  anzahl_durchbrueche_kernloch: z.number().int().min(0, 'Bitte angeben'),
+  aufstellort_aenderung: z.boolean({ required_error: 'Bitte auswählen' }),
+  distanz_alter_neuer_aufstellort: z.number().min(0).optional(),
+  raumscan_url: z.string().optional(),
 }).superRefine((data, ctx) => {
   // Conditional: Öl-Felder Pflicht bei heizungsart === 'oel'
   if (data.heizungsart === 'oel') {
@@ -83,6 +95,10 @@ export const aufmassSubmitSchema = z.object({
   // Conditional: Sonstige Heizungsart
   if (data.heizungsart === 'sonstige' && !data.heizungsart_sonstige) {
     ctx.addIssue({ code: 'custom', path: ['heizungsart_sonstige'], message: 'Bitte Heizungsart angeben' });
+  }
+  // Conditional: Aufstellort-Änderung → Distanz Pflicht
+  if (data.aufstellort_aenderung === true && !data.distanz_alter_neuer_aufstellort) {
+    ctx.addIssue({ code: 'custom', path: ['distanz_alter_neuer_aufstellort'], message: 'Distanz erforderlich bei Aufstellort-Änderung' });
   }
 });
 

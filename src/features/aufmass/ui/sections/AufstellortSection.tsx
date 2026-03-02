@@ -7,6 +7,7 @@ import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
 import { SignatureField } from '../components/SignatureField';
 import { useUploadVotBild } from '../../hooks/useVotBilder';
+import { ExternalLink } from 'lucide-react';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -23,6 +24,8 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
   const alt1 = watch('alternative_1_vorhanden');
   const alt2 = watch('alternative_2_vorhanden');
   const bestaetigt = watch('kunde_aufstellort_bestaetigt');
+  const aufstellortAenderung = watch('aufstellort_aenderung');
+  const raumscanUrl = watch('raumscan_url');
   const uploadMutation = useUploadVotBild();
 
   const handleSignature = async (blob: Blob) => {
@@ -89,6 +92,75 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
           )}
         </>
       )}
+
+      {/* Distanz-Felder */}
+      <div className="bg-card rounded-xl p-4 border border-border space-y-4">
+        <p className="font-medium text-sm">Distanzen & Durchbrüche</p>
+
+        <div className="space-y-1">
+          <Label htmlFor="distanz_ausseneinheit_kernloch">Distanz Außeneinheit → Kernlochbohrung (m) *</Label>
+          <Input id="distanz_ausseneinheit_kernloch" type="number" step="0.1" min="0" disabled={disabled}
+            {...register('distanz_ausseneinheit_kernloch', { valueAsNumber: true })} />
+          {errors.distanz_ausseneinheit_kernloch && <p className="text-xs text-destructive">{errors.distanz_ausseneinheit_kernloch.message}</p>}
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="distanz_kernloch_innengeraet">Distanz Kernlochbohrung → Innengerät (m) *</Label>
+          <Input id="distanz_kernloch_innengeraet" type="number" step="0.1" min="0" disabled={disabled}
+            {...register('distanz_kernloch_innengeraet', { valueAsNumber: true })} />
+          {errors.distanz_kernloch_innengeraet && <p className="text-xs text-destructive">{errors.distanz_kernloch_innengeraet.message}</p>}
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="anzahl_durchbrueche_kernloch">Anzahl Durchbrüche (Kernloch → Innengerät) *</Label>
+          <Input id="anzahl_durchbrueche_kernloch" type="number" step="1" min="0" disabled={disabled}
+            {...register('anzahl_durchbrueche_kernloch', { valueAsNumber: true })} />
+          {errors.anzahl_durchbrueche_kernloch && <p className="text-xs text-destructive">{errors.anzahl_durchbrueche_kernloch.message}</p>}
+        </div>
+      </div>
+
+      {/* Aufstellort-Änderung */}
+      <div className="bg-card rounded-xl p-4 border border-border space-y-4">
+        <p className="font-medium text-sm">Wird der Aufstellort geändert? *</p>
+        <div className="flex gap-3">
+          {[true, false].map((val) => (
+            <button key={String(val)} type="button" disabled={disabled}
+              onClick={() => {
+                setValue('aufstellort_aenderung', val);
+                if (!val) setValue('distanz_alter_neuer_aufstellort', undefined);
+              }}
+              className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
+                aufstellortAenderung === val ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-foreground'
+              }`}
+            >{val ? 'Ja' : 'Nein'}</button>
+          ))}
+        </div>
+        {errors.aufstellort_aenderung && <p className="text-xs text-destructive">{errors.aufstellort_aenderung.message}</p>}
+
+        {aufstellortAenderung === true && (
+          <div className="space-y-1">
+            <Label htmlFor="distanz_alter_neuer_aufstellort">Distanz alter → neuer Aufstellort (m) *</Label>
+            <Input id="distanz_alter_neuer_aufstellort" type="number" step="0.1" min="0" disabled={disabled}
+              {...register('distanz_alter_neuer_aufstellort', { valueAsNumber: true })} />
+            {errors.distanz_alter_neuer_aufstellort && <p className="text-xs text-destructive">{errors.distanz_alter_neuer_aufstellort.message}</p>}
+          </div>
+        )}
+      </div>
+
+      {/* Raumscan-URL */}
+      <div className="space-y-1">
+        <Label htmlFor="raumscan_url">Link zum Raumscan</Label>
+        <div className="flex gap-2 items-center">
+          <Input id="raumscan_url" type="url" placeholder="https://..." disabled={disabled}
+            {...register('raumscan_url')} className="flex-1" />
+          {raumscanUrl && raumscanUrl.startsWith('http') && (
+            <a href={raumscanUrl} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0">
+              <ExternalLink className="h-4 w-4" /> Öffnen
+            </a>
+          )}
+        </div>
+      </div>
 
       {/* Kundenbestätigung */}
       <div className="bg-card rounded-xl p-4 border border-border space-y-4">
