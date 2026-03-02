@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { BottomNav, Tab } from '@/components/BottomNav';
 import { PoolView } from '@/components/PoolView';
 import { BookingsView } from '@/components/BookingsView';
@@ -29,6 +30,7 @@ import { ONBOARDING_STEPS } from '@/lib/onboarding-config';
 
 const Index = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   const { session, isLoading: isSessionLoading } = useSupabaseSession();
   
@@ -99,7 +101,7 @@ const Index = () => {
     // "Techniker seit" from erstellt_am
     const erstelltAm = onboardingRecord?.erstellt_am;
     const memberSince = erstelltAm 
-      ? new Date(erstelltAm).toISOString().slice(0, 7) // "2026-01"
+      ? new Date(erstelltAm).toISOString().slice(0, 7)
       : '–';
 
     return {
@@ -170,7 +172,8 @@ const Index = () => {
         toast.success('Auftrag angenommen! 🎉');
         setSelectedOrder(null);
         setActiveTab('bookings');
-        // Refetch to get updated data
+        queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['pool-orders'] });
         return;
       } catch (err) {
         console.error('[handleStatusChange] Unexpected error:', err);
@@ -197,62 +200,82 @@ const Index = () => {
     }
     
     setSelectedOrder(null);
-  }, []);
+  }, [queryClient]);
 
-  const handleCheckin = (orderId: string, phase: CheckinPhase) => {
-    const now = new Date().toISOString();
-    
-    setOrders(prev => 
-      prev.map(order => {
-        if (order.id !== orderId) return order;
-        
-        if (phase === 'vor_ort') {
-          return { 
-            ...order, 
-            status: 'in_progress' as ObjectOrderStatusEnum,
-            checkinPhase: 'vor_ort',
-            vorOrtCheckinAt: now 
-          };
-        } else {
-          return { 
-            ...order, 
-            checkinPhase: 'nachbearbeitung',
-            nachbearbeitungCheckinAt: now 
-          };
-        }
-      })
-    );
-    
-    toast.success(`Check-in ${phase === 'vor_ort' ? 'Vor-Ort' : 'Nachbearbeitung'} gestartet`);
-  };
-
-  const handleCheckout = (orderId: string, phase: CheckinPhase) => {
-    const now = new Date().toISOString();
-    
-    setOrders(prev => 
-      prev.map(order => {
-        if (order.id !== orderId) return order;
-        
-        if (phase === 'vor_ort') {
-          return { ...order, vorOrtCheckoutAt: now };
-        } else {
-          return { 
-            ...order, 
-            nachbearbeitungCheckoutAt: now,
-            status: 'submitted' as ObjectOrderStatusEnum,
-            submittedAt: now,
-          };
-        }
-      })
-    );
-    
-    if (phase === 'nachbearbeitung') {
-      toast.success('Auftrag zur Prüfung eingereicht! ✓');
-      setActiveTab('review');
-    } else {
-      toast.success('Vor-Ort-Arbeit abgeschlossen');
+  const handleCheckin = useCallback(async (orderId: string, phase: CheckinPhase) => {
+    // Find the auftragId from the order (orderId is termin.id, we need auftrag.id)
+    const order = orders.find(o => o.id === orderId);
+    const auftragId = order?.auftragId;
+    if (!auftragId) {
+      toast.error('Auftrag-ID nicht gefunden');
+      return;
     }
-  };
+
+    try {
+      const { data, error } = await supabase.rpc('checkin_thermocheck_auftrag', {
+        p_auftrag_id: auftragId,
+        p_phase: phase,
+      });
+
+      if (error) {
+        console.error('[handleCheckin] RPC error:', error);
+        toast.error('Check-in fehlgeschlagen: ' + error.message);
+        return;
+      }
+
+      const result = data as { success: boolean; error?: string };
+      if (!result.success) {
+        toast.error(result.error || 'Check-in fehlgeschlagen');
+        return;
+      }
+
+      toast.success(`Check-in ${phase === 'vor_ort' ? 'Vor-Ort' : 'Nachbearbeitung'} gestartet`);
+      await queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
+    } catch (err) {
+      console.error('[handleCheckin] Unexpected error:', err);
+      toast.error('Unerwarteter Fehler beim Check-in');
+    }
+  }, [orders, queryClient]);
+
+  const handleCheckout = useCallback(async (orderId: string, phase: CheckinPhase) => {
+    const order = orders.find(o => o.id === orderId);
+    const auftragId = order?.auftragId;
+    if (!auftragId) {
+      toast.error('Auftrag-ID nicht gefunden');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('checkout_thermocheck_auftrag', {
+        p_auftrag_id: auftragId,
+        p_phase: phase,
+      });
+
+      if (error) {
+        console.error('[handleCheckout] RPC error:', error);
+        toast.error('Check-out fehlgeschlagen: ' + error.message);
+        return;
+      }
+
+      const result = data as { success: boolean; error?: string };
+      if (!result.success) {
+        toast.error(result.error || 'Check-out fehlgeschlagen');
+        return;
+      }
+
+      if (phase === 'nachbearbeitung') {
+        toast.success('Auftrag zur Prüfung eingereicht! ✓');
+        setActiveTab('review');
+      } else {
+        toast.success('Vor-Ort-Arbeit abgeschlossen');
+      }
+      
+      await queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
+    } catch (err) {
+      console.error('[handleCheckout] Unexpected error:', err);
+      toast.error('Unerwarteter Fehler beim Check-out');
+    }
+  }, [orders, queryClient]);
 
   // Admin redirect
   useEffect(() => {
@@ -314,21 +337,38 @@ const Index = () => {
     );
   }
 
-  const handleStartRework = (orderId: string) => {
-    setOrders(prev =>
-      prev.map(order => 
-        order.id === orderId 
-          ? { 
-              ...order, 
-              status: 'in_progress' as ObjectOrderStatusEnum,
-              checkinPhase: 'nachbearbeitung' as CheckinPhase,
-              nachbearbeitungCheckinAt: new Date().toISOString(),
-              nachbearbeitungCheckoutAt: undefined,
-            }
-          : order
-      )
-    );
-    toast.info('Nacharbeit gestartet');
+  const handleStartRework = async (orderId: string) => {
+    const order = orders.find(o => o.id === orderId);
+    const auftragId = order?.auftragId;
+    if (!auftragId) {
+      toast.error('Auftrag-ID nicht gefunden');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('checkin_thermocheck_auftrag', {
+        p_auftrag_id: auftragId,
+        p_phase: 'nachbearbeitung',
+      });
+
+      if (error) {
+        console.error('[handleStartRework] RPC error:', error);
+        toast.error('Nacharbeit fehlgeschlagen: ' + error.message);
+        return;
+      }
+
+      const result = data as { success: boolean; error?: string };
+      if (!result.success) {
+        toast.error(result.error || 'Nacharbeit konnte nicht gestartet werden');
+        return;
+      }
+
+      toast.info('Nacharbeit gestartet');
+      await queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
+    } catch (err) {
+      console.error('[handleStartRework] Unexpected error:', err);
+      toast.error('Unerwarteter Fehler');
+    }
   };
 
   if (selectedOrder) {

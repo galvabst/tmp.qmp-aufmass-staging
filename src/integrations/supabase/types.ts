@@ -9219,6 +9219,14 @@ export type Database = {
       }
       check_user_is_admin: { Args: { _user_id: string }; Returns: boolean }
       check_user_is_superadmin: { Args: { _user_id: string }; Returns: boolean }
+      checkin_thermocheck_auftrag: {
+        Args: { p_auftrag_id: string; p_phase: string }
+        Returns: Json
+      }
+      checkout_thermocheck_auftrag: {
+        Args: { p_auftrag_id: string; p_phase: string }
+        Returns: Json
+      }
       cleanup_old_audio_files: { Args: never; Returns: undefined }
       cleanup_orphan_transcripts: { Args: never; Returns: number }
       complete_app_onboarding: {
