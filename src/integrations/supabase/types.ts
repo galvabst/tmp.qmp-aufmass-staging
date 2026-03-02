@@ -9663,6 +9663,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_auftragstyp_preise: {
+        Args: never
+        Returns: {
+          auftragstyp: string
+          default_betrag_netto: number
+        }[]
+      }
       get_available_token_holders: {
         Args: { p_min_tokens?: number; p_produkt_id: string }
         Returns: {
@@ -9782,6 +9789,13 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_contractor_grundpreise: {
+        Args: { p_contractor_id: string }
+        Returns: {
+          auftragstyp: string
+          betrag_netto: number
+        }[]
       }
       get_contractor_onboarding_state: {
         Args: { p_profile_id: string }
@@ -11503,6 +11517,10 @@ export type Database = {
         Returns: undefined
       }
       unlockrows: { Args: { "": string }; Returns: number }
+      update_auftragstyp_preis: {
+        Args: { p_auftragstyp: string; p_betrag: number }
+        Returns: undefined
+      }
       update_contractor: {
         Args: { p_id: string; p_updates: Json }
         Returns: unknown
@@ -11525,6 +11543,14 @@ export type Database = {
         Args: {
           p_gewerbeschein_spaeter?: boolean
           p_gewerbeschein_url?: string
+        }
+        Returns: undefined
+      }
+      update_contractor_grundpreis: {
+        Args: {
+          p_auftragstyp: string
+          p_betrag: number
+          p_contractor_id: string
         }
         Returns: undefined
       }
