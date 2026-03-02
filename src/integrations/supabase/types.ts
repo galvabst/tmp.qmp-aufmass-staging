@@ -656,7 +656,7 @@ export type Database = {
           anzahlung_faellig_am?: string | null
           anzahlung_netto?: number | null
           anzahlung_prozent?: number | null
-          auftragsbestaetigung_netto_summe: number
+          auftragsbestaetigung_netto_summe?: number
           auszahlung_blockiert_grund?: string[] | null
           auszahlungsmonat?: string | null
           bankgebuehren_prozent?: number | null
