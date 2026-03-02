@@ -1,87 +1,133 @@
 
 
-# Plan: Check-in/out Persistenz in der Datenbank
+# Plan: Admin-Panel -- Akademie-Management + Onboarding-Detailansicht
 
-## Ist-Zustand (verifiziert)
+## Scope-Analyse
 
-- `thermocheck_auftraege` hat **keine** Spalten fuer Check-in/out-Zeitstempel
-- RLS: UPDATE/SELECT = `true` fuer authenticated, INSERT = `true`, DELETE = admin-only
-- `zugewiesener_techniker_id` referenziert `contractor_onboarding.id` (nicht `auth.uid()`)
-- Pipeline-Status ist ein DB-Enum `thermocheck_auftrags_pipeline_status` mit u.a. `wc1_durchfuehren` und `vot_formular_abfragen`
-- View `v_thermocheck_auftraege` joined `thermocheck_auftraege` mit `leads`
-- Frontend-Status (`in_progress`, `submitted`) existiert nur als lokaler React-State
+Das ist ein Giga-Feature mit zwei Kernbereichen. Ich schlage eine **Phasen-Aufteilung** vor, damit nichts kaputtgeht:
 
-## Umsetzung
+**Phase 1 (dieser Prompt):** Akademie-Content-Management (CRUD fuer Module/Lektionen) + neuer Admin-Tab
+**Phase 2 (naechster Prompt):** Contractor-Onboarding-Detailansicht mit Fortschrittsdaten aus DB
 
-### 1. DB-Migration (1 SQL-Datei)
+Grund: Beide Bereiche zusammen waeren 1500+ Zeilen neuer Code mit Migration, RPCs, RLS, und 8+ neuen Dateien. Ein Profi wuerde das splitten.
 
-**6 neue Spalten** auf `thermocheck_auftraege`:
+---
 
-| Spalte | Typ |
-|---|---|
-| `vor_ort_checkin_at` | timestamptz |
-| `vor_ort_checkout_at` | timestamptz |
-| `nachbearbeitung_checkin_at` | timestamptz |
-| `nachbearbeitung_checkout_at` | timestamptz |
-| `eingereicht_am` | timestamptz |
-| `eingereicht_von` | uuid |
+## Phase 1: Akademie-Content-Management
 
-**View `v_thermocheck_auftraege`** neu erstellen (CREATE OR REPLACE) mit allen 6 neuen Spalten.
+### Ist-Zustand (verifiziert)
 
-**RPC `thermocheck.checkin_thermocheck_auftrag(p_auftrag_id uuid, p_phase text)`**:
-- Ownership-Check: `zugewiesener_techniker_id = contractor_onboarding.id` des aktuellen Users
-- Pipeline-Status-Check: `wc1_durchfuehren`
-- `vor_ort`: Setzt `vor_ort_checkin_at = now()` (idempotent)
-- `nachbearbeitung`: Nur wenn `vor_ort_checkout_at IS NOT NULL`, setzt `nachbearbeitung_checkin_at = now()`
-- Returns JSON `{success, error?}`
+- **Module:** `thermocheck.contractor_akademie_module` (id, code, titel, beschreibung, reihenfolge, ist_aktiv) -- 10+ Module vorhanden
+- **Lektionen:** `thermocheck.contractor_akademie_lektionen` (id, modul_id, code, titel, beschreibung, reihenfolge, video_url, video_dauer_minuten, text_inhalt, text_zusammenfassung, zusatzmaterial_urls, ist_aktiv, content_version)
+- **RLS:** Nur SELECT-Policies existieren (`ist_aktiv = true`). **Keine** INSERT/UPDATE/DELETE Policies
+- **`is_admin()`:** Prueft `iam.user_system_roles` auf `admin`/`superadmin` (SECURITY DEFINER)
+- **Thermocheck-Client:** Separater Supabase-Client mit `schema: 'thermocheck'` existiert bereits (`supabaseTC`)
 
-**RPC `thermocheck.checkout_thermocheck_auftrag(p_auftrag_id uuid, p_phase text)`**:
-- Ownership-Check
-- `vor_ort`: Setzt `vor_ort_checkout_at = now()`
-- `nachbearbeitung`: Setzt `nachbearbeitung_checkout_at = now()`, `eingereicht_am = now()`, `eingereicht_von = contractor_id`, `pipeline_status = 'vot_formular_abfragen'`
-- `FOR UPDATE` Row-Lock
+### DB-Migration
 
-**Public Wrappers** (`SECURITY DEFINER, SET search_path = public`) fuer beide RPCs.
+**1. RLS-Policies fuer Admin-Schreibzugriff:**
 
-Keine RLS-Aenderung noetig (UPDATE = `true` fuer authenticated; Ownership wird im RPC geprueft).
+```sql
+-- contractor_akademie_module
+CREATE POLICY "Admin can insert modules" ON thermocheck.contractor_akademie_module
+  FOR INSERT TO authenticated WITH CHECK (public.is_admin());
+CREATE POLICY "Admin can update modules" ON thermocheck.contractor_akademie_module
+  FOR UPDATE TO authenticated USING (public.is_admin());
+CREATE POLICY "Admin can delete modules" ON thermocheck.contractor_akademie_module
+  FOR DELETE TO authenticated USING (public.is_admin());
 
-### 2. `useMyAssignedOrders.ts`
+-- contractor_akademie_lektionen (analog)
+-- contractor_akademie_quiz (analog)
+```
 
-- SELECT erweitern um `vor_ort_checkin_at`, `vor_ort_checkout_at`, `nachbearbeitung_checkin_at`, `nachbearbeitung_checkout_at`, `eingereicht_am`, `eingereicht_von`
-- Status-Ableitung aus Zeitstempeln:
-  - `eingereicht_am` gesetzt oder `pipeline_status = 'vot_formular_abfragen'` → `submitted`
-  - `vor_ort_checkin_at` gesetzt + kein `eingereicht_am` → `in_progress`
-  - Sonst → `booked`
-- `checkinPhase` ableiten: hat `nachbearbeitung_checkin_at` aber kein `nachbearbeitung_checkout_at` → `nachbearbeitung`; hat `vor_ort_checkin_at` aber kein `vor_ort_checkout_at` → `vor_ort`
+**2. RPCs (thermocheck + public wrapper):**
 
-### 3. `Index.tsx`
+- `thermocheck.admin_upsert_akademie_modul(p_data jsonb)` -- Insert/Update Modul
+- `thermocheck.admin_upsert_akademie_lektion(p_data jsonb)` -- Insert/Update Lektion
+- `thermocheck.admin_delete_akademie_lektion(p_lektion_id uuid)` -- Soft-Delete (ist_aktiv = false)
+- `thermocheck.admin_reorder_akademie_lektionen(p_modul_id uuid, p_order jsonb)` -- Reihenfolge aendern
 
-- `handleCheckin`: RPC `checkin_thermocheck_auftrag` aufrufen (ueber `supabase.rpc()`), danach `queryClient.invalidateQueries(['my-assigned-orders'])`
-- `handleCheckout`: RPC `checkout_thermocheck_auftrag` aufrufen, danach invalidate
-- `handleStartRework`: RPC `checkin_thermocheck_auftrag` mit `phase = 'nachbearbeitung'`, danach invalidate
-- Lokale `setOrders`-Aufrufe entfallen komplett -- Daten kommen nach Invalidierung frisch aus DB
-- `auftragId` statt `termin.id` an die RPCs uebergeben (RPCs arbeiten auf Auftrags-Ebene)
+Jede RPC prueft `is_admin()` am Anfang und gibt `{success, error?}` zurueck.
 
-### 4. Validation-Dokument
+### Neue Dateien
 
-`.lovable/validation-checkin-persistence.md` erstellen.
+```text
+src/features/admin/
+  ui/
+    AdminBottomNav.tsx          -- Erweitern um "Akademie" Tab
+    akademie/
+      AkademieAdminView.tsx     -- Hauptansicht: Modul-Liste mit Akkordeon
+      ModulEditor.tsx           -- Dialog: Modul erstellen/bearbeiten
+      LektionEditor.tsx         -- Dialog: Lektion erstellen/bearbeiten (Video-URL, Text, Pflicht/Optional)
+      LektionListItem.tsx       -- Einzelne Lektion in der Liste (drag-reorder spaeter)
+  hooks/
+    useAdminAkademieModule.ts   -- Alle Module + Lektionen laden (auch inaktive)
+    useAdminMutateModul.ts      -- useMutation fuer Modul CRUD
+    useAdminMutateLektion.ts    -- useMutation fuer Lektion CRUD
+```
 
-## Edge Cases
+### UI-Design
+
+**AkademieAdminView:**
+- AdminLayout mit Titel "Akademie-Inhalte"
+- Button "Neues Modul +" oben rechts
+- Akkordeon pro Modul: Titel, Code, Reihenfolge, ist_aktiv Badge
+- Aufgeklappt: Liste der Lektionen mit Edit/Deaktivieren-Buttons
+- Button "Neue Lektion +" pro Modul
+
+**LektionEditor (Dialog/Sheet):**
+- Titel (text, required)
+- Code (text, required, Pattern X-Y)
+- Beschreibung (textarea)
+- Video-URL (text, Bunny Stream URL)
+- Video-Dauer Minuten (number)
+- Text-Inhalt (textarea/markdown)
+- Text-Zusammenfassung (textarea)
+- ist_aktiv Toggle
+- Reihenfolge (number)
+
+### Rollen-Matrix
+
+| Rolle | Module lesen | Module schreiben | Lektionen lesen | Lektionen schreiben |
+|---|---|---|---|---|
+| superadmin | Alle (inkl. inaktive) | Ja | Alle (inkl. inaktive) | Ja |
+| admin | Alle (inkl. inaktive) | Ja | Alle (inkl. inaktive) | Ja |
+| manager | Nur aktive (via Techniker-App) | Nein | Nur aktive | Nein |
+| user/techniker | Nur aktive | Nein | Nur aktive | Nein |
+
+Die bestehenden SELECT-Policies filtern auf `ist_aktiv = true`. Admins brauchen eine zusaetzliche SELECT-Policy ohne diesen Filter. Loesung: Neue Policy `"Admin can read all modules"` mit `USING (public.is_admin())` die auch inaktive zeigt.
+
+### Edge Cases
 
 | Szenario | Handling |
 |---|---|
-| Doppelklick Check-in | Idempotent: `IF vor_ort_checkin_at IS NOT NULL THEN RETURN success` |
-| Nachbearbeitung vor Vor-Ort-Checkout | RPC blockiert mit Fehlermeldung |
-| Refresh nach Check-in | Daten aus DB, Status korrekt abgeleitet |
-| Anderer Techniker versucht Check-in | Ownership-Check schlaegt fehl |
-| `pipeline_status != wc1_durchfuehren` | Check-in blockiert |
-| Nachbearbeitung-Checkout setzt `pipeline_status = vot_formular_abfragen` | Korrekte Transition |
+| Modul loeschen mit bestehenden Lektionen | Soft-Delete (ist_aktiv = false), Lektionen bleiben |
+| Lektion deaktivieren mit laufendem Fortschritt | Fortschritt bleibt, Lektion wird im Onboarding uebersprungen |
+| Neue Lektion hinzufuegen → Catch-Up-Mechanismus | Bereits implementiert (Memory: academy-mandatory-catchup) |
+| Reihenfolge aendern | Batch-Update aller reihenfolge-Werte |
+| content_version bei Lektion-Update | Automatisch inkrementieren im RPC |
+| Admin ohne contractor_onboarding | Funktioniert -- Admin-Route ist getrennt |
 
-## Betroffene Dateien
+### Betroffene bestehende Dateien
 
-1. Migration (neue SQL-Datei)
-2. `src/hooks/useMyAssignedOrders.ts`
-3. `src/pages/Index.tsx`
-4. `src/integrations/supabase/types.ts` (auto-update)
-5. `.lovable/validation-checkin-persistence.md`
+1. `src/features/admin/ui/AdminBottomNav.tsx` -- Neuer Tab "Akademie"
+2. `src/pages/Admin.tsx` -- Neuen Tab rendern
+
+---
+
+## Phase 2 (naechster Prompt): Contractor-Detail mit Fortschritt
+
+- ContractorListView: Mock-Daten durch `get_contractors` RPC ersetzen
+- Neue ContractorDetailView mit:
+  - Onboarding-Step-Fortschritt (aus `contractor_onboarding`)
+  - Akademie-Fortschritt pro Lektion (aus `contractor_akademie_lektions_fortschritt`)
+  - Quiz-Ergebnisse mit Versuchsanzahl (aus `contractor_akademie_quiz_ergebnis`)
+  - Video-Fortschritt in Sekunden pro Lektion
+  - Coaching-Buchung (aus `contractor_onboarding` + `contractor_coaching_slots`)
+
+---
+
+## Entscheidungsfrage
+
+Soll ich Phase 1 (Akademie-CRUD) jetzt umsetzen und Phase 2 (Contractor-Detail) im naechsten Prompt? Oder beides zusammen riskieren?
 
