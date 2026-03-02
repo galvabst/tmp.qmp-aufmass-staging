@@ -9034,6 +9034,10 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: undefined
       }
+      admin_reorder_akademie_lektionen: {
+        Args: { p_modul_id: string; p_order: Json }
+        Returns: Json
+      }
       admin_set_group_app_role: {
         Args: {
           _app_id: string
@@ -9078,6 +9082,8 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_upsert_akademie_lektion: { Args: { p_data: Json }; Returns: Json }
+      admin_upsert_akademie_modul: { Args: { p_data: Json }; Returns: Json }
       assign_lead_to_bestellung: {
         Args: { p_lead_id: string }
         Returns: string
