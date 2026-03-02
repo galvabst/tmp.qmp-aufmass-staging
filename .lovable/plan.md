@@ -1,85 +1,87 @@
 
 
-# Plan: 6 neue Felder im Aufstellort-Schritt (SOOH-Formular)
+# Plan: Check-in/out Persistenz in der Datenbank
 
-## Analyse abgeschlossen
+## Ist-Zustand (verifiziert)
 
-**DB-Ist-Zustand geprüft:** Die 6 neuen Spalten existieren noch nicht. Bestehende RLS-Policies (`auth_insert_vot`, `auth_select_vot`, `auth_update_vot`) erlauben allen authentifizierten Usern Zugriff -- neue Spalten werden automatisch abgedeckt, keine Policy-Änderung nötig.
+- `thermocheck_auftraege` hat **keine** Spalten fuer Check-in/out-Zeitstempel
+- RLS: UPDATE/SELECT = `true` fuer authenticated, INSERT = `true`, DELETE = admin-only
+- `zugewiesener_techniker_id` referenziert `contractor_onboarding.id` (nicht `auth.uid()`)
+- Pipeline-Status ist ein DB-Enum `thermocheck_auftrags_pipeline_status` mit u.a. `wc1_durchfuehren` und `vot_formular_abfragen`
+- View `v_thermocheck_auftraege` joined `thermocheck_auftraege` mit `leads`
+- Frontend-Status (`in_progress`, `submitted`) existiert nur als lokaler React-State
 
-**Schema-Architektur geprüft:** `FORM_DB_FIELDS` wird automatisch aus `aufmassDraftSchema.shape` abgeleitet -- neue Felder im Draft-Schema werden sofort in den Auto-Save-Payload aufgenommen. Kein manuelles Mapping nötig.
+## Umsetzung
 
-**Auto-Save geprüft:** Der 2-Minuten-Silent-Save in `AufmassFormPage.tsx` ruft `form.getValues()` auf und übergibt alles an `useUpsertVotFormular`. Neue Felder fließen automatisch mit, solange sie im Zod-Schema stehen.
+### 1. DB-Migration (1 SQL-Datei)
 
-**Keine Altdaten-Migration nötig:** Alle 6 Spalten sind nullable. Bestehende Formulare behalten `null`-Werte, das UI zeigt leere Felder.
+**6 neue Spalten** auf `thermocheck_auftraege`:
 
----
-
-## Umsetzung (3 Dateien + 1 Migration)
-
-### 1. DB-Migration
-```sql
-ALTER TABLE thermocheck.thermocheck_vot_formulare
-  ADD COLUMN distanz_ausseneinheit_kernloch numeric,
-  ADD COLUMN distanz_kernloch_innengeraet numeric,
-  ADD COLUMN anzahl_durchbrueche_kernloch integer,
-  ADD COLUMN aufstellort_aenderung boolean,
-  ADD COLUMN distanz_alter_neuer_aufstellort numeric,
-  ADD COLUMN raumscan_url text;
-```
-
-### 2. Zod-Schema (`aufmass-schema.ts`)
-
-**Draft-Schema** -- 6 neue optionale Felder:
-- `distanz_ausseneinheit_kernloch: z.number().min(0).optional()`
-- `distanz_kernloch_innengeraet: z.number().min(0).optional()`
-- `anzahl_durchbrueche_kernloch: z.number().int().min(0).optional()`
-- `aufstellort_aenderung: z.boolean().optional()`
-- `distanz_alter_neuer_aufstellort: z.number().min(0).optional()`
-- `raumscan_url: z.string().url().optional().or(z.literal(''))`
-
-**Submit-Schema** -- 3 Distanzfelder + `aufstellort_aenderung` required, `distanz_alter_neuer_aufstellort` conditional in `superRefine`:
-```typescript
-if (data.aufstellort_aenderung === true && !data.distanz_alter_neuer_aufstellort) {
-  ctx.addIssue({ code: 'custom', path: ['distanz_alter_neuer_aufstellort'], message: 'Distanz erforderlich bei Aufstellort-Änderung' });
-}
-```
-`raumscan_url` bleibt optional (kein Pflichtfeld bei Einreichung).
-
-### 3. UI (`AufstellortSection.tsx`)
-
-Vor dem Kundenbestätigungs-Block (Zeile 93) einfügen:
-
-1. **Distanz-Eingabefelder** (3 Stück):
-   - "Distanz Außeneinheit → Kernlochbohrung (m)" -- `type="number"` step="0.1"
-   - "Distanz Kernlochbohrung → Innengerät (m)" -- `type="number"` step="0.1"
-   - "Anzahl Durchbrüche (Kernloch → Innengerät)" -- `type="number"` step="1"
-
-2. **Aufstellort-Änderung** (Ja/Nein-Toggle im bestehenden Button-Pattern):
-   - Bei Ja: Meterfeld "Distanz alter → neuer Aufstellort (m)" einblenden
-   - Bei Nein: Feld ausblenden
-
-3. **Raumscan-URL**:
-   - `type="url"` Input mit Placeholder "https://..."
-   - Wenn bereits gespeichert: als klickbarer Link (`target="_blank"`) daneben anzeigen
-
-### 4. Types (`types.ts`)
-Wird automatisch nach Migration aktualisiert -- keine manuelle Bearbeitung.
-
----
-
-## Edge Cases geprüft
-
-| Szenario | Ergebnis |
+| Spalte | Typ |
 |---|---|
-| Bestehende Formulare ohne neue Felder | OK -- nullable Spalten, UI zeigt leer |
-| Auto-Save mit leeren neuen Feldern | OK -- `null` wird gespeichert, kein DB-Fehler |
-| `aufstellort_aenderung = false` → Distanzfeld leer | OK -- Submit-Validation überspringt das Feld |
-| `aufstellort_aenderung = true` → Distanzfeld leer | Submit blockiert mit Fehlermeldung |
-| `raumscan_url` mit ungültigem Format im Draft | OK -- Draft erlaubt leeren String, Submit validiert nicht (optional) |
-| `raumscan_url` mit ungültigem Format bei manueller URL-Validation | Zod `.url()` mit `.or(z.literal(''))` erlaubt leer oder valide URL |
-| isReadOnly (abgeschlossenes Formular) | OK -- `disabled` Prop wird durchgereicht |
+| `vor_ort_checkin_at` | timestamptz |
+| `vor_ort_checkout_at` | timestamptz |
+| `nachbearbeitung_checkin_at` | timestamptz |
+| `nachbearbeitung_checkout_at` | timestamptz |
+| `eingereicht_am` | timestamptz |
+| `eingereicht_von` | uuid |
 
-## Rollen-Matrix
+**View `v_thermocheck_auftraege`** neu erstellen (CREATE OR REPLACE) mit allen 6 neuen Spalten.
 
-Keine Änderung nötig. Die RLS-Policies `auth_insert_vot`, `auth_select_vot`, `auth_update_vot` prüfen nur `auth.uid() IS NOT NULL` (= jeder eingeloggte User). Neue Spalten werden von denselben Policies abgedeckt. Keine neuen Tabellen, keine neuen Zugriffsmuster.
+**RPC `thermocheck.checkin_thermocheck_auftrag(p_auftrag_id uuid, p_phase text)`**:
+- Ownership-Check: `zugewiesener_techniker_id = contractor_onboarding.id` des aktuellen Users
+- Pipeline-Status-Check: `wc1_durchfuehren`
+- `vor_ort`: Setzt `vor_ort_checkin_at = now()` (idempotent)
+- `nachbearbeitung`: Nur wenn `vor_ort_checkout_at IS NOT NULL`, setzt `nachbearbeitung_checkin_at = now()`
+- Returns JSON `{success, error?}`
+
+**RPC `thermocheck.checkout_thermocheck_auftrag(p_auftrag_id uuid, p_phase text)`**:
+- Ownership-Check
+- `vor_ort`: Setzt `vor_ort_checkout_at = now()`
+- `nachbearbeitung`: Setzt `nachbearbeitung_checkout_at = now()`, `eingereicht_am = now()`, `eingereicht_von = contractor_id`, `pipeline_status = 'vot_formular_abfragen'`
+- `FOR UPDATE` Row-Lock
+
+**Public Wrappers** (`SECURITY DEFINER, SET search_path = public`) fuer beide RPCs.
+
+Keine RLS-Aenderung noetig (UPDATE = `true` fuer authenticated; Ownership wird im RPC geprueft).
+
+### 2. `useMyAssignedOrders.ts`
+
+- SELECT erweitern um `vor_ort_checkin_at`, `vor_ort_checkout_at`, `nachbearbeitung_checkin_at`, `nachbearbeitung_checkout_at`, `eingereicht_am`, `eingereicht_von`
+- Status-Ableitung aus Zeitstempeln:
+  - `eingereicht_am` gesetzt oder `pipeline_status = 'vot_formular_abfragen'` → `submitted`
+  - `vor_ort_checkin_at` gesetzt + kein `eingereicht_am` → `in_progress`
+  - Sonst → `booked`
+- `checkinPhase` ableiten: hat `nachbearbeitung_checkin_at` aber kein `nachbearbeitung_checkout_at` → `nachbearbeitung`; hat `vor_ort_checkin_at` aber kein `vor_ort_checkout_at` → `vor_ort`
+
+### 3. `Index.tsx`
+
+- `handleCheckin`: RPC `checkin_thermocheck_auftrag` aufrufen (ueber `supabase.rpc()`), danach `queryClient.invalidateQueries(['my-assigned-orders'])`
+- `handleCheckout`: RPC `checkout_thermocheck_auftrag` aufrufen, danach invalidate
+- `handleStartRework`: RPC `checkin_thermocheck_auftrag` mit `phase = 'nachbearbeitung'`, danach invalidate
+- Lokale `setOrders`-Aufrufe entfallen komplett -- Daten kommen nach Invalidierung frisch aus DB
+- `auftragId` statt `termin.id` an die RPCs uebergeben (RPCs arbeiten auf Auftrags-Ebene)
+
+### 4. Validation-Dokument
+
+`.lovable/validation-checkin-persistence.md` erstellen.
+
+## Edge Cases
+
+| Szenario | Handling |
+|---|---|
+| Doppelklick Check-in | Idempotent: `IF vor_ort_checkin_at IS NOT NULL THEN RETURN success` |
+| Nachbearbeitung vor Vor-Ort-Checkout | RPC blockiert mit Fehlermeldung |
+| Refresh nach Check-in | Daten aus DB, Status korrekt abgeleitet |
+| Anderer Techniker versucht Check-in | Ownership-Check schlaegt fehl |
+| `pipeline_status != wc1_durchfuehren` | Check-in blockiert |
+| Nachbearbeitung-Checkout setzt `pipeline_status = vot_formular_abfragen` | Korrekte Transition |
+
+## Betroffene Dateien
+
+1. Migration (neue SQL-Datei)
+2. `src/hooks/useMyAssignedOrders.ts`
+3. `src/pages/Index.tsx`
+4. `src/integrations/supabase/types.ts` (auto-update)
+5. `.lovable/validation-checkin-persistence.md`
 
