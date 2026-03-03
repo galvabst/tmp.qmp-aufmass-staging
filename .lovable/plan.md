@@ -1,181 +1,91 @@
 
 
-# Auftragschat + Layout-Fix: Masterplan
+# Unread-Chat-Badge: Benachrichtigung für neue Nachrichten
 
-## Problem 1: Layout-Overlap
+## Ziel
 
-Die `TechnicianOrderDetail`-Komponente hat ein `fixed bottom-20`-Action-Bar (Zeile 647), das die Inhalte ueberlappt. Der Content-Bereich hat nur `pb-24` (Zeile 212), was bei laengeren Inhalten (submitted-Status mit "Warte auf Pruefung" + VOT-Protokoll + Billing) nicht ausreicht.
+Contractors sollen auf einen Blick sehen, wenn es ungelesene Chat-Nachrichten gibt -- sowohl auf der Auftragskarte in der Liste als auch im Auftragsdetail-Header.
 
-**Fix**: `pb-24` auf `pb-40` erhoehen und die Action-Bar von `fixed` auf sticky oder groeßerem Abstand aendern, damit nichts ueberlappt.
+## Ansatz
 
-## Problem 2: Auftragschat (Haupt-Feature)
+### Datenbank: `thermocheck.auftrag_chat_gelesen`
 
-### User Stories
-
-1. **Contractor** oeffnet Auftragsdetail → sieht Chat-Bereich → schreibt Nachricht/Rueckfrage zum Auftrag
-2. **Innendienst** (Heat Pump Hub) oeffnet Auftrag → sieht Chat → antwortet dem Contractor
-3. Nachrichten sind **auftragsbezogen** (1 Chat pro `thermocheck_auftrag_id`)
-4. Beide Seiten sehen chronologisch alle Nachrichten
-
-### Datenbank-Design
-
-**Neue Tabelle**: `thermocheck.auftrag_nachrichten`
+Eine kleine Tracking-Tabelle speichert pro User pro Auftrag den Zeitpunkt der letzten Lesebestätigung:
 
 ```text
-thermocheck.auftrag_nachrichten
+thermocheck.auftrag_chat_gelesen
 ├── id              uuid PK DEFAULT gen_random_uuid()
-├── auftrag_id      uuid FK → thermocheck_auftraege(id) ON DELETE CASCADE NOT NULL
-├── autor_id        uuid NOT NULL REFERENCES profiles(id)
-├── inhalt          text NOT NULL CHECK (char_length(inhalt) > 0)
-├── erstellt_am     timestamptz DEFAULT now()
-├── aktualisiert_am timestamptz DEFAULT now()
-└── UNIQUE: keiner (mehrere Nachrichten pro User/Auftrag moeglich)
+├── auftrag_id      uuid FK → thermocheck_auftraege(id) ON DELETE CASCADE
+├── user_id         uuid NOT NULL (auth.uid())
+├── gelesen_am      timestamptz DEFAULT now()
+└── UNIQUE(auftrag_id, user_id)
 ```
 
-**Indizes**:
-- `idx_auftrag_nachrichten_auftrag` ON (auftrag_id, erstellt_am ASC)
-- `idx_auftrag_nachrichten_autor` ON (autor_id)
+**RLS**: Jeder authentifizierte User kann nur seine eigene Row lesen/schreiben (user_id = auth.uid()).
 
-**updated_at Trigger**: Wie bei Forum-Tabellen.
+### Unread-Count Query
 
-### RLS-Policies
+Ungelesene Nachrichten = Nachrichten in `auftrag_nachrichten` WHERE:
+- `autor_id != current_user` (eigene Nachrichten zählen nicht)
+- `erstellt_am > gelesen_am` (oder alle wenn kein gelesen-Eintrag)
 
-Die RLS-Logik muss zwei Gruppen abdecken:
-- **Contractors**: Nur Nachrichten zum eigenen Auftrag (WHERE `zugewiesener_techniker_id` = eigene `contractor_onboarding.id`)
-- **Admins**: Alle Nachrichten (via `is_admin()`)
+### "Gelesen" markieren
 
-| Operation | Contractor | Admin |
-|-----------|-----------|-------|
-| SELECT | Eigene Auftraege | Alle |
-| INSERT | Eigene Auftraege, eigene `autor_id` | Alle, eigene `autor_id` |
-| UPDATE | Eigene Nachrichten | Eigene Nachrichten |
-| DELETE | Nein | Ja (`is_admin()`) |
+Wenn der User den Chat öffnet/sieht (in `AuftragChatSection`), wird automatisch ein UPSERT auf `auftrag_chat_gelesen` gemacht mit `gelesen_am = now()`.
 
-**SELECT-Policy** (Contractor sieht eigene Auftrags-Chats):
-```sql
-CREATE POLICY "Contractor can view own order messages"
-  ON thermocheck.auftrag_nachrichten FOR SELECT TO authenticated
-  USING (
-    is_admin()
-    OR EXISTS (
-      SELECT 1 FROM thermocheck.thermocheck_auftraege a
-      JOIN thermocheck.contractor_onboarding co ON co.id = a.zugewiesener_techniker_id
-      WHERE a.id = auftrag_nachrichten.auftrag_id
-        AND co.profile_id = auth.uid()
-    )
-  );
-```
+## Frontend-Änderungen
 
-**INSERT-Policy** (Nur in eigene Auftraege schreiben, nur eigene `autor_id`):
-```sql
-CREATE POLICY "Users can insert messages for own orders"
-  ON thermocheck.auftrag_nachrichten FOR INSERT TO authenticated
-  WITH CHECK (
-    autor_id = auth.uid()
-    AND (
-      is_admin()
-      OR EXISTS (
-        SELECT 1 FROM thermocheck.thermocheck_auftraege a
-        JOIN thermocheck.contractor_onboarding co ON co.id = a.zugewiesener_techniker_id
-        WHERE a.id = auftrag_nachrichten.auftrag_id
-          AND co.profile_id = auth.uid()
-      )
-    )
-  );
-```
+### 1. Neuer Hook: `useUnreadChatCounts`
 
-**UPDATE-Policy** (Nur eigene Nachrichten):
-```sql
-CREATE POLICY "Users can update own messages"
-  ON thermocheck.auftrag_nachrichten FOR UPDATE TO authenticated
-  USING (autor_id = auth.uid())
-  WITH CHECK (autor_id = auth.uid());
-```
+- Batch-Query: Für alle zugewiesenen Auftrags-IDs die ungelesenen Nachrichten-Counts laden
+- Gibt `Map<auftragId, number>` zurück
+- Polling alle 30s (wie der Chat selbst)
 
-**DELETE-Policy** (Nur Admins):
-```sql
-CREATE POLICY "Admins can delete messages"
-  ON thermocheck.auftrag_nachrichten FOR DELETE TO authenticated
-  USING (is_admin());
-```
+### 2. `TechnicianOrderCard` -- Badge anzeigen
 
-### Rollen-Matrix (Validierung)
+- Neues optionales Prop `unreadCount?: number`
+- Wenn > 0: orangener Badge mit Zahl (z.B. "3") neben dem Kundennamen oder Chevron
 
-| Rolle | System-Rolle | SELECT | INSERT | UPDATE | DELETE |
-|-------|-------------|--------|--------|--------|--------|
-| Contractor (user) | user | Eigene Auftraege | Eigene Auftraege, eigene autor_id | Eigene Nachrichten | Nein |
-| Admin | admin/superadmin | Alle | Alle, eigene autor_id | Eigene Nachrichten | Alle |
-| Manager | manager | Alle (via is_admin) | Alle, eigene autor_id | Eigene Nachrichten | Alle |
-| Coach/Trainer | user (kein admin) | Nein (kein zugewiesener_techniker) | Nein | Nein | Nein |
+### 3. `AuftragChatSection` -- Auto-Read-Mark
 
-Hinweis: `is_admin()` im DB-Schema prueft `admin` und `superadmin` in `iam.user_system_roles`. Manager wird im Frontend als Admin behandelt (`useIsAdmin` inkludiert manager), aber `is_admin()` in DB ist nur admin/superadmin. Fuer den Chat brauchen Manager auch Zugriff.
+- Beim Mount und bei neuen Nachrichten: UPSERT `gelesen_am = now()`
+- Dadurch verschwindet der Badge sobald der User den Chat sieht
 
-**Korrektur**: Die SELECT/INSERT Policies muessen auch Manager abdecken. Da Manager nicht in `is_admin()` enthalten ist, muss die Policy erweitert werden um einen Check auf `iam.user_system_roles` WHERE `role = 'manager'`, ODER wir verwenden eine neue Helper-Funktion `is_innendienst()` die admin + superadmin + manager prueft.
+### 4. Integration in Auftragsliste
 
-**Loesung**: Neue `SECURITY DEFINER` Funktion `thermocheck.is_innendienst()`:
-```sql
-CREATE FUNCTION thermocheck.is_innendienst()
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM iam.user_system_roles
-    WHERE user_id = auth.uid()
-      AND role IN ('admin', 'superadmin', 'manager')
-  )
-$$;
-```
-Plus public Wrapper. Dann `is_innendienst()` statt `is_admin()` in den Chat-Policies.
+- `useUnreadChatCounts` im Parent aufrufen (z.B. `Index.tsx` oder wo die Order-Liste gerendert wird)
+- Count per `auftragId` an `TechnicianOrderCard` durchreichen
 
-### Frontend-Implementierung
+## RLS-Policies für `auftrag_chat_gelesen`
 
-**Neuer Hook**: `src/features/chat/hooks/useAuftragChat.ts`
-- Query: Laedt Nachrichten fuer eine `auftrag_id` via REST API (thermocheck-Schema)
-- Resolve Autor-Namen via `profiles` JOIN
-- Mutation: Insert neue Nachricht
+| Operation | Policy |
+|-----------|--------|
+| SELECT | `user_id = auth.uid()` |
+| INSERT | `user_id = auth.uid()` |
+| UPDATE | `user_id = auth.uid()` |
+| DELETE | `user_id = auth.uid()` |
 
-**Neue UI-Komponente**: `src/features/chat/ui/AuftragChatSection.tsx`
-- Chat-Bubble-UI (eigene rechts, fremde links)
-- Eingabefeld unten
-- Scrollt automatisch nach unten bei neuen Nachrichten
-- Wird in `TechnicianOrderDetail` als neuer Abschnitt eingebaut (nach Beschreibung, vor Arbeitsfortschritt)
+Einfach und sicher -- jeder User verwaltet nur seine eigene Lesebestätigung.
 
-**Integration in TechnicianOrderDetail**:
-- Neuer Abschnitt "Nachrichten" mit Chat-Icon
-- Nur sichtbar wenn `order.auftragId` vorhanden (= zugewiesener Auftrag, nicht Pool)
-- Collapsible oder immer sichtbar
-
-### Edge Cases
+## Edge Cases
 
 | Szenario | Verhalten |
 |----------|-----------|
-| Auftrag ohne zugewiesenen Techniker | Kein Chat moeglich (Pool-Ansicht zeigt keinen Chat) |
-| Contractor schreibt in fremden Auftrag | RLS blockiert INSERT → Frontend zeigt kein Chat |
-| Admin loescht Nachricht | Verschwindet fuer alle |
-| Leere Nachricht | CHECK constraint verhindert INSERT |
-| Sehr lange Nachricht | Frontend-Limit (z.B. 2000 Zeichen) |
-| Geloeschter User (profiles CASCADE) | Nachrichten bleiben, Autor-Aufloesung: "Ehemaliger Nutzer" |
-| Auftrag geloescht | CASCADE loescht alle Nachrichten |
-
-### Daten-Migration
-
-Keine noetig – es gibt keine bestehenden Chat-Daten.
-
-### Prompt fuer Heat Pump Hub
-
-Am Ende der Implementierung wird ein ausfuehrlicher Prompt erstellt, der dem Heat Pump Hub-Projekt erklaert:
-- Tabelle `thermocheck.auftrag_nachrichten` existiert bereits
-- RLS-Policies erlauben Admin/Manager Zugriff
-- Wie der Chat im Auftragsdetail eingebaut werden soll
-- Welche Felder und Join-Logik noetig ist
+| User hat Chat nie geöffnet | Kein `gelesen`-Eintrag → alle fremden Nachrichten = unread |
+| User sendet eigene Nachricht | Zählt nicht als unread für ihn selbst |
+| Auftrag gelöscht | CASCADE löscht gelesen-Einträge |
+| Kein Chat (Pool-Auftrag) | Kein Badge, kein Count |
+| Admin antwortet → Contractor sieht Badge | Korrekt, da `autor_id != contractor` |
 
 ## Betroffene Dateien
 
-| Datei | Aenderung |
-|-------|-----------|
-| Migration SQL | Neue Tabelle, RLS, `is_innendienst()` Funktion |
-| `src/components/TechnicianOrderDetail.tsx` | Layout-Fix (pb-40) + Chat-Section einbinden |
-| `src/features/chat/hooks/useAuftragChat.ts` | NEU: Query + Mutation Hook |
-| `src/features/chat/ui/AuftragChatSection.tsx` | NEU: Chat-UI Komponente |
-| `.lovable/validation-auftrag-chat.md` | NEU: Validierungsdokumentation |
+| Datei | Änderung |
+|-------|----------|
+| Migration SQL | `auftrag_chat_gelesen` Tabelle + RLS |
+| `src/features/chat/hooks/useUnreadChatCounts.ts` | NEU: Batch unread count hook |
+| `src/features/chat/hooks/useAuftragChat.ts` | UPSERT gelesen_am beim Laden |
+| `src/features/chat/ui/AuftragChatSection.tsx` | Mark-as-read Logik |
+| `src/components/TechnicianOrderCard.tsx` | Unread-Badge anzeigen |
+| `src/pages/Index.tsx` (oder Parent) | Hook einbinden, Counts durchreichen |
+| `.lovable/validation-auftrag-chat.md` | Update mit Unread-Feature |
 
