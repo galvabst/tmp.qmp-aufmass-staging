@@ -6,7 +6,7 @@ export function useCreateThread() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ titel, inhalt }: { titel: string; inhalt: string }) => {
+    mutationFn: async ({ titel, inhalt, kategorie }: { titel: string; inhalt: string; kategorie: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Nicht angemeldet');
 
@@ -17,6 +17,7 @@ export function useCreateThread() {
           autor_profile_id: user.id,
           titel,
           inhalt,
+          kategorie,
         })
         .select()
         .single();
