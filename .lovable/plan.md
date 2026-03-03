@@ -1,22 +1,22 @@
 
 
-# Fix: Einheitlicher Header für Nachrichten & Forum
+# Plan: Raumscan-Link von Aufstellort nach Techniker-Daten verschieben
 
 ## Problem
-Der orange Gradient-Header wurde komplett entfernt statt nur bereinigt. Jetzt fehlt die visuelle Einheitlichkeit mit allen anderen Views (Pool, Buchungen, Aktiv, Prüfung).
+Das Raumscan-URL-Feld ist im Schritt "Aufstellort" (Schritt 10 von 15) versteckt. Da nicht jeder Techniker das PV-Formular ausfüllt, wird der Link leicht übersehen. Er soll prominenter platziert werden.
 
 ## Lösung
-Den Standard-Header mit orange Gradient + Galvanek Logo in `MessagesAndForumView.tsx` einbauen -- genau wie bei ReviewView, BookingsView etc. Die Sub-Tabs (Nachrichten/Forum) kommen direkt darunter.
+Das `raumscan_url`-Feld aus `AufstellortSection.tsx` entfernen und in `TechnikerDatenSection.tsx` (Schritt 1) einfügen — direkt nach dem Datum-Feld. So sieht es jeder Techniker sofort beim Formular-Start.
 
 ### Änderungen
 
-**`src/features/chat/ui/MessagesAndForumView.tsx`**:
-- Orange Gradient-Header oben einfügen: Titel "Nachrichten", Untertitel mit Anzahl, Logo rechts (`GalvanekLogo size="sm" variant="white"`)
-- Sub-Tabs bleiben direkt unter dem Header
-- Wrapper bekommt `min-h-screen bg-background`
+**`src/features/aufmass/ui/sections/TechnikerDatenSection.tsx`**:
+- Import `ExternalLink` von lucide-react
+- Nach dem "Datum ThermoCheck"-Feld: Raumscan-URL-Feld mit Input + "Öffnen"-Link einfügen (gleiche UI wie bisher)
 
-**`src/features/forum/ui/ForumView.tsx`**:
-- Bleibt wie jetzt (kompakte Toolbar ohne eigenen Header) -- korrekt als Sub-Tab-Content
+**`src/features/aufmass/ui/sections/AufstellortSection.tsx`**:
+- Raumscan-URL Block (Zeilen 150-163) entfernen
+- `raumscanUrl` watch und `ExternalLink` Import entfernen (falls nicht mehr gebraucht)
 
-Das Logo wird mit `size="sm"` verwendet (wie in ReviewView), was `h-8` ist und problemlos in den Header passt ohne abgeschnitten zu werden.
+Keine Schema- oder DB-Änderungen nötig — `raumscan_url` bleibt im selben `AufmassDraftData`-Objekt.
 
