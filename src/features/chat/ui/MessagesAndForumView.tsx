@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { ForumView } from '@/features/forum/ui/ForumView';
 import { NachrichtenInboxView } from './NachrichtenInboxView';
 import { NachrichtenDetail } from './NachrichtenDetail';
+import { GalvanekLogo } from '@/components/GalvanekLogo';
 
 type SubTab = 'nachrichten' | 'forum';
 
@@ -28,9 +29,24 @@ export function MessagesAndForumView({ auftragIds, unreadCounts, unreadTotal }: 
   }
 
   return (
-    <div className="pb-20">
+    <div className="min-h-screen bg-background pb-20">
+      {/* Header */}
+      <header className="bg-gradient-to-br from-primary to-primary/85 text-primary-foreground safe-area-top sticky top-0 z-10">
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Nachrichten</h1>
+              <p className="text-primary-foreground/70 text-sm">
+                {unreadTotal > 0 ? `${unreadTotal} ungelesen` : 'Alle gelesen'}
+              </p>
+            </div>
+            <GalvanekLogo size="sm" variant="white" className="opacity-95" />
+          </div>
+        </div>
+      </header>
+
       {/* Sub-tab bar */}
-      <div className="sticky top-0 z-10 bg-background border-b border-border">
+      <div className="bg-background border-b border-border">
         <div className="flex">
           <button
             onClick={() => setSubTab('nachrichten')}
