@@ -7,7 +7,7 @@ import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
 import { SignatureField } from '../components/SignatureField';
 import { useUploadVotBild } from '../../hooks/useVotBilder';
-import { ExternalLink } from 'lucide-react';
+
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -25,7 +25,7 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
   const alt2 = watch('alternative_2_vorhanden');
   const bestaetigt = watch('kunde_aufstellort_bestaetigt');
   const aufstellortAenderung = watch('aufstellort_aenderung');
-  const raumscanUrl = watch('raumscan_url');
+  
   const uploadMutation = useUploadVotBild();
 
   const handleSignature = async (blob: Blob) => {
@@ -147,20 +147,6 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
         )}
       </div>
 
-      {/* Raumscan-URL */}
-      <div className="space-y-1">
-        <Label htmlFor="raumscan_url">Link zum Raumscan</Label>
-        <div className="flex gap-2 items-center">
-          <Input id="raumscan_url" type="url" placeholder="https://..." disabled={disabled}
-            {...register('raumscan_url')} className="flex-1" />
-          {raumscanUrl && raumscanUrl.startsWith('http') && (
-            <a href={raumscanUrl} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0">
-              <ExternalLink className="h-4 w-4" /> Öffnen
-            </a>
-          )}
-        </div>
-      </div>
 
       {/* Kundenbestätigung */}
       <div className="bg-card rounded-xl p-4 border border-border space-y-4">

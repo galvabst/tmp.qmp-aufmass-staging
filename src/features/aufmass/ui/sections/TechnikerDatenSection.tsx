@@ -5,6 +5,7 @@ import { AufmassDraftData } from '../../data/aufmass-schema';
 import { PhotoUploadField } from '../components/PhotoUploadField';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { AufmassDatePicker } from '../components/AufmassDatePicker';
+import { ExternalLink } from 'lucide-react';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -18,6 +19,7 @@ interface Props {
 
 export function TechnikerDatenSection({ form, bilder, votFormularId, leadName, leadId, auftragId, disabled }: Props) {
   const { register, watch, setValue, formState: { errors } } = form;
+  const raumscanUrl = watch('raumscan_url');
 
   return (
     <div className="space-y-6">
@@ -62,6 +64,20 @@ export function TechnikerDatenSection({ form, bilder, votFormularId, leadName, l
             placeholder="Datum wählen"
           />
           {errors.thermocheck_datum && <p className="text-xs text-destructive">{errors.thermocheck_datum.message}</p>}
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="raumscan_url">Link zum Raumscan</Label>
+          <div className="flex gap-2 items-center">
+            <Input id="raumscan_url" type="url" placeholder="https://..." disabled={disabled}
+              {...register('raumscan_url')} className="flex-1" />
+            {raumscanUrl && raumscanUrl.startsWith('http') && (
+              <a href={raumscanUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0">
+                <ExternalLink className="h-4 w-4" /> Öffnen
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </div>
