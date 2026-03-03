@@ -10,17 +10,17 @@ export interface ForumThread {
   aktualisiert_am: string;
   ist_geloest: boolean;
   akzeptierte_antwort_id: string | null;
+  kategorie: string | null;
   // Joined data
   autor_name: string;
   antworten_count: number;
   hat_trainer_antwort: boolean;
 }
 
-export function useForumThreads(filter: 'alle' | 'unbeantwortet' = 'alle') {
+export function useForumThreads(filter: 'alle' | 'unbeantwortet' = 'alle', kategorie?: string | null) {
   return useQuery({
-    queryKey: ['forum-threads', filter],
+    queryKey: ['forum-threads', filter, kategorie],
     queryFn: async (): Promise<ForumThread[]> => {
-      // Fetch threads
       const { data: threads, error } = await supabase
         .schema('thermocheck' as any)
         .from('contractor_forum_threads')
@@ -30,10 +30,8 @@ export function useForumThreads(filter: 'alle' | 'unbeantwortet' = 'alle') {
       if (error) throw error;
       if (!threads || threads.length === 0) return [];
 
-      // Get unique profile IDs
       const profileIds = [...new Set(threads.map((t: any) => t.autor_profile_id))];
       
-      // Fetch profile names
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, vorname, nachname')
@@ -43,7 +41,6 @@ export function useForumThreads(filter: 'alle' | 'unbeantwortet' = 'alle') {
         (profiles || []).map((p: any) => [p.id, `${p.vorname || ''} ${p.nachname || ''}`.trim() || 'Anonym'])
       );
 
-      // Fetch answer counts and trainer answer status
       const threadIds = threads.map((t: any) => t.id);
       const { data: antworten } = await supabase
         .schema('thermocheck' as any)
@@ -59,7 +56,7 @@ export function useForumThreads(filter: 'alle' | 'unbeantwortet' = 'alle') {
         countMap.set(a.thread_id, entry);
       });
 
-      const result: ForumThread[] = threads.map((t: any) => {
+      let result: ForumThread[] = threads.map((t: any) => {
         const stats = countMap.get(t.id) || { count: 0, hatTrainer: false };
         return {
           id: t.id,
@@ -70,6 +67,7 @@ export function useForumThreads(filter: 'alle' | 'unbeantwortet' = 'alle') {
           aktualisiert_am: t.aktualisiert_am,
           ist_geloest: t.ist_geloest,
           akzeptierte_antwort_id: t.akzeptierte_antwort_id,
+          kategorie: t.kategorie || null,
           autor_name: profileMap.get(t.autor_profile_id) || 'Anonym',
           antworten_count: stats.count,
           hat_trainer_antwort: stats.hatTrainer,
@@ -77,7 +75,11 @@ export function useForumThreads(filter: 'alle' | 'unbeantwortet' = 'alle') {
       });
 
       if (filter === 'unbeantwortet') {
-        return result.filter(t => !t.hat_trainer_antwort && !t.ist_geloest);
+        result = result.filter(t => !t.hat_trainer_antwort && !t.ist_geloest);
+      }
+
+      if (kategorie) {
+        result = result.filter(t => t.kategorie === kategorie);
       }
 
       return result;

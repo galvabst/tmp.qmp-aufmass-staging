@@ -1,0 +1,1 @@
+ALTER TABLE thermocheck.contractor_forum_threads ADD COLUMN IF NOT EXISTS kategorie text;
