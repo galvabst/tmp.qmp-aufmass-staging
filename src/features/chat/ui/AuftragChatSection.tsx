@@ -3,6 +3,7 @@ import { MessageCircle, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuftragChat } from '@/features/chat/hooks/useAuftragChat';
+import { useMarkChatRead } from '@/features/chat/hooks/useMarkChatRead';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -16,6 +17,7 @@ const MAX_LENGTH = 2000;
 
 export function AuftragChatSection({ auftragId }: AuftragChatSectionProps) {
   const { nachrichten, isLoading, sendNachricht, isSending } = useAuftragChat(auftragId);
+  const markChatRead = useMarkChatRead();
   const { user } = useSupabaseSession();
   const [text, setText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -26,6 +28,13 @@ export function AuftragChatSection({ auftragId }: AuftragChatSectionProps) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [nachrichten.length]);
+
+  // Mark chat as read on mount and when new messages arrive
+  useEffect(() => {
+    if (auftragId && nachrichten.length > 0) {
+      markChatRead(auftragId);
+    }
+  }, [auftragId, nachrichten.length, markChatRead]);
 
   const handleSend = () => {
     const trimmed = text.trim();

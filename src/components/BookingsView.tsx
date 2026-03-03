@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Clock, ChevronRight, CheckCircle2, AlertCircle, Phone } from 'lucide-react';
+import { Calendar, MapPin, Clock, ChevronRight, CheckCircle2, AlertCircle, Phone, MessageCircle } from 'lucide-react';
 import { TechnicianOrder } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS } from '@/lib/enums';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
@@ -9,6 +9,7 @@ import { GalvanekLogo } from '@/components/GalvanekLogo';
 interface BookingsViewProps {
   orders: TechnicianOrder[];
   onOrderClick: (order: TechnicianOrder) => void;
+  unreadCounts?: Map<string, number>;
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -23,7 +24,7 @@ function isTerminSoon(dateStr: string): boolean {
   return isToday(date) || isTomorrow(date);
 }
 
-export function BookingsView({ orders, onOrderClick }: BookingsViewProps) {
+export function BookingsView({ orders, onOrderClick, unreadCounts }: BookingsViewProps) {
   const bookedOrders = orders
     .filter(o => o.status === 'booked')
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
@@ -80,6 +81,7 @@ export function BookingsView({ orders, onOrderClick }: BookingsViewProps) {
                   const buchungDone = !!order.buchungBestaetigtAm;
                   const vortagDone = !!order.vortagBestaetigtAm;
                   const showVortag = buchungDone && isTerminSoon(order.scheduledDate);
+                  const unreadCount = unreadCounts?.get(order.auftragId || '') || 0;
 
                   return (
                     <button
@@ -104,7 +106,15 @@ export function BookingsView({ orders, onOrderClick }: BookingsViewProps) {
                             {order.address}, {order.city}
                           </p>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        <div className="flex items-center gap-2">
+                          {unreadCount > 0 && (
+                            <span className="inline-flex items-center gap-1 bg-orange-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                              <MessageCircle className="w-3 h-3" />
+                              {unreadCount}
+                            </span>
+                          )}
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        </div>
                       </div>
 
                       {/* Confirmation task badges */}
