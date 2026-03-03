@@ -10,6 +10,7 @@ interface BottomNavProps {
   bookingsCount?: number;
   activeCount?: number;
   reviewCount?: number;
+  unreadChatTotal?: number;
 }
 
 export function BottomNav({ 
@@ -19,13 +20,14 @@ export function BottomNav({
   bookingsCount = 0,
   activeCount = 0,
   reviewCount = 0,
+  unreadChatTotal = 0,
 }: BottomNavProps) {
   const tabs = [
     { id: 'pool' as Tab, label: 'Pool', icon: MapPin, badge: poolCount },
     { id: 'bookings' as Tab, label: 'Buchungen', icon: Calendar, badge: bookingsCount },
     { id: 'active' as Tab, label: 'Aktiv', icon: Clock, badge: activeCount },
     { id: 'review' as Tab, label: 'Prüfung', icon: CheckCircle2, badge: reviewCount },
-    { id: 'forum' as Tab, label: 'Forum', icon: MessageCircle },
+    { id: 'forum' as Tab, label: 'Nachrichten', icon: MessageCircle, chatDot: unreadChatTotal > 0 },
     { id: 'profile' as Tab, label: 'Profil', icon: User },
   ];
 
@@ -51,6 +53,9 @@ export function BottomNav({
                   <span className="absolute -top-1.5 -right-2 bg-accent text-accent-foreground text-[10px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1">
                     {tab.badge}
                   </span>
+                )}
+                {'chatDot' in tab && (tab as any).chatDot && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-destructive rounded-full animate-pulse ring-2 ring-card" />
                 )}
               </div>
               <span className={cn('text-[10px] mt-0.5', isActive && 'font-semibold')}>
