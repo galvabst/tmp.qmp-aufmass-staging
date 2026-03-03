@@ -5,7 +5,6 @@ import { ForumThreadCard } from './ForumThreadCard';
 import { ForumThreadDetail } from './ForumThreadDetail';
 import { ForumNewThread } from './ForumNewThread';
 import { useForumThreads, type ForumThread } from '../hooks/useForumThreads';
-import { GalvanekLogo } from '@/components/GalvanekLogo';
 
 export function ForumView() {
   const [view, setView] = useState<'list' | 'detail' | 'new'>('list');
@@ -35,51 +34,41 @@ export function ForumView() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <header className="bg-gradient-to-br from-primary to-primary/85 text-primary-foreground safe-area-top sticky top-0 z-40">
-        <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Forum</h1>
-              <p className="text-primary-foreground/70 text-sm">Fragen & Antworten</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button
-                size="sm"
-                onClick={() => setView('new')}
-                className="gap-1.5 bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Frage stellen
-              </Button>
-              <GalvanekLogo size="sm" variant="white" className="opacity-95" />
-            </div>
-          </div>
-          {/* Filter */}
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={() => setFilter('alle')}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                filter === 'alle'
-                  ? 'bg-white/25 text-white border-white/30 backdrop-blur-sm'
-                  : 'bg-white/10 text-white/70 border-white/10 backdrop-blur-sm'
-              }`}
-            >
-              Alle Fragen
-            </button>
-            <button
-              onClick={() => setFilter('unbeantwortet')}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                filter === 'unbeantwortet'
-                  ? 'bg-white/25 text-white border-white/30 backdrop-blur-sm'
-                  : 'bg-white/10 text-white/70 border-white/10 backdrop-blur-sm'
-              }`}
-            >
-              Unbeantwortete
-            </button>
-          </div>
+    <div className="pb-20">
+      {/* Compact toolbar */}
+      <div className="px-4 pt-3 pb-2 flex items-center gap-2">
+        <div className="flex gap-2 flex-1">
+          <button
+            onClick={() => setFilter('alle')}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              filter === 'alle'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-muted text-muted-foreground border-border'
+            }`}
+          >
+            Alle Fragen
+          </button>
+          <button
+            onClick={() => setFilter('unbeantwortet')}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              filter === 'unbeantwortet'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-muted text-muted-foreground border-border'
+            }`}
+          >
+            Unbeantwortete
+          </button>
         </div>
-      </header>
+        <Button
+          size="icon"
+          variant="default"
+          onClick={() => setView('new')}
+          className="shrink-0 h-8 w-8 rounded-full"
+          aria-label="Frage stellen"
+        >
+          <Plus className="w-4 h-4" />
+        </Button>
+      </div>
 
       <div className="p-4 space-y-3">
         {isLoading ? (
