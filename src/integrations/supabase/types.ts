@@ -10212,6 +10212,13 @@ export type Database = {
           vorname: string
         }[]
       }
+      get_techniker_durchschnittsbewertung: {
+        Args: { p_techniker_id: string }
+        Returns: {
+          anzahl: number
+          durchschnitt: number
+        }[]
+      }
       get_termine_for_lead: {
         Args: { p_lead_id: string }
         Returns: {
@@ -11593,29 +11600,55 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_thermocheck_auftrag_admin: {
-        Args: {
-          p_abgerechnet?: boolean
-          p_auftrag_id: string
-          p_created_at?: string
-          p_fussbodenheizung?: boolean
-          p_info_vertrieb_pv_aufmass?: string
-          p_info_vertrieb_sonstiges?: string
-          p_info_vertrieb_thc_aufmass?: string
-          p_notizen?: string
-          p_pipeline_status?: string
-          p_quadratmeter?: number
-          p_rechnungsdatum?: string
-          p_rechnungsnummer?: string
-          p_signier_datum_thc?: string
-          p_storno_datum?: string
-          p_wc1_durchgefuehrt_am?: string
-          p_widerrufsbelehrung_url?: string
-          p_wohneinheiten?: number
-          p_zugewiesener_techniker_id?: string
-        }
-        Returns: undefined
-      }
+      update_thermocheck_auftrag_admin:
+        | {
+            Args: {
+              p_abgerechnet?: boolean
+              p_auftrag_id: string
+              p_created_at?: string
+              p_fussbodenheizung?: boolean
+              p_info_vertrieb_pv_aufmass?: string
+              p_info_vertrieb_sonstiges?: string
+              p_info_vertrieb_thc_aufmass?: string
+              p_notizen?: string
+              p_pipeline_status?: string
+              p_quadratmeter?: number
+              p_rechnungsdatum?: string
+              p_rechnungsnummer?: string
+              p_signier_datum_thc?: string
+              p_storno_datum?: string
+              p_wc1_durchgefuehrt_am?: string
+              p_widerrufsbelehrung_url?: string
+              p_wohneinheiten?: number
+              p_zugewiesener_techniker_id?: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_abgerechnet?: boolean
+              p_angebot_beschreibung?: string
+              p_angebot_datei_url?: string
+              p_auftrag_id: string
+              p_created_at?: string
+              p_fussbodenheizung?: boolean
+              p_info_vertrieb_pv_aufmass?: string
+              p_info_vertrieb_sonstiges?: string
+              p_info_vertrieb_thc_aufmass?: string
+              p_notizen?: string
+              p_pipeline_status?: string
+              p_quadratmeter?: number
+              p_rechnungsdatum?: string
+              p_rechnungsnummer?: string
+              p_signier_datum_thc?: string
+              p_storno_datum?: string
+              p_wc1_durchgefuehrt_am?: string
+              p_widerrufsbelehrung_url?: string
+              p_wohneinheiten?: number
+              p_zugewiesener_techniker_id?: string
+            }
+            Returns: undefined
+          }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
@@ -11635,6 +11668,15 @@ export type Database = {
           p_wert?: string
         }
         Returns: string
+      }
+      upsert_techniker_bewertung: {
+        Args: {
+          p_bewertung: number
+          p_kommentar?: string
+          p_techniker_id: string
+          p_thermocheck_auftrag_id: string
+        }
+        Returns: undefined
       }
       user_can_access_entity: {
         Args: {
