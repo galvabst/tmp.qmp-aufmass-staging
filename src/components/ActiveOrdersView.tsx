@@ -1,4 +1,4 @@
-import { Clock, MapPin, CheckCircle2, Circle, Play, ArrowRight } from 'lucide-react';
+import { Clock, MapPin, CheckCircle2, Circle, Play, ArrowRight, MessageCircle } from 'lucide-react';
 import { TechnicianOrder, CheckinPhase, CHECKIN_PHASE_LABELS } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ interface ActiveOrdersViewProps {
   onCheckin: (orderId: string, phase: CheckinPhase) => void;
   onCheckout: (orderId: string, phase: CheckinPhase) => void;
   onOrderClick: (order: TechnicianOrder) => void;
+  unreadCounts?: Map<string, number>;
 }
 
 function PhaseStatus({ 
@@ -81,7 +82,7 @@ function PhaseStatus({
   );
 }
 
-export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick }: ActiveOrdersViewProps) {
+export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick, unreadCounts }: ActiveOrdersViewProps) {
   const activeOrders = orders.filter(o => o.status === 'in_progress');
 
   // Determine current phase for each order
@@ -129,6 +130,7 @@ export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick }
         <div className="p-4 space-y-4">
           {activeOrders.map(order => {
             const phaseInfo = getOrderPhaseInfo(order);
+            const unreadCount = unreadCounts?.get(order.auftragId || '') || 0;
             
             return (
               <div key={order.id} className="bg-card rounded-xl shadow-card overflow-hidden">
@@ -148,7 +150,15 @@ export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick }
                         {order.address}, {order.city}
                       </p>
                     </div>
-                    <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                    <div className="flex items-center gap-2">
+                      {unreadCount > 0 && (
+                        <span className="inline-flex items-center gap-1 bg-orange-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                          <MessageCircle className="w-3 h-3" />
+                          {unreadCount}
+                        </span>
+                      )}
+                      <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                    </div>
                   </div>
                 </button>
 

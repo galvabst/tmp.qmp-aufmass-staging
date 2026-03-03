@@ -15,6 +15,7 @@ import { usePoolOrders } from '@/hooks/usePoolOrders';
 import { useMyAssignedOrders } from '@/hooks/useMyAssignedOrders';
 import { useMyPendingProposals } from '@/hooks/useMyPendingProposals';
 import { RescheduleModal } from '@/components/RescheduleModal';
+import { useUnreadChatCounts } from '@/features/chat/hooks/useUnreadChatCounts';
 import { supabase } from '@/integrations/supabase/client';
 import { ObjectOrderStatusEnum } from '@/lib/enums';
 import { toast } from 'sonner';
@@ -59,6 +60,13 @@ const Index = () => {
   const { data: dbAssignedOrders } = useMyAssignedOrders();
   const { data: pendingReschedules, refetch: refetchPending } = useMyPendingProposals();
   const [orders, setOrders] = useState<TechnicianOrder[]>([]);
+
+  // Collect auftrag IDs from assigned orders for unread chat counts
+  const assignedAuftragIds = useMemo(() => 
+    (dbAssignedOrders || []).map(o => o.auftragId).filter(Boolean) as string[],
+    [dbAssignedOrders]
+  );
+  const { data: unreadCounts } = useUnreadChatCounts(assignedAuftragIds);
   
   // Sync DB orders into local state (merge pool + assigned)
   useEffect(() => {
@@ -402,6 +410,7 @@ const Index = () => {
         <BookingsView 
           orders={orders} 
           onOrderClick={handleOrderClick}
+          unreadCounts={unreadCounts}
         />
       )}
       
@@ -411,6 +420,7 @@ const Index = () => {
           onOrderClick={handleOrderClick}
           onCheckin={handleCheckin}
           onCheckout={handleCheckout}
+          unreadCounts={unreadCounts}
         />
       )}
       
