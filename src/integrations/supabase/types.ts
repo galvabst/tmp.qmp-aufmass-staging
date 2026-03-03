@@ -12014,6 +12014,7 @@ export type Database = {
         | "vormontage_calendar"
         | "number"
         | "bestellung_email_list"
+        | "rating"
       storno_status_enum:
         | "Zu Stornieren"
         | "Stornierung beantragt"
@@ -12640,6 +12641,7 @@ export const Constants = {
         "vormontage_calendar",
         "number",
         "bestellung_email_list",
+        "rating",
       ],
       storno_status_enum: [
         "Zu Stornieren",
