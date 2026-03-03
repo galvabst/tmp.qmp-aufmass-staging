@@ -1,91 +1,93 @@
 
 
-# Unread-Chat-Badge: Benachrichtigung für neue Nachrichten
+# Plan: Forum-Tab zu "Forum + Nachrichten" Inbox umbauen
 
-## Ziel
+## Kernidee
 
-Contractors sollen auf einen Blick sehen, wenn es ungelesene Chat-Nachrichten gibt -- sowohl auf der Auftragskarte in der Liste als auch im Auftragsdetail-Header.
+Der bestehende "Forum"-Tab in der BottomNav wird zu einem Dual-View mit zwei Sub-Tabs:
+1. **Nachrichten** (default, mit Badge) -- Inbox aller Auftrags-Chats mit ungelesenen Nachrichten oben
+2. **Forum** -- das bestehende Q&A-Forum (unverandert)
 
-## Ansatz
+Contractors konnen NUR auf Nachrichten antworten, die der Innendienst initiiert hat. Sie konnen NICHT proaktiv den Innendienst kontaktieren.
 
-### Datenbank: `thermocheck.auftrag_chat_gelesen`
-
-Eine kleine Tracking-Tabelle speichert pro User pro Auftrag den Zeitpunkt der letzten Lesebestätigung:
+## User Flow
 
 ```text
-thermocheck.auftrag_chat_gelesen
-├── id              uuid PK DEFAULT gen_random_uuid()
-├── auftrag_id      uuid FK → thermocheck_auftraege(id) ON DELETE CASCADE
-├── user_id         uuid NOT NULL (auth.uid())
-├── gelesen_am      timestamptz DEFAULT now()
-└── UNIQUE(auftrag_id, user_id)
+BottomNav "Nachrichten" (mit rotem Dot wenn unread)
+  └─► Sub-Tabs: [Nachrichten] [Forum]
+       │
+       ├── Nachrichten-Tab (default)
+       │   ├── Unread-Banner: "3 neue Nachrichten"
+       │   ├── Auftragskarte (Kunde X, 2 ungelesen) → Tap → Chat-Detail
+       │   ├── Auftragskarte (Kunde Y, gelesen) → Tap → Chat-Detail
+       │   └── Leerer Zustand: "Keine Nachrichten"
+       │
+       └── Forum-Tab
+           └── Bestehendes ForumView (unverandert)
 ```
 
-**RLS**: Jeder authentifizierte User kann nur seine eigene Row lesen/schreiben (user_id = auth.uid()).
+## Technische Umsetzung
 
-### Unread-Count Query
+### 1. BottomNav anpassen
+- Tab-Label von "Forum" zu "Nachrichten" umbenennen
+- Tab-ID bleibt `forum` (keine Breaking Changes)
+- Neues Prop `unreadChatTotal` fur roten pulsierenden Dot
 
-Ungelesene Nachrichten = Nachrichten in `auftrag_nachrichten` WHERE:
-- `autor_id != current_user` (eigene Nachrichten zählen nicht)
-- `erstellt_am > gelesen_am` (oder alle wenn kein gelesen-Eintrag)
+### 2. Neue Komponente: `NachrichtenInboxView`
+- Zeigt alle zugewiesenen Auftrage, die Chat-Nachrichten haben
+- Sortierung: ungelesene oben, dann nach letzter Nachricht-Zeit
+- Tap auf Karte offnet `AuftragChatSection` als Fullscreen-Detail
+- Kein "Neue Nachricht"-Button (Contractor kann nicht proaktiv schreiben)
+- Ladt Daten via bestehendem `useUnreadChatCounts` + neuem Hook `useAuftragChatInbox` (holt letzte Nachricht pro Auftrag)
 
-### "Gelesen" markieren
+### 3. Neuer Hook: `useAuftragChatInbox`
+- Query: Fur alle zugewiesenen `auftragIds`, hole pro Auftrag die letzte Nachricht (autor_name, inhalt, erstellt_am)
+- Nutzt `supabaseTC` (thermocheck-Client)
+- Polling 30s wie bestehende Hooks
 
-Wenn der User den Chat öffnet/sieht (in `AuftragChatSection`), wird automatisch ein UPSERT auf `auftrag_chat_gelesen` gemacht mit `gelesen_am = now()`.
+### 4. Wrapper-Komponente: `MessagesAndForumView`
+- Ersetzt `ForumView` im Index.tsx
+- Zwei Sub-Tabs oben: "Nachrichten" | "Forum"
+- Badge auf "Nachrichten"-Sub-Tab zeigt unread count
+- "Forum" Sub-Tab rendert bestehendes `ForumView`
 
-## Frontend-Änderungen
+### 5. Index.tsx Integration
+- `unreadChatTotal` aus bestehendem `useUnreadChatCounts` Hook ableiten (Summe)
+- An `BottomNav` als Prop durchreichen
+- `MessagesAndForumView` statt `ForumView` rendern
 
-### 1. Neuer Hook: `useUnreadChatCounts`
+## Einschrankung: Contractor kann nicht proaktiv schreiben
 
-- Batch-Query: Für alle zugewiesenen Auftrags-IDs die ungelesenen Nachrichten-Counts laden
-- Gibt `Map<auftragId, number>` zurück
-- Polling alle 30s (wie der Chat selbst)
+Die Chat-Eingabe in `AuftragChatSection` bleibt aktiv -- Contractor kann antworten. Aber es gibt keinen "Neue Konversation starten"-Button. Chat ist nur zuganglich uber Auftrage, bei denen bereits Nachrichten existieren ODER uber den Auftragsdetail (wo Chat-Section bereits eingebaut ist).
 
-### 2. `TechnicianOrderCard` -- Badge anzeigen
+Das heisst: Innendienst muss die erste Nachricht senden. Danach kann der Contractor antworten.
 
-- Neues optionales Prop `unreadCount?: number`
-- Wenn > 0: orangener Badge mit Zahl (z.B. "3") neben dem Kundennamen oder Chevron
+## Keine DB-Migration notig
 
-### 3. `AuftragChatSection` -- Auto-Read-Mark
+Alle Daten kommen aus bestehenden Tabellen (`auftrag_nachrichten`, `auftrag_chat_gelesen`). Der neue Inbox-Hook nutzt dieselben Queries.
 
-- Beim Mount und bei neuen Nachrichten: UPSERT `gelesen_am = now()`
-- Dadurch verschwindet der Badge sobald der User den Chat sieht
+## Betroffene Dateien
 
-### 4. Integration in Auftragsliste
-
-- `useUnreadChatCounts` im Parent aufrufen (z.B. `Index.tsx` oder wo die Order-Liste gerendert wird)
-- Count per `auftragId` an `TechnicianOrderCard` durchreichen
-
-## RLS-Policies für `auftrag_chat_gelesen`
-
-| Operation | Policy |
-|-----------|--------|
-| SELECT | `user_id = auth.uid()` |
-| INSERT | `user_id = auth.uid()` |
-| UPDATE | `user_id = auth.uid()` |
-| DELETE | `user_id = auth.uid()` |
-
-Einfach und sicher -- jeder User verwaltet nur seine eigene Lesebestätigung.
+| Datei | Anderung |
+|-------|----------|
+| `src/components/BottomNav.tsx` | Label "Nachrichten", `unreadChatTotal` Prop, roter Dot |
+| `src/features/chat/ui/MessagesAndForumView.tsx` | NEU: Wrapper mit Sub-Tabs |
+| `src/features/chat/ui/NachrichtenInboxView.tsx` | NEU: Inbox-Liste aller Auftrags-Chats |
+| `src/features/chat/ui/NachrichtenDetail.tsx` | NEU: Fullscreen Chat-Detail (nutzt AuftragChatSection) |
+| `src/features/chat/hooks/useAuftragChatInbox.ts` | NEU: Letzte Nachricht pro Auftrag laden |
+| `src/pages/Index.tsx` | MessagesAndForumView + unreadChatTotal berechnen |
 
 ## Edge Cases
 
 | Szenario | Verhalten |
 |----------|-----------|
-| User hat Chat nie geöffnet | Kein `gelesen`-Eintrag → alle fremden Nachrichten = unread |
-| User sendet eigene Nachricht | Zählt nicht als unread für ihn selbst |
-| Auftrag gelöscht | CASCADE löscht gelesen-Einträge |
-| Kein Chat (Pool-Auftrag) | Kein Badge, kein Count |
-| Admin antwortet → Contractor sieht Badge | Korrekt, da `autor_id != contractor` |
+| Keine Nachrichten bei keinem Auftrag | Leerer Zustand: "Noch keine Nachrichten vom Innendienst" |
+| Innendienst schreibt erste Nachricht | Erscheint in Inbox mit Badge |
+| Contractor offnet Chat | `gelesen_am` wird aktualisiert, Badge verschwindet |
+| Auftrag im Pool (nicht zugewiesen) | Erscheint nicht in Inbox |
+| Alle gelesen | Kein roter Dot in BottomNav, kein Banner |
 
-## Betroffene Dateien
+## RLS / Sicherheit
 
-| Datei | Änderung |
-|-------|----------|
-| Migration SQL | `auftrag_chat_gelesen` Tabelle + RLS |
-| `src/features/chat/hooks/useUnreadChatCounts.ts` | NEU: Batch unread count hook |
-| `src/features/chat/hooks/useAuftragChat.ts` | UPSERT gelesen_am beim Laden |
-| `src/features/chat/ui/AuftragChatSection.tsx` | Mark-as-read Logik |
-| `src/components/TechnicianOrderCard.tsx` | Unread-Badge anzeigen |
-| `src/pages/Index.tsx` (oder Parent) | Hook einbinden, Counts durchreichen |
-| `.lovable/validation-auftrag-chat.md` | Update mit Unread-Feature |
+Keine neuen Policies notig. Bestehende RLS auf `auftrag_nachrichten` stellt sicher, dass Contractor nur seine zugewiesenen Auftrage sieht. `auftrag_chat_gelesen` ist auf `user_id = auth.uid()` beschrankt.
 
