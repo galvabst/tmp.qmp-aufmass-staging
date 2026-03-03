@@ -7,7 +7,7 @@ import { BookingsView } from '@/components/BookingsView';
 import { ActiveOrdersView } from '@/components/ActiveOrdersView';
 import { ReviewView } from '@/components/ReviewView';
 import { ProfileView } from '@/components/ProfileView';
-import { ForumView } from '@/features/forum/ui/ForumView';
+import { MessagesAndForumView } from '@/features/chat/ui/MessagesAndForumView';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { TechnicianOrderDetail } from '@/components/TechnicianOrderDetail';
 import { TechnicianOrder, TechnicianProfile, CheckinPhase } from '@/types/technician';
@@ -67,6 +67,10 @@ const Index = () => {
     [dbAssignedOrders]
   );
   const { data: unreadCounts } = useUnreadChatCounts(assignedAuftragIds);
+  const unreadChatTotal = useMemo(() => {
+    if (!unreadCounts) return 0;
+    return [...unreadCounts.values()].reduce((s, v) => s + v, 0);
+  }, [unreadCounts]);
   
   // Sync DB orders into local state (merge pool + assigned)
   useEffect(() => {
@@ -432,7 +436,11 @@ const Index = () => {
       )}
 
       {activeTab === 'forum' && (
-        <ForumView />
+        <MessagesAndForumView
+          auftragIds={assignedAuftragIds}
+          unreadCounts={unreadCounts || new Map()}
+          unreadTotal={unreadChatTotal}
+        />
       )}
       
       {activeTab === 'profile' && (
@@ -463,6 +471,7 @@ const Index = () => {
         bookingsCount={bookingsCount}
         activeCount={activeCount}
         reviewCount={reviewCount}
+        unreadChatTotal={unreadChatTotal}
       />
     </div>
   );
