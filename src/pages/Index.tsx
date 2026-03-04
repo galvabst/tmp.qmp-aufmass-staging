@@ -53,6 +53,8 @@ const Index = () => {
   // Load real profile data from DB
   const profileId = onboardingRecord?.profile_id || null;
   const { data: dbProfile } = useContractorProfile(profileId);
+  const contractorOnboardingId = onboardingRecord?.id || null;
+  const { data: bewertungStats } = useTechnikerBewertungStats(contractorOnboardingId);
 
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
