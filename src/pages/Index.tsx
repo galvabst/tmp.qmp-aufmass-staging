@@ -116,6 +116,8 @@ const Index = () => {
       ? new Date(erstelltAm).toISOString().slice(0, 7)
       : '–';
 
+    const assignedCount = dbAssignedOrders?.length || 0;
+
     return {
       id: profileId || '',
       name,
@@ -125,8 +127,8 @@ const Index = () => {
       avatarUrl: dbProfile?.avatarUrl,
       memberSince,
       stats: {
-        totalOrders: 0,
-        acceptanceRate: 0,
+        totalOrders: assignedCount,
+        acceptanceRate: assignedCount > 0 ? 100 : 0,
         rating: 0,
       },
       certificates: [],
@@ -142,7 +144,7 @@ const Index = () => {
         minimum: 24,
       },
     };
-  }, [dbProfile, onboardingRecord, profileId]);
+  }, [dbProfile, onboardingRecord, profileId, dbAssignedOrders]);
   
   // Preview mode for testing the onboarding flow
   const [isPreviewMode, setIsPreviewMode] = useState(false);
