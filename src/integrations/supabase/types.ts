@@ -9395,6 +9395,10 @@ export type Database = {
               version_number: number
             }[]
           }
+      create_thc_ag_notiz: {
+        Args: { p_entity_id: string; p_inhalt: string; p_notiz_typ?: string }
+        Returns: string
+      }
       create_thc_angebotstermin: {
         Args: {
           p_description?: string
@@ -12016,6 +12020,7 @@ export type Database = {
         | "immobilie"
         | "mitarbeiter"
         | "autargy_kunde"
+        | "thermocheck_auftrag"
       pdf_bereich_enum:
         | "markenbotschafter"
         | "marketing"
@@ -12635,6 +12640,7 @@ export const Constants = {
         "immobilie",
         "mitarbeiter",
         "autargy_kunde",
+        "thermocheck_auftrag",
       ],
       pdf_bereich_enum: [
         "markenbotschafter",
