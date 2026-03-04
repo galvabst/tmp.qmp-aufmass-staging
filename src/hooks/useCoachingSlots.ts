@@ -170,11 +170,13 @@ export function useMyBookedRide(profileId: string | null) {
       if (!profileId) return null;
       await syncSession();
 
-      // Auftrag finden wo coaching_gebucht_von = profileId
+      // Auftrag finden wo coaching_gebucht_von = profileId AND noch ausstehend
+      // (nicht_bestanden/abgesagt/no_show behalten coaching_gebucht_von für Historie)
       const { data: auftrag, error } = await thermocheckClient
         .from('thermocheck_auftraege')
-        .select('id, lead_id, zugewiesener_techniker_id')
+        .select('id, lead_id, zugewiesener_techniker_id, coaching_bewertung')
         .eq('coaching_gebucht_von', profileId)
+        .eq('coaching_bewertung', 'ausstehend')
         .limit(1)
         .maybeSingle();
 
