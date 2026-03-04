@@ -71,7 +71,66 @@ function CopyBlock({ label, text, copyKey, copiedKey, onCopy }: {
   );
 }
 
-/** Info chip for object details */
+/** Billing progress stepper for approved orders */
+function AbrechnungStepper({ status, approvedAt, rechnungEingegangenAm, geprueftAm, bezahltAm, betrag }: {
+  status: AbrechnungStatusEnum;
+  approvedAt?: string;
+  rechnungEingegangenAm: string | null;
+  geprueftAm: string | null;
+  bezahltAm: string | null;
+  betrag: number | null;
+}) {
+  const steps: { key: AbrechnungStatusEnum | 'abgenommen'; label: string; icon: React.ReactNode; date: string | null | undefined }[] = [
+    { key: 'abgenommen', label: 'Abgenommen', icon: <CheckCircle2 className="w-4 h-4" />, date: approvedAt },
+    { key: 'rechnung_eingegangen', label: 'Rechnung', icon: <Receipt className="w-4 h-4" />, date: rechnungEingegangenAm },
+    { key: 'in_pruefung', label: 'Prüfung', icon: <Search className="w-4 h-4" />, date: geprueftAm },
+    { key: 'bezahlt', label: 'Bezahlt', icon: <Banknote className="w-4 h-4" />, date: bezahltAm },
+  ];
+
+  const statusOrder: (AbrechnungStatusEnum | 'abgenommen')[] = ['abgenommen', 'rechnung_eingegangen', 'in_pruefung', 'bezahlt'];
+  const currentIdx = status === 'offen' ? 0 : statusOrder.indexOf(status);
+
+  return (
+    <div className="bg-card rounded-2xl p-4 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-foreground">Abrechnung</p>
+        {betrag != null && (
+          <p className="text-sm font-bold text-foreground">{betrag.toFixed(0)} €</p>
+        )}
+      </div>
+      <div className="flex items-start">
+        {steps.map((step, idx) => {
+          const isDone = idx <= currentIdx;
+          const isActive = idx === currentIdx;
+          return (
+            <div key={step.key} className="flex items-start flex-1">
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                  isDone ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'
+                } ${isActive && !isDone ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
+                  {isDone ? <Check className="w-4 h-4" /> : step.icon}
+                </div>
+                <p className={`text-[11px] mt-1 font-medium text-center ${isDone ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                  {step.label}
+                </p>
+                {step.date && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {format(parseISO(step.date), 'd. MMM', { locale: de })}
+                  </p>
+                )}
+              </div>
+              {idx < steps.length - 1 && (
+                <div className={`h-0.5 flex-1 mt-4 ${idx < currentIdx ? 'bg-green-400' : 'bg-muted'}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 function InfoChip({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5">
