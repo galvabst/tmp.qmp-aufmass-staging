@@ -1,65 +1,38 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Plan: Onboarding-Exit-Button für bereits abgeschlossene User
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
 
-## 1. Themen-Kategorien einführen
+Du landest im Onboarding, obwohl du es schon abgeschlossen hast. Das passiert, weil `isReady` in `useContractorOnboardingStatus` **alle 4 Flags** prüft:
+- `onboarding_status = 'ready'`
+- `trainer_freigabe = true`
+- `vertrag_geprueft_intern = true`
+- `kleidung_bestellt_intern = true`
+- `lizenzen_bereitgestellt_intern = true`
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+Wenn eines dieser internen Admin-Flags fehlt, wirst du zurück ins Onboarding geschickt — auch wenn du alles fertig hast.
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+## Lösung
 
-## 2. DB-Änderung
+### 1. "Überspringen"-Button im OnboardingScreen
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+Wenn der DB-Status `onboarding_status = 'ready'` ist (also alle 7 Steps completed + Trigger hat fired), aber die internen Admin-Flags noch fehlen, zeige einen **"Zum Pool →"**-Button oben im OnboardingScreen. Das betrifft den Fall, dass der User fertig ist aber auf interne Freigabe wartet.
 
-## 3. UI-Änderungen
+### 2. Alternativ: `isReady`-Logik lockern
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+Aktuell blockiert die fehlende interne Freigabe den Zugang zum Pool komplett. Stattdessen:
+- `isReady = onboarding_status === 'ready'` (ohne interne Flags)
+- Die internen Flags sind Admin-seitig und sollten den Techniker nicht blockieren
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+Das ist die sauberere Lösung — der Techniker soll arbeiten können, sobald sein Onboarding-Status `ready` ist.
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+## Betroffene Dateien
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+- `src/hooks/useContractorOnboardingStatus.ts` — `isReady` Logik vereinfachen: nur `onboarding_status === 'ready'` prüfen (interne Flags sind für Admin-Tracking, nicht für User-Blocking)
+- `src/components/OnboardingScreen.tsx` — Fallback: "Überspringen"-Button wenn `dbStatus.onboardingStatus === 'ready'`
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
+## Empfehlung
 
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+Option 2 (isReady lockern) ist besser — die internen Admin-Flags (`vertrag_geprueft`, `kleidung_bestellt`, `lizenzen_bereitgestellt`) sind Backoffice-Checks und sollten den Techniker nicht am Arbeiten hindern, wenn der DB-Trigger bereits `ready` gesetzt hat.
 
