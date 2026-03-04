@@ -10,12 +10,6 @@ import { AkademieAdminView } from '@/features/admin/ui/akademie/AkademieAdminVie
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<AdminTab>('contractors');
 
-  // Mock badges - später durch echte Counts ersetzen
-  const badges: Partial<Record<AdminTab, number>> = {
-    'quality-gate': 2,
-    'checkins': 1,
-  };
-
   return (
     <div className="min-h-screen bg-background">
       {activeTab === 'contractors' && <ContractorListView />}
@@ -25,10 +19,9 @@ export default function Admin() {
       {activeTab === 'quality-gate' && <QGQueueView />}
       {activeTab === 'akademie' && <AkademieAdminView />}
 
-      <AdminBottomNav 
+      <AdminBottomNav
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        badges={badges}
       />
     </div>
   );

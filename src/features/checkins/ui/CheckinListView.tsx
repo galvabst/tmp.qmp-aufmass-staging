@@ -1,110 +1,104 @@
+import { useMemo } from 'react';
 import { AdminLayout } from '@/features/admin/ui/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { LogIn, LogOut, User, Clock } from 'lucide-react';
-
-// Placeholder data - wird später durch Supabase-Query ersetzt
-const mockCheckins = [
-  { 
-    id: '1', 
-    contractorName: 'Max Mustermann',
-    address: 'Musterstraße 123, Berlin',
-    checkInAt: '2025-01-20T09:05:00',
-    checkOutAt: '2025-01-20T10:45:00',
-    status: 'completed',
-  },
-  { 
-    id: '2', 
-    contractorName: 'Erika Musterfrau',
-    address: 'Beispielweg 45, München',
-    checkInAt: '2025-01-20T14:02:00',
-    checkOutAt: null,
-    status: 'in_progress',
-  },
-];
-
-const statusConfig = {
-  in_progress: { label: 'Vor Ort', className: 'bg-status-new-bg text-status-new' },
-  completed: { label: 'Abgeschlossen', className: 'bg-status-completed-bg text-status-completed' },
-};
+import { LogIn, LogOut, User, Clock, MapPin } from 'lucide-react';
+import { ListSkeleton } from '@/components/ListSkeleton';
+import { useAdminCheckins } from '../hooks/useAdminCheckins';
+import { format, parseISO } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 function formatTime(dateString: string) {
-  return new Date(dateString).toLocaleTimeString('de-DE', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  });
+  return format(parseISO(dateString), 'HH:mm', { locale: de });
 }
 
-function calculateDuration(checkIn: string, checkOut: string | null) {
-  const start = new Date(checkIn);
-  const end = checkOut ? new Date(checkOut) : new Date();
-  const diffMs = end.getTime() - start.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const hours = Math.floor(diffMins / 60);
-  const mins = diffMins % 60;
-  return hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
+function calcDuration(start: string, end: string | null) {
+  const s = new Date(start);
+  const e = end ? new Date(end) : new Date();
+  const mins = Math.floor((e.getTime() - s.getTime()) / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
 }
+
+const statusConfig = {
+  vor_ort: { label: 'Vor Ort', variant: 'default' as const },
+  nachbearbeitung: { label: 'Nachbearbeitung', variant: 'secondary' as const },
+  completed: { label: 'Abgeschlossen', variant: 'outline' as const },
+};
 
 export function CheckinListView() {
-  const activeCount = mockCheckins.filter(c => c.status === 'in_progress').length;
-  
-  return (
-    <AdminLayout 
-      title="Check-in/out" 
-      subtitle={`${activeCount} aktuell vor Ort`}
-    >
-      <div className="space-y-3">
-        {mockCheckins.map((checkin) => {
-          const config = statusConfig[checkin.status as keyof typeof statusConfig];
-          
-          return (
-            <Card key={checkin.id} className="shadow-card">
-              <CardContent className="p-4">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="w-4 h-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">{checkin.contractorName}</p>
-                      <p className="text-xs text-muted-foreground">{checkin.address}</p>
-                    </div>
-                  </div>
-                  <Badge className={config?.className}>
-                    {config?.label}
-                  </Badge>
-                </div>
+  const { data: checkins, isLoading } = useAdminCheckins();
+  const activeCount = useMemo(() => checkins?.filter(c => c.status !== 'completed').length ?? 0, [checkins]);
 
-                {/* Timeline */}
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1.5 text-status-accepted">
-                    <LogIn className="w-4 h-4" />
-                    <span>{formatTime(checkin.checkInAt)}</span>
-                  </div>
-                  
-                  {checkin.checkOutAt ? (
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <LogOut className="w-4 h-4" />
-                      <span>{formatTime(checkin.checkOutAt)}</span>
+  return (
+    <AdminLayout title="Check-in/out" subtitle={isLoading ? undefined : `${activeCount} aktuell aktiv`} count={isLoading ? undefined : checkins?.length}>
+      {isLoading ? <ListSkeleton count={4} showAvatar showBadge /> : (
+        <div className="space-y-3">
+          {!checkins?.length ? (
+            <div className="text-center py-8 text-muted-foreground">Keine Check-ins vorhanden</div>
+          ) : checkins.map((c) => {
+            const cfg = statusConfig[c.status];
+            return (
+              <Card key={c.id} className="shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm text-foreground">{c.customerName}</p>
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />{c.address}
+                        </p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-status-new">
-                      <Clock className="w-4 h-4 animate-pulse" />
-                      <span>Läuft...</span>
+                    <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                      <LogIn className="w-3.5 h-3.5" />{formatTime(c.vorOrtCheckinAt)}
+                    </span>
+                    {c.vorOrtCheckoutAt ? (
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <LogOut className="w-3.5 h-3.5" />{formatTime(c.vorOrtCheckoutAt)}
+                      </span>
+                    ) : c.status === 'vor_ort' ? (
+                      <span className="flex items-center gap-1 text-primary">
+                        <Clock className="w-3.5 h-3.5 animate-pulse" />Läuft...
+                      </span>
+                    ) : null}
+                    <span className="ml-auto text-muted-foreground">
+                      <Clock className="w-3.5 h-3.5 inline mr-0.5" />
+                      {calcDuration(c.vorOrtCheckinAt, c.vorOrtCheckoutAt)}
+                    </span>
+                  </div>
+
+                  {c.nachbearbeitungCheckinAt && (
+                    <div className="flex items-center gap-4 text-xs mt-1.5 pt-1.5 border-t border-border">
+                      <span className="text-muted-foreground text-[10px]">Nachbearbeitung:</span>
+                      <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                        <LogIn className="w-3 h-3" />{formatTime(c.nachbearbeitungCheckinAt)}
+                      </span>
+                      {c.nachbearbeitungCheckoutAt ? (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <LogOut className="w-3 h-3" />{formatTime(c.nachbearbeitungCheckoutAt)}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-primary">
+                          <Clock className="w-3 h-3 animate-pulse" />Läuft...
+                        </span>
+                      )}
                     </div>
                   )}
-                  
-                  <div className="ml-auto text-muted-foreground">
-                    <Clock className="w-4 h-4 inline mr-1" />
-                    {calculateDuration(checkin.checkInAt, checkin.checkOutAt)}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </AdminLayout>
   );
 }
