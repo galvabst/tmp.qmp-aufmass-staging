@@ -27,6 +27,7 @@ interface LektionEditorProps {
     text_zusammenfassung?: string;
     ist_aktiv?: boolean;
     nur_fuer_neue?: boolean;
+    auch_fuer_trainer?: boolean;
   }) => Promise<any>;
   isPending: boolean;
 }
@@ -42,6 +43,7 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
   const [textZusammenfassung, setTextZusammenfassung] = useState('');
   const [istAktiv, setIstAktiv] = useState(true);
   const [nurFuerNeue, setNurFuerNeue] = useState(false);
+  const [auchFuerTrainer, setAuchFuerTrainer] = useState(false);
 
   useEffect(() => {
     if (lektion) {
@@ -55,6 +57,7 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
       setTextZusammenfassung(lektion.text_zusammenfassung || '');
       setIstAktiv(lektion.ist_aktiv);
       setNurFuerNeue(lektion.nur_fuer_neue ?? false);
+      setAuchFuerTrainer(lektion.auch_fuer_trainer ?? false);
     } else {
       setCode('');
       setTitel('');
@@ -66,6 +69,7 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
       setTextZusammenfassung('');
       setIstAktiv(true);
       setNurFuerNeue(false);
+      setAuchFuerTrainer(false);
     }
   }, [lektion, open]);
 
@@ -84,6 +88,7 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
       text_zusammenfassung: textZusammenfassung || undefined,
       ist_aktiv: istAktiv,
       nur_fuer_neue: nurFuerNeue,
+      auch_fuer_trainer: auchFuerTrainer,
     });
     onOpenChange(false);
   };
@@ -142,14 +147,28 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
             <Label htmlFor="lek-aktiv">Aktiv</Label>
           </div>
 
-          <div className="rounded-lg border border-dashed p-3 space-y-2">
-            <div className="flex items-center gap-3">
-              <Switch checked={nurFuerNeue} onCheckedChange={setNurFuerNeue} id="lek-nur-neue" />
-              <Label htmlFor="lek-nur-neue" className="font-medium">Nur für neue Onboarder</Label>
+          <div className="rounded-lg border border-dashed p-3 space-y-3">
+            <div>
+              <div className="flex items-center gap-3">
+                <Switch checked={nurFuerNeue} onCheckedChange={(v) => { setNurFuerNeue(v); if (v) setAuchFuerTrainer(false); }} id="lek-nur-neue" />
+                <Label htmlFor="lek-nur-neue" className="font-medium">Nur für neue Onboarder</Label>
+              </div>
+              <p className="text-xs text-muted-foreground pl-14">
+                Wenn aktiv, müssen bereits fertige Techniker diese Lektion <strong>nicht</strong> nachholen. Andernfalls wird ein Pflicht-Video-Overlay angezeigt.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground pl-14">
-              Wenn aktiv, müssen bereits fertige Techniker diese Lektion <strong>nicht</strong> nachholen. Andernfalls wird ein Pflicht-Video-Overlay angezeigt.
-            </p>
+
+            {!nurFuerNeue && (
+              <div>
+                <div className="flex items-center gap-3">
+                  <Switch checked={auchFuerTrainer} onCheckedChange={setAuchFuerTrainer} id="lek-auch-trainer" />
+                  <Label htmlFor="lek-auch-trainer" className="font-medium">Auch für Trainer</Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-14">
+                  Wenn aktiv, müssen auch Trainer dieses Pflicht-Video anschauen (z.B. Fehlerprotokolle, Neuerungen).
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

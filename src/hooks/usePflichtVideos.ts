@@ -15,19 +15,26 @@ export interface PflichtVideo {
  * Only returns lessons where nur_fuer_neue = false, ist_aktiv = true, and video_url is set.
  * Compares against contractor_akademie_lektions_fortschritt to find unfinished ones.
  */
-export function usePflichtVideos(contractorId: string | null | undefined, onboardingStatus: string | null | undefined) {
+export function usePflichtVideos(contractorId: string | null | undefined, onboardingStatus: string | null | undefined, isTrainer: boolean = false) {
   return useQuery<PflichtVideo[]>({
-    queryKey: ['pflicht-videos', contractorId, onboardingStatus],
+    queryKey: ['pflicht-videos', contractorId, onboardingStatus, isTrainer],
     queryFn: async () => {
       if (!contractorId || onboardingStatus !== 'ready') return [];
 
       // 1. Fetch all active, mandatory-for-all lessons with video
-      const { data: lektionen, error: lekErr } = await supabaseTC
+      let query = supabaseTC
         .from('contractor_akademie_lektionen')
-        .select('id, titel, video_url, code, reihenfolge, modul_id, nur_fuer_neue')
+        .select('id, titel, video_url, code, reihenfolge, modul_id, nur_fuer_neue, auch_fuer_trainer')
         .eq('ist_aktiv', true)
         .eq('nur_fuer_neue', false)
         .not('video_url', 'is', null);
+
+      // Trainers only see lessons explicitly marked for them
+      if (isTrainer) {
+        query = query.eq('auch_fuer_trainer', true);
+      }
+
+      const { data: lektionen, error: lekErr } = await query;
 
       if (lekErr) {
         console.warn('[PflichtVideos] Error fetching lektionen:', lekErr);
