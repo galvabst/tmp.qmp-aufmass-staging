@@ -126,9 +126,11 @@ export function useAvailableCoachingRides() {
 
       // 6. Zusammenbauen: contractor_onboarding.id -> profile_id -> profiles
       const results: DbCoachingRide[] = [];
+      const today = new Date().toISOString().slice(0, 10);
       for (const auftrag of auftraege) {
-        const auftragTermine = termineByAuftrag.get(auftrag.id);
-        if (!auftragTermine || auftragTermine.length === 0) continue;
+        const auftragTermine = (termineByAuftrag.get(auftrag.id) || [])
+          .filter(t => t.datum >= today);
+        if (auftragTermine.length === 0) continue;
 
         const trainerRecord = trainerByContractorId.get(auftrag.zugewiesener_techniker_id);
         if (!trainerRecord) continue;
