@@ -11611,6 +11611,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_thc_ag_terminierung_status: {
+        Args: { p_auftrag_id: string; p_status: string }
+        Returns: undefined
+      }
       update_thc_fortschritt: {
         Args: {
           p_abgeschlossen?: boolean
