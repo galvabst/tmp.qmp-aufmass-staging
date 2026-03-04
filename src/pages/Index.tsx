@@ -15,6 +15,7 @@ import { usePoolOrders } from '@/hooks/usePoolOrders';
 import { useMyAssignedOrders } from '@/hooks/useMyAssignedOrders';
 import { useMyPendingProposals } from '@/hooks/useMyPendingProposals';
 import { useAngebotstermine } from '@/hooks/useAngebotstermine';
+import { useTechnikerBewertungStats } from '@/hooks/useTechnikerBewertungStats';
 import { RescheduleModal } from '@/components/RescheduleModal';
 import { useUnreadChatCounts } from '@/features/chat/hooks/useUnreadChatCounts';
 import { supabase } from '@/integrations/supabase/client';
@@ -135,7 +136,7 @@ const Index = () => {
       stats: {
         totalOrders: assignedCount,
         acceptanceRate: assignedCount > 0 ? 100 : 0,
-        rating: 0,
+        rating: bewertungStats?.average || 0,
       },
       certificates: [],
       onboarding: {
