@@ -32,6 +32,7 @@ interface DbLektion {
   text_zusammenfassung: string | null;
   zusatzmaterial_urls: string[] | null;
   ist_aktiv: boolean;
+  nur_fuer_neue: boolean;
   created_at: string;
   updated_at: string;
 }
