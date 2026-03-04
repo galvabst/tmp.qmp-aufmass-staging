@@ -10791,6 +10791,10 @@ export type Database = {
         Args: { p_arbeitspaket_id: string }
         Returns: Json
       }
+      request_thermocheck_angebotsaenderung: {
+        Args: { p_follow_up_datum: string; p_lead_id: string; p_notiz: string }
+        Returns: undefined
+      }
       reschedule_thermocheck_termin: {
         Args: { p_auftrag_id: string; p_modus: string; p_termine?: Json }
         Returns: undefined
