@@ -24,6 +24,8 @@ interface ProfileViewProps {
 
 export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onStartOnboardingPreview }: ProfileViewProps) {
   const { data: isTrainer } = useIsTrainer(profileId || null);
+  const { data: boni } = useContractorBoni();
+  const boniSummary = useBoniSummary(boni);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
