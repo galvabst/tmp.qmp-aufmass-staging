@@ -136,7 +136,7 @@ export function useOnboardingState(
   }, [isPreview, forceReset, initialProfile]);
   
   // Hydrate akademie from external data (called by component with DB data)
-  const hydrateAkademieFromDb = useCallback((dbModules: AkademieHauptmodul[], completedLektionIds?: Set<string>) => {
+  const hydrateAkademieFromDb = useCallback((dbModules: AkademieHauptmodul[], completedLektionIds?: Set<string>, onboardingStatus?: string) => {
     if (!dbModules || dbModules.length === 0) return;
     
     setState(prev => {
