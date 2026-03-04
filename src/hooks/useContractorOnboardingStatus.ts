@@ -129,18 +129,12 @@ export function useContractorOnboardingStatus(userId?: string | null): UseContra
   const isError = !!errorMessage;
 
   // Determine if user is fully ready
-  // User must have onboarding_status = 'ready' AND trainer_freigabe = true
-  // Trainer bypass: Trainers don't need trainer_freigabe or internal admin checks
-  const isTrainer = onboardingRecord?.is_trainer === true;
+  // User is ready when onboarding_status = 'ready' (set by DB trigger when all 7 steps completed)
+  // Internal admin flags (vertrag_geprueft, kleidung_bestellt, lizenzen_bereitgestellt) are
+  // for backoffice tracking only and should NOT block the technician from working.
   const isReady = !!(
     onboardingRecord &&
-    onboardingRecord.onboarding_status === 'ready' &&
-    (isTrainer || (
-      onboardingRecord.trainer_freigabe === true &&
-      onboardingRecord.vertrag_geprueft_intern === true &&
-      onboardingRecord.kleidung_bestellt_intern === true &&
-      onboardingRecord.lizenzen_bereitgestellt_intern === true
-    ))
+    onboardingRecord.onboarding_status === 'ready'
   );
 
   return {
