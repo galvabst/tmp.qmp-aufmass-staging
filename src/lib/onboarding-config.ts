@@ -220,6 +220,7 @@ export function createInitialOnboardingState(profile: ApplicantProfile): Onboard
     coachingAbgeschlossen: false,
     
     introVideoWatched: false,
+    outroVideoWatched: false,
     
     startedAt: new Date().toISOString(),
   };

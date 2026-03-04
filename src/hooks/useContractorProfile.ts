@@ -13,6 +13,7 @@ interface ContractorOnboardingData {
   equipment_status?: Record<string, unknown> | null;
   akademie_test_bestanden?: boolean | null;
   intro_video_watched?: boolean | null;
+  outro_video_watched?: boolean | null;
   coaching_bewertung?: string | null;
   gebuchter_coaching_termin?: string | null;
   gebuchter_coach_name?: string | null;
@@ -31,6 +32,7 @@ export interface ContractorOnboardingState {
   equipmentStatus?: Record<string, EquipmentItemStatus>;
   akademieTestBestanden: boolean;
   introVideoWatched: boolean;
+  outroVideoWatched: boolean;
   coachingBewertung?: string;
   coachingTermin?: string;
   coachName?: string;
@@ -139,6 +141,7 @@ export function useContractorProfile(profileId: string | null) {
           equipmentStatus: (row.equipment_status as Record<string, EquipmentItemStatus>) || undefined,
           akademieTestBestanden: row.akademie_test_bestanden || false,
           introVideoWatched: row.intro_video_watched || false,
+          outroVideoWatched: row.outro_video_watched || false,
           coachingBewertung: row.coaching_bewertung || undefined,
           coachingTermin: row.gebuchter_coaching_termin || undefined,
           coachName: row.gebuchter_coach_name || undefined,
@@ -339,6 +342,19 @@ export function useContractorProfile(profileId: string | null) {
     },
   });
 
+  // Outro-Video als gesehen markieren
+  const saveOutroVideoWatchedMutation = useMutation({
+    mutationFn: async () => {
+      await (supabase.rpc as unknown as (
+        fn: string,
+        params?: Record<string, unknown>
+      ) => Promise<{ error: Error | null }>)('update_contractor_outro_video_watched');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
+    },
+  });
+
   // Akademie-Abschlusstest als bestanden markieren
   const saveAkademieTestBestandenMutation = useMutation({
     mutationFn: async () => {
@@ -373,6 +389,7 @@ export function useContractorProfile(profileId: string | null) {
     saveProgress: saveProgressMutation.mutateAsync,
     saveEquipmentStatus: saveEquipmentStatusMutation.mutateAsync,
     saveIntroVideoWatched: saveIntroVideoWatchedMutation.mutateAsync,
+    saveOutroVideoWatched: saveOutroVideoWatchedMutation.mutateAsync,
     saveAkademieTestBestanden: saveAkademieTestBestandenMutation.mutateAsync,
     
     // Mutation states
