@@ -1,65 +1,89 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Plan: Abrechnungs-Fortschritt für abgenommene Aufträge
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Was sich ändert
 
-## 1. Themen-Kategorien einführen
+### 1. Neue DB-Tabelle: `thermocheck.contractor_abrechnungen`
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+Tracking des Abrechnungsstatus pro Auftrag nach Abnahme.
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+```sql
+CREATE TYPE thermocheck.abrechnung_status AS ENUM (
+  'offen',              -- Abgenommen, Rechnung noch nicht eingegangen
+  'rechnung_eingegangen', -- Rechnung vom Techniker eingegangen
+  'in_pruefung',        -- Rechnung wird geprüft
+  'bezahlt'             -- Auszahlung erfolgt
+);
 
-## 2. DB-Änderung
+CREATE TABLE thermocheck.contractor_abrechnungen (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  thermocheck_auftrag_id UUID NOT NULL REFERENCES thermocheck.thermocheck_auftraege(id),
+  contractor_id UUID NOT NULL REFERENCES thermocheck.contractor_onboarding(id),
+  status thermocheck.abrechnung_status NOT NULL DEFAULT 'offen',
+  betrag NUMERIC(10,2),
+  rechnung_eingegangen_am TIMESTAMPTZ,
+  geprueft_am TIMESTAMPTZ,
+  bezahlt_am TIMESTAMPTZ,
+  zahlungsart TEXT,       -- z.B. 'ueberweisung', 'stripe'
+  referenz TEXT,          -- Zahlungsreferenz/Verwendungszweck
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(thermocheck_auftrag_id)
+);
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+ALTER TABLE thermocheck.contractor_abrechnungen ENABLE ROW LEVEL SECURITY;
+```
 
-## 3. UI-Änderungen
+RLS:
+- SELECT: Techniker sieht eigene (`contractor_id` matches), Innendienst sieht alle
+- INSERT/UPDATE: nur Innendienst (`thermocheck.is_innendienst()`)
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+### 2. UI: `TechnicianOrderDetail.tsx` – Approved-Ansicht umbauen
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+Für `isApproved`-Aufträge:
+- Navigation-Button (`Navigation starten`) ausblenden
+- Adresse auf PLZ + Ort reduzieren (wie Pool-Ansicht)
+- Neuer **Abrechnungs-Fortschrittsbalken** mit 4 Stufen:
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+```text
+[ ✓ Abgenommen ] ─── [ Rechnung ] ─── [ Prüfung ] ─── [ Bezahlt ]
+     grün              grau/aktiv       grau             grau
+```
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+Jede Stufe zeigt Datum wenn vorhanden. Status wird aus `contractor_abrechnungen` gelesen.
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
+### 3. Neuer Hook: `useAbrechnungStatus.ts`
 
-## 4. Bestehende Threads kategorisieren (Migration)
+- Input: `auftragId`
+- Fetch: `thermocheck.contractor_abrechnungen` via REST-API (gleicher Pattern wie `useMyAssignedOrders`)
+- Output: `{ status, betrag, bezahltAm, ... }`
+- Fallback wenn kein Eintrag: Status = `offen` (gerade erst abgenommen)
 
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
+### 4. Betroffene Dateien
 
-## Dateien
+| Datei | Änderung |
+|-------|----------|
+| Migration (SQL) | Neue Tabelle + ENUM + RLS |
+| `src/hooks/useAbrechnungStatus.ts` | Neuer Hook (REST-Fetch) |
+| `src/components/TechnicianOrderDetail.tsx` | Approved-Ansicht: Adresse kürzen, Nav weg, Fortschrittsbalken |
+| `.lovable/validation-contractor-abrechnung.md` | Dokumentation |
 
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+### 5. Rollen-Matrix
+
+| Rolle | SELECT | INSERT/UPDATE |
+|-------|--------|---------------|
+| user (Techniker) | eigene Rows | nein |
+| admin/superadmin/manager | alle | ja |
+
+### 6. Edge Cases
+
+- Kein Abrechnungs-Eintrag vorhanden → UI zeigt "Offen" als Default
+- Mehrere Aufträge approved → jeder hat eigenen Abrechnungsstatus
+- `betrag` kann von `vereinbarter_preis` abweichen (Abzüge möglich)
+- Bezahlt-Datum wird erst gesetzt wenn Innendienst es markiert
+
+### 7. Daten-Migration
+
+Für bereits abgenommene Aufträge (wie Tills): Kein automatischer Eintrag nötig. Der Hook zeigt bei fehlendem Eintrag "Offen" an. Innendienst kann später manuell den Status setzen.
 
