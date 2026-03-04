@@ -98,6 +98,10 @@ export interface TechnicianOrder {
   // Booking confirmation tracking
   buchungBestaetigtAm?: string;
   vortagBestaetigtAm?: string;
+  // Object info
+  quadratmeter?: number;
+  wohneinheiten?: number;
+  fussbodenheizung?: boolean;
 }
 
 // Technician Profile

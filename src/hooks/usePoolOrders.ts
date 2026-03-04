@@ -28,6 +28,9 @@ interface AuftragRow {
   kunde_email: string | null;
   pipeline_status: string | null;
   zugewiesener_techniker_id: string | null;
+  quadratmeter: number | null;
+  wohneinheiten: number | null;
+  fussbodenheizung: boolean | null;
 }
 
 async function getAuthHeaders() {
@@ -51,7 +54,7 @@ export function usePoolOrders() {
 
       // Step 1: Fetch auftraege with pipeline_status = termin_abwarten and no techniker assigned
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?pipeline_status=eq.termin_abwarten&zugewiesener_techniker_id=is.null&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?pipeline_status=eq.termin_abwarten&zugewiesener_techniker_id=is.null&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,quadratmeter,wohneinheiten,fussbodenheizung`,
         { headers }
       );
 
@@ -110,6 +113,9 @@ export function usePoolOrders() {
           contactPhone: auftrag?.kunde_telefon || undefined,
           contactEmail: auftrag?.kunde_email || undefined,
           billableAmount: thermocheckPreis ?? undefined,
+          quadratmeter: auftrag?.quadratmeter ?? undefined,
+          wohneinheiten: auftrag?.wohneinheiten ?? undefined,
+          fussbodenheizung: auftrag?.fussbodenheizung ?? undefined,
         };
       });
 
