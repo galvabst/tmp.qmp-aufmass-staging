@@ -1,56 +1,65 @@
 
 
-# Plan: Auftragsdetails verschönern + Objekt-Infos ergänzen
+# Plan: Forum UX verbessern + Themen-Filter
 
 ## Überblick
-Die Detailansicht wird nach Apple-Prinzip aufgeräumt: weniger visuelles Rauschen, klarere Hierarchie, scanbare Informationen auf einen Blick. Zusätzlich werden Quadratmeter, Fußbodenheizung und Wohneinheiten unter dem Kundennamen als kompakte Info-Chips angezeigt.
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-## 1. Daten erweitern
+## 1. Themen-Kategorien einführen
 
-**`src/types/technician.ts`** — 3 neue optionale Felder auf `TechnicianOrder`:
-- `quadratmeter?: number`
-- `wohneinheiten?: number`  
-- `fussbodenheizung?: boolean`
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-**`src/hooks/useMyAssignedOrders.ts`** — Die 3 Felder im `select` der Aufträge-Abfrage ergänzen + in den Return-Wert mappen.
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-**`src/hooks/usePoolOrders.ts`** — Gleiche Felder auch dort ergänzen (falls Pool-Orders diese Info haben).
+## 2. DB-Änderung
 
-## 2. UI-Redesign der Detailansicht
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-**`src/components/TechnicianOrderDetail.tsx`** — Apple-Style Überarbeitung:
+## 3. UI-Änderungen
 
-### Kundeninfo-Card (oben)
-- Auftragstyp-Badge + Name bleiben
-- **Neu**: Unter dem Namen eine Zeile mit dezenten Info-Chips:
-  - `📐 120 m²` · `🏠 2 WE` · `✓ Fußbodenheizung` (oder `✗ Keine FBH`)
-- Vergütung rechts bleibt
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-### Aufgaben-Card (Accordion)
-- Bleibt funktional gleich, aber:
-  - Weniger vertikaler Abstand zwischen den Elementen
-  - Anruf-Leitfaden standardmäßig eingeklappt (nicht `defaultValue`)
-  - CopyBlock etwas kompakter (kleinerer padding)
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-### Kontaktdaten
-- Kompakter: Telefon und E-Mail in einer Zeile nebeneinander statt untereinander
-- Icons dezenter (kleiner)
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
 
-### Termin + Adresse
-- Zu einer einzigen Card zusammenfassen statt zwei separate
-- Datum oben, Adresse darunter, Navigation-Button unten
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
 
-### Arbeitsfortschritt
-- Kompakterer Progress-Indicator mit einer horizontalen Linie zwischen den Schritten
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
 
-### Generell
-- Sektions-Titel (`font-medium`) konsistenter
-- Weniger `shadow-card` Intensität, mehr Whitespace zwischen Sections
-- Cards etwas weniger padding (p-3 statt p-4 wo möglich)
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
 
 ## Dateien
-- `src/types/technician.ts` — 3 neue Felder
-- `src/hooks/useMyAssignedOrders.ts` — Felder fetchen + mappen
-- `src/hooks/usePoolOrders.ts` — Felder fetchen + mappen (falls vorhanden)
-- `src/components/TechnicianOrderDetail.tsx` — UI-Redesign + Info-Chips
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 

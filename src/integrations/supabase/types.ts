@@ -9391,6 +9391,17 @@ export type Database = {
               version_number: number
             }[]
           }
+      create_thc_angebotstermin: {
+        Args: {
+          p_description?: string
+          p_end_datetime?: string
+          p_location?: string
+          p_meeting_location?: string
+          p_start_datetime?: string
+          p_thermocheck_auftrag_id: string
+        }
+        Returns: undefined
+      }
       create_thermocheck_idee: {
         Args: {
           p_beschreibung?: string
@@ -12057,6 +12068,7 @@ export type Database = {
         | "number"
         | "bestellung_email_list"
         | "rating"
+        | "datetime"
       storno_status_enum:
         | "Zu Stornieren"
         | "Stornierung beantragt"
@@ -12684,6 +12696,7 @@ export const Constants = {
         "number",
         "bestellung_email_list",
         "rating",
+        "datetime",
       ],
       storno_status_enum: [
         "Zu Stornieren",
