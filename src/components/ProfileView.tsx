@@ -230,6 +230,42 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, onSa
         </section>
       )}
 
+      {/* Pünktlichkeit */}
+      {totalSubmittedOrders > 0 && (
+        <section className="p-4 pt-0">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Pünktlichkeit</h2>
+          <div className="bg-card rounded-lg shadow-card p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`p-2 rounded-lg ${punctuality.lateCount > 0 ? 'bg-destructive/10' : 'bg-green-500/10'}`}>
+                <Timer className={`w-5 h-5 ${punctuality.lateCount > 0 ? 'text-destructive' : 'text-green-600'}`} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-foreground">Pünktliche Abgaben</span>
+                  <span className={`text-sm font-bold ${punctuality.lateCount > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                    {punctuality.onTimePercent}%
+                  </span>
+                </div>
+                <Progress value={punctuality.onTimePercent} className="h-2" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-lg font-bold text-foreground">{punctuality.onTimeCount}</p>
+                <p className="text-xs text-muted-foreground">Pünktlich</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-destructive">{punctuality.lateCount}</p>
+                <p className="text-xs text-muted-foreground">Verspätet</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-destructive">{punctuality.totalFee.toFixed(0)} €</p>
+                <p className="text-xs text-muted-foreground">Late Fees</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {isTrainer && profileId && (
         <>
