@@ -41,6 +41,7 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
   const [textInhalt, setTextInhalt] = useState('');
   const [textZusammenfassung, setTextZusammenfassung] = useState('');
   const [istAktiv, setIstAktiv] = useState(true);
+  const [nurFuerNeue, setNurFuerNeue] = useState(false);
 
   useEffect(() => {
     if (lektion) {
@@ -53,6 +54,7 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
       setTextInhalt(lektion.text_inhalt || '');
       setTextZusammenfassung(lektion.text_zusammenfassung || '');
       setIstAktiv(lektion.ist_aktiv);
+      setNurFuerNeue(lektion.nur_fuer_neue ?? false);
     } else {
       setCode('');
       setTitel('');
@@ -63,6 +65,7 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
       setTextInhalt('');
       setTextZusammenfassung('');
       setIstAktiv(true);
+      setNurFuerNeue(false);
     }
   }, [lektion, open]);
 
@@ -80,6 +83,7 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
       text_inhalt: textInhalt || undefined,
       text_zusammenfassung: textZusammenfassung || undefined,
       ist_aktiv: istAktiv,
+      nur_fuer_neue: nurFuerNeue,
     });
     onOpenChange(false);
   };
@@ -136,6 +140,16 @@ export function LektionEditor({ open, onOpenChange, lektion, modulId, onSave, is
           <div className="flex items-center gap-3">
             <Switch checked={istAktiv} onCheckedChange={setIstAktiv} id="lek-aktiv" />
             <Label htmlFor="lek-aktiv">Aktiv</Label>
+          </div>
+
+          <div className="rounded-lg border border-dashed p-3 space-y-2">
+            <div className="flex items-center gap-3">
+              <Switch checked={nurFuerNeue} onCheckedChange={setNurFuerNeue} id="lek-nur-neue" />
+              <Label htmlFor="lek-nur-neue" className="font-medium">Nur für neue Onboarder</Label>
+            </div>
+            <p className="text-xs text-muted-foreground pl-14">
+              Wenn aktiv, müssen bereits fertige Techniker diese Lektion <strong>nicht</strong> nachholen. Andernfalls wird ein Pflicht-Video-Overlay angezeigt.
+            </p>
           </div>
 
           <DialogFooter>
