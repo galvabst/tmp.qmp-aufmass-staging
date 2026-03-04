@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target, Eye, Gift } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target, Eye, Gift, AlertTriangle, Timer } from 'lucide-react';
 import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,19 +13,23 @@ import { useIsTrainer } from '@/hooks/useIsTrainer';
 import { TrainerProfileEditor } from '@/components/trainer/TrainerProfileEditor';
 import { TrainerRideAlongs } from '@/components/trainer/TrainerRideAlongs';
 import { useContractorBoni, useBoniSummary } from '@/hooks/useContractorBoni';
+import { useContractorVerspaetungen, useVerspaetungStats } from '@/hooks/useContractorVerspaetungen';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
   profileId?: string | null;
+  totalSubmittedOrders?: number;
   onSave?: (updatedProfile: Partial<TechnicianProfile>) => void;
   onStartOnboarding?: () => void;
   onStartOnboardingPreview?: () => void;
 }
 
-export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onStartOnboardingPreview }: ProfileViewProps) {
+export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, onSave, onStartOnboarding, onStartOnboardingPreview }: ProfileViewProps) {
   const { data: isTrainer } = useIsTrainer(profileId || null);
   const { data: boni } = useContractorBoni();
   const boniSummary = useBoniSummary(boni);
+  const { data: verspaetungen } = useContractorVerspaetungen();
+  const punctuality = useVerspaetungStats(verspaetungen, totalSubmittedOrders);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
