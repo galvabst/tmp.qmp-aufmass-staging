@@ -185,6 +185,9 @@ export interface OnboardingState {
   // Intro-Video
   introVideoWatched: boolean;
   
+  // Outro-Video (zwischen Akademie und Coaching)
+  outroVideoWatched: boolean;
+  
   // Meta
   startedAt: string;
   completedAt?: string;

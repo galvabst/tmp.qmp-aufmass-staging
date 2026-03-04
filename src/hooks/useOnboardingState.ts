@@ -405,6 +405,11 @@ export function useOnboardingState(
     setState(prev => ({ ...prev, introVideoWatched: value }));
   }, []);
 
+  // Outro-Video
+  const setOutroVideoWatched = useCallback((value: boolean) => {
+    setState(prev => ({ ...prev, outroVideoWatched: value }));
+  }, []);
+
   // Atomare DB-Hydration: Setzt ALLE DB-Werte in einem einzigen setState-Aufruf
   const hydrateFromDb = useCallback((dbState: {
     gewerbescheinUrl?: string;
@@ -414,6 +419,7 @@ export function useOnboardingState(
     equipmentStatus?: Record<string, { hatEigenes: boolean; nachweisUrl?: string }>;
     akademieTestBestanden?: boolean;
     introVideoWatched?: boolean;
+    outroVideoWatched?: boolean;
   }) => {
     setState(prev => ({
       ...prev,
@@ -426,8 +432,9 @@ export function useOnboardingState(
       equipmentStatus: dbState.equipmentStatus
         ? { ...prev.equipmentStatus, ...dbState.equipmentStatus }
         : prev.equipmentStatus,
-      akademieTestBestanden: dbState.akademieTestBestanden || prev.akademieTestBestanden,
-      introVideoWatched: dbState.introVideoWatched || prev.introVideoWatched,
+      akademieTestBestanden: dbState.akademieTestBestanden ?? prev.akademieTestBestanden,
+      introVideoWatched: dbState.introVideoWatched ?? prev.introVideoWatched,
+      outroVideoWatched: dbState.outroVideoWatched ?? prev.outroVideoWatched,
     }));
     console.log('[Onboarding] Atomic DB hydration complete:', dbState);
   }, []);
@@ -551,6 +558,8 @@ export function useOnboardingState(
     setAllStepsCompleted,
     // Intro-Video
     setIntroVideoWatched,
+    // Outro-Video
+    setOutroVideoWatched,
     
     // Atomare DB-Hydration
     hydrateFromDb,
