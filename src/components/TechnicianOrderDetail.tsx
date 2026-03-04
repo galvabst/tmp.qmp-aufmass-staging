@@ -1,5 +1,6 @@
-import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList, CheckCircle2, AlertCircle, Loader2, Copy, Check, Ruler, Home, Thermometer } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList, CheckCircle2, AlertCircle, Loader2, Copy, Check, Ruler, Home, Thermometer, Receipt, Search, Banknote } from 'lucide-react';
 import { AuftragChatSection } from '@/features/chat/ui/AuftragChatSection';
+import { useAbrechnungStatus, AbrechnungStatusEnum } from '@/hooks/useAbrechnungStatus';
 import { TechnicianOrder, CheckinPhase, CHECKIN_PHASE_LABELS } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +71,66 @@ function CopyBlock({ label, text, copyKey, copiedKey, onCopy }: {
   );
 }
 
-/** Info chip for object details */
+/** Billing progress stepper for approved orders */
+function AbrechnungStepper({ status, approvedAt, rechnungEingegangenAm, geprueftAm, bezahltAm, betrag }: {
+  status: AbrechnungStatusEnum;
+  approvedAt?: string;
+  rechnungEingegangenAm: string | null;
+  geprueftAm: string | null;
+  bezahltAm: string | null;
+  betrag: number | null;
+}) {
+  const steps: { key: AbrechnungStatusEnum | 'abgenommen'; label: string; icon: React.ReactNode; date: string | null | undefined }[] = [
+    { key: 'abgenommen', label: 'Abgenommen', icon: <CheckCircle2 className="w-4 h-4" />, date: approvedAt },
+    { key: 'rechnung_eingegangen', label: 'Rechnung', icon: <Receipt className="w-4 h-4" />, date: rechnungEingegangenAm },
+    { key: 'in_pruefung', label: 'Prüfung', icon: <Search className="w-4 h-4" />, date: geprueftAm },
+    { key: 'bezahlt', label: 'Bezahlt', icon: <Banknote className="w-4 h-4" />, date: bezahltAm },
+  ];
+
+  const statusOrder: (AbrechnungStatusEnum | 'abgenommen')[] = ['abgenommen', 'rechnung_eingegangen', 'in_pruefung', 'bezahlt'];
+  const currentIdx = status === 'offen' ? 0 : statusOrder.indexOf(status);
+
+  return (
+    <div className="bg-card rounded-2xl p-4 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-foreground">Abrechnung</p>
+        {betrag != null && (
+          <p className="text-sm font-bold text-foreground">{betrag.toFixed(0)} €</p>
+        )}
+      </div>
+      <div className="flex items-start">
+        {steps.map((step, idx) => {
+          const isDone = idx <= currentIdx;
+          const isActive = idx === currentIdx;
+          return (
+            <div key={step.key} className="flex items-start flex-1">
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                  isDone ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'
+                } ${isActive && !isDone ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
+                  {isDone ? <Check className="w-4 h-4" /> : step.icon}
+                </div>
+                <p className={`text-[11px] mt-1 font-medium text-center ${isDone ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                  {step.label}
+                </p>
+                {step.date && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {format(parseISO(step.date), 'd. MMM', { locale: de })}
+                  </p>
+                )}
+              </div>
+              {idx < steps.length - 1 && (
+                <div className={`h-0.5 flex-1 mt-4 ${idx < currentIdx ? 'bg-green-400' : 'bg-muted'}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 function InfoChip({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5">
@@ -96,6 +156,7 @@ export function TechnicianOrderDetail({
   const [confirmingBooking, setConfirmingBooking] = useState(false);
   const [confirmingVortag, setConfirmingVortag] = useState(false);
   const { copiedKey, copy } = useCopyAction();
+  const { data: abrechnungData } = useAbrechnungStatus(order.auftragId);
 
   const [checklist, setChecklist] = useState({
     terminAbgesprochen: false,
@@ -273,16 +334,16 @@ Mit freundlichen Grüßen`;
           <div className="flex items-start gap-2.5">
             <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
-              {canShowFullDetails ? (
+              {canShowFullDetails && !isApproved ? (
                 <p className="text-sm text-foreground">{order.address}, {order.postalCode} {order.city}</p>
               ) : (
                 <>
                   <p className="text-sm text-foreground">{order.postalCode} {order.city}</p>
-                  <p className="text-xs text-muted-foreground italic">Genaue Adresse nach Annahme</p>
+                  {isPoolOrder && <p className="text-xs text-muted-foreground italic">Genaue Adresse nach Annahme</p>}
                 </>
               )}
             </div>
-            {canShowFullDetails && (
+            {canShowFullDetails && !isApproved && (
               <button
                 onClick={() => copy(fullAddress, 'Adresse', 'address')}
                 className="p-1 rounded-md hover:bg-accent transition-colors shrink-0"
@@ -293,7 +354,7 @@ Mit freundlichen Grüßen`;
               </button>
             )}
           </div>
-          {canShowFullDetails && (
+          {canShowFullDetails && !isApproved && (
             <a
               href={mapsUrl}
               target="_blank"
@@ -477,8 +538,8 @@ Mit freundlichen Grüßen`;
           </div>
         )}
 
-        {/* ── Arbeitsfortschritt – horizontal stepper ── */}
-        {(isInProgress || isSubmitted || isApproved || isReworkRequired) && (
+        {/* ── Arbeitsfortschritt – horizontal stepper (non-approved) ── */}
+        {(isInProgress || isSubmitted || isReworkRequired) && (
           <div className="bg-card rounded-2xl p-4 shadow-sm">
             <p className="text-sm font-semibold text-foreground mb-3">Fortschritt</p>
             <div className="flex items-center gap-0">
@@ -520,6 +581,18 @@ Mit freundlichen Grüßen`;
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── Abrechnungs-Fortschritt – approved orders only ── */}
+        {isApproved && (
+          <AbrechnungStepper
+            status={abrechnungData?.status ?? 'offen'}
+            approvedAt={order.approvedAt}
+            rechnungEingegangenAm={abrechnungData?.rechnungEingegangenAm ?? null}
+            geprueftAm={abrechnungData?.geprueftAm ?? null}
+            bezahltAm={abrechnungData?.bezahltAm ?? null}
+            betrag={abrechnungData?.betrag ?? order.billableAmount ?? null}
+          />
         )}
 
         {/* ── Aufmaß Button ── */}
