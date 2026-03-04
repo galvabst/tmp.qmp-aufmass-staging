@@ -53,4 +53,7 @@ export const BILD_KATEGORIEN: Record<VotBildKategorie, KategorieConfig> = {
   pv_hindernisse: { label: 'Hindernisse Gerüst', minAnzahl: 1, hinweis: '1-2 Fotos der Hindernisse für die Gerüstplanung' },
   pv_geruest_oeffentlich: { label: 'Gerüst öffentl. Fläche', minAnzahl: 1, hinweis: 'Bilder vom geplanten Gerüststandort auf öffentlicher Fläche' },
   pv_blitzschutz: { label: 'Blitzschutzanlage', minAnzahl: 1, hinweis: 'Bilder von der Blitzschutzanlage' },
+  // Bewertungsnachweis (optional)
+  bewertung_nachweis: { label: 'Bewertungsnachweis', minAnzahl: 0, hinweis: 'Screenshot der positiven Google- oder Trustpilot-Bewertung des Kunden' },
 };
+
