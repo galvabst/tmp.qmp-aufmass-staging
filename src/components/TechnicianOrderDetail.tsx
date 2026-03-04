@@ -479,8 +479,8 @@ Mit freundlichen Grüßen`;
           </div>
         )}
 
-        {/* ── Arbeitsfortschritt – horizontal stepper ── */}
-        {(isInProgress || isSubmitted || isApproved || isReworkRequired) && (
+        {/* ── Arbeitsfortschritt – horizontal stepper (non-approved) ── */}
+        {(isInProgress || isSubmitted || isReworkRequired) && (
           <div className="bg-card rounded-2xl p-4 shadow-sm">
             <p className="text-sm font-semibold text-foreground mb-3">Fortschritt</p>
             <div className="flex items-center gap-0">
@@ -522,6 +522,18 @@ Mit freundlichen Grüßen`;
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── Abrechnungs-Fortschritt – approved orders only ── */}
+        {isApproved && (
+          <AbrechnungStepper
+            status={abrechnungData?.status ?? 'offen'}
+            approvedAt={order.approvedAt}
+            rechnungEingegangenAm={abrechnungData?.rechnungEingegangenAm ?? null}
+            geprueftAm={abrechnungData?.geprueftAm ?? null}
+            bezahltAm={abrechnungData?.bezahltAm ?? null}
+            betrag={abrechnungData?.betrag ?? order.billableAmount ?? null}
+          />
         )}
 
         {/* ── Aufmaß Button ── */}
