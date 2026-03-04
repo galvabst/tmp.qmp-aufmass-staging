@@ -57,6 +57,12 @@ const Index = () => {
   const { data: dbProfile } = useContractorProfile(profileId);
   const contractorOnboardingId = onboardingRecord?.id || null;
   const { data: bewertungStats } = useTechnikerBewertungStats(contractorOnboardingId);
+  
+  // Pflicht-Videos for ready contractors
+  const { data: pflichtVideos, refetch: refetchPflichtVideos } = usePflichtVideos(
+    contractorOnboardingId,
+    onboardingRecord?.onboarding_status
+  );
 
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
