@@ -9840,6 +9840,7 @@ export type Database = {
           gewerbeschein_spaeter: boolean
           gewerbeschein_url: string
           intro_video_watched: boolean
+          outro_video_watched: boolean
         }[]
       }
       get_contractors: {
@@ -11609,6 +11610,7 @@ export type Database = {
         Args: { p_completed_steps: string[]; p_current_step: string }
         Returns: undefined
       }
+      update_contractor_outro_video_watched: { Args: never; Returns: undefined }
       update_kpi_nachweis_validation: {
         Args: { p_ai_result: Json; p_nachweis_id: string; p_status: string }
         Returns: undefined
