@@ -10248,6 +10248,7 @@ export type Database = {
         }[]
       }
       get_thc_arbeitspaket: { Args: { p_auftrag_id: string }; Returns: Json }
+      get_thc_terminierung_liste: { Args: never; Returns: Json }
       get_thermocheck_auftraege: {
         Args: {
           p_limit?: number
@@ -10504,6 +10505,10 @@ export type Database = {
           p_transkript_url?: string
         }
         Returns: string
+      }
+      instantiate_thc_ag_termin_wp: {
+        Args: { p_thermocheck_auftrag_id: string }
+        Returns: Json
       }
       is_admin: { Args: { user_id?: string }; Returns: boolean }
       is_closer: { Args: { _user_id?: string }; Returns: boolean }
