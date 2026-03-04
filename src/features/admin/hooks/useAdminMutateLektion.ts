@@ -15,6 +15,7 @@ interface LektionData {
   text_zusammenfassung?: string;
   ist_aktiv?: boolean;
   nur_fuer_neue?: boolean;
+  auch_fuer_trainer?: boolean;
 }
 
 export function useAdminMutateLektion() {

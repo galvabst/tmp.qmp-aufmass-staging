@@ -15,6 +15,7 @@ export interface AdminLektion {
   zusatzmaterial_urls: string[] | null;
   ist_aktiv: boolean;
   nur_fuer_neue: boolean;
+  auch_fuer_trainer: boolean;
   content_version: number;
   created_at: string;
   updated_at: string;

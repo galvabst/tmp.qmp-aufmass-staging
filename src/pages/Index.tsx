@@ -58,10 +58,11 @@ const Index = () => {
   const contractorOnboardingId = onboardingRecord?.id || null;
   const { data: bewertungStats } = useTechnikerBewertungStats(contractorOnboardingId);
   
-  // Pflicht-Videos for ready contractors
+  // Pflicht-Videos for ready contractors (trainers only see lessons marked "auch_fuer_trainer")
   const { data: pflichtVideos, refetch: refetchPflichtVideos } = usePflichtVideos(
     contractorOnboardingId,
-    onboardingRecord?.onboarding_status
+    onboardingRecord?.onboarding_status,
+    onboardingRecord?.is_trainer === true
   );
 
   const [activeTab, setActiveTab] = useState<Tab>('pool');
