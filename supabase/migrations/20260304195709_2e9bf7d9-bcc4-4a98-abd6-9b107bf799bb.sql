@@ -1,0 +1,1 @@
+ALTER TABLE thermocheck.contractor_boni ADD COLUMN abgerechnet_am timestamptz DEFAULT NULL;
