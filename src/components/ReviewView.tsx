@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { GalvanekLogo } from '@/components/GalvanekLogo';
+import { DeadlineCountdown, AngebotsterminBadge } from '@/components/DeadlineCountdown';
 
 interface ReviewViewProps {
   orders: TechnicianOrder[];
