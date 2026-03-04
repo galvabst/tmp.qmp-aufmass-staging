@@ -385,6 +385,7 @@ const Index = () => {
     );
   }
 
+  const handleStartRework = async (orderId: string) => {
     const order = orders.find(o => o.id === orderId);
     const auftragId = order?.auftragId;
     if (!auftragId) {
