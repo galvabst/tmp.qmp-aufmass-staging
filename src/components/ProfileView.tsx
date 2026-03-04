@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target, Eye } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target, Eye, Gift } from 'lucide-react';
 import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useIsTrainer } from '@/hooks/useIsTrainer';
 import { TrainerProfileEditor } from '@/components/trainer/TrainerProfileEditor';
 import { TrainerRideAlongs } from '@/components/trainer/TrainerRideAlongs';
+import { useContractorBoni, useBoniSummary } from '@/hooks/useContractorBoni';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
