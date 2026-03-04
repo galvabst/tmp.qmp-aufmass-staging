@@ -94,6 +94,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     saveProgress,
     saveEquipmentStatus,
     saveIntroVideoWatched,
+    saveOutroVideoWatched,
     saveAkademieTestBestanden,
     onboardingState: dbOnboardingState,
     isOnboardingStateLoaded,
@@ -128,6 +129,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setAllStepsCompleted,
     hydrateAkademieFromDb,
     setIntroVideoWatched,
+    setOutroVideoWatched,
     hydrateFromDb,
   } = useOnboardingState(initialProfile, isPreview, forceReset, dbStatus?.isTrainer ?? false);
   
@@ -153,6 +155,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       equipmentStatus: dbOnboardingState.equipmentStatus,
       akademieTestBestanden: dbOnboardingState.akademieTestBestanden,
       introVideoWatched: dbOnboardingState.introVideoWatched,
+      outroVideoWatched: dbOnboardingState.outroVideoWatched,
     });
   }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, hydrateFromDb]);
 
@@ -461,12 +464,15 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   }
 
   // Outro-Video Gate: Fullscreen-Video zwischen Akademie und Coaching
-  if (showOutroVideo) {
+  // Nur zeigen wenn showOutroVideo UND noch nicht persistent als gesehen markiert
+  if (showOutroVideo && !state.outroVideoWatched) {
     const handleOutroComplete = async () => {
       setShowOutroVideo(false);
+      setOutroVideoWatched(true);
       goToNextStep();
-      // Fortschritt speichern
+      // Fortschritt + Outro-Flag speichern
       try {
+        await saveOutroVideoWatched();
         const nextCompletedSteps = state.completedSteps.includes('akademie')
           ? state.completedSteps
           : [...state.completedSteps, 'akademie'];
@@ -647,8 +653,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       return;
     }
 
-    // Outro-Video Gate: Bei Akademie → Coaching Übergang Video zeigen
-    if (state.currentStep === 'akademie') {
+    // Outro-Video Gate: Bei Akademie → Coaching Übergang Video zeigen (nur wenn noch nicht gesehen)
+    if (state.currentStep === 'akademie' && !state.outroVideoWatched) {
       setShowOutroVideo(true);
       nextClickLockRef.current = false;
       setIsAdvancing(false);
