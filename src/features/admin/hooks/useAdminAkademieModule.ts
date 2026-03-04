@@ -69,6 +69,14 @@ export function useAdminAkademieModule() {
 
       if (lekErr) throw lekErr;
 
+      // Load all quiz questions
+      const { data: quiz, error: quizErr } = await supabaseTC
+        .from('contractor_akademie_quiz')
+        .select('*')
+        .order('reihenfolge', { ascending: true });
+
+      if (quizErr) throw quizErr;
+
       // Group lektionen by modul_id
       const lektionenMap = new Map<string, AdminLektion[]>();
       for (const l of (lektionen || [])) {
@@ -77,9 +85,18 @@ export function useAdminAkademieModule() {
         lektionenMap.set(l.modul_id, list);
       }
 
+      // Group quiz by modul_id
+      const quizMap = new Map<string, AdminQuizFrage[]>();
+      for (const q of (quiz || [])) {
+        const list = quizMap.get(q.modul_id) || [];
+        list.push(q as AdminQuizFrage);
+        quizMap.set(q.modul_id, list);
+      }
+
       return (module || []).map((m) => ({
         ...m,
         lektionen: lektionenMap.get(m.id) || [],
+        quizFragen: quizMap.get(m.id) || [],
       })) as AdminModul[];
     },
     staleTime: 30_000,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, BookOpen } from 'lucide-react';
+import { Plus, BookOpen, HelpCircle } from 'lucide-react';
 import { AdminLayout } from '../AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,17 +7,21 @@ import {
   Accordion, AccordionItem, AccordionTrigger, AccordionContent,
 } from '@/components/ui/accordion';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAdminAkademieModule, type AdminModul, type AdminLektion } from '../../hooks/useAdminAkademieModule';
+import { useAdminAkademieModule, type AdminModul, type AdminLektion, type AdminQuizFrage } from '../../hooks/useAdminAkademieModule';
 import { useAdminMutateModul } from '../../hooks/useAdminMutateModul';
 import { useAdminMutateLektion } from '../../hooks/useAdminMutateLektion';
+import { useAdminMutateQuiz } from '../../hooks/useAdminMutateQuiz';
 import { ModulEditor } from './ModulEditor';
 import { LektionEditor } from './LektionEditor';
 import { LektionListItem } from './LektionListItem';
+import { QuizFrageEditor } from './QuizFrageEditor';
+import { QuizFrageListItem } from './QuizFrageListItem';
 
 export function AkademieAdminView() {
   const { data: module, isLoading, error } = useAdminAkademieModule();
   const { upsertModul, isPending: modulPending } = useAdminMutateModul();
   const { upsertLektion, toggleLektionActive, isPending: lektionPending } = useAdminMutateLektion();
+  const { upsertQuiz, toggleQuizActive, isPending: quizPending } = useAdminMutateQuiz();
 
   // Modul editor state
   const [modulEditorOpen, setModulEditorOpen] = useState(false);
@@ -28,34 +32,26 @@ export function AkademieAdminView() {
   const [editingLektion, setEditingLektion] = useState<AdminLektion | null>(null);
   const [lektionModulId, setLektionModulId] = useState('');
 
-  const handleNewModul = () => {
-    setEditingModul(null);
-    setModulEditorOpen(true);
-  };
+  // Quiz editor state
+  const [quizEditorOpen, setQuizEditorOpen] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState<AdminQuizFrage | null>(null);
+  const [quizModulId, setQuizModulId] = useState('');
 
-  const handleEditModul = (modul: AdminModul) => {
-    setEditingModul(modul);
-    setModulEditorOpen(true);
-  };
+  const handleNewModul = () => { setEditingModul(null); setModulEditorOpen(true); };
+  const handleEditModul = (modul: AdminModul) => { setEditingModul(modul); setModulEditorOpen(true); };
 
-  const handleNewLektion = (modulId: string) => {
-    setEditingLektion(null);
-    setLektionModulId(modulId);
-    setLektionEditorOpen(true);
-  };
-
-  const handleEditLektion = (lektion: AdminLektion) => {
-    setEditingLektion(lektion);
-    setLektionModulId(lektion.modul_id);
-    setLektionEditorOpen(true);
-  };
+  const handleNewLektion = (modulId: string) => { setEditingLektion(null); setLektionModulId(modulId); setLektionEditorOpen(true); };
+  const handleEditLektion = (lektion: AdminLektion) => { setEditingLektion(lektion); setLektionModulId(lektion.modul_id); setLektionEditorOpen(true); };
 
   const handleToggleLektionActive = async (lektion: AdminLektion) => {
-    await toggleLektionActive({
-      id: lektion.id,
-      modul_id: lektion.modul_id,
-      ist_aktiv: !lektion.ist_aktiv,
-    });
+    await toggleLektionActive({ id: lektion.id, modul_id: lektion.modul_id, ist_aktiv: !lektion.ist_aktiv });
+  };
+
+  const handleNewQuiz = (modulId: string) => { setEditingQuiz(null); setQuizModulId(modulId); setQuizEditorOpen(true); };
+  const handleEditQuiz = (frage: AdminQuizFrage) => { setEditingQuiz(frage); setQuizModulId(frage.modul_id); setQuizEditorOpen(true); };
+
+  const handleToggleQuizActive = async (frage: AdminQuizFrage) => {
+    await toggleQuizActive({ id: frage.id, modul_id: frage.modul_id, ist_aktiv: !frage.ist_aktiv });
   };
 
   if (error) {
@@ -112,18 +108,10 @@ export function AkademieAdminView() {
                 <div className="space-y-2">
                   {/* Edit modul button */}
                   <div className="flex justify-between items-center mb-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditModul(modul)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => handleEditModul(modul)}>
                       Modul bearbeiten
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleNewLektion(modul.id)}
-                    >
+                    <Button size="sm" variant="secondary" onClick={() => handleNewLektion(modul.id)}>
                       <Plus className="w-3.5 h-3.5 mr-1" />
                       Lektion
                     </Button>
@@ -146,6 +134,39 @@ export function AkademieAdminView() {
                       ))}
                     </div>
                   )}
+
+                  {/* Quiz section */}
+                  <div className="mt-4 pt-3 border-t">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <HelpCircle className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-semibold">Quiz-Fragen</span>
+                        <Badge variant="outline" className="text-xs">
+                          {modul.quizFragen.length}
+                        </Badge>
+                      </div>
+                      <Button size="sm" variant="secondary" onClick={() => handleNewQuiz(modul.id)}>
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        Frage
+                      </Button>
+                    </div>
+                    {modul.quizFragen.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-3">
+                        Keine Quiz-Fragen vorhanden
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {modul.quizFragen.map((frage) => (
+                          <QuizFrageListItem
+                            key={frage.id}
+                            frage={frage}
+                            onEdit={handleEditQuiz}
+                            onToggleActive={handleToggleQuizActive}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -168,6 +189,14 @@ export function AkademieAdminView() {
         modulId={lektionModulId}
         onSave={upsertLektion}
         isPending={lektionPending}
+      />
+      <QuizFrageEditor
+        open={quizEditorOpen}
+        onOpenChange={setQuizEditorOpen}
+        frage={editingQuiz}
+        modulId={quizModulId}
+        onSave={upsertQuiz}
+        isPending={quizPending}
       />
     </AdminLayout>
   );
