@@ -1,15 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@supabase/supabase-js';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-
-const thermocheckClient = createClient(
-  'https://keplsvhudmfaagixttql.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtlcGxzdmh1ZG1mYWFnaXh0dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0OTQ4MzIsImV4cCI6MjA3MjA3MDgzMn0.pfrd37wSwqnofDinrv60YOtCqnYTc9BXq08m_TSVTNY',
-  { db: { schema: 'thermocheck' } }
-);
+import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 
 export interface RideAlongTrainee {
   auftragId: string;
+  traineeProfileId: string;
   vorname: string;
   nachname: string;
   telefon: string;
@@ -18,24 +13,16 @@ export interface RideAlongTrainee {
   ort: string;
   avatarUrl?: string;
   gebuchtAm?: string;
+  bewertung?: 'ausstehend' | 'bestanden' | 'nicht_bestanden';
+  bewertungAm?: string;
   termine: { datum: string; ganztaegig: boolean; zeitVon?: string; zeitBis?: string }[];
 }
 
 async function syncSession() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) await thermocheckClient.auth.setSession(session);
+  if (session) await supabaseTC.auth.setSession(session);
 }
 
-/**
- * Für Trainer: Lädt alle gebuchten Mitfahrten mit Trainee-Kontaktdaten.
- * 
- * Datenfluss:
- * 1. Eigene contractor_onboarding.id ermitteln (profile_id = profileId)
- * 2. thermocheck_auftraege: zugewiesener_techniker_id = onboarding.id AND coaching_gebucht_von IS NOT NULL
- * 3. Trainee-Profile laden (profiles WHERE id = coaching_gebucht_von)
- * 4. Trainee-Adressen laden (contractor_onboarding WHERE profile_id = coaching_gebucht_von)
- * 5. Termine laden
- */
 export function useMyCoachingRideAlongs(profileId: string | null) {
   return useQuery({
     queryKey: ['coaching-ride-alongs', profileId],
@@ -43,8 +30,7 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
       if (!profileId) return [];
       await syncSession();
 
-      // 1. Eigene contractor_onboarding.id
-      const { data: myOnb } = await thermocheckClient
+      const { data: myOnb } = await supabaseTC
         .from('contractor_onboarding')
         .select('id')
         .eq('profile_id', profileId)
@@ -52,8 +38,7 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
 
       if (!myOnb) return [];
 
-      // 2. Aufträge wo ich Trainer bin UND jemand gebucht hat
-      const { data: auftraege } = await thermocheckClient
+      const { data: auftraege } = await supabaseTC
         .from('thermocheck_auftraege')
         .select('id, coaching_gebucht_von, coaching_gebucht_am')
         .eq('zugewiesener_techniker_id', myOnb.id)
@@ -64,65 +49,47 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
       const traineeProfileIds = [...new Set(auftraege.map(a => a.coaching_gebucht_von).filter(Boolean))] as string[];
       const auftragIds = auftraege.map(a => a.id);
 
-      // 3. Trainee-Profile laden
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, vorname, nachname, telefon, email, avatar_url')
-        .in('id', traineeProfileIds);
+      // Parallel: profiles, addresses, terms, bewertungen
+      const [profilesRes, traineeOnbsRes, termineRes] = await Promise.all([
+        supabase.from('profiles').select('id, vorname, nachname, telefon, email, avatar_url').in('id', traineeProfileIds),
+        supabaseTC.from('contractor_onboarding').select('profile_id, anschrift_plz, anschrift_ort, coaching_bewertung, coaching_bewertung_am').in('profile_id', traineeProfileIds),
+        supabaseTC.from('thermocheck_terminvorschlaege').select('thermocheck_auftrag_id, datum, ganztaegig, zeit_von, zeit_bis, sortierung').in('thermocheck_auftrag_id', auftragIds).order('sortierung', { ascending: true }),
+      ]);
 
-      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-
-      // 4. Trainee-Adressen laden
-      const { data: traineeOnbs } = await thermocheckClient
-        .from('contractor_onboarding')
-        .select('profile_id, anschrift_plz, anschrift_ort')
-        .in('profile_id', traineeProfileIds);
-
-      const addressMap = new Map((traineeOnbs || []).map(o => [o.profile_id, o]));
-
-      // 5. Termine laden
-      const { data: termine } = await thermocheckClient
-        .from('thermocheck_terminvorschlaege')
-        .select('thermocheck_auftrag_id, datum, ganztaegig, zeit_von, zeit_bis, sortierung')
-        .in('thermocheck_auftrag_id', auftragIds)
-        .order('sortierung', { ascending: true });
+      const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p]));
+      const onbMap = new Map((traineeOnbsRes.data || []).map(o => [o.profile_id, o]));
 
       const termineByAuftrag = new Map<string, RideAlongTrainee['termine']>();
-      for (const t of (termine || [])) {
+      for (const t of (termineRes.data || [])) {
         const list = termineByAuftrag.get(t.thermocheck_auftrag_id) || [];
-        list.push({
-          datum: t.datum,
-          ganztaegig: t.ganztaegig,
-          zeitVon: t.zeit_von || undefined,
-          zeitBis: t.zeit_bis || undefined,
-        });
+        list.push({ datum: t.datum, ganztaegig: t.ganztaegig, zeitVon: t.zeit_von || undefined, zeitBis: t.zeit_bis || undefined });
         termineByAuftrag.set(t.thermocheck_auftrag_id, list);
       }
 
-      // 6. Zusammenbauen
       const results: RideAlongTrainee[] = [];
       for (const auftrag of auftraege) {
         const traineeId = auftrag.coaching_gebucht_von;
         if (!traineeId) continue;
-
         const profile = profileMap.get(traineeId);
-        const address = addressMap.get(traineeId);
+        const onb = onbMap.get(traineeId);
 
         results.push({
           auftragId: auftrag.id,
+          traineeProfileId: traineeId,
           vorname: profile?.vorname || '',
           nachname: profile?.nachname || '',
           telefon: profile?.telefon || '',
           email: profile?.email || '',
-          plz: address?.anschrift_plz || '',
-          ort: address?.anschrift_ort || '',
+          plz: onb?.anschrift_plz || '',
+          ort: onb?.anschrift_ort || '',
           avatarUrl: profile?.avatar_url || undefined,
           gebuchtAm: auftrag.coaching_gebucht_am || undefined,
+          bewertung: (onb?.coaching_bewertung as RideAlongTrainee['bewertung']) || 'ausstehend',
+          bewertungAm: onb?.coaching_bewertung_am || undefined,
           termine: termineByAuftrag.get(auftrag.id) || [],
         });
       }
 
-      // Sortieren: nächster Termin zuerst
       results.sort((a, b) => {
         const dateA = a.termine[0]?.datum || '9999';
         const dateB = b.termine[0]?.datum || '9999';
@@ -133,5 +100,26 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
     },
     enabled: !!profileId,
     staleTime: 60 * 1000,
+  });
+}
+
+export function useBewerteCoachingMitfahrt() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ auftragId, entscheidung, notiz }: { auftragId: string; entscheidung: 'bestanden' | 'nicht_bestanden'; notiz?: string }) => {
+      const { data, error } = await supabase.rpc('bewerte_coaching_mitfahrt', {
+        p_auftrag_id: auftragId,
+        p_entscheidung: entscheidung,
+        p_notiz: notiz || null,
+      });
+      if (error) throw error;
+      const result = data as unknown as { success: boolean; message: string; status: string };
+      if (!result.success) throw new Error(result.message);
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['coaching-ride-alongs'] });
+    },
   });
 }
