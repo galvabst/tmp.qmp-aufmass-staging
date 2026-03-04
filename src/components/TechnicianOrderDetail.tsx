@@ -275,16 +275,16 @@ Mit freundlichen Grüßen`;
           <div className="flex items-start gap-2.5">
             <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
-              {canShowFullDetails ? (
+              {canShowFullDetails && !isApproved ? (
                 <p className="text-sm text-foreground">{order.address}, {order.postalCode} {order.city}</p>
               ) : (
                 <>
                   <p className="text-sm text-foreground">{order.postalCode} {order.city}</p>
-                  <p className="text-xs text-muted-foreground italic">Genaue Adresse nach Annahme</p>
+                  {isPoolOrder && <p className="text-xs text-muted-foreground italic">Genaue Adresse nach Annahme</p>}
                 </>
               )}
             </div>
-            {canShowFullDetails && (
+            {canShowFullDetails && !isApproved && (
               <button
                 onClick={() => copy(fullAddress, 'Adresse', 'address')}
                 className="p-1 rounded-md hover:bg-accent transition-colors shrink-0"
@@ -295,7 +295,7 @@ Mit freundlichen Grüßen`;
               </button>
             )}
           </div>
-          {canShowFullDetails && (
+          {canShowFullDetails && !isApproved && (
             <a
               href={mapsUrl}
               target="_blank"
