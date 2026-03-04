@@ -8884,6 +8884,7 @@ export type Database = {
         Args: { _group_id: string }
         Returns: undefined
       }
+      admin_delete_akademie_quiz: { Args: { p_id: string }; Returns: Json }
       admin_delete_group_app_role: {
         Args: { _app_id: string; _group_id: string }
         Returns: undefined
@@ -9084,6 +9085,7 @@ export type Database = {
       }
       admin_upsert_akademie_lektion: { Args: { p_data: Json }; Returns: Json }
       admin_upsert_akademie_modul: { Args: { p_data: Json }; Returns: Json }
+      admin_upsert_akademie_quiz: { Args: { p_data: Json }; Returns: Json }
       assign_lead_to_bestellung: {
         Args: { p_lead_id: string }
         Returns: string
