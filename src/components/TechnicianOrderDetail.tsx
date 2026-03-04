@@ -1,4 +1,4 @@
-import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList, CheckCircle2, AlertCircle, Loader2, Copy, Check } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList, CheckCircle2, AlertCircle, Loader2, Copy, Check, Ruler, Home, Thermometer } from 'lucide-react';
 import { AuftragChatSection } from '@/features/chat/ui/AuftragChatSection';
 import { TechnicianOrder, CheckinPhase, CHECKIN_PHASE_LABELS } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
@@ -29,7 +29,6 @@ interface TechnicianOrderDetailProps {
 /** Small helper – copy text and show a toast */
 function useCopyAction() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
   const copy = async (text: string, label: string, key: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -40,11 +39,10 @@ function useCopyAction() {
       toast.error('Kopieren fehlgeschlagen');
     }
   };
-
   return { copiedKey, copy };
 }
 
-/** Render a grey box with copy button */
+/** Compact copy block */
 function CopyBlock({ label, text, copyKey, copiedKey, onCopy }: {
   label: string;
   text: string;
@@ -56,19 +54,29 @@ function CopyBlock({ label, text, copyKey, copiedKey, onCopy }: {
   return (
     <div>
       <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
-      <div className="relative bg-muted rounded-lg p-3 pr-12">
+      <div className="relative bg-muted/60 rounded-lg p-2.5 pr-10">
         <p className="text-sm text-foreground whitespace-pre-wrap break-words">{text}</p>
         <button
           onClick={() => onCopy(text, label, copyKey)}
-          className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-accent transition-colors"
+          className="absolute top-2 right-2 p-1 rounded-md hover:bg-accent transition-colors"
           title="Kopieren"
         >
           {isCopied
-            ? <Check className="w-4 h-4 text-green-600" />
-            : <Copy className="w-4 h-4 text-muted-foreground" />}
+            ? <Check className="w-3.5 h-3.5 text-green-600" />
+            : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
         </button>
       </div>
     </div>
+  );
+}
+
+/** Info chip for object details */
+function InfoChip({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5">
+      {icon}
+      {label}
+    </span>
   );
 }
 
@@ -89,7 +97,6 @@ export function TechnicianOrderDetail({
   const [confirmingVortag, setConfirmingVortag] = useState(false);
   const { copiedKey, copy } = useCopyAction();
 
-  // Checklist state for Anruf task
   const [checklist, setChecklist] = useState({
     terminAbgesprochen: false,
     adresseVerifiziert: false,
@@ -112,13 +119,10 @@ export function TechnicianOrderDetail({
   const isApproved = order.status === 'approved';
   const canShowFullDetails = showFullDetails && !isPoolOrder;
   
-  // Confirmation status
   const buchungDone = !!order.buchungBestaetigtAm;
   const vortagDone = !!order.vortagBestaetigtAm;
-  const terminSoon = isToday(parseISO(order.scheduledDate)) || isTomorrow(parseISO(order.scheduledDate));
   const showVortagTask = buchungDone;
 
-  // Phase tracking
   const vorOrtStarted = !!order.vorOrtCheckinAt;
   const vorOrtCompleted = !!order.vorOrtCheckoutAt;
   const nachbearbeitungStarted = !!order.nachbearbeitungCheckinAt;
@@ -129,7 +133,6 @@ export function TechnicianOrderDetail({
   const canStartNachbearbeitung = isInProgress && vorOrtCompleted && !nachbearbeitungStarted;
   const canCheckoutNachbearbeitung = isInProgress && order.checkinPhase === 'nachbearbeitung' && nachbearbeitungStarted && !nachbearbeitungCompleted;
 
-  // --- Anruf-Leitfaden (Task 1 – sofort nach Annahme) ---
   const displayName = technicianName || '[Ihr Name]';
   const callScript = `Guten Tag, mein Name ist ${displayName} von der Galvanek Bau GmbH.
 Ich bin Ihr Feinaufmaßtechniker. Sie hatten einen Terminvorschlag für den ${shortDate} um ${order.scheduledTime} Uhr gemacht.
@@ -144,7 +147,6 @@ Außerdem möchte ich sicherstellen:
 [Falls ja:] Sehr gut, ich schicke Ihnen vorab noch eine schriftliche Bestätigung per E-Mail.
 [Falls nein:] Kein Problem, dann klären wir einen neuen Termin.`;
 
-  // --- E-Mail Template (Task 2 – Vortag, schriftlicher Nachweis) ---
   const emailSubject = `Terminbestätigung Feinaufmaß – ${shortDate}`;
   const emailBody = `Sehr geehrte/r ${order.customerName},
 
@@ -164,9 +166,7 @@ Mit freundlichen Grüßen`;
     if (!order.auftragId) return;
     setConfirmingBooking(true);
     try {
-      const { data, error } = await supabase.rpc('confirm_thermocheck_booking', {
-        p_auftrag_id: order.auftragId,
-      } as any);
+      const { error } = await supabase.rpc('confirm_thermocheck_booking', { p_auftrag_id: order.auftragId } as any);
       if (error) throw error;
       toast.success('Anruf als erledigt markiert');
       queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
@@ -182,9 +182,7 @@ Mit freundlichen Grüßen`;
     if (!order.auftragId) return;
     setConfirmingVortag(true);
     try {
-      const { data, error } = await supabase.rpc('confirm_thermocheck_vortag', {
-        p_auftrag_id: order.auftragId,
-      } as any);
+      const { error } = await supabase.rpc('confirm_thermocheck_vortag', { p_auftrag_id: order.auftragId } as any);
       if (error) throw error;
       toast.success('Vortag-Bestätigung markiert');
       queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
@@ -209,139 +207,196 @@ Mit freundlichen Grüßen`;
     }
   };
 
+  const hasObjectInfo = order.quadratmeter || order.wohneinheiten || order.fussbodenheizung !== undefined;
+
   return (
     <div className="min-h-screen bg-background pb-40">
-      {/* Header */}
+      {/* Header – slim */}
       <header className="bg-primary text-primary-foreground safe-area-top sticky top-0 z-10">
-        <div className="p-4 flex items-center gap-3">
+        <div className="px-4 py-3 flex items-center gap-3">
           <button onClick={onBack} className="p-1 hover:bg-primary-foreground/10 rounded-lg transition-colors">
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex-1">
-            <h1 className="text-lg font-bold">Auftragsdetails</h1>
-          </div>
-          <Badge variant={getStatusBadgeVariant()} className="bg-primary-foreground/20 text-primary-foreground border-0">
+          <h1 className="flex-1 text-base font-semibold">Auftragsdetails</h1>
+          <Badge variant={getStatusBadgeVariant()} className="bg-primary-foreground/20 text-primary-foreground border-0 text-[11px]">
             {OBJECT_ORDER_STATUS_LABELS[order.status]}
           </Badge>
         </div>
       </header>
 
-      {/* Content */}
-      <div className="p-4 space-y-4">
-        {/* Customer & Type */}
-        <div className="bg-card rounded-xl p-4 shadow-card">
-          <div className="flex items-start justify-between">
-            <div>
-              <Badge variant="secondary" className="mb-2">
+      <div className="p-4 space-y-3">
+
+        {/* ── Hero Card: Customer + Type + Object Info + Price ── */}
+        <div className="bg-card rounded-2xl p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <Badge variant="secondary" className="mb-1.5 text-[11px]">
                 {AUFTRAGSTYP_LABELS[order.auftragstyp]}
               </Badge>
-              <h2 className="text-xl font-bold text-foreground">{order.customerName}</h2>
+              <h2 className="text-lg font-bold text-foreground leading-tight">{order.customerName}</h2>
+
+              {/* Object Info Chips */}
+              {hasObjectInfo && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {order.quadratmeter && (
+                    <InfoChip icon={<Ruler className="w-3 h-3" />} label={`${order.quadratmeter} m²`} />
+                  )}
+                  {order.wohneinheiten && (
+                    <InfoChip icon={<Home className="w-3 h-3" />} label={`${order.wohneinheiten} WE`} />
+                  )}
+                  {order.fussbodenheizung !== undefined && (
+                    <InfoChip
+                      icon={<Thermometer className="w-3 h-3" />}
+                      label={order.fussbodenheizung ? 'FBH vorhanden' : 'Keine FBH'}
+                    />
+                  )}
+                </div>
+              )}
             </div>
             {order.billableAmount != null && (
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">Vergütung</p>
-                <p className="text-lg font-bold text-foreground flex items-center gap-1">
-                  <Euro className="w-4 h-4" />
-                  {order.billableAmount.toFixed(2)}
-                </p>
+              <div className="text-right shrink-0">
+                <p className="text-[11px] text-muted-foreground">Vergütung</p>
+                <p className="text-lg font-bold text-foreground">{order.billableAmount.toFixed(0)} €</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* ===== Aufgaben-Card with Accordion – only for booked orders ===== */}
-        {isBookedOrder && (
-          <div className="bg-card rounded-xl p-4 shadow-card">
-            <p className="font-medium text-foreground mb-2">Aufgaben</p>
+        {/* ── Termin & Adresse – combined card ── */}
+        <div className="bg-card rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center gap-2.5 mb-3">
+            <Calendar className="w-4 h-4 text-primary" />
+            <p className="text-sm font-semibold text-foreground">{formattedDate}</p>
+            <span className="text-sm text-muted-foreground">·</span>
+            <p className="text-sm text-muted-foreground">{order.scheduledTime} Uhr</p>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              {canShowFullDetails ? (
+                <p className="text-sm text-foreground">{order.address}, {order.postalCode} {order.city}</p>
+              ) : (
+                <>
+                  <p className="text-sm text-foreground">{order.postalCode} {order.city}</p>
+                  <p className="text-xs text-muted-foreground italic">Genaue Adresse nach Annahme</p>
+                </>
+              )}
+            </div>
+            {canShowFullDetails && (
+              <button
+                onClick={() => copy(fullAddress, 'Adresse', 'address')}
+                className="p-1 rounded-md hover:bg-accent transition-colors shrink-0"
+              >
+                {copiedKey === 'address'
+                  ? <Check className="w-3.5 h-3.5 text-green-600" />
+                  : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
+              </button>
+            )}
+          </div>
+          {canShowFullDetails && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Navigation className="w-4 h-4" />
+              Navigation starten
+            </a>
+          )}
+        </div>
 
+        {/* ── Kontakt – compact row ── */}
+        {canShowFullDetails && (order.contactPhone || order.contactEmail) && (
+          <div className="bg-card rounded-2xl p-3 shadow-sm">
+            <div className="flex flex-wrap gap-2">
+              {order.contactPhone && (
+                <div className="flex items-center gap-2 bg-muted/40 rounded-lg px-3 py-2 flex-1 min-w-[140px]">
+                  <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-foreground truncate">{order.contactPhone}</span>
+                  <button
+                    onClick={() => copy(order.contactPhone!, 'Telefonnummer', 'contact-phone')}
+                    className="p-0.5 rounded hover:bg-accent transition-colors shrink-0 ml-auto"
+                  >
+                    {copiedKey === 'contact-phone'
+                      ? <Check className="w-3 h-3 text-green-600" />
+                      : <Copy className="w-3 h-3 text-muted-foreground" />}
+                  </button>
+                </div>
+              )}
+              {order.contactEmail && (
+                <div className="flex items-center gap-2 bg-muted/40 rounded-lg px-3 py-2 flex-1 min-w-[140px]">
+                  <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-foreground truncate">{order.contactEmail}</span>
+                  <button
+                    onClick={() => copy(order.contactEmail!, 'E-Mail', 'contact-email')}
+                    className="p-0.5 rounded hover:bg-accent transition-colors shrink-0 ml-auto"
+                  >
+                    {copiedKey === 'contact-email'
+                      ? <Check className="w-3 h-3 text-green-600" />
+                      : <Copy className="w-3 h-3 text-muted-foreground" />}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Aufgaben Accordion – booked orders only ── */}
+        {isBookedOrder && (
+          <div className="bg-card rounded-2xl p-3 shadow-sm">
+            <p className="text-sm font-semibold text-foreground mb-2 px-1">Aufgaben</p>
             <Accordion type="single" collapsible className="w-full" defaultValue={!buchungDone ? 'anruf' : undefined}>
-              {/* --- Task 1: Anruf – Termin telefonisch absprechen --- */}
-              <AccordionItem value="anruf" className={buchungDone ? 'border-green-200 dark:border-green-800' : ''}>
-                <AccordionTrigger className="py-3 hover:no-underline">
+              {/* Task 1: Anruf */}
+              <AccordionItem value="anruf" className={`border-0 ${buchungDone ? 'bg-green-50/50 dark:bg-green-950/20 rounded-xl' : 'bg-muted/30 rounded-xl'} mb-1`}>
+                <AccordionTrigger className="py-2.5 px-3 hover:no-underline">
                   <div className="flex items-center gap-2 text-left">
                     {buchungDone
-                      ? <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
-                      : <Phone className="w-5 h-5 text-orange-500 shrink-0" />}
+                      ? <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
+                      : <Phone className="w-4 h-4 text-orange-500 shrink-0" />}
                     <div>
                       <p className={`text-sm font-medium ${buchungDone ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-                        Schritt 1: Termin telefonisch absprechen
+                        Termin telefonisch absprechen
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground">
                         {buchungDone
-                          ? `Erledigt am ${format(parseISO(order.buchungBestaetigtAm!), 'd. MMM, HH:mm', { locale: de })} Uhr`
+                          ? `Erledigt ${format(parseISO(order.buchungBestaetigtAm!), 'd. MMM, HH:mm', { locale: de })}`
                           : 'Kunden anrufen, Termin & Zugang klären'}
                       </p>
                     </div>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent>
+                <AccordionContent className="px-3 pb-3">
                   {buchungDone ? (
                     <p className="text-sm text-green-600 dark:text-green-400">✓ Bereits erledigt</p>
                   ) : (
-                    <div className="space-y-4">
-                      {/* Anruf-Leitfaden */}
-                      <CopyBlock
-                        label="Anruf-Leitfaden (Gesprächsvorlage)"
-                        text={callScript}
-                        copyKey="callscript"
-                        copiedKey={copiedKey}
-                        onCopy={copy}
-                      />
-
-                      {/* Phone number as plain text */}
+                    <div className="space-y-3">
+                      <CopyBlock label="Anruf-Leitfaden" text={callScript} copyKey="callscript" copiedKey={copiedKey} onCopy={copy} />
                       {order.contactPhone && (
-                        <CopyBlock
-                          label="Telefonnummer"
-                          text={order.contactPhone}
-                          copyKey="phone"
-                          copiedKey={copiedKey}
-                          onCopy={copy}
-                        />
+                        <CopyBlock label="Telefonnummer" text={order.contactPhone} copyKey="phone" copiedKey={copiedKey} onCopy={copy} />
                       )}
-
-                      {/* Checkliste */}
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Checkliste – im Telefonat klären</p>
-                        <div className="space-y-3">
-                          <label className="flex items-start gap-3 cursor-pointer">
-                            <Checkbox
-                              checked={checklist.terminAbgesprochen}
-                              onCheckedChange={(v) => setChecklist(s => ({ ...s, terminAbgesprochen: !!v }))}
-                            />
-                            <div>
-                              <p className="text-sm font-medium text-foreground">Termin mit Kunde abgesprochen</p>
-                              <p className="text-xs text-muted-foreground">Passt der vorgeschlagene Termin?</p>
-                            </div>
-                          </label>
-                          <label className="flex items-start gap-3 cursor-pointer">
-                            <Checkbox
-                              checked={checklist.adresseVerifiziert}
-                              onCheckedChange={(v) => setChecklist(s => ({ ...s, adresseVerifiziert: !!v }))}
-                            />
-                            <div>
-                              <p className="text-sm font-medium text-foreground">Adresse verifiziert – richtiges Objekt</p>
-                              <p className="text-xs text-muted-foreground">Stimmt die Adresse? Fahren Sie zum richtigen Gebäude?</p>
-                            </div>
-                          </label>
-                          <label className="flex items-start gap-3 cursor-pointer">
-                            <Checkbox
-                              checked={checklist.raumzugangBestaetigt}
-                              onCheckedChange={(v) => setChecklist(s => ({ ...s, raumzugangBestaetigt: !!v }))}
-                            />
-                            <div>
-                              <p className="text-sm font-medium text-foreground">Raumzugang bestätigt – alle Räume zugänglich</p>
-                              <p className="text-xs text-muted-foreground">Sind alle Räume am Termin begehbar? Wichtig für die Heizlastberechnung.</p>
-                            </div>
-                          </label>
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Checkliste</p>
+                        <div className="space-y-2">
+                          {[
+                            { key: 'terminAbgesprochen' as const, title: 'Termin mit Kunde abgesprochen', sub: 'Passt der vorgeschlagene Termin?' },
+                            { key: 'adresseVerifiziert' as const, title: 'Adresse verifiziert', sub: 'Stimmt die Adresse?' },
+                            { key: 'raumzugangBestaetigt' as const, title: 'Raumzugang bestätigt', sub: 'Alle Räume zugänglich?' },
+                          ].map(item => (
+                            <label key={item.key} className="flex items-start gap-2.5 cursor-pointer">
+                              <Checkbox
+                                checked={checklist[item.key]}
+                                onCheckedChange={(v) => setChecklist(s => ({ ...s, [item.key]: !!v }))}
+                              />
+                              <div>
+                                <p className="text-sm font-medium text-foreground leading-tight">{item.title}</p>
+                                <p className="text-[11px] text-muted-foreground">{item.sub}</p>
+                              </div>
+                            </label>
+                          ))}
                         </div>
                       </div>
-
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onClick={handleConfirmBooking}
-                        disabled={confirmingBooking || !allChecked}
-                      >
+                      <Button size="sm" className="w-full" onClick={handleConfirmBooking} disabled={confirmingBooking || !allChecked}>
                         {confirmingBooking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                         {allChecked ? 'Als erledigt markieren' : 'Bitte alle Punkte abhaken'}
                       </Button>
@@ -350,90 +405,53 @@ Mit freundlichen Grüßen`;
                 </AccordionContent>
               </AccordionItem>
 
-              {/* --- Task 2: E-Mail am Vortag (schriftlicher Nachweis) --- */}
+              {/* Task 2: Vortag E-Mail */}
               {showVortagTask && (
-                <AccordionItem value="vortag-email" className={vortagDone ? 'border-green-200 dark:border-green-800' : ''}>
-                  <AccordionTrigger className="py-3 hover:no-underline">
+                <AccordionItem value="vortag-email" className={`border-0 ${vortagDone ? 'bg-green-50/50 dark:bg-green-950/20 rounded-xl' : 'bg-muted/30 rounded-xl'}`}>
+                  <AccordionTrigger className="py-2.5 px-3 hover:no-underline">
                     <div className="flex items-center gap-2 text-left">
                       {vortagDone
-                        ? <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
-                        : <Mail className="w-5 h-5 text-orange-500 shrink-0" />}
+                        ? <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
+                        : <Mail className="w-4 h-4 text-orange-500 shrink-0" />}
                       <div>
                         <p className={`text-sm font-medium ${vortagDone ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-                          Schritt 2: Terminbestätigung per E-Mail
+                          Terminbestätigung per E-Mail
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[11px] text-muted-foreground">
                           {vortagDone
-                            ? `Erledigt am ${format(parseISO(order.vortagBestaetigtAm!), 'd. MMM, HH:mm', { locale: de })} Uhr`
-                            : 'Schriftliche Bestätigung am Vortag senden'}
+                            ? `Erledigt ${format(parseISO(order.vortagBestaetigtAm!), 'd. MMM, HH:mm', { locale: de })}`
+                            : 'Schriftliche Bestätigung am Vortag'}
                         </p>
                       </div>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent className="px-3 pb-3">
                     {vortagDone ? (
                       <p className="text-sm text-green-600 dark:text-green-400">✓ Bereits erledigt</p>
                     ) : (
-                      <div className="space-y-4">
-                        {/* Disclaimer */}
-                        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                          <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
-                            ⚠️ Diese E-Mail dient als schriftlicher Nachweis, dass der Termin stattfindet. Bitte am Vortag des Termins versenden.
+                      <div className="space-y-3">
+                        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
+                          <p className="text-[11px] text-amber-800 dark:text-amber-200 font-medium">
+                            ⚠️ Am Vortag des Termins versenden – dient als schriftlicher Nachweis.
                           </p>
                         </div>
-
-                        {/* Step-by-step instructions */}
                         <div>
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Arbeitsanweisung</p>
-                          <ol className="list-decimal list-inside text-sm text-foreground space-y-1.5">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Arbeitsanweisung</p>
+                          <ol className="list-decimal list-inside text-sm text-foreground space-y-1">
                             <li>Gmail öffnen und neue E-Mail erstellen</li>
-                            <li>Kunden-E-Mail-Adresse eintragen (siehe unten)</li>
+                            <li>Kunden-E-Mail-Adresse eintragen</li>
                             <li>Betreff kopieren und einfügen</li>
                             <li>E-Mail-Text kopieren und einfügen</li>
-                            <li>E-Mail absenden – die Signatur wird automatisch angehängt</li>
-                            <li>Danach unten auf „Als erledigt markieren" klicken</li>
+                            <li>E-Mail absenden</li>
+                            <li>Unten auf „Als erledigt markieren" klicken</li>
                           </ol>
                         </div>
-
-                        {/* Customer email */}
                         {order.contactEmail && (
-                          <CopyBlock
-                            label="Kunden-E-Mail"
-                            text={order.contactEmail}
-                            copyKey="email"
-                            copiedKey={copiedKey}
-                            onCopy={copy}
-                          />
+                          <CopyBlock label="Kunden-E-Mail" text={order.contactEmail} copyKey="email" copiedKey={copiedKey} onCopy={copy} />
                         )}
-
-                        {/* Copyable subject */}
-                        <CopyBlock
-                          label="Betreff"
-                          text={emailSubject}
-                          copyKey="subject"
-                          copiedKey={copiedKey}
-                          onCopy={copy}
-                        />
-
-                        {/* Copyable body */}
-                        <CopyBlock
-                          label="E-Mail-Text"
-                          text={emailBody}
-                          copyKey="body"
-                          copiedKey={copiedKey}
-                          onCopy={copy}
-                        />
-
-                        <p className="text-xs text-muted-foreground italic">
-                          Bitte in Gmail einfügen – die Signatur wird automatisch angehängt.
-                        </p>
-
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          onClick={handleConfirmVortag}
-                          disabled={confirmingVortag}
-                        >
+                        <CopyBlock label="Betreff" text={emailSubject} copyKey="subject" copiedKey={copiedKey} onCopy={copy} />
+                        <CopyBlock label="E-Mail-Text" text={emailBody} copyKey="body" copiedKey={copiedKey} onCopy={copy} />
+                        <Button size="sm" className="w-full" onClick={handleConfirmVortag} disabled={confirmingVortag}>
                           {confirmingVortag ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                           Als erledigt markieren
                         </Button>
@@ -446,235 +464,103 @@ Mit freundlichen Grüßen`;
           </div>
         )}
 
-        {/* Contact – plain text, no links */}
-        {canShowFullDetails && (order.contactPhone || order.contactEmail) && (
-          <div className="bg-card rounded-xl p-4 shadow-card">
-            <p className="font-medium text-foreground mb-3">Kontaktdaten</p>
-            <div className="space-y-3">
-              {order.contactPhone && (
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Phone className="w-5 h-5 text-primary" />
-                  </div>
-                  <span className="font-medium text-foreground">{order.contactPhone}</span>
-                  <button
-                    onClick={() => copy(order.contactPhone!, 'Telefonnummer', 'contact-phone')}
-                    className="p-1.5 rounded-md hover:bg-accent transition-colors shrink-0"
-                    title="Telefonnummer kopieren"
-                  >
-                    {copiedKey === 'contact-phone'
-                      ? <Check className="w-4 h-4 text-green-600" />
-                      : <Copy className="w-4 h-4 text-muted-foreground" />}
-                  </button>
-                </div>
-              )}
-              {order.contactEmail && (
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Mail className="w-5 h-5 text-primary" />
-                  </div>
-                  <span className="font-medium text-foreground text-sm break-all">{order.contactEmail}</span>
-                  <button
-                    onClick={() => copy(order.contactEmail!, 'E-Mail', 'contact-email')}
-                    className="p-1.5 rounded-md hover:bg-accent transition-colors shrink-0"
-                    title="E-Mail kopieren"
-                  >
-                    {copiedKey === 'contact-email'
-                      ? <Check className="w-4 h-4 text-green-600" />
-                      : <Copy className="w-4 h-4 text-muted-foreground" />}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Date & Time */}
-        <div className="bg-card rounded-xl p-4 shadow-card">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Calendar className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium text-foreground">{formattedDate}</p>
-              <p className="text-muted-foreground">{order.scheduledTime} Uhr</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Address – Navigation fix: window.open instead of <a> */}
-        <div className="bg-card rounded-xl p-4 shadow-card">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <MapPin className="w-5 h-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              {canShowFullDetails ? (
-                <>
-                  <p className="font-medium text-foreground">{order.address}</p>
-                  <p className="text-muted-foreground">{order.postalCode} {order.city}</p>
-                </>
-              ) : (
-                <>
-                  <p className="font-medium text-foreground">{order.postalCode} {order.city}</p>
-                  <p className="text-sm text-muted-foreground italic">Genaue Adresse nach Annahme sichtbar</p>
-                </>
-              )}
-            </div>
-            {canShowFullDetails && (
-              <button
-                onClick={() => copy(fullAddress, 'Adresse', 'address')}
-                className="p-1.5 rounded-md hover:bg-accent transition-colors shrink-0"
-                title="Adresse kopieren"
-              >
-                {copiedKey === 'address'
-                  ? <Check className="w-4 h-4 text-green-600" />
-                  : <Copy className="w-4 h-4 text-muted-foreground" />}
-              </button>
-            )}
-          </div>
-          {canShowFullDetails && (
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 w-full flex items-center justify-center gap-2 p-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-            >
-              <Navigation className="w-4 h-4" />
-              Navigation starten
-            </a>
-          )}
-        </div>
-
-        {/* Auftragschat – nur bei zugewiesenen Aufträgen */}
+        {/* ── Chat ── */}
         {order.auftragId && !isPoolOrder && (
           <AuftragChatSection auftragId={order.auftragId} />
         )}
 
-        {/* Description */}
-        {order.description && (
-          <div className="bg-card rounded-xl p-4 shadow-card">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <FileText className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-foreground mb-1">Beschreibung</p>
-                <p className="text-muted-foreground text-sm">{order.description}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Notes */}
+        {/* ── Notes ── */}
         {order.notes && (
-          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-            <p className="font-medium text-amber-800 dark:text-amber-200 mb-1">Hinweise</p>
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-3">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-0.5">Hinweise</p>
             <p className="text-amber-700 dark:text-amber-300 text-sm">{order.notes}</p>
           </div>
         )}
 
-        {/* Check-in/out Phase Status */}
+        {/* ── Arbeitsfortschritt – horizontal stepper ── */}
         {(isInProgress || isSubmitted || isApproved || isReworkRequired) && (
-          <div className="bg-card rounded-xl p-4 shadow-card">
-            <p className="font-medium text-foreground mb-3">Arbeitsfortschritt</p>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+          <div className="bg-card rounded-2xl p-4 shadow-sm">
+            <p className="text-sm font-semibold text-foreground mb-3">Fortschritt</p>
+            <div className="flex items-center gap-0">
+              {/* Step 1: Vor-Ort */}
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                   vorOrtCompleted ? 'bg-green-500 text-white' : vorOrtStarted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                 }`}>
                   {vorOrtCompleted ? '✓' : '1'}
                 </div>
-                <div className="flex-1">
-                  <p className={`font-medium ${vorOrtCompleted ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-                    {CHECKIN_PHASE_LABELS.vor_ort}
+                <p className={`text-[11px] mt-1 font-medium ${vorOrtCompleted ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                  Vor-Ort
+                </p>
+                {order.vorOrtCheckinAt && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {format(parseISO(order.vorOrtCheckinAt), 'HH:mm', { locale: de })}
+                    {order.vorOrtCheckoutAt && ` – ${format(parseISO(order.vorOrtCheckoutAt), 'HH:mm', { locale: de })}`}
                   </p>
-                  {order.vorOrtCheckinAt && (
-                    <p className="text-xs text-muted-foreground">
-                      Check-in: {format(parseISO(order.vorOrtCheckinAt), 'HH:mm', { locale: de })} Uhr
-                      {order.vorOrtCheckoutAt && ` → Check-out: ${format(parseISO(order.vorOrtCheckoutAt), 'HH:mm', { locale: de })} Uhr`}
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
-              <div className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+              {/* Connector line */}
+              <div className={`h-0.5 flex-1 -mt-4 ${vorOrtCompleted ? 'bg-green-400' : 'bg-muted'}`} />
+              {/* Step 2: Nachbearbeitung */}
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                   nachbearbeitungCompleted ? 'bg-green-500 text-white' : nachbearbeitungStarted ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                 }`}>
                   {nachbearbeitungCompleted ? '✓' : '2'}
                 </div>
-                <div className="flex-1">
-                  <p className={`font-medium ${nachbearbeitungCompleted ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
-                    {CHECKIN_PHASE_LABELS.nachbearbeitung}
+                <p className={`text-[11px] mt-1 font-medium ${nachbearbeitungCompleted ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                  Nachbearbeitung
+                </p>
+                {order.nachbearbeitungCheckinAt && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {format(parseISO(order.nachbearbeitungCheckinAt), 'HH:mm', { locale: de })}
+                    {order.nachbearbeitungCheckoutAt && ` – ${format(parseISO(order.nachbearbeitungCheckoutAt), 'HH:mm', { locale: de })}`}
                   </p>
-                  {order.nachbearbeitungCheckinAt && (
-                    <p className="text-xs text-muted-foreground">
-                      Check-in: {format(parseISO(order.nachbearbeitungCheckinAt), 'HH:mm', { locale: de })} Uhr
-                      {order.nachbearbeitungCheckoutAt && ` → Check-out: ${format(parseISO(order.nachbearbeitungCheckoutAt), 'HH:mm', { locale: de })} Uhr`}
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Billing */}
-        {order.billableAmount && (
-          <div className="bg-card rounded-xl p-4 shadow-card">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <Euro className="w-5 h-5 text-green-600 dark:text-green-400" />
-                </div>
-                <span className="font-medium text-foreground">Vergütung</span>
-              </div>
-              <span className="text-xl font-bold text-foreground">{order.billableAmount.toFixed(2)} €</span>
-            </div>
-          </div>
-        )}
-
-        {/* Aufmaß Button */}
+        {/* ── Aufmaß Button ── */}
         {(isBookedOrder || isInProgress) && (
-          <div className="bg-card rounded-xl p-4 shadow-card">
-            <Button
-              size="lg"
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-base font-semibold"
-              onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}
-            >
-              <ClipboardList className="w-5 h-5 mr-2" />
-              Aufmaß-Formular öffnen
-            </Button>
-          </div>
+          <Button
+            size="lg"
+            className="w-full rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 text-base font-semibold h-12"
+            onClick={() => navigate(`/thermocheck/aufmass/${order.auftragId || order.id}`)}
+          >
+            <ClipboardList className="w-5 h-5 mr-2" />
+            Aufmaß-Formular öffnen
+          </Button>
         )}
       </div>
 
-      {/* Action Bar */}
-      <div className="fixed bottom-20 left-0 right-0 p-4 bg-background border-t border-border safe-area-bottom">
+      {/* ── Action Bar ── */}
+      <div className="fixed bottom-20 left-0 right-0 p-4 bg-background/95 backdrop-blur-sm border-t border-border safe-area-bottom">
         {isPoolOrder && onAccept && onReject && (
           <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={onReject}>Ablehnen</Button>
-            <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={onAccept}>Annehmen</Button>
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={onReject}>Ablehnen</Button>
+            <Button className="flex-1 bg-green-600 hover:bg-green-700 rounded-xl" onClick={onAccept}>Annehmen</Button>
           </div>
         )}
         {canStartVorOrt && onStartCheckin && (
-          <Button className="w-full bg-primary" onClick={() => onStartCheckin('vor_ort')}>
+          <Button className="w-full bg-primary rounded-xl" onClick={() => onStartCheckin('vor_ort')}>
             <Clock className="w-4 h-4 mr-2" />Check-in Vor-Ort starten
           </Button>
         )}
         {canCheckoutVorOrt && onCheckout && (
-          <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => onCheckout('vor_ort')}>Vor-Ort abschließen</Button>
+          <Button className="w-full bg-green-600 hover:bg-green-700 rounded-xl" onClick={() => onCheckout('vor_ort')}>Vor-Ort abschließen</Button>
         )}
         {canStartNachbearbeitung && onStartCheckin && (
-          <Button className="w-full bg-primary" onClick={() => onStartCheckin('nachbearbeitung')}>
+          <Button className="w-full bg-primary rounded-xl" onClick={() => onStartCheckin('nachbearbeitung')}>
             <Clock className="w-4 h-4 mr-2" />Nachbearbeitung starten
           </Button>
         )}
         {canCheckoutNachbearbeitung && onCheckout && (
-          <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => onCheckout('nachbearbeitung')}>Abschließen & Einreichen</Button>
+          <Button className="w-full bg-green-600 hover:bg-green-700 rounded-xl" onClick={() => onCheckout('nachbearbeitung')}>Abschließen & Einreichen</Button>
         )}
         {isReworkRequired && onStartRework && (
-          <Button className="w-full bg-amber-600 hover:bg-amber-700" onClick={onStartRework}>Nacharbeit starten</Button>
+          <Button className="w-full bg-amber-600 hover:bg-amber-700 rounded-xl" onClick={onStartRework}>Nacharbeit starten</Button>
         )}
         {isSubmitted && (
           <div className="text-center text-muted-foreground py-2">
