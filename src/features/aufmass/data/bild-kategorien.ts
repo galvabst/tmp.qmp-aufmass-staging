@@ -10,7 +10,9 @@ export type VotBildKategorie =
   | 'unterschrift_kunde_final' | 'pv_anlage' | 'unbegehbarer_raum'
   // PV-Aufmass Kategorien
   | 'pv_dach' | 'pv_drohne' | 'pv_sparrenabstand' | 'pv_dachziegel'
-  | 'pv_hindernisse' | 'pv_geruest_oeffentlich' | 'pv_blitzschutz';
+  | 'pv_hindernisse' | 'pv_geruest_oeffentlich' | 'pv_blitzschutz'
+  // Bewertungsnachweis
+  | 'bewertung_nachweis';
 
 interface KategorieConfig {
   label: string;
