@@ -10308,6 +10308,7 @@ export type Database = {
         Args: { p_auftrag_id: string }
         Returns: {
           abgerechnet: boolean
+          ag_termin_datum: string
           created_at: string
           created_by: string
           fussbodenheizung: boolean
