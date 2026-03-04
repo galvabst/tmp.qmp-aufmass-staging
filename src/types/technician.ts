@@ -62,7 +62,8 @@ export interface Certificate {
 // Quartal-Kontingent
 export interface QuartalKontingent {
   quartal: string;          // "Q1/2026"
-  abgenommen: number;       // aktuell abgenommene Auftraege
+  angenommen: number;       // aktuell angenommene Aufträge (Motivation)
+  abgenommen: number;       // davon QG-abgenommen
   minimum: number;          // 24
 }
 
