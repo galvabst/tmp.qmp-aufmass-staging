@@ -68,6 +68,7 @@ function buildHierarchicalUnterpunkte(lektionen: DbLektion[]): AkademieUnterpunk
     dauerMinuten: lek.video_dauer_minuten || 5,
     reihenfolge: lek.reihenfolge,
     abgeschlossen: false,
+    nurFuerNeue: (lek as any).nur_fuer_neue ?? false,
   });
 
   // Identify parent-child by code pattern: "6-3" is parent of "6-3-1", "6-3-2"
