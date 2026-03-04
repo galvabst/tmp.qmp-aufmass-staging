@@ -1,39 +1,65 @@
 
 
-# Plan: Echte Profil-Statistiken aus Auftragsdaten berechnen
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
-Die Stats im Profil (Aufträge, Annahmerate, Bewertung) sind hardcoded auf `0`. Till hat bereits Aufträge angenommen, sieht aber nur "–".
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-## Lösung
-Die Daten liegen bereits vor: `dbAssignedOrders` enthält alle zugewiesenen Aufträge mit Status. Daraus lassen sich die Stats direkt berechnen.
+## 1. Themen-Kategorien einführen
 
-## Änderung
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-**`src/pages/Index.tsx`** — Im `useMemo` für `profile` (Zeile 127-130):
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-Statt `totalOrders: 0, acceptanceRate: 0, rating: 0` die Stats aus `dbAssignedOrders` berechnen:
+## 2. DB-Änderung
 
-- **Aufträge**: Anzahl aller zugewiesenen Aufträge (`dbAssignedOrders.length`)
-- **Annahmerate**: Prozentsatz der Aufträge, die nicht `'booked'` sind (also tatsächlich weiterbearbeitet wurden), relativ zur Gesamtzahl. Oder einfacher: Da der Techniker nur Aufträge sieht, die er angenommen hat, zeigen wir 100% — bis wir abgelehnte Aufträge tracken.
-- **Bewertung**: Bleibt `0` (noch keine QG-Bewertungen implementiert), wird als "–" angezeigt.
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-Konkret:
-```ts
-const assignedCount = dbAssignedOrders?.length || 0;
-// ...
-stats: {
-  totalOrders: assignedCount,
-  acceptanceRate: assignedCount > 0 ? 100 : 0,
-  rating: 0, // noch keine Bewertungen
-},
-```
+## 3. UI-Änderungen
 
-Die `useMemo`-Dependency-Array muss um `dbAssignedOrders` erweitert werden.
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-## Kontingent
-Das `kontingent.abgenommen` ist ebenfalls `0`. Hier könnten wir die Anzahl der Aufträge mit Status `'approved'` (abgenommen) zählen. Da es noch keine QG-Auswertung gibt, bleibt das vorerst bei 0.
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
 
 ## Dateien
-- `src/pages/Index.tsx` — Stats aus `dbAssignedOrders` berechnen statt hardcoded `0`
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
