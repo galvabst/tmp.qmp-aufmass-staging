@@ -307,7 +307,7 @@ Mit freundlichen Grüßen`;
         </div>
 
         {/* ── Kontakt – compact row ── */}
-        {canShowFullDetails && (order.contactPhone || order.contactEmail) && (
+        {canShowFullDetails && !isApproved && (order.contactPhone || order.contactEmail) && (
           <div className="bg-card rounded-2xl p-3 shadow-sm">
             <div className="flex flex-wrap gap-2">
               {order.contactPhone && (
@@ -465,7 +465,7 @@ Mit freundlichen Grüßen`;
         )}
 
         {/* ── Chat ── */}
-        {order.auftragId && !isPoolOrder && (
+        {order.auftragId && !isPoolOrder && !isApproved && (
           <AuftragChatSection auftragId={order.auftragId} />
         )}
 
