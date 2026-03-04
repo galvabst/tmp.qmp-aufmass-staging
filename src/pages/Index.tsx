@@ -62,12 +62,17 @@ const Index = () => {
   const { data: pendingReschedules, refetch: refetchPending } = useMyPendingProposals();
   const [orders, setOrders] = useState<TechnicianOrder[]>([]);
 
-  // Collect auftrag IDs from assigned orders for unread chat counts
+  // Collect auftrag IDs and lead IDs from assigned orders
   const assignedAuftragIds = useMemo(() => 
     (dbAssignedOrders || []).map(o => o.auftragId).filter(Boolean) as string[],
     [dbAssignedOrders]
   );
+  const assignedLeadIds = useMemo(() => 
+    (dbAssignedOrders || []).map(o => o.leadId).filter(Boolean) as string[],
+    [dbAssignedOrders]
+  );
   const { data: unreadCounts } = useUnreadChatCounts(assignedAuftragIds);
+  const { data: angebotstermine } = useAngebotstermine(assignedLeadIds);
   const unreadChatTotal = useMemo(() => {
     if (!unreadCounts) return 0;
     return [...unreadCounts.values()].reduce((s, v) => s + v, 0);
