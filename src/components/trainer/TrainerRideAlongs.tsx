@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Users, Calendar, MapPin, Phone, Mail, UserCircle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Users, Calendar, MapPin, Phone, Mail, UserCircle, CheckCircle2, XCircle, Loader2, Ban, UserX } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useMyCoachingRideAlongs, useBewerteCoachingMitfahrt, RideAlongTrainee } from '@/hooks/useMyCoachingRideAlongs';
-import { format, parseISO } from 'date-fns';
+import { useMyCoachingRideAlongs, useBewerteCoachingMitfahrt, type RideAlongTrainee, type CoachingBewertung } from '@/hooks/useMyCoachingRideAlongs';
+import { format, parseISO, isAfter, startOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
@@ -23,41 +23,90 @@ interface TrainerRideAlongsProps {
   profileId: string;
 }
 
-function BewertungBadge({ bewertung }: { bewertung?: string }) {
-  if (bewertung === 'bestanden') {
-    return <Badge className="bg-green-100 text-green-700 border-green-200 text-[11px]">✓ Bestanden</Badge>;
+/* ───────── Badge ───────── */
+
+function BewertungBadge({ bewertung }: { bewertung: CoachingBewertung }) {
+  switch (bewertung) {
+    case 'bestanden':
+      return <Badge className="bg-green-100 text-green-700 border-green-200 text-[11px]">✓ Bestanden</Badge>;
+    case 'nicht_bestanden':
+      return <Badge variant="destructive" className="text-[11px]">✗ Nicht bestanden</Badge>;
+    case 'abgesagt':
+      return <Badge variant="outline" className="text-[11px] text-orange-600 border-orange-300 bg-orange-50">Abgesagt</Badge>;
+    case 'no_show':
+      return <Badge variant="outline" className="text-[11px] text-red-600 border-red-300 bg-red-50">No-Show</Badge>;
+    default:
+      return <Badge variant="outline" className="text-[11px] text-muted-foreground">Ausstehend</Badge>;
   }
-  if (bewertung === 'nicht_bestanden') {
-    return <Badge variant="destructive" className="text-[11px]">✗ Nicht bestanden</Badge>;
-  }
-  return <Badge variant="outline" className="text-[11px] text-muted-foreground">Ausstehend</Badge>;
 }
 
-function TraineeCard({ trainee }: { trainee: RideAlongTrainee }) {
+/* ───────── Confirm Dialog Labels ───────── */
+
+const ENTSCHEIDUNG_CONFIG: Record<string, { title: string; description: (name: string) => string; buttonLabel: string; destructive: boolean }> = {
+  bestanden: {
+    title: 'Mitfahrt als bestanden bewerten?',
+    description: (n) => `${n} wird freigeschaltet und kann das Onboarding abschließen.`,
+    buttonLabel: 'Bestanden',
+    destructive: false,
+  },
+  nicht_bestanden: {
+    title: 'Mitfahrt als nicht bestanden bewerten?',
+    description: (n) => `${n} muss eine neue Mitfahrt buchen.`,
+    buttonLabel: 'Nicht bestanden',
+    destructive: true,
+  },
+  abgesagt: {
+    title: 'Mitfahrt als abgesagt markieren?',
+    description: (n) => `${n} muss eine neue Mitfahrt buchen. Die aktuelle Buchung bleibt im Verlauf.`,
+    buttonLabel: 'Abgesagt markieren',
+    destructive: true,
+  },
+  no_show: {
+    title: 'Trainee als No-Show markieren?',
+    description: (n) => `${n} ist nicht erschienen und muss eine neue Mitfahrt buchen.`,
+    buttonLabel: 'No-Show markieren',
+    destructive: true,
+  },
+};
+
+const TOAST_MESSAGES: Record<string, string> = {
+  bestanden: 'Trainee als bestanden markiert und freigeschaltet',
+  nicht_bestanden: 'Trainee muss neue Mitfahrt buchen',
+  abgesagt: 'Mitfahrt als abgesagt markiert',
+  no_show: 'Trainee als No-Show markiert',
+};
+
+/* ───────── Card ───────── */
+
+function TraineeCard({ trainee, isPast }: { trainee: RideAlongTrainee; isPast: boolean }) {
   const fullName = `${trainee.vorname} ${trainee.nachname}`.trim() || 'Unbekannt';
   const initials = `${trainee.vorname?.[0] || ''}${trainee.nachname?.[0] || ''}`.toUpperCase() || '?';
   const wohnort = [trainee.plz, trainee.ort].filter(Boolean).join(' ') || 'Nicht angegeben';
   const firstDate = trainee.termine[0]?.datum;
-  const isPending = !trainee.bewertung || trainee.bewertung === 'ausstehend';
+  const isPending = trainee.bewertung === 'ausstehend';
+  const showActions = isPast && isPending;
 
   const { mutate: bewerte, isPending: isMutating } = useBewerteCoachingMitfahrt();
-  const [confirmAction, setConfirmAction] = useState<'bestanden' | 'nicht_bestanden' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'bestanden' | 'nicht_bestanden' | 'abgesagt' | 'no_show' | null>(null);
 
-  const handleBewertung = (entscheidung: 'bestanden' | 'nicht_bestanden') => {
+  const handleBewertung = (entscheidung: typeof confirmAction) => {
+    if (!entscheidung) return;
     bewerte(
       { auftragId: trainee.auftragId, entscheidung },
       {
-        onSuccess: (result) => {
-          toast.success(entscheidung === 'bestanden' ? 'Trainee als bestanden markiert' : 'Trainee muss neue Mitfahrt buchen');
+        onSuccess: () => {
+          toast.success(TOAST_MESSAGES[entscheidung]);
           setConfirmAction(null);
         },
         onError: (err: any) => {
           toast.error(err.message || 'Fehler bei der Bewertung');
           setConfirmAction(null);
         },
-      }
+      },
     );
   };
+
+  const config = confirmAction ? ENTSCHEIDUNG_CONFIG[confirmAction] : null;
 
   return (
     <>
@@ -66,9 +115,7 @@ function TraineeCard({ trainee }: { trainee: RideAlongTrainee }) {
         <div className="p-4 flex items-center gap-3">
           <Avatar className="w-11 h-11 border-2 border-primary/20">
             <AvatarImage src={trainee.avatarUrl} alt={fullName} />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
-              {initials}
-            </AvatarFallback>
+            <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-foreground text-sm truncate">{fullName}</p>
@@ -111,30 +158,27 @@ function TraineeCard({ trainee }: { trainee: RideAlongTrainee }) {
           </div>
         </div>
 
-        {/* Action Buttons for pending */}
-        {isPending && (
+        {/* Actions for past + pending */}
+        {showActions && (
           <>
             <div className="mx-4 border-t border-border/40" />
-            <div className="p-4 flex gap-2">
-              <Button
-                size="sm"
-                className="flex-1 gap-1.5"
-                disabled={isMutating}
-                onClick={() => setConfirmAction('bestanden')}
-              >
-                {isMutating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Bestanden
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1 gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/5"
-                disabled={isMutating}
-                onClick={() => setConfirmAction('nicht_bestanden')}
-              >
-                {isMutating ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-                Nicht bestanden
-              </Button>
+            <div className="p-4 space-y-2">
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1 gap-1.5" disabled={isMutating} onClick={() => setConfirmAction('bestanden')}>
+                  <CheckCircle2 className="w-4 h-4" /> Bestanden
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/5" disabled={isMutating} onClick={() => setConfirmAction('nicht_bestanden')}>
+                  <XCircle className="w-4 h-4" /> Nicht bestanden
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-orange-600 border-orange-300 hover:bg-orange-50" disabled={isMutating} onClick={() => setConfirmAction('abgesagt')}>
+                  <Ban className="w-4 h-4" /> Abgesagt
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-red-600 border-red-300 hover:bg-red-50" disabled={isMutating} onClick={() => setConfirmAction('no_show')}>
+                  <UserX className="w-4 h-4" /> No-Show
+                </Button>
+              </div>
             </div>
           </>
         )}
@@ -153,37 +197,62 @@ function TraineeCard({ trainee }: { trainee: RideAlongTrainee }) {
       </div>
 
       {/* Confirm Dialog */}
-      <AlertDialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmAction === 'bestanden' ? 'Mitfahrt als bestanden bewerten?' : 'Mitfahrt als nicht bestanden bewerten?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmAction === 'bestanden'
-                ? `${fullName} wird freigeschaltet und kann das Onboarding abschließen.`
-                : `${fullName} muss eine neue Mitfahrt buchen. Die aktuelle Buchung wird freigegeben.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isMutating}
-              onClick={() => confirmAction && handleBewertung(confirmAction)}
-              className={confirmAction === 'nicht_bestanden' ? 'bg-destructive hover:bg-destructive/90' : ''}
-            >
-              {isMutating && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-              {confirmAction === 'bestanden' ? 'Bestanden' : 'Nicht bestanden'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {config && (
+        <AlertDialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{config.title}</AlertDialogTitle>
+              <AlertDialogDescription>{config.description(fullName)}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isMutating}>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isMutating}
+                onClick={() => handleBewertung(confirmAction)}
+                className={config.destructive ? 'bg-destructive hover:bg-destructive/90' : ''}
+              >
+                {isMutating && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+                {config.buttonLabel}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }
 
+/* ───────── Section ───────── */
+
+function RideAlongSection({ title, trainees, isPast }: { title: string; trainees: RideAlongTrainee[]; isPast: boolean }) {
+  if (trainees.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</h3>
+        <span className="text-[10px] font-medium text-primary bg-primary/8 px-1.5 py-0.5 rounded-full">{trainees.length}</span>
+      </div>
+      <div className="space-y-3">
+        {trainees.map((t) => <TraineeCard key={t.auftragId} trainee={t} isPast={isPast} />)}
+      </div>
+    </div>
+  );
+}
+
+/* ───────── Main ───────── */
+
 export function TrainerRideAlongs({ profileId }: TrainerRideAlongsProps) {
   const { data: rideAlongs, isLoading } = useMyCoachingRideAlongs(profileId);
+
+  const today = startOfDay(new Date());
+  const upcoming = (rideAlongs || []).filter((r) => {
+    const firstDate = r.termine[0]?.datum;
+    return firstDate && isAfter(parseISO(firstDate), today);
+  });
+  const past = (rideAlongs || []).filter((r) => {
+    const firstDate = r.termine[0]?.datum;
+    return !firstDate || !isAfter(parseISO(firstDate), today);
+  });
 
   return (
     <section className="p-4 pt-0">
@@ -206,15 +275,12 @@ export function TrainerRideAlongs({ profileId }: TrainerRideAlongsProps) {
         <div className="bg-card rounded-xl border border-border/60 shadow-card p-6 text-center">
           <UserCircle className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">Noch keine Mitfahrten gebucht</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">
-            Sobald ein Techniker eine Mitfahrt bei dir bucht, erscheint er hier.
-          </p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Sobald ein Techniker eine Mitfahrt bei dir bucht, erscheint er hier.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {rideAlongs.map((trainee) => (
-            <TraineeCard key={trainee.auftragId} trainee={trainee} />
-          ))}
+        <div className="space-y-5">
+          <RideAlongSection title="Anstehende Mitfahrten" trainees={upcoming} isPast={false} />
+          <RideAlongSection title="Vergangene Mitfahrten" trainees={past} isPast={true} />
         </div>
       )}
     </section>

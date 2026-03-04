@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 
+export type CoachingBewertung = 'ausstehend' | 'bestanden' | 'nicht_bestanden' | 'abgesagt' | 'no_show';
+
 export interface RideAlongTrainee {
   auftragId: string;
   traineeProfileId: string;
@@ -13,7 +15,7 @@ export interface RideAlongTrainee {
   ort: string;
   avatarUrl?: string;
   gebuchtAm?: string;
-  bewertung?: 'ausstehend' | 'bestanden' | 'nicht_bestanden';
+  bewertung: CoachingBewertung;
   bewertungAm?: string;
   termine: { datum: string; ganztaegig: boolean; zeitVon?: string; zeitBis?: string }[];
 }
@@ -38,9 +40,10 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
 
       if (!myOnb) return [];
 
+      // Load orders with bewertung from ORDER (not onboarding)
       const { data: auftraege } = await supabaseTC
         .from('thermocheck_auftraege')
-        .select('id, coaching_gebucht_von, coaching_gebucht_am')
+        .select('id, coaching_gebucht_von, coaching_gebucht_am, coaching_bewertung, coaching_bewertung_am')
         .eq('zugewiesener_techniker_id', myOnb.id)
         .not('coaching_gebucht_von', 'is', null);
 
@@ -49,10 +52,9 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
       const traineeProfileIds = [...new Set(auftraege.map(a => a.coaching_gebucht_von).filter(Boolean))] as string[];
       const auftragIds = auftraege.map(a => a.id);
 
-      // Parallel: profiles, addresses, terms, bewertungen
       const [profilesRes, traineeOnbsRes, termineRes] = await Promise.all([
         supabase.from('profiles').select('id, vorname, nachname, telefon, email, avatar_url').in('id', traineeProfileIds),
-        supabaseTC.from('contractor_onboarding').select('profile_id, anschrift_plz, anschrift_ort, coaching_bewertung, coaching_bewertung_am').in('profile_id', traineeProfileIds),
+        supabaseTC.from('contractor_onboarding').select('profile_id, anschrift_plz, anschrift_ort').in('profile_id', traineeProfileIds),
         supabaseTC.from('thermocheck_terminvorschlaege').select('thermocheck_auftrag_id, datum, ganztaegig, zeit_von, zeit_bis, sortierung').in('thermocheck_auftrag_id', auftragIds).order('sortierung', { ascending: true }),
       ]);
 
@@ -84,8 +86,9 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
           ort: onb?.anschrift_ort || '',
           avatarUrl: profile?.avatar_url || undefined,
           gebuchtAm: auftrag.coaching_gebucht_am || undefined,
-          bewertung: (onb?.coaching_bewertung as RideAlongTrainee['bewertung']) || 'ausstehend',
-          bewertungAm: onb?.coaching_bewertung_am || undefined,
+          // Bewertung from ORDER, not onboarding
+          bewertung: (auftrag.coaching_bewertung as CoachingBewertung) || 'ausstehend',
+          bewertungAm: auftrag.coaching_bewertung_am || undefined,
           termine: termineByAuftrag.get(auftrag.id) || [],
         });
       }
@@ -107,7 +110,7 @@ export function useBewerteCoachingMitfahrt() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ auftragId, entscheidung, notiz }: { auftragId: string; entscheidung: 'bestanden' | 'nicht_bestanden'; notiz?: string }) => {
+    mutationFn: async ({ auftragId, entscheidung, notiz }: { auftragId: string; entscheidung: 'bestanden' | 'nicht_bestanden' | 'abgesagt' | 'no_show'; notiz?: string }) => {
       const { data, error } = await supabase.rpc('bewerte_coaching_mitfahrt', {
         p_auftrag_id: auftragId,
         p_entscheidung: entscheidung,
