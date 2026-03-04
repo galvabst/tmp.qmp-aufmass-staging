@@ -9102,6 +9102,10 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      bewerte_coaching_mitfahrt: {
+        Args: { p_auftrag_id: string; p_entscheidung: string; p_notiz?: string }
+        Returns: Json
+      }
       book_coaching_ride: { Args: { p_auftrag_id: string }; Returns: Json }
       bulk_assign_leads: {
         Args: { p_limit?: number }

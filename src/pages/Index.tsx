@@ -140,7 +140,8 @@ const Index = () => {
       },
       kontingent: {
         quartal: 'Q1/2026',
-        abgenommen: 0,
+        angenommen: assignedCount,
+        abgenommen: dbAssignedOrders?.filter(o => o.status === 'approved').length || 0,
         minimum: 24,
       },
     };

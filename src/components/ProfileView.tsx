@@ -62,8 +62,8 @@ export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onS
 
   const onboarding = profile.onboarding;
   const kontingent = profile.kontingent;
-  const kontingentPercent = kontingent.minimum > 0 ? Math.min((kontingent.abgenommen / kontingent.minimum) * 100, 100) : 0;
-  const kontingentRemaining = Math.max(kontingent.minimum - kontingent.abgenommen, 0);
+  const kontingentPercent = kontingent.minimum > 0 ? Math.min((kontingent.angenommen / kontingent.minimum) * 100, 100) : 0;
+  const kontingentRemaining = Math.max(kontingent.minimum - kontingent.angenommen, 0);
   const hasStats = profile.stats.totalOrders > 0 || profile.stats.rating > 0;
 
   return (
@@ -167,14 +167,19 @@ export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onS
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-foreground">Abgenommene Aufträge</span>
+                <span className="text-sm font-medium text-foreground">Angenommene Aufträge</span>
                 <span className="text-sm font-bold text-foreground">
-                  {kontingent.abgenommen} / {kontingent.minimum}
+                  {kontingent.angenommen} / {kontingent.minimum}
                 </span>
               </div>
               <Progress value={kontingentPercent} className="h-2" />
             </div>
           </div>
+          {kontingent.abgenommen > 0 && (
+            <p className="text-xs text-muted-foreground text-center mb-1">
+              Davon abgenommen: {kontingent.abgenommen}
+            </p>
+          )}
           {kontingentRemaining > 0 ? (
             <p className="text-sm text-muted-foreground text-center">
               Noch {kontingentRemaining} Aufträge bis Quartalsziel
