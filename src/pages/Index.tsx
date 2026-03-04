@@ -371,7 +371,20 @@ const Index = () => {
     );
   }
 
-  const handleStartRework = async (orderId: string) => {
+  // Pflicht-Video gate: block ready contractors who have unwatched mandatory videos
+  if (isDbReady && pflichtVideos && pflichtVideos.length > 0 && contractorOnboardingId) {
+    return (
+      <PflichtVideoOverlay
+        videos={pflichtVideos}
+        contractorId={contractorOnboardingId}
+        onAllCompleted={() => {
+          refetchPflichtVideos();
+          toast.success('Alle Pflicht-Videos abgeschlossen! ✓');
+        }}
+      />
+    );
+  }
+
     const order = orders.find(o => o.id === orderId);
     const auftragId = order?.auftragId;
     if (!auftragId) {
