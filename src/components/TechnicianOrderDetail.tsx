@@ -97,6 +97,7 @@ export function TechnicianOrderDetail({
   const [confirmingBooking, setConfirmingBooking] = useState(false);
   const [confirmingVortag, setConfirmingVortag] = useState(false);
   const { copiedKey, copy } = useCopyAction();
+  const { data: abrechnungData } = useAbrechnungStatus(order.auftragId);
 
   const [checklist, setChecklist] = useState({
     terminAbgesprochen: false,
