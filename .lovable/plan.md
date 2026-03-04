@@ -1,95 +1,65 @@
 
 
-# Plan: Bonus-System + Bewertungsnachweis im Thermocheck-Formular
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Zusammenfassung
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-Es gibt drei zusammenhängende Features:
-1. **Bonus-Tabelle** für Lead-Conversion-Boni (€50 bei Anzahlung) und Bewertungsboni (€10/€50)
-2. **Bewertungsnachweis-Upload** als optionales Feld im Thermocheck-Formular (mit Duplikatserkennung)
-3. **Bonus-Übersicht** im "In Prüfung"-Tab mit Auszahlungsstatus
+## 1. Themen-Kategorien einführen
 
----
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-## Offene Fragen
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-Bevor ich implementiere, muss ich Folgendes klären:
+## 2. DB-Änderung
 
-### Kritische Architektur-Fragen
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-1. **Woher kommt der Trigger "Anzahlung eingegangen"?**
-   - Auf der `leads`-Tabelle gibt es KEIN Feld `anzahlung_eingegangen` oder ähnliches.
-   - Der Lead-Status `Gewonnen THC` / `Gewonnen Photovoltaik` existiert, aber das ist nicht gleichbedeutend mit Anzahlung.
-   - **Optionen:**
-     - A) Wir nehmen `status = 'Gewonnen THC'` als Trigger (vereinfacht, aber nicht 100% korrekt)
-     - B) Wir fügen ein `anzahlung_eingegangen_am` Feld auf `leads` hinzu (sauberer, muss aber vom Vertrieb/Admin gepflegt werden)
-     - C) Die Zuordnung passiert manuell durch einen Admin
+## 3. UI-Änderungen
 
-2. **Google/Trustpilot-Bewertung: Wer validiert den Nachweis?**
-   - Der Techniker lädt einen Screenshot hoch. Wer prüft, ob das echt ist?
-   - A) Automatisch akzeptiert (mit Duplikatsprüfung als einzige Kontrolle)
-   - B) Admin muss den Nachweis freigeben (wie QG-Abnahme)
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-3. **Duplikatserkennung: Was genau soll geprüft werden?**
-   - A) Gleicher Techniker lädt gleiches Bild für verschiedene Aufträge hoch → Perceptual Hash (komplex, nicht in Lovable machbar ohne Backend-Service)
-   - B) Einfacher: Pro Lead nur EIN Bewertungsnachweis erlaubt (DB-Constraint) + manueller Admin-Review
-   - C) Datei-Hash (SHA-256) serverseitig prüfen → braucht Edge Function
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-4. **Auszahlung: Wie wird abgerechnet?**
-   - "Einmal im Monat Rechnung stellen" — ist das ein manueller Export oder ein automatisiertes System?
-   - Aktuell gibt es noch kein Abrechnungssystem. Soll ich nur die Datengrundlage schaffen (Tabelle mit Boni-Positionen, Status ausstehend/ausgezahlt)?
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
 
----
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
 
-## Vorgeschlagene Architektur (nach Klärung)
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
 
-### DB-Schema (thermocheck)
+## 4. Bestehende Threads kategorisieren (Migration)
 
-```text
-thermocheck.contractor_boni
-├── id uuid PK
-├── contractor_onboarding_id uuid FK → contractor_onboarding
-├── thermocheck_auftrag_id uuid FK → thermocheck_auftraege
-├── lead_id uuid FK → public.leads
-├── bonus_typ enum('lead_conversion', 'bewertung_google', 'bewertung_trustpilot')
-├── betrag numeric NOT NULL
-├── nachweis_storage_path text (für Bewertungs-Screenshots)
-├── status enum('ausstehend', 'freigegeben', 'ausgezahlt', 'abgelehnt')
-├── freigegeben_von uuid
-├── freigegeben_am timestamptz
-├── auszahlungsmonat date (erster des Monats, für Gruppierung)
-├── created_at timestamptz
-└── UNIQUE(thermocheck_auftrag_id, bonus_typ)  -- verhindert Doppel-Boni
-```
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
 
-### Bewertungsnachweis im Formular
+## Dateien
 
-- Neue `VotBildKategorie`: `bewertung_nachweis`
-- Neue Kategorie im Enum + `BILD_KATEGORIEN` Config
-- Neuer optionaler Step oder Abschnitt im Abschluss-Step
-- `minAnzahl: 0` (optional)
-- Hinweis: "Screenshot der Google- oder Trustpilot-Bewertung"
-
-### Duplikatserkennung
-
-- **Pragmatischer Ansatz**: `UNIQUE(thermocheck_auftrag_id, bonus_typ)` auf DB-Ebene
-- Pro Auftrag maximal 1x Google + 1x Trustpilot
-- Admin-Review im QG-Prozess (Bewertungsnachweis wird beim QG mit geprüft)
-
-### Frontend
-
-- **ReviewView**: Dritte Summary-Card "Boni" mit ausstehender Summe
-- **Profil**: Bonus-Übersicht (gesamt verdient, ausstehend, ausgezahlt)
-- **Aufmass-Formular**: Optionaler Abschnitt vor Abschluss
-
----
-
-## Betroffene Dateien
-
-- `supabase/migrations/` — Neue Tabelle, Enum, RLS
-- `src/features/aufmass/data/bild-kategorien.ts` — Neue Kategorie
-- `src/features/aufmass/ui/AufmassFormPage.tsx` — Neuer optionaler Step
-- `src/components/ReviewView.tsx` — Bonus-Anzeige
-- `src/components/ProfileView.tsx` — Bonus-Zusammenfassung
-- Neuer Hook: `src/hooks/useContractorBoni.ts`
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 

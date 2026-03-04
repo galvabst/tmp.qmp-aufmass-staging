@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target, Eye } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target, Eye, Gift } from 'lucide-react';
 import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useIsTrainer } from '@/hooks/useIsTrainer';
 import { TrainerProfileEditor } from '@/components/trainer/TrainerProfileEditor';
 import { TrainerRideAlongs } from '@/components/trainer/TrainerRideAlongs';
+import { useContractorBoni, useBoniSummary } from '@/hooks/useContractorBoni';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
@@ -23,6 +24,8 @@ interface ProfileViewProps {
 
 export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onStartOnboardingPreview }: ProfileViewProps) {
   const { data: isTrainer } = useIsTrainer(profileId || null);
+  const { data: boni } = useContractorBoni();
+  const boniSummary = useBoniSummary(boni);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
@@ -192,7 +195,38 @@ export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onS
         </div>
       </section>
 
-      {/* Trainer Self-Service Editor + Mitfahrten */}
+      {/* Boni-Übersicht */}
+      {boniSummary.count > 0 && (
+        <section className="p-4 pt-0">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Boni</h2>
+          <div className="bg-card rounded-lg shadow-card p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Gift className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <span className="text-sm font-medium text-foreground">Bonus-Übersicht</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-lg font-bold text-foreground">{boniSummary.ausstehend.toFixed(0)} €</p>
+                <p className="text-xs text-muted-foreground">Ausstehend</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-primary">{boniSummary.freigegeben.toFixed(0)} €</p>
+                <p className="text-xs text-muted-foreground">Freigegeben</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-status-accepted">{boniSummary.ausgezahlt.toFixed(0)} €</p>
+                <p className="text-xs text-muted-foreground">Ausgezahlt</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+
       {isTrainer && profileId && (
         <>
           <TrainerProfileEditor profileId={profileId} />

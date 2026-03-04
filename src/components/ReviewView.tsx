@@ -1,7 +1,8 @@
-import { CheckCircle2, Clock, AlertTriangle, Euro } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, Euro, Gift } from 'lucide-react';
 import { TechnicianOrder } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
+import { useContractorBoni, useBoniSummary } from '@/hooks/useContractorBoni';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,9 @@ const statusConfig = {
 };
 
 export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
+  const { data: boni } = useContractorBoni();
+  const boniSummary = useBoniSummary(boni);
+
   const reviewOrders = orders.filter(o => 
     ['submitted', 'in_review', 'approved', 'rework_required'].includes(o.status)
   );
@@ -50,13 +54,13 @@ export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
       </header>
 
       {/* Summary Cards */}
-      <div className="p-4 grid grid-cols-2 gap-3">
+      <div className="p-4 grid grid-cols-3 gap-3">
         <div className="bg-card rounded-xl p-4 shadow-card">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-amber-500" />
             <span className="text-xs text-muted-foreground">Ausstehend</span>
           </div>
-          <p className="text-2xl font-bold text-foreground">{pendingAmount.toFixed(2)} €</p>
+          <p className="text-xl font-bold text-foreground">{pendingAmount.toFixed(0)} €</p>
           <p className="text-xs text-muted-foreground">{pendingOrders.length} Aufträge</p>
         </div>
         <div className="bg-card rounded-xl p-4 shadow-card">
@@ -64,8 +68,16 @@ export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
             <CheckCircle2 className="w-4 h-4 text-status-accepted" />
             <span className="text-xs text-muted-foreground">Abgenommen</span>
           </div>
-          <p className="text-2xl font-bold text-status-accepted">{approvedAmount.toFixed(2)} €</p>
+          <p className="text-xl font-bold text-status-accepted">{approvedAmount.toFixed(0)} €</p>
           <p className="text-xs text-muted-foreground">{approvedOrders.length} Aufträge</p>
+        </div>
+        <div className="bg-card rounded-xl p-4 shadow-card">
+          <div className="flex items-center gap-2 mb-2">
+            <Gift className="w-4 h-4 text-primary" />
+            <span className="text-xs text-muted-foreground">Boni</span>
+          </div>
+          <p className="text-xl font-bold text-primary">{boniSummary.freigegeben.toFixed(0)} €</p>
+          <p className="text-xs text-muted-foreground">{boniSummary.count} Boni</p>
         </div>
       </div>
 

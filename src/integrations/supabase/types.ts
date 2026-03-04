@@ -9481,6 +9481,14 @@ export type Database = {
         Returns: string
       }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      erstelle_bewertungs_bonus: {
+        Args: {
+          p_auftrag_id: string
+          p_bonus_typ: string
+          p_nachweis_path: string
+        }
+        Returns: Json
+      }
       find_matching_bestellung: { Args: { p_lead_id: string }; Returns: string }
       find_potential_duplicates: {
         Args: {
@@ -10084,6 +10092,7 @@ export type Database = {
           rechnung_status: string
         }[]
       }
+      get_my_contractor_boni: { Args: never; Returns: Json }
       get_my_contractor_onboarding: {
         Args: never
         Returns: {
@@ -11610,6 +11619,10 @@ export type Database = {
           p_titel?: string
         }
         Returns: boolean
+      }
+      update_thc_ag_terminierung_status: {
+        Args: { p_auftrag_id: string; p_status: string }
+        Returns: undefined
       }
       update_thc_fortschritt: {
         Args: {
