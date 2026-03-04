@@ -1,65 +1,57 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Quiz-Verwaltung im Admin-Panel
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
+Quiz-Fragen (`contractor_akademie_quiz`) können aktuell nicht über die Admin-Oberfläche bearbeitet werden. Die Fragen existieren in der DB, aber es fehlt ein Editor.
 
-## 1. Themen-Kategorien einführen
+## Lösung
+Ein Quiz-Editor-Dialog und eine Quiz-Anzeige pro Modul im Admin-Panel hinzufügen.
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+## Änderungen
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+### 1. DB: Neuer RPC `admin_upsert_akademie_quiz`
+- Nimmt `p_data jsonb` entgegen (id?, modul_id, frage, antworten, reihenfolge, ist_aktiv)
+- Bei vorhandener `id`: UPDATE, sonst INSERT
+- `is_admin()`-Check wie bei den anderen RPCs
 
-## 2. DB-Änderung
+### 2. DB: Neuer RPC `admin_delete_akademie_quiz`
+- Löscht eine Quiz-Frage per ID
+- `is_admin()`-Check
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+### 3. Hook: `useAdminMutateQuiz.ts`
+- `upsertQuiz` und `deleteQuiz` Mutations analog zu `useAdminMutateLektion`
+- Invalidiert `['admin', 'akademie-module']`
 
-## 3. UI-Änderungen
+### 4. Hook: `useAdminAkademieModule.ts` erweitern
+- Quiz-Fragen pro Modul mitladen (`contractor_akademie_quiz`)
+- Neuer Typ `AdminQuizFrage` mit allen Feldern
+- `AdminModul` bekommt Feld `quizFragen: AdminQuizFrage[]`
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+### 5. Neue Komponente: `QuizFrageEditor.tsx`
+- Dialog zum Erstellen/Bearbeiten einer Quiz-Frage
+- Felder: Frage-Text, Reihenfolge, Aktiv-Toggle
+- Dynamische Antworten-Liste: Text + Korrekt-Checkbox, Antworten hinzufügen/entfernen (min. 2, max. 6)
+- Validierung: mindestens eine korrekte Antwort
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+### 6. Neue Komponente: `QuizFrageListItem.tsx`
+- Kompakte Darstellung einer Quiz-Frage in der Modulliste
+- Zeigt Frage-Text (gekürzt), Anzahl Antworten, Aktiv-Status
+- Edit- und Toggle-Buttons
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+### 7. `AkademieAdminView.tsx` erweitern
+- Pro Modul unterhalb der Lektionen: Quiz-Bereich mit Überschrift "Quiz-Fragen"
+- Button "+ Frage" zum Hinzufügen
+- Liste der Quiz-Fragen mit `QuizFrageListItem`
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+### Betroffene Dateien
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| Migration SQL | 2 neue RPCs (upsert + delete) |
+| `useAdminAkademieModule.ts` | Quiz-Fragen mitladen, neuer Typ |
+| `useAdminMutateQuiz.ts` | Neuer Hook (upsert + delete) |
+| `QuizFrageEditor.tsx` | Neuer Dialog |
+| `QuizFrageListItem.tsx` | Neue Listenkomponente |
+| `AkademieAdminView.tsx` | Quiz-Bereich pro Modul |
 
