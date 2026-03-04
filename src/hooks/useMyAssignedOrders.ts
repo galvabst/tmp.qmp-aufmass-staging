@@ -42,6 +42,12 @@ interface AuftragRow {
   fussbodenheizung: boolean | null;
 }
 
+interface BewertungRow {
+  thermocheck_auftrag_id: string;
+  bewertung: number;
+  created_at: string;
+}
+
 async function getAuthHeaders() {
   const { data: session } = await supabase.auth.getSession();
   const accessToken = session?.session?.access_token;
@@ -53,27 +59,52 @@ async function getAuthHeaders() {
   };
 }
 
-/** Derive frontend status from DB timestamps + pipeline_status */
-function deriveStatus(auftrag: AuftragRow): 'booked' | 'in_progress' | 'submitted' {
-  // Submitted: eingereicht_am set OR pipeline already past the VOT work phase
-  const submittedStages = ['vot_auswertung_ag', 'ergebnis_abwarten', 'ergebnis_ausstehend', 'gewonnen', 'angebotstermin_abfragen'];
-  if (auftrag.eingereicht_am || (auftrag.pipeline_status && submittedStages.includes(auftrag.pipeline_status))) {
+// Pipeline statuses that indicate the order is past the VOT work phase (submitted/review)
+const SUBMITTED_PIPELINE_STATUSES = [
+  'vot_auswertung_ag',
+  'ergebnis_abwarten',
+  'ergebnis_ausstehend',
+  'gewonnen',
+  'angebotstermin_abfragen',
+  'angebotstermin_abwarten',
+  'angebotstermin_vereinbart',
+  'angebot_erstellt',
+  'angebot_versendet',
+  'nachfassen',
+  'widerruf',
+];
+
+/** Derive frontend status from DB timestamps + pipeline_status + bewertung */
+function deriveStatus(
+  auftrag: AuftragRow,
+  hasBewertung: boolean,
+): 'booked' | 'in_progress' | 'submitted' | 'approved' {
+  // Priority 1: Bewertung exists → approved
+  if (hasBewertung) {
+    return 'approved';
+  }
+
+  // Priority 2: Submitted / in review pipeline
+  if (
+    auftrag.eingereicht_am ||
+    (auftrag.pipeline_status && SUBMITTED_PIPELINE_STATUSES.includes(auftrag.pipeline_status))
+  ) {
     return 'submitted';
   }
-  // In progress: vor_ort_checkin started but not yet submitted
+
+  // Priority 3: In progress (vor_ort_checkin started but not yet submitted)
   if (auftrag.vor_ort_checkin_at) {
     return 'in_progress';
   }
+
   return 'booked';
 }
 
 /** Derive current checkin phase from timestamps */
 function deriveCheckinPhase(auftrag: AuftragRow): 'vor_ort' | 'nachbearbeitung' | undefined {
-  // Active nachbearbeitung: checked in but not checked out
   if (auftrag.nachbearbeitung_checkin_at && !auftrag.nachbearbeitung_checkout_at) {
     return 'nachbearbeitung';
   }
-  // Active vor_ort: checked in but not checked out
   if (auftrag.vor_ort_checkin_at && !auftrag.vor_ort_checkout_at) {
     return 'vor_ort';
   }
@@ -109,7 +140,7 @@ export function useMyAssignedOrders() {
 
       const contractorId = onboardingRows[0].id;
 
-      // Step 2: Fetch auftraege assigned to contractor_onboarding.id (including check-in timestamps)
+      // Step 2: Fetch auftraege assigned to contractor_onboarding.id
       const auftraegeRes = await fetch(
         `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,lead_id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis,quadratmeter,wohneinheiten,fussbodenheizung`,
         { headers }
@@ -125,7 +156,7 @@ export function useMyAssignedOrders() {
 
       const auftragIds = auftraege.map(a => a.id);
 
-      // Fetch termine for those auftraege
+      // Step 3: Fetch termine for those auftraege
       const termineRes = await fetch(
         `${SUPABASE_URL}/rest/v1/thermocheck_terminvorschlaege?thermocheck_auftrag_id=in.(${auftragIds.join(",")})&status=eq.angenommen&select=id,thermocheck_auftrag_id,datum,zeit_von,zeit_bis,ganztaegig,created_at&order=datum.asc`,
         { headers }
@@ -136,11 +167,29 @@ export function useMyAssignedOrders() {
         throw new Error("Failed to fetch termine");
       }
 
+      // Step 4: Fetch bewertungen for those auftraege
+      const bewertungenRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/techniker_bewertungen?thermocheck_auftrag_id=in.(${auftragIds.join(",")})&select=thermocheck_auftrag_id,bewertung,created_at`,
+        { headers }
+      );
+
+      if (!bewertungenRes.ok) {
+        console.error("[useMyAssignedOrders] Failed to fetch bewertungen:", bewertungenRes.status);
+        // Non-fatal: continue without bewertungen
+      }
+
       const termine: TerminRow[] = await termineRes.json();
+      const bewertungen: BewertungRow[] = bewertungenRes.ok ? await bewertungenRes.json() : [];
+
+      // Build lookup maps
       const auftragMap = new Map(auftraege.map(a => [a.id, a]));
+      const bewertungMap = new Map(bewertungen.map(b => [b.thermocheck_auftrag_id, b]));
 
       const orders: TechnicianOrder[] = termine.map(termin => {
         const auftrag = auftragMap.get(termin.thermocheck_auftrag_id);
+        const bewertung = bewertungMap.get(termin.thermocheck_auftrag_id);
+        const hasBewertung = !!bewertung;
+
         const customerName = auftrag
           ? `${auftrag.kunde_vorname || ""} ${auftrag.kunde_nachname || ""}`.trim() || "–"
           : "–";
@@ -151,8 +200,7 @@ export function useMyAssignedOrders() {
           ? "Ganztägig"
           : `${termin.zeit_von?.slice(0, 5) || ""} – ${termin.zeit_bis?.slice(0, 5) || ""}`;
 
-        // Derive status and phase from DB timestamps
-        const derivedStatus = auftrag ? deriveStatus(auftrag) : 'booked';
+        const derivedStatus = auftrag ? deriveStatus(auftrag, hasBewertung) : 'booked';
         const derivedPhase = auftrag ? deriveCheckinPhase(auftrag) : undefined;
 
         return {
@@ -180,6 +228,7 @@ export function useMyAssignedOrders() {
           nachbearbeitungCheckinAt: auftrag?.nachbearbeitung_checkin_at || undefined,
           nachbearbeitungCheckoutAt: auftrag?.nachbearbeitung_checkout_at || undefined,
           submittedAt: auftrag?.eingereicht_am || undefined,
+          approvedAt: bewertung?.created_at || undefined,
           billableAmount: auftrag?.vereinbarter_preis ?? undefined,
           quadratmeter: auftrag?.quadratmeter ?? undefined,
           wohneinheiten: auftrag?.wohneinheiten ?? undefined,
@@ -187,7 +236,7 @@ export function useMyAssignedOrders() {
         };
       });
 
-      console.log("[useMyAssignedOrders] Loaded", orders.length, "assigned orders");
+      console.log("[useMyAssignedOrders] Loaded", orders.length, "assigned orders, bewertungen:", bewertungen.length);
       return orders;
     },
     staleTime: 30 * 1000,
