@@ -3,7 +3,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { VotBild } from '../../hooks/useVotBilder';
 import { SignatureField } from '../components/SignatureField';
+import { PhotoUploadField } from '../components/PhotoUploadField';
 import { useUploadVotBild } from '../../hooks/useVotBilder';
+import { BILD_KATEGORIEN } from '../../data/bild-kategorien';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -29,8 +31,29 @@ export function AbschlussSection({ form, bilder, votFormularId, leadName, leadId
     });
   };
 
+  const bewertungConfig = BILD_KATEGORIEN.bewertung_nachweis;
+
   return (
     <div className="space-y-6">
+      {/* Bewertungsnachweis (optional) */}
+      <div className="bg-card rounded-xl p-4 border border-border">
+        <h3 className="font-semibold text-foreground mb-1">📸 {bewertungConfig.label}</h3>
+        <p className="text-xs text-muted-foreground mb-3">
+          {bewertungConfig.hinweis} — Optional, aber es gibt Bonus!
+          <br />
+          <span className="font-medium">10 € pro Bewertung, 50 € bei Google + Trustpilot</span>
+        </p>
+        <PhotoUploadField
+          kategorie="bewertung_nachweis"
+          bilder={bilder}
+          votFormularId={votFormularId}
+          leadName={leadName}
+          leadId={leadId}
+          auftragId={auftragId}
+          disabled={disabled}
+        />
+      </div>
+
       <div className="bg-card rounded-xl p-4 border border-border">
         <p className="text-sm text-muted-foreground">
           Du kannst über den Button "Daten prüfen" deine Eingabe nochmal überprüfen.

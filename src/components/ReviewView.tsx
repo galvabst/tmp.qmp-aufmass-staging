@@ -1,7 +1,8 @@
-import { CheckCircle2, Clock, AlertTriangle, Euro } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, Euro, Gift } from 'lucide-react';
 import { TechnicianOrder } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
+import { useContractorBoni, useBoniSummary } from '@/hooks/useContractorBoni';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,9 @@ const statusConfig = {
 };
 
 export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
+  const { data: boni } = useContractorBoni();
+  const boniSummary = useBoniSummary(boni);
+
   const reviewOrders = orders.filter(o => 
     ['submitted', 'in_review', 'approved', 'rework_required'].includes(o.status)
   );
