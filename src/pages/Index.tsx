@@ -161,6 +161,7 @@ const Index = () => {
   const bookingsCount = orders.filter(o => o.status === 'booked').length;
   const activeCount = orders.filter(o => o.status === 'in_progress').length;
   const reviewCount = orders.filter(o => ['submitted', 'in_review', 'rework_required'].includes(o.status)).length;
+  const submittedCount = orders.filter(o => ['submitted', 'in_review', 'approved', 'rework_required'].includes(o.status)).length;
 
   const handleOrderClick = (order: TechnicianOrder) => {
     setSelectedOrder(order);
@@ -424,6 +425,7 @@ const Index = () => {
           orders={orders} 
           onOrderClick={handleOrderClick}
           unreadCounts={unreadCounts}
+          angebotstermine={angebotstermine}
         />
       )}
       
@@ -434,6 +436,7 @@ const Index = () => {
           onCheckin={handleCheckin}
           onCheckout={handleCheckout}
           unreadCounts={unreadCounts}
+          angebotstermine={angebotstermine}
         />
       )}
       
@@ -441,6 +444,7 @@ const Index = () => {
         <ReviewView 
           orders={orders} 
           onOrderClick={handleOrderClick}
+          angebotstermine={angebotstermine}
         />
       )}
 
@@ -456,6 +460,7 @@ const Index = () => {
         <ProfileView 
           profile={profile}
           profileId={profileId}
+          totalSubmittedOrders={submittedCount}
           onSave={(updatedData) => {
             toast.success('Profil aktualisiert');
           }}
