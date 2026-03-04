@@ -1,65 +1,42 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Plan: "Zurück zur App"-Button für Trainer im Onboarding
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
 
-## 1. Themen-Kategorien einführen
+Dein DB-Status ist `onboarding_status: "in_progress"` mit `is_trainer: true`. Da `isReady` nur bei `onboarding_status === 'ready'` greift, landest du im Onboarding und kommst nicht raus. Als Trainer solltest du das Onboarding jederzeit verlassen können.
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+## Lösung
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+### 1. Index.tsx: Trainer-Bypass in `isDbReady`-Logik
 
-## 2. DB-Änderung
+Trainer (`is_trainer: true`) sollen immer Zugang zur App haben, unabhängig vom `onboarding_status`. Die Bedingung auf Zeile 334 wird erweitert:
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+```
+// Vorher:
+if (!isDbReady || isPreviewMode) → zeige OnboardingScreen
 
-## 3. UI-Änderungen
+// Nachher:
+const isTrainerBypass = onboardingRecord?.is_trainer === true;
+if ((!isDbReady && !isTrainerBypass) || isPreviewMode) → zeige OnboardingScreen
+```
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+Das bedeutet: Trainer werden nie ins Onboarding gezwungen. Sie können es aber weiterhin freiwillig über die Profil-Vorschau starten.
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+### 2. OnboardingScreen: "Zurück zur App"-Banner für Trainer
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+Falls ein Trainer trotzdem im Onboarding landet (z.B. via Vorschau-Button im Profil), wird ein permanenter Banner oben angezeigt:
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+- Grüner Banner: "Du bist als Trainer freigeschaltet"
+- Button: "Zur App →" der `onComplete()` aufruft
+- Sichtbar wenn `dbStatus?.isTrainer === true` und `!isPreview`
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
+### Betroffene Dateien
+- `src/pages/Index.tsx` — Trainer-Bypass bei `isDbReady`-Check (1 Zeile)
+- `src/components/OnboardingScreen.tsx` — Trainer-Exit-Banner im OnboardingStepWrapper-Bereich
 
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+## Ergebnis
+- Trainer kommen nie ungewollt ins Onboarding
+- Trainer können das Onboarding jederzeit freiwillig besuchen (Vorschau im Profil)
+- Keine DB-Migration nötig
 
