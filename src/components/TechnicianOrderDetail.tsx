@@ -1,5 +1,6 @@
-import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList, CheckCircle2, AlertCircle, Loader2, Copy, Check, Ruler, Home, Thermometer } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList, CheckCircle2, AlertCircle, Loader2, Copy, Check, Ruler, Home, Thermometer, Receipt, Search, Banknote } from 'lucide-react';
 import { AuftragChatSection } from '@/features/chat/ui/AuftragChatSection';
+import { useAbrechnungStatus, AbrechnungStatusEnum } from '@/hooks/useAbrechnungStatus';
 import { TechnicianOrder, CheckinPhase, CHECKIN_PHASE_LABELS } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
