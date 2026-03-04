@@ -21,6 +21,17 @@ export interface AdminLektion {
   updated_at: string;
 }
 
+export interface AdminQuizFrage {
+  id: string;
+  modul_id: string;
+  frage: string;
+  antworten: { text: string; korrekt: boolean }[];
+  reihenfolge: number;
+  ist_aktiv: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AdminModul {
   id: string;
   code: string;
@@ -31,6 +42,7 @@ export interface AdminModul {
   created_at: string;
   updated_at: string;
   lektionen: AdminLektion[];
+  quizFragen: AdminQuizFrage[];
 }
 
 /**
