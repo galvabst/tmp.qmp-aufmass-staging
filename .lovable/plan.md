@@ -1,22 +1,65 @@
 
 
-# Plan: Coaching-Buchung für Contractor zurücksetzen
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Was passiert
-Der Contractor `f41fe4f6-...` hat eine vergangene Mitfahrt gebucht. Die Buchung muss rückgängig gemacht werden, damit er einen neuen (zukünftigen) Termin buchen kann.
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-## Zwei Daten-Updates nötig (kein Code-Change)
+## 1. Themen-Kategorien einführen
 
-### 1. Auftrag freigeben
-Auf `thermocheck.thermocheck_auftraege` (ID: `58ee2606-238e-4275-9c5d-654a5b5202f0`):
-- `coaching_gebucht_von` → NULL
-- `coaching_gebucht_am` → NULL
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-### 2. Onboarding-Step zurücksetzen
-Auf `thermocheck.contractor_onboarding` (ID: `a22e88c2-95fe-4b24-a04b-cece2f792d96`):
-- `completed_steps` → `['profil','dokumente','bestellungen','equipment','akademie']` (ohne `'coaching'`)
-- `current_step` → `'coaching'` (bleibt gleich)
-- `coaching_bewertung` → `'ausstehend'` (bleibt gleich)
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-Damit landet der Contractor wieder auf dem Coaching-Schritt und sieht nur zukünftige verfügbare Termine (dank dem zuvor implementierten Datumsfilter).
+## 2. DB-Änderung
+
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+
+## 3. UI-Änderungen
+
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
