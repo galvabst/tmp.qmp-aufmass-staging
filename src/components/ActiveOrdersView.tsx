@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { GalvanekLogo } from '@/components/GalvanekLogo';
+import { DeadlineCountdown, AngebotsterminBadge } from '@/components/DeadlineCountdown';
 
 interface ActiveOrdersViewProps {
   orders: TechnicianOrder[];
@@ -12,24 +13,14 @@ interface ActiveOrdersViewProps {
   onCheckout: (orderId: string, phase: CheckinPhase) => void;
   onOrderClick: (order: TechnicianOrder) => void;
   unreadCounts?: Map<string, number>;
+  angebotstermine?: Map<string, { startDatetime: string; endDatetime: string }>;
 }
 
 function PhaseStatus({ 
-  label, 
-  checkinAt, 
-  checkoutAt,
-  isActive,
-  canStart,
-  onStart,
-  onComplete,
+  label, checkinAt, checkoutAt, isActive, canStart, onStart, onComplete,
 }: { 
-  label: string;
-  checkinAt?: string;
-  checkoutAt?: string;
-  isActive: boolean;
-  canStart: boolean;
-  onStart: () => void;
-  onComplete: () => void;
+  label: string; checkinAt?: string; checkoutAt?: string;
+  isActive: boolean; canStart: boolean; onStart: () => void; onComplete: () => void;
 }) {
   const isCheckedIn = !!checkinAt;
   const isCompleted = !!checkoutAt;
@@ -55,25 +46,19 @@ function PhaseStatus({
             isCompleted ? 'text-status-accepted' :
             isActive ? 'text-primary' :
             'text-muted-foreground'
-          )}>
-            {label}
-          </span>
+          )}>{label}</span>
         </div>
 
         {isActive && !isCheckedIn && canStart && (
           <Button size="sm" onClick={onStart} className="gap-1">
-            <Play className="w-3 h-3" />
-            Check-in
+            <Play className="w-3 h-3" /> Check-in
           </Button>
         )}
-
         {isActive && isCheckedIn && !isCompleted && (
           <Button size="sm" variant="outline" onClick={onComplete} className="gap-1">
-            <CheckCircle2 className="w-3 h-3" />
-            Check-out
+            <CheckCircle2 className="w-3 h-3" /> Check-out
           </Button>
         )}
-
         {isCompleted && (
           <span className="text-xs text-status-accepted">Abgeschlossen</span>
         )}
@@ -82,34 +67,25 @@ function PhaseStatus({
   );
 }
 
-export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick, unreadCounts }: ActiveOrdersViewProps) {
+export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick, unreadCounts, angebotstermine }: ActiveOrdersViewProps) {
   const activeOrders = orders.filter(o => o.status === 'in_progress');
 
-  // Determine current phase for each order
   const getOrderPhaseInfo = (order: TechnicianOrder) => {
     const vorOrtComplete = !!order.vorOrtCheckoutAt;
     const nachbearbeitungComplete = !!order.nachbearbeitungCheckoutAt;
-    
-    if (!vorOrtComplete) {
-      return { currentPhase: 'vor_ort' as CheckinPhase, canStartVorOrt: true, canStartNachbearbeitung: false };
-    }
-    if (!nachbearbeitungComplete) {
-      return { currentPhase: 'nachbearbeitung' as CheckinPhase, canStartVorOrt: false, canStartNachbearbeitung: true };
-    }
+    if (!vorOrtComplete) return { currentPhase: 'vor_ort' as CheckinPhase, canStartVorOrt: true, canStartNachbearbeitung: false };
+    if (!nachbearbeitungComplete) return { currentPhase: 'nachbearbeitung' as CheckinPhase, canStartVorOrt: false, canStartNachbearbeitung: true };
     return { currentPhase: null, canStartVorOrt: false, canStartNachbearbeitung: false };
   };
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
       <header className="bg-gradient-to-br from-primary to-primary/85 text-primary-foreground safe-area-top sticky top-0 z-10">
         <div className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Aktive Aufträge</h1>
-              <p className="text-primary-foreground/70 text-sm">
-                {activeOrders.length} in Bearbeitung
-              </p>
+              <p className="text-primary-foreground/70 text-sm">{activeOrders.length} in Bearbeitung</p>
             </div>
             <GalvanekLogo size="sm" variant="white" className="opacity-95" />
           </div>
@@ -122,28 +98,31 @@ export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick, 
             <Clock className="w-8 h-8 text-muted-foreground" />
           </div>
           <h3 className="font-semibold text-foreground mb-2">Keine aktiven Aufträge</h3>
-          <p className="text-sm text-muted-foreground">
-            Starte einen Check-in bei deinen gebuchten Aufträgen.
-          </p>
+          <p className="text-sm text-muted-foreground">Starte einen Check-in bei deinen gebuchten Aufträgen.</p>
         </div>
       ) : (
         <div className="p-4 space-y-4">
           {activeOrders.map(order => {
             const phaseInfo = getOrderPhaseInfo(order);
             const unreadCount = unreadCounts?.get(order.auftragId || '') || 0;
+            const agTermin = order.leadId ? angebotstermine?.get(order.leadId) : undefined;
             
             return (
               <div key={order.id} className="bg-card rounded-xl shadow-card overflow-hidden">
-                {/* Order Header */}
                 <button
                   onClick={() => onOrderClick(order)}
                   className="w-full p-4 text-left hover:bg-secondary/30 transition-colors"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <Badge variant="secondary" className="text-xs mb-2">
-                        {AUFTRAGSTYP_LABELS[order.auftragstyp]}
-                      </Badge>
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <Badge variant="secondary" className="text-xs">
+                          {AUFTRAGSTYP_LABELS[order.auftragstyp]}
+                        </Badge>
+                        {agTermin && (
+                          <AngebotsterminBadge startDatetime={agTermin.startDatetime} />
+                        )}
+                      </div>
                       <h3 className="font-semibold text-foreground">{order.customerName}</h3>
                       <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                         <MapPin className="w-3 h-3" />
@@ -160,9 +139,16 @@ export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick, 
                       <ArrowRight className="w-5 h-5 text-muted-foreground" />
                     </div>
                   </div>
+
+                  {/* Deadline Countdown - prominent in active view */}
+                  <div className="mt-2">
+                    <DeadlineCountdown
+                      scheduledDate={order.scheduledDate}
+                      zeitBis={order.zeitBis}
+                    />
+                  </div>
                 </button>
 
-                {/* Check-in/out Phases */}
                 <div className="p-4 pt-0 space-y-2">
                   <PhaseStatus
                     label={CHECKIN_PHASE_LABELS.vor_ort}
@@ -184,7 +170,6 @@ export function ActiveOrdersView({ orders, onCheckin, onCheckout, onOrderClick, 
                   />
                 </div>
 
-                {/* Billing Info */}
                 {order.billableAmount && (
                   <div className="px-4 pb-4">
                     <div className="bg-muted/50 rounded-lg p-3 text-center">

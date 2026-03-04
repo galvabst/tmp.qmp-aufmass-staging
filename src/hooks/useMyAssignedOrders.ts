@@ -17,6 +17,7 @@ interface TerminRow {
 
 interface AuftragRow {
   id: string;
+  lead_id: string | null;
   kunde_vorname: string | null;
   kunde_nachname: string | null;
   kunde_strasse: string | null;
@@ -29,7 +30,6 @@ interface AuftragRow {
   zugewiesener_techniker_id: string | null;
   buchung_bestaetigt_am: string | null;
   vortag_bestaetigt_am: string | null;
-  // Check-in/out timestamps
   vor_ort_checkin_at: string | null;
   vor_ort_checkout_at: string | null;
   nachbearbeitung_checkin_at: string | null;
@@ -111,7 +111,7 @@ export function useMyAssignedOrders() {
 
       // Step 2: Fetch auftraege assigned to contractor_onboarding.id (including check-in timestamps)
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis,quadratmeter,wohneinheiten,fussbodenheizung`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,lead_id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis,quadratmeter,wohneinheiten,fussbodenheizung`,
         { headers }
       );
 
@@ -158,6 +158,8 @@ export function useMyAssignedOrders() {
         return {
           id: termin.id,
           auftragId: termin.thermocheck_auftrag_id,
+          leadId: auftrag?.lead_id || undefined,
+          zeitBis: termin.zeit_bis || undefined,
           customerName,
           address,
           city: auftrag?.kunde_ort || "",
@@ -172,7 +174,6 @@ export function useMyAssignedOrders() {
           contactEmail: auftrag?.kunde_email || undefined,
           buchungBestaetigtAm: auftrag?.buchung_bestaetigt_am || undefined,
           vortagBestaetigtAm: auftrag?.vortag_bestaetigt_am || undefined,
-          // Persisted check-in/out timestamps
           checkinPhase: derivedPhase,
           vorOrtCheckinAt: auftrag?.vor_ort_checkin_at || undefined,
           vorOrtCheckoutAt: auftrag?.vor_ort_checkout_at || undefined,

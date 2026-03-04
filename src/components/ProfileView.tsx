@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target, Eye, Gift } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Settings, LogOut, ChevronRight, Award, Edit2, X, Save, CheckCircle, Circle, Clock, Target, Eye, Gift, AlertTriangle, Timer } from 'lucide-react';
 import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,19 +13,23 @@ import { useIsTrainer } from '@/hooks/useIsTrainer';
 import { TrainerProfileEditor } from '@/components/trainer/TrainerProfileEditor';
 import { TrainerRideAlongs } from '@/components/trainer/TrainerRideAlongs';
 import { useContractorBoni, useBoniSummary } from '@/hooks/useContractorBoni';
+import { useContractorVerspaetungen, useVerspaetungStats } from '@/hooks/useContractorVerspaetungen';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
   profileId?: string | null;
+  totalSubmittedOrders?: number;
   onSave?: (updatedProfile: Partial<TechnicianProfile>) => void;
   onStartOnboarding?: () => void;
   onStartOnboardingPreview?: () => void;
 }
 
-export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onStartOnboardingPreview }: ProfileViewProps) {
+export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, onSave, onStartOnboarding, onStartOnboardingPreview }: ProfileViewProps) {
   const { data: isTrainer } = useIsTrainer(profileId || null);
   const { data: boni } = useContractorBoni();
   const boniSummary = useBoniSummary(boni);
+  const { data: verspaetungen } = useContractorVerspaetungen();
+  const punctuality = useVerspaetungStats(verspaetungen, totalSubmittedOrders);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
@@ -226,6 +230,42 @@ export function ProfileView({ profile, profileId, onSave, onStartOnboarding, onS
         </section>
       )}
 
+      {/* Pünktlichkeit */}
+      {totalSubmittedOrders > 0 && (
+        <section className="p-4 pt-0">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Pünktlichkeit</h2>
+          <div className="bg-card rounded-lg shadow-card p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`p-2 rounded-lg ${punctuality.lateCount > 0 ? 'bg-destructive/10' : 'bg-green-500/10'}`}>
+                <Timer className={`w-5 h-5 ${punctuality.lateCount > 0 ? 'text-destructive' : 'text-green-600'}`} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-foreground">Pünktliche Abgaben</span>
+                  <span className={`text-sm font-bold ${punctuality.lateCount > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                    {punctuality.onTimePercent}%
+                  </span>
+                </div>
+                <Progress value={punctuality.onTimePercent} className="h-2" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-lg font-bold text-foreground">{punctuality.onTimeCount}</p>
+                <p className="text-xs text-muted-foreground">Pünktlich</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-destructive">{punctuality.lateCount}</p>
+                <p className="text-xs text-muted-foreground">Verspätet</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-destructive">{punctuality.totalFee.toFixed(0)} €</p>
+                <p className="text-xs text-muted-foreground">Late Fees</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {isTrainer && profileId && (
         <>

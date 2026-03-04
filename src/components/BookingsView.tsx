@@ -5,11 +5,13 @@ import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { GalvanekLogo } from '@/components/GalvanekLogo';
+import { DeadlineCountdown, AngebotsterminBadge } from '@/components/DeadlineCountdown';
 
 interface BookingsViewProps {
   orders: TechnicianOrder[];
   onOrderClick: (order: TechnicianOrder) => void;
   unreadCounts?: Map<string, number>;
+  angebotstermine?: Map<string, { startDatetime: string; endDatetime: string }>;
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -24,12 +26,11 @@ function isTerminSoon(dateStr: string): boolean {
   return isToday(date) || isTomorrow(date);
 }
 
-export function BookingsView({ orders, onOrderClick, unreadCounts }: BookingsViewProps) {
+export function BookingsView({ orders, onOrderClick, unreadCounts, angebotstermine }: BookingsViewProps) {
   const bookedOrders = orders
     .filter(o => o.status === 'booked')
     .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
 
-  // Group by date
   const groupedOrders = bookedOrders.reduce((acc, order) => {
     const dateKey = order.scheduledDate;
     if (!acc[dateKey]) acc[dateKey] = [];
@@ -37,12 +38,10 @@ export function BookingsView({ orders, onOrderClick, unreadCounts }: BookingsVie
     return acc;
   }, {} as Record<string, TechnicianOrder[]>);
 
-  // Count pending tasks
   const pendingTasks = bookedOrders.filter(o => !o.buchungBestaetigtAm).length;
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
       <header className="bg-gradient-to-br from-primary to-primary/85 text-primary-foreground safe-area-top sticky top-0 z-10">
         <div className="p-4">
           <div className="flex items-center justify-between">
@@ -82,6 +81,7 @@ export function BookingsView({ orders, onOrderClick, unreadCounts }: BookingsVie
                   const vortagDone = !!order.vortagBestaetigtAm;
                   const showVortag = buchungDone && isTerminSoon(order.scheduledDate);
                   const unreadCount = unreadCounts?.get(order.auftragId || '') || 0;
+                  const agTermin = order.leadId ? angebotstermine?.get(order.leadId) : undefined;
 
                   return (
                     <button
@@ -91,7 +91,7 @@ export function BookingsView({ orders, onOrderClick, unreadCounts }: BookingsVie
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <Badge variant="secondary" className="text-xs">
                               {AUFTRAGSTYP_LABELS[order.auftragstyp]}
                             </Badge>
@@ -99,6 +99,9 @@ export function BookingsView({ orders, onOrderClick, unreadCounts }: BookingsVie
                               <Clock className="w-3 h-3" />
                               {order.scheduledTime} Uhr
                             </span>
+                            {agTermin && (
+                              <AngebotsterminBadge startDatetime={agTermin.startDatetime} />
+                            )}
                           </div>
                           <h3 className="font-semibold text-foreground">{order.customerName}</h3>
                           <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
@@ -117,9 +120,16 @@ export function BookingsView({ orders, onOrderClick, unreadCounts }: BookingsVie
                         </div>
                       </div>
 
+                      {/* Deadline Countdown */}
+                      <div className="mt-2">
+                        <DeadlineCountdown
+                          scheduledDate={order.scheduledDate}
+                          zeitBis={order.zeitBis}
+                        />
+                      </div>
+
                       {/* Confirmation task badges */}
                       <div className="mt-3 pt-3 border-t border-border space-y-2">
-                        {/* Task 1: Buchungsbestätigung */}
                         <div className="flex items-center gap-2">
                           {buchungDone ? (
                             <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
@@ -131,7 +141,6 @@ export function BookingsView({ orders, onOrderClick, unreadCounts }: BookingsVie
                           </span>
                         </div>
 
-                        {/* Task 2: Vortag-Bestätigung (nur wenn Buchung bestätigt + Termin morgen/heute) */}
                         {showVortag && (
                           <div className="flex items-center gap-2">
                             {vortagDone ? (

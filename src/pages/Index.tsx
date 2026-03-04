@@ -14,6 +14,7 @@ import { TechnicianOrder, TechnicianProfile, CheckinPhase } from '@/types/techni
 import { usePoolOrders } from '@/hooks/usePoolOrders';
 import { useMyAssignedOrders } from '@/hooks/useMyAssignedOrders';
 import { useMyPendingProposals } from '@/hooks/useMyPendingProposals';
+import { useAngebotstermine } from '@/hooks/useAngebotstermine';
 import { RescheduleModal } from '@/components/RescheduleModal';
 import { useUnreadChatCounts } from '@/features/chat/hooks/useUnreadChatCounts';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,12 +62,17 @@ const Index = () => {
   const { data: pendingReschedules, refetch: refetchPending } = useMyPendingProposals();
   const [orders, setOrders] = useState<TechnicianOrder[]>([]);
 
-  // Collect auftrag IDs from assigned orders for unread chat counts
+  // Collect auftrag IDs and lead IDs from assigned orders
   const assignedAuftragIds = useMemo(() => 
     (dbAssignedOrders || []).map(o => o.auftragId).filter(Boolean) as string[],
     [dbAssignedOrders]
   );
+  const assignedLeadIds = useMemo(() => 
+    (dbAssignedOrders || []).map(o => o.leadId).filter(Boolean) as string[],
+    [dbAssignedOrders]
+  );
   const { data: unreadCounts } = useUnreadChatCounts(assignedAuftragIds);
+  const { data: angebotstermine } = useAngebotstermine(assignedLeadIds);
   const unreadChatTotal = useMemo(() => {
     if (!unreadCounts) return 0;
     return [...unreadCounts.values()].reduce((s, v) => s + v, 0);
@@ -155,6 +161,7 @@ const Index = () => {
   const bookingsCount = orders.filter(o => o.status === 'booked').length;
   const activeCount = orders.filter(o => o.status === 'in_progress').length;
   const reviewCount = orders.filter(o => ['submitted', 'in_review', 'rework_required'].includes(o.status)).length;
+  const submittedCount = orders.filter(o => ['submitted', 'in_review', 'approved', 'rework_required'].includes(o.status)).length;
 
   const handleOrderClick = (order: TechnicianOrder) => {
     setSelectedOrder(order);
@@ -418,6 +425,7 @@ const Index = () => {
           orders={orders} 
           onOrderClick={handleOrderClick}
           unreadCounts={unreadCounts}
+          angebotstermine={angebotstermine}
         />
       )}
       
@@ -428,6 +436,7 @@ const Index = () => {
           onCheckin={handleCheckin}
           onCheckout={handleCheckout}
           unreadCounts={unreadCounts}
+          angebotstermine={angebotstermine}
         />
       )}
       
@@ -435,6 +444,7 @@ const Index = () => {
         <ReviewView 
           orders={orders} 
           onOrderClick={handleOrderClick}
+          angebotstermine={angebotstermine}
         />
       )}
 
@@ -450,6 +460,7 @@ const Index = () => {
         <ProfileView 
           profile={profile}
           profileId={profileId}
+          totalSubmittedOrders={submittedCount}
           onSave={(updatedData) => {
             toast.success('Profil aktualisiert');
           }}

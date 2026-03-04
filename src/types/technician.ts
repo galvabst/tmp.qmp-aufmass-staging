@@ -96,6 +96,8 @@ export interface TechnicianOrder {
   submittedAt?: string;
   approvedAt?: string;
   auftragId?: string;
+  leadId?: string;
+  zeitBis?: string;
   // Booking confirmation tracking
   buchungBestaetigtAm?: string;
   vortagBestaetigtAm?: string;

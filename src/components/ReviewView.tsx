@@ -7,10 +7,12 @@ import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { GalvanekLogo } from '@/components/GalvanekLogo';
+import { DeadlineCountdown, AngebotsterminBadge } from '@/components/DeadlineCountdown';
 
 interface ReviewViewProps {
   orders: TechnicianOrder[];
   onOrderClick: (order: TechnicianOrder) => void;
+  angebotstermine?: Map<string, { startDatetime: string; endDatetime: string }>;
 }
 
 const statusConfig = {
@@ -20,7 +22,7 @@ const statusConfig = {
   rework_required: { icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-500/10', label: 'Nacharbeit' },
 };
 
-export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
+export function ReviewView({ orders, onOrderClick, angebotstermine }: ReviewViewProps) {
   const { data: boni } = useContractorBoni();
   const boniSummary = useBoniSummary(boni);
 
@@ -108,6 +110,7 @@ export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
           {reviewOrders.map(order => {
             const config = statusConfig[order.status as keyof typeof statusConfig];
             const StatusIcon = config?.icon || Clock;
+            const agTermin = order.leadId ? angebotstermine?.get(order.leadId) : undefined;
             
             return (
               <button
@@ -115,11 +118,16 @@ export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
                 onClick={() => onOrderClick(order)}
                 className="w-full bg-card rounded-xl p-4 shadow-card text-left hover:bg-secondary/50 transition-colors"
               >
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start justify-between mb-2">
                   <div>
-                    <Badge variant="secondary" className="text-xs mb-2">
-                      {AUFTRAGSTYP_LABELS[order.auftragstyp]}
-                    </Badge>
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <Badge variant="secondary" className="text-xs">
+                        {AUFTRAGSTYP_LABELS[order.auftragstyp]}
+                      </Badge>
+                      {agTermin && (
+                        <AngebotsterminBadge startDatetime={agTermin.startDatetime} />
+                      )}
+                    </div>
                     <h3 className="font-semibold text-foreground">{order.customerName}</h3>
                   </div>
                   <div className={cn('px-2 py-1 rounded-full flex items-center gap-1', config?.bg)}>
@@ -129,6 +137,17 @@ export function ReviewView({ orders, onOrderClick }: ReviewViewProps) {
                     </span>
                   </div>
                 </div>
+
+                {/* Late fee badge if submitted late */}
+                {order.submittedAt && (
+                  <DeadlineCountdown
+                    scheduledDate={order.scheduledDate}
+                    zeitBis={order.zeitBis}
+                    submittedAt={order.submittedAt}
+                    compact
+                    className="mb-2"
+                  />
+                )}
 
                 <div className="flex items-center justify-between text-sm">
                   <div className="text-muted-foreground">
