@@ -32,6 +32,7 @@ interface DbLektion {
   text_zusammenfassung: string | null;
   zusatzmaterial_urls: string[] | null;
   ist_aktiv: boolean;
+  nur_fuer_neue: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -68,6 +69,7 @@ function buildHierarchicalUnterpunkte(lektionen: DbLektion[]): AkademieUnterpunk
     dauerMinuten: lek.video_dauer_minuten || 5,
     reihenfolge: lek.reihenfolge,
     abgeschlossen: false,
+    nurFuerNeue: lek.nur_fuer_neue ?? false,
   });
 
   // Identify parent-child by code pattern: "6-3" is parent of "6-3-1", "6-3-2"

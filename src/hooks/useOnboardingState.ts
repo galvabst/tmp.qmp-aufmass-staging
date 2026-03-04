@@ -136,7 +136,7 @@ export function useOnboardingState(
   }, [isPreview, forceReset, initialProfile]);
   
   // Hydrate akademie from external data (called by component with DB data)
-  const hydrateAkademieFromDb = useCallback((dbModules: AkademieHauptmodul[], completedLektionIds?: Set<string>) => {
+  const hydrateAkademieFromDb = useCallback((dbModules: AkademieHauptmodul[], completedLektionIds?: Set<string>, onboardingStatus?: string) => {
     if (!dbModules || dbModules.length === 0) return;
     
     setState(prev => {
@@ -171,21 +171,25 @@ export function useOnboardingState(
         }
 
         // Merge: use DB structure but preserve local progress + DB fortschritt
+        const isReady = onboardingStatus === 'ready';
         const mergedModules = dbModules.map(dbHm => ({
           ...dbHm,
           unterpunkte: dbHm.unterpunkte.map(dbUp => {
             const existingProgress = progressMap.get(dbUp.id);
             const dbCompleted = completedLektionIds?.has(dbUp.id) || false;
+            // Auto-complete nurFuerNeue lessons for ready contractors (no catch-up needed)
+            const autoCompleted = isReady && dbUp.nurFuerNeue === true;
             return {
               ...dbUp,
-              abgeschlossen: existingProgress?.abgeschlossen || dbCompleted || false,
+              abgeschlossen: existingProgress?.abgeschlossen || dbCompleted || autoCompleted || false,
               abgeschlossenAt: existingProgress?.abgeschlossenAt,
               children: dbUp.children?.map(child => {
                 const childProgress = progressMap.get(child.id);
                 const childDbCompleted = completedLektionIds?.has(child.id) || false;
+                const childAutoCompleted = isReady && child.nurFuerNeue === true;
                 return {
                   ...child,
-                  abgeschlossen: childProgress?.abgeschlossen || childDbCompleted || false,
+                  abgeschlossen: childProgress?.abgeschlossen || childDbCompleted || childAutoCompleted || false,
                   abgeschlossenAt: childProgress?.abgeschlossenAt,
                 };
               }),

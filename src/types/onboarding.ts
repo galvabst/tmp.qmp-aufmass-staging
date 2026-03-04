@@ -106,6 +106,7 @@ export interface AkademieUnterpunkt {
   abgeschlossenAt?: string;
   isGroup?: boolean;       // true wenn Kinder vorhanden (z.B. 6-3 hat 6-3-1, 6-3-2)
   children?: AkademieUnterpunkt[]; // Sub-Lektionen
+  nurFuerNeue?: boolean;   // Wenn true, nur für neue Onboarder relevant
 }
 
 export interface AkademieHauptmodul {

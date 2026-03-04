@@ -14,6 +14,7 @@ export interface AdminLektion {
   text_zusammenfassung: string | null;
   zusatzmaterial_urls: string[] | null;
   ist_aktiv: boolean;
+  nur_fuer_neue: boolean;
   content_version: number;
   created_at: string;
   updated_at: string;

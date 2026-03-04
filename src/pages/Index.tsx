@@ -30,6 +30,8 @@ import { NoContractorAccessScreen } from '@/components/ui/NoContractorAccessScre
 import { AuthRequiredScreen } from '@/components/ui/AuthRequiredScreen';
 import { TechnicalErrorScreen } from '@/components/ui/TechnicalErrorScreen';
 import { ONBOARDING_STEPS } from '@/lib/onboarding-config';
+import { usePflichtVideos } from '@/hooks/usePflichtVideos';
+import { PflichtVideoOverlay } from '@/features/akademie/ui/PflichtVideoOverlay';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -55,6 +57,12 @@ const Index = () => {
   const { data: dbProfile } = useContractorProfile(profileId);
   const contractorOnboardingId = onboardingRecord?.id || null;
   const { data: bewertungStats } = useTechnikerBewertungStats(contractorOnboardingId);
+  
+  // Pflicht-Videos for ready contractors
+  const { data: pflichtVideos, refetch: refetchPflichtVideos } = usePflichtVideos(
+    contractorOnboardingId,
+    onboardingRecord?.onboarding_status
+  );
 
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
@@ -358,6 +366,20 @@ const Index = () => {
           }
           refetchOnboardingStatus();
           toast.success('Willkommen im Pool! 🎉');
+        }}
+      />
+    );
+  }
+
+  // Pflicht-Video gate: block ready contractors who have unwatched mandatory videos
+  if (isDbReady && pflichtVideos && pflichtVideos.length > 0 && contractorOnboardingId) {
+    return (
+      <PflichtVideoOverlay
+        videos={pflichtVideos}
+        contractorId={contractorOnboardingId}
+        onAllCompleted={() => {
+          refetchPflichtVideos();
+          toast.success('Alle Pflicht-Videos abgeschlossen! ✓');
         }}
       />
     );

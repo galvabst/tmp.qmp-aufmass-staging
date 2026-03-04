@@ -1,88 +1,65 @@
 
 
-# Plan: Pflicht-Videos für Bestandstechniker
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-Wenn du eine neue Lektion hinzufügst, zwingt der aktuelle Catch-Up-Mechanismus fertige Techniker (`status = ready`) zurück ins komplette Onboarding. Der User muss dann durch die Akademie navigieren, das Video schauen, ggf. den Quiz wiederholen etc. Das ist falsch — fertige Techniker sollen nur das neue Video anschauen müssen, nicht zurück ins Onboarding.
+## 1. Themen-Kategorien einführen
 
-## Lösung: Zwei-Schienen-System
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-**Schiene A — `nur_fuer_neue = true`:** Lektion ist nur für Techniker relevant, die sich aktuell im Onboarding befinden. Fertige Techniker (`ready`) werden komplett ignoriert. Kein Catch-Up.
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-**Schiene B — `nur_fuer_neue = false` (default):** Lektion ist Pflicht für ALLE. Aber für fertige Techniker greift ein **Pflicht-Video-Overlay** statt des Onboarding-Rückfalls:
-- Beim App-Start prüft ein neuer Hook, ob es ungesehene Pflicht-Lektionen gibt
-- Falls ja: Full-Screen-Video-Modal (blockierend, nicht schließbar)
-- Nach dem Schauen: Fortschritt wird in `contractor_akademie_lektions_fortschritt` gespeichert
-- Kein Quiz, kein Onboarding-Rückfall, kein Step-Reset
+## 2. DB-Änderung
 
-## Umsetzung
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-### 1. DB-Migration
+## 3. UI-Änderungen
 
-- `nur_fuer_neue BOOLEAN NOT NULL DEFAULT false` auf `contractor_akademie_lektionen`
-- Update des `admin_upsert_akademie_lektion` RPC um das neue Feld
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-### 2. Admin-UI: LektionEditor
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-Neuer Toggle im Editor-Dialog:
-- **"Nur für neue Onboarder"** mit Beschreibung: "Bereits fertige Techniker müssen diese Lektion nicht nachholen"
-- Wird als `nur_fuer_neue` an die DB übergeben
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
 
-### 3. Neuer Hook: `usePflichtVideos`
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
 
-```text
-Input:  contractorId, onboardingStatus
-Output: { pendingVideos: Lektion[], isLoading }
-```
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
 
-Logik:
-1. Nur aktiv wenn `onboardingStatus === 'ready'`
-2. Fetcht alle aktiven Lektionen mit `nur_fuer_neue = false` und `video_url IS NOT NULL`
-3. Fetcht alle `completed` Einträge aus `contractor_akademie_lektions_fortschritt`
-4. Differenz = ungesehene Pflicht-Videos
-5. Sortiert nach `content_version DESC` (neueste zuerst)
+## 4. Bestehende Threads kategorisieren (Migration)
 
-### 4. Pflicht-Video-Overlay Komponente
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
 
-`PflichtVideoOverlay.tsx` — Full-Screen-Modal:
-- Zeigt Titel + Video (gleicher `MultiSourceVideoPlayer` wie Akademie)
-- Kein Skip erlaubt (gleicher Seekschutz wie Intro-Video)
-- Nach Abschluss: `saveLektionFortschritt` RPC aufrufen → nächstes Video oder schließen
-- Fortschrittsanzeige: "Video 1 von 3"
+## Dateien
 
-### 5. Integration in Index.tsx
-
-Nach dem `isDbReady`-Check und VOR dem Haupt-UI:
-```text
-if (isReady && pendingVideos.length > 0) {
-  return <PflichtVideoOverlay videos={pendingVideos} onComplete={...} />;
-}
-```
-
-### 6. Catch-Up-Logik anpassen (useOnboardingState.ts)
-
-In `hydrateAkademieFromDb` (Zeile 159): Wenn `onboardingStatus === 'ready'` und eine neue Lektion `nur_fuer_neue = true` hat → automatisch als `abgeschlossen` markieren (kein Rückfall ins Onboarding).
-
-### Betroffene Dateien
-
-| Datei | Änderung |
-|-------|----------|
-| Migration SQL | `nur_fuer_neue` Spalte + RPC-Update |
-| `LektionEditor.tsx` | Neuer Toggle |
-| `useAdminMutateLektion.ts` | Feld in Interface |
-| `useAdminAkademieModule.ts` | Feld in AdminLektion-Type |
-| `usePflichtVideos.ts` | **Neu** — Hook für ungesehene Pflicht-Videos |
-| `PflichtVideoOverlay.tsx` | **Neu** — Blocking Video-Modal |
-| `Index.tsx` | Pflicht-Video-Gate vor Haupt-UI |
-| `useOnboardingState.ts` | Catch-Up-Filter für `nur_fuer_neue` |
-| `useAkademieContent.ts` | `nur_fuer_neue` Feld durchreichen |
-
-### Edge Cases
-
-- Kein Video-URL in Pflicht-Lektion → wird übersprungen (nur Text-Lektionen blockieren nicht)
-- Techniker mitten im Onboarding → `nur_fuer_neue` irrelevant, normaler Ablauf
-- Trainer → Bypass greift weiterhin
-- Lektion nachträglich von `nur_fuer_neue: true` auf `false` geändert → Pflicht-Video-Check greift beim nächsten Login
-- Mehrere Pflicht-Videos → werden nacheinander abgespielt
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
