@@ -45,7 +45,7 @@ export function AbschlussSection({ form, bilder, votFormularId, leadName, leadId
         </p>
         <PhotoUploadField
           kategorie="bewertung_nachweis"
-          bilder={bilder}
+          existingBilder={bilder}
           votFormularId={votFormularId}
           leadName={leadName}
           leadId={leadId}
