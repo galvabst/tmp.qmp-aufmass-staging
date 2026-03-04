@@ -331,7 +331,8 @@ const Index = () => {
     return <OnboardingLoadingScreen message="Weiterleitung zum Admin-Bereich..." />;
   }
 
-  if (!isDbReady || isPreviewMode) {
+  const isTrainerBypass = onboardingRecord?.is_trainer === true;
+  if ((!isDbReady && !isTrainerBypass) || isPreviewMode) {
     return (
       <OnboardingScreen 
         isPreview={isPreviewMode}

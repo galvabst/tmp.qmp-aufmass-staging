@@ -840,6 +840,23 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
           </Button>
         </div>
       )}
+      {!isPreview && dbStatus?.isTrainer && (
+        <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-2 flex items-center justify-between safe-area-top">
+          <div className="flex items-center gap-2 text-emerald-800">
+            <span className="text-sm font-medium">
+              ✅ Du bist als Trainer freigeschaltet
+            </span>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onComplete}
+            className="text-emerald-800 hover:bg-emerald-200/50 h-7 px-2 font-medium"
+          >
+            Zur App →
+          </Button>
+        </div>
+      )}
       
       <OnboardingStepWrapper
         currentStep={state.currentStep}
