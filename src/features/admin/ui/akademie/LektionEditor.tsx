@@ -26,6 +26,7 @@ interface LektionEditorProps {
     text_inhalt?: string;
     text_zusammenfassung?: string;
     ist_aktiv?: boolean;
+    nur_fuer_neue?: boolean;
   }) => Promise<any>;
   isPending: boolean;
 }
