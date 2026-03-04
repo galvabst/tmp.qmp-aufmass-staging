@@ -30,6 +30,8 @@ import { NoContractorAccessScreen } from '@/components/ui/NoContractorAccessScre
 import { AuthRequiredScreen } from '@/components/ui/AuthRequiredScreen';
 import { TechnicalErrorScreen } from '@/components/ui/TechnicalErrorScreen';
 import { ONBOARDING_STEPS } from '@/lib/onboarding-config';
+import { usePflichtVideos } from '@/hooks/usePflichtVideos';
+import { PflichtVideoOverlay } from '@/features/akademie/ui/PflichtVideoOverlay';
 
 const Index = () => {
   const navigate = useNavigate();
