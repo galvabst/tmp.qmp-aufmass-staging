@@ -194,20 +194,34 @@ export function AdminDashboardView() {
   // Activity trend
   const trendData = useMemo(() => {
     if (!contractors) return [];
-    const monthMap = new Map<string, { started: number; ready: number }>();
-    contractors.filter(c => !c.isTrainer).forEach(c => {
-      if (!c.erstelltAm) return;
-      const month = format(startOfMonth(parseISO(c.erstelltAm)), 'yyyy-MM');
-      if (!monthMap.has(month)) monthMap.set(month, { started: 0, ready: 0 });
-      monthMap.get(month)!.started++;
-      if (c.onboardingStatus === 'ready') monthMap.get(month)!.ready++;
-    });
-    const sorted = Array.from(monthMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-    let cumStarted = 0, cumReady = 0;
-    return sorted.map(([month, counts]) => {
-      cumStarted += counts.started;
-      cumReady += counts.ready;
-      return { month: format(parseISO(`${month}-01`), 'MMM yy', { locale: de }), Gestartet: cumStarted, Einsatzbereit: cumReady };
+    const nonTrainers = contractors.filter(c => !c.isTrainer);
+    if (!nonTrainers.length) return [];
+
+    // Find date range: earliest erstelltAm to current month
+    const dates = nonTrainers.map(c => c.erstelltAm).filter(Boolean).map(d => parseISO(d));
+    if (!dates.length) return [];
+    const earliest = startOfMonth(new Date(Math.min(...dates.map(d => d.getTime()))));
+    const now = startOfMonth(new Date());
+
+    // Generate every month from earliest to now
+    const months: Date[] = [];
+    let cursor = earliest;
+    while (cursor <= now) {
+      months.push(cursor);
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+
+    // For each month endpoint, count cumulative started & ready
+    return months.map(monthDate => {
+      const endOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59);
+      const createdBefore = nonTrainers.filter(c => c.erstelltAm && parseISO(c.erstelltAm) <= endOfMonth);
+      const started = createdBefore.length;
+      const ready = createdBefore.filter(c => c.onboardingStatus === 'ready').length;
+      return {
+        month: format(monthDate, 'MMM yy', { locale: de }),
+        Gestartet: started,
+        Einsatzbereit: ready,
+      };
     });
   }, [contractors]);
 
