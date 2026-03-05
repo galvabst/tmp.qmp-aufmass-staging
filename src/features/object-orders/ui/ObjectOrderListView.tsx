@@ -93,9 +93,16 @@ export function ObjectOrderListView() {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
                         <p className="font-medium text-sm text-foreground">{t.customerName}</p>
-                        <Badge variant={isScheduled ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0.5">
-                          {isScheduled ? 'Terminiert' : 'Offen'}
-                        </Badge>
+                        <div className="flex gap-1.5 items-center">
+                          {t.pipelineStatus && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono text-muted-foreground">
+                              {t.pipelineStatus}
+                            </Badge>
+                          )}
+                          <Badge variant={isScheduled ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0.5">
+                            {isScheduled ? 'Terminiert' : 'Offen'}
+                          </Badge>
+                        </div>
                       </div>
                       <div className="space-y-1.5 text-sm">
                         <div className="flex items-start gap-2">

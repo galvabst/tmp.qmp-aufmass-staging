@@ -1,29 +1,65 @@
 
 
-# Pool-View Fix: Keine Daten sichtbar
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-Die Query filtert mit `NOT IN ('wc1_durchfuehren', ...)` -- aber **alle 512 nicht-zugewiesenen Aufträge** haben genau den Status `wc1_durchfuehren`. Das sind historische/Legacy-Aufträge, die ohne Techniker-Zuweisung diesen Status erhalten haben. Ergebnis: 0 Treffer, leere Ansicht.
+## 1. Themen-Kategorien einführen
 
-Aktuell existiert nur 1 offener Terminvorschlag (status `vorgeschlagen`), 30 angenommene und 10 abgelehnte.
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-## Lösung: Filter erweitern + Storniert-only ausschließen
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-Statt eine Negativliste von Status zu pflegen, sollte der Admin-Pool **alle nicht-zugewiesenen Aufträge** zeigen -- nur `storniert` wird ausgeschlossen. So sieht der Admin das vollständige Bild:
+## 2. DB-Änderung
 
-### Hook (`useAdminObjectOrders.ts`)
-- Filter ändern: nur `.neq('pipeline_status', 'storniert')` statt der langen NOT IN-Liste
-- Damit werden die 512 `wc1_durchfuehren`-Aufträge ohne Techniker sichtbar (+ alle zukünftigen Statuswerte)
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-### View (`ObjectOrderListView.tsx`)  
-- Pipeline-Status als zusätzliche Info auf der Karte anzeigen (z.B. kleiner Badge mit dem Status)
-- So erkennt der Admin sofort, welche Aufträge wirklich im Pool warten (`termin_abwarten`) vs. welche Anomalien sind (`wc1_durchfuehren` ohne Techniker)
+## 3. UI-Änderungen
 
-### Betroffene Dateien
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-| Datei | Änderung |
-|-------|----------|
-| `useAdminObjectOrders.ts` | NOT IN → nur `storniert` ausschließen, `pipeline_status` mit zurückgeben |
-| `ObjectOrderListView.tsx` | Pipeline-Status-Badge auf Karten anzeigen |
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
