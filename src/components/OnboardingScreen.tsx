@@ -459,6 +459,24 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     
     if (navState?.completedHauptmodulId && navState?.completedUnterpunktId) {
       completeAkademieUnterpunkt(navState.completedHauptmodulId, navState.completedUnterpunktId);
+      
+      // Persist completion to DB (localStorage is already updated above)
+      const cId = dbStatus?.onboardingId;
+      const lId = navState.completedUnterpunktId;
+      if (cId && lId) {
+        supabaseTC.from('contractor_akademie_lektions_fortschritt').upsert({
+          contractor_id: cId,
+          lektion_id: lId,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          started_at: new Date().toISOString(),
+          video_progress_seconds: 0,
+        }, { onConflict: 'contractor_id,lektion_id' }).then(({ error }) => {
+          if (error) console.warn('[AkademieComplete] DB upsert failed:', error.message);
+          else console.log('[AkademieComplete] Lektion', lId, 'marked completed in DB');
+        });
+      }
+      
       toast.success('Unterpunkt abgeschlossen!');
       goToStep('akademie');
       navigate('/', { replace: true, state: {} });
