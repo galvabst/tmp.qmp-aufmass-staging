@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   AdminContractor,
+  BestellungDetail,
   ONBOARDING_STATUS_LABELS,
   ONBOARDING_SUBSTATUS_LABELS,
   STEP_LABELS,
@@ -156,11 +157,18 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
               <span className="flex items-center gap-2"><ShoppingBag className="w-4 h-4 text-muted-foreground" /> Bestellungen ({c.bestellungenTotal})</span>
             </AccordionTrigger>
             <AccordionContent className="px-4 pb-4">
-              {c.bestellungenTotal === 0 ? (
+              {c.bestellungen.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Keine Bestellungen vorhanden</p>
               ) : (
-                <div className="text-xs space-y-1">
-                  <Row label="Bezahlt">{c.bestellungenBezahlt} von {c.bestellungenTotal}</Row>
+                <div className="space-y-1.5">
+                  {c.bestellungen.map((b, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs py-1">
+                      <span className="text-foreground capitalize">{b.produktKey.replace(/[-_]/g, ' ')}{b.groesse ? ` (${b.groesse})` : ''}</span>
+                      <Badge variant={b.status === 'paid' ? 'default' : b.status === 'failed' ? 'destructive' : 'outline'} className="text-[10px]">
+                        {b.status === 'paid' ? '✓ Bezahlt' : b.status === 'failed' ? 'Fehlgeschlagen' : 'Offen'}
+                      </Badge>
+                    </div>
+                  ))}
                 </div>
               )}
             </AccordionContent>
@@ -219,7 +227,7 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
                   {c.quizBestanden ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-muted-foreground" />}
                 </Row>
                 <Row label="Abschlusstest">
-                  {c.akademieTestBestanden ? (
+                  {(c.akademieTestBestanden || c.completedSteps.includes('akademie')) ? (
                     <Badge variant="default" className="text-[10px]">Bestanden</Badge>
                   ) : (
                     <span className="text-muted-foreground">Nicht bestanden</span>
