@@ -1,65 +1,31 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Pool-Tab Fix: Alle Thermocheck-Aufträge anzeigen
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
+1. **Endlos-Laden**: Der Hook filtert auf `zugewiesener_techniker_id = null`, findet ~70 Aufträge, holt dann deren Terminvorschläge mit Status `vorgeschlagen`/`angenommen`. Da die meisten unassigned Orders gar keine Terminvorschläge haben UND der Status-Filter (`vorgeschlagen`) nichts zurückgibt, erscheinen viele Aufträge in keiner Kategorie.
+2. **Falscher Scope**: Der Admin will ALLE Thermocheck-Aufträge sehen, nicht nur unzugewiesene.
 
-## 1. Themen-Kategorien einführen
+## Lösung
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+### Hook `useAdminObjectOrders.ts` — komplett neu
+- **Keine Filter** auf `zugewiesener_techniker_id` oder `pipeline_status` — alle Aufträge laden
+- Alle `thermocheck_terminvorschlaege` dazu laden (ohne Status-Filter)
+- Kategorisierung:
+  - **Ohne Terminvorschläge**: Aufträge ohne Einträge in `thermocheck_terminvorschlaege`
+  - **Mit Terminvorschlägen**: Aufträge mit mindestens einem Terminvorschlag (Anzahl + nächstes Datum anzeigen)
+- Zusätzlich `pipeline_status` und `zugewiesener_techniker_id` als Info mitgeben
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+### View `ObjectOrderListView.tsx` — Tabs anpassen
+- Tab 1: **Alle** (Gesamtzahl)
+- Tab 2: **Ohne Termin** (Aufträge ohne Terminvorschläge)
+- Tab 3: **Mit Termin** (Aufträge mit Terminvorschlägen)
+- Jede Karte zeigt: Kundenname, Adresse, PLZ/Ort, Pipeline-Status, Anzahl Terminvorschläge, nächstes Datum
 
-## 2. DB-Änderung
+### Betroffene Dateien
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
-
-## 3. UI-Änderungen
-
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
-
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
-
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| `useAdminObjectOrders.ts` | Filter entfernen, alle Aufträge + alle Termine laden, neue Kategorisierung |
+| `ObjectOrderListView.tsx` | Tabs umbenennen, Karten mit Termin-Info erweitern |
 
