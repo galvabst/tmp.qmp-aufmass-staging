@@ -1,65 +1,30 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Quiz-Fragen inline mit Antworten anzeigen
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
+`QuizFrageListItem` zeigt nur den Fragetext (truncated) und "X Antw. · Y korrekt". Man muss den Editor-Dialog öffnen um die Antworten zu sehen. Der Admin will auf einen Blick sehen, wie jede Frage aufgebaut ist.
 
-## 1. Themen-Kategorien einführen
+## Lösung
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+**Datei:** `src/features/admin/ui/akademie/QuizFrageListItem.tsx`
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+Die Komponente erweitern: Unterhalb der Frage werden die Antworten als kompakte Liste angezeigt — jede mit einem farbigen Indikator (grün = korrekt, grau = falsch) und dem Antworttext. Die Frage selbst wird nicht mehr truncated sondern vollständig angezeigt.
 
-## 2. DB-Änderung
+```
+┌─────────────────────────────────────────────────┐
+│ Wie heißt das Kältemittel?          #1  [⟳] [✎]│
+│ ✓ R290 (Propan)                                 │
+│ ✗ R410A                                         │
+│ ✗ R32                                           │
+│ ✗ CO2                                           │
+└─────────────────────────────────────────────────┘
+```
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+- Korrekte Antworten: grüner Haken + `text-green-700`
+- Falsche Antworten: graues X + `text-muted-foreground`
+- Frage vollständig anzeigen (kein `truncate`)
+- Bestehende Edit/Toggle-Buttons bleiben oben rechts
 
-## 3. UI-Änderungen
-
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
-
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
-
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+Nur 1 Datei betroffen. Keine DB-Änderungen.
 
