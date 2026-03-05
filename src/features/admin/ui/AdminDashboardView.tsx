@@ -211,14 +211,15 @@ export function AdminDashboardView() {
     return { ready, trainers };
   }, [contractors]);
 
-  // Funnel data
+  // Funnel data (all non-trainer contractors, including ready)
+  const allNonTrainers = useMemo(() => contractors?.filter(c => !c.isTrainer) ?? [], [contractors]);
   const funnelData = useMemo(() => {
-    if (!activeTechs.length) return [];
+    if (!allNonTrainers.length) return [];
     return FUNNEL_STAGES.map(stage => ({
       stage: stage.label,
-      count: activeTechs.filter(stage.filter).length,
+      count: allNonTrainers.filter(stage.filter).length,
     }));
-  }, [activeTechs]);
+  }, [allNonTrainers]);
 
   const isLoading = cLoading || sLoading;
 
