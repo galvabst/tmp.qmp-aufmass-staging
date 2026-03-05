@@ -6,6 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { AkademieHauptmodul, AkademieUnterpunkt } from '@/types/onboarding';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { PraxistestSection } from './PraxistestSection';
 
 interface AcademyStepProps {
   hauptmodule: AkademieHauptmodul[];
@@ -13,6 +14,15 @@ interface AcademyStepProps {
   testBestanden: boolean;
   onStartTest: () => void;
   isTrainer?: boolean;
+  // Praxistest
+  praxistestScanUrl?: string;
+  praxistestVideoUrl?: string;
+  praxistestEingereicht?: boolean;
+  praxistestFreigabe?: boolean;
+  onPraxistestScanUrlChange?: (url: string) => void;
+  onPraxistestVideoUpload?: (file: File) => Promise<void>;
+  onPraxistestEinreichen?: () => Promise<void>;
+  isPraxistestUploading?: boolean;
 }
 
 /** Counts all leaf unterpunkte (children count, not groups) */
@@ -155,6 +165,14 @@ export function AcademyStep({
   testBestanden,
   onStartTest,
   isTrainer = false,
+  praxistestScanUrl = '',
+  praxistestVideoUrl = '',
+  praxistestEingereicht = false,
+  praxistestFreigabe = false,
+  onPraxistestScanUrlChange,
+  onPraxistestVideoUpload,
+  onPraxistestEinreichen,
+  isPraxistestUploading = false,
 }: AcademyStepProps) {
   const navigate = useNavigate();
   const totalProgress = getTotalAkademieProgress(hauptmodule);
@@ -314,6 +332,21 @@ export function AcademyStep({
           <CheckCircle2 className="w-8 h-8 text-status-accepted mx-auto mb-2" />
           <p className="font-semibold text-foreground">Abschlusstest bestanden! 🎉</p>
         </div>
+      )}
+
+      {/* Praxistest Section - nach dem theoretischen Test */}
+      {!isTrainer && (
+        <PraxistestSection
+          testBestanden={testBestanden}
+          scanUrl={praxistestScanUrl}
+          videoUrl={praxistestVideoUrl}
+          eingereicht={praxistestEingereicht}
+          freigabe={praxistestFreigabe}
+          onScanUrlChange={onPraxistestScanUrlChange || (() => {})}
+          onVideoUpload={onPraxistestVideoUpload || (async () => {})}
+          onEinreichen={onPraxistestEinreichen || (async () => {})}
+          isUploading={isPraxistestUploading}
+        />
       )}
     </div>
   );
