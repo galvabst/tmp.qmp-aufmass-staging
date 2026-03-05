@@ -818,6 +818,28 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             testBestanden={state.akademieTestBestanden}
             onStartTest={handleStartTest}
             isTrainer={dbStatus?.isTrainer}
+            praxistestScanUrl={state.praxistestScanUrl || ''}
+            praxistestVideoUrl={state.praxistestVideoUrl || ''}
+            praxistestEingereicht={state.praxistestEingereicht || false}
+            praxistestFreigabe={state.praxistestFreigabe || false}
+            onPraxistestScanUrlChange={(url) => setPraxistestScanUrl(url)}
+            onPraxistestVideoUpload={async (file) => {
+              setIsPraxistestUploading(true);
+              try {
+                const url = await uploadPraxistestVideo(file);
+                setPraxistestVideoUrl(url);
+              } finally {
+                setIsPraxistestUploading(false);
+              }
+            }}
+            onPraxistestEinreichen={async () => {
+              await savePraxistest({
+                scanUrl: state.praxistestScanUrl || '',
+                videoUrl: state.praxistestVideoUrl || '',
+              });
+              setPraxistestEingereicht(true);
+            }}
+            isPraxistestUploading={isPraxistestUploading}
           />
         );
 
