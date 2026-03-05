@@ -22,7 +22,8 @@ export function useAdminPoolTermine() {
       // 1. ALL Thermocheck orders (no filters)
       const { data: auftraege, error: aErr } = await supabaseTC
         .from('v_thermocheck_auftraege')
-        .select('id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,pipeline_status,zugewiesener_techniker_id');
+        .select('id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,pipeline_status,zugewiesener_techniker_id')
+        .is('zugewiesener_techniker_id', null);
       if (aErr) throw aErr;
       if (!auftraege?.length) return [];
 
