@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AdminLayout } from './AdminLayout';
 import { useAdminContractorList, AdminContractor, STEP_LABELS } from '@/features/contractors/hooks/useAdminContractorList';
@@ -8,8 +8,28 @@ import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprint
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { format, parseISO, startOfMonth } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+
+// ── Funnel config ──
+const FUNNEL_STAGES = [
+  { label: 'Registriert', filter: () => true },
+  { label: 'Stammdaten', filter: (c: AdminContractor) => c.completedSteps.includes('profil') },
+  { label: 'Bestellungen', filter: (c: AdminContractor) => c.completedSteps.includes('bestellungen') },
+  { label: 'Akademie', filter: (c: AdminContractor) => c.completedSteps.includes('akademie') || (c.currentStep === 'akademie' && c.lektionenCompleted > 0) },
+  { label: 'Prüfung bestanden', filter: (c: AdminContractor) => c.akademieTestBestanden },
+  { label: 'Coaching', filter: (c: AdminContractor) => c.completedSteps.includes('coaching') || !!c.coachingTermin },
+  { label: 'Einsatzbereit', filter: (c: AdminContractor) => c.onboardingStatus === 'ready' },
+];
+const FUNNEL_COLORS = [
+  'hsl(var(--muted-foreground))',
+  'hsl(200 80% 50%)',
+  'hsl(45 93% 47%)',
+  'hsl(280 60% 55%)',
+  'hsl(var(--primary))',
+  'hsl(142 71% 45%)',
+  'hsl(142 71% 35%)',
+];
 
 // ── Pipeline config ──
 const PIPELINE_LABELS: Record<string, string> = {
@@ -191,39 +211,15 @@ export function AdminDashboardView() {
     return { ready, trainers };
   }, [contractors]);
 
-  // Activity trend
-  const trendData = useMemo(() => {
-    if (!contractors) return [];
-    const nonTrainers = contractors.filter(c => !c.isTrainer);
-    if (!nonTrainers.length) return [];
-
-    // Find date range: earliest erstelltAm to current month
-    const dates = nonTrainers.map(c => c.erstelltAm).filter(Boolean).map(d => parseISO(d));
-    if (!dates.length) return [];
-    const earliest = startOfMonth(new Date(Math.min(...dates.map(d => d.getTime()))));
-    const now = startOfMonth(new Date());
-
-    // Generate every month from earliest to now
-    const months: Date[] = [];
-    let cursor = earliest;
-    while (cursor <= now) {
-      months.push(cursor);
-      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-    }
-
-    // For each month endpoint, count cumulative started & ready
-    return months.map(monthDate => {
-      const endOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59);
-      const createdBefore = nonTrainers.filter(c => c.erstelltAm && parseISO(c.erstelltAm) <= endOfMonth);
-      const started = createdBefore.length;
-      const ready = createdBefore.filter(c => c.onboardingStatus === 'ready').length;
-      return {
-        month: format(monthDate, 'MMM yy', { locale: de }),
-        Gestartet: started,
-        Einsatzbereit: ready,
-      };
-    });
-  }, [contractors]);
+  // Funnel data (all non-trainer contractors, including ready)
+  const allNonTrainers = useMemo(() => contractors?.filter(c => !c.isTrainer) ?? [], [contractors]);
+  const funnelData = useMemo(() => {
+    if (!allNonTrainers.length) return [];
+    return FUNNEL_STAGES.map(stage => ({
+      stage: stage.label,
+      count: allNonTrainers.filter(stage.filter).length,
+    }));
+  }, [allNonTrainers]);
 
   const isLoading = cLoading || sLoading;
 
@@ -299,25 +295,28 @@ export function AdminDashboardView() {
         </CardContent>
       </Card>
 
-      {/* Onboarding-Trend */}
+      {/* Onboarding-Funnel */}
       <Card className="mb-6">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">Onboarding-Trend</CardTitle>
-          <p className="text-xs text-muted-foreground">Kumulativ gestartete vs. einsatzbereite Techniker</p>
+          <CardTitle className="text-sm font-semibold">Onboarding-Funnel</CardTitle>
+          <p className="text-xs text-muted-foreground">Kumulativ: Wie viele Techniker haben mindestens diese Stufe erreicht?</p>
         </CardHeader>
         <CardContent>
-          {isLoading || !trendData.length ? (
-            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{isLoading ? 'Lädt…' : 'Keine Daten'}</div>
+          {isLoading || !funnelData.length ? (
+            <div className="h-56 flex items-center justify-center text-muted-foreground text-sm">{isLoading ? 'Lädt…' : 'Keine Daten'}</div>
           ) : (
-            <div className="h-48">
+            <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="Gestartet" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="Einsatzbereit" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={false} />
-                </LineChart>
+                <BarChart data={funnelData} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="stage" type="category" width={110} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value: number) => [`${value} Techniker`, '']} contentStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                    {funnelData.map((_, i) => (
+                      <Cell key={i} fill={FUNNEL_COLORS[i] ?? 'hsl(var(--muted-foreground))'} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           )}
