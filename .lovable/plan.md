@@ -1,65 +1,29 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Fix: Lektionen/Quiz-Daten werden mit falschem Key gejoined
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Root Cause
 
-## 1. Themen-Kategorien einführen
+In `useAdminContractorList.ts` Zeile 182-183 werden Lektionen- und Quiz-Daten mit `o.profile_id` nachgeschlagen, aber die DB-Tabellen `contractor_akademie_lektions_fortschritt` und `contractor_akademie_quiz_ergebnis` verwenden `contractor_id` = `contractor_onboarding.id` (die Onboarding-ID, NICHT die Profile-ID).
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+Deshalb zeigt jeder Contractor 0/51 Lektionen, 0 Quiz-Versuche, 0% Best Score — die Map-Lookups finden nie einen Treffer.
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+## Fix
 
-## 2. DB-Änderung
+**Datei:** `src/features/contractors/hooks/useAdminContractorList.ts`
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+**Zeile 182-183** ändern von:
+```typescript
+const lekt = o.profile_id ? lektionenMap.get(o.profile_id) : null;
+const quiz = o.profile_id ? quizMap.get(o.profile_id) : null;
+```
+zu:
+```typescript
+const lekt = lektionenMap.get(o.id) ?? null;
+const quiz = quizMap.get(o.id) ?? null;
+```
 
-## 3. UI-Änderungen
+Zusätzlich: `quizBestanden` Zeile 209 auch defensiv mit `completedSteps.includes('akademie')` absichern, wie beim Abschlusstest.
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
-
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
-
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+Das ist ein 2-Zeilen-Fix. Keine Migration nötig — die Daten in der DB sind korrekt, nur der Join-Key im Frontend war falsch.
 
