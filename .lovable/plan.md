@@ -1,46 +1,65 @@
 
 
-# Akademie Admin: Abschlusstest-Fragenpool und Praxistest-Überblick ergänzen
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-Die Akademie Admin-Ansicht zeigt zwei wichtige Bereiche nicht:
+## 1. Themen-Kategorien einführen
 
-1. **Abschlusstest-Fragenpool**: Die Quiz-Fragen sind zwar pro Modul sichtbar (wenn man das Modul aufklappt), aber es gibt keine Gesamtübersicht aller aktiven Fragen, die im Abschlusstest vorkommen. Der Admin muss jedes einzelne Modul aufklappen um den vollen Fragenpool zu sehen.
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-2. **Praxistest-Anforderungen**: Nach dem Abschlusstest müssen Contractors einen 3D-Scan-Link und ein Drohnenflug-Video einreichen. Diese Phase ist im Admin-Bereich der Akademie nicht sichtbar — man sieht nicht, was die Contractors dort genau tun müssen.
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-## Lösung
+## 2. DB-Änderung
 
-**Datei:** `src/features/admin/ui/akademie/AkademieAdminView.tsx`
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-Unterhalb der Modul-Accordion zwei neue Sektionen ergänzen:
+## 3. UI-Änderungen
 
-### 1. Abschlusstest-Zusammenfassung
-Ein eigener Bereich "Abschlusstest (Fragenpool)" der alle aktiven Quiz-Fragen aller Module aggregiert anzeigt — mit Modul-Zuordnung, Frage, Antworten (grün/grau). Das sind die gleichen `QuizFrageListItem`-Komponenten, nur gruppiert nach Modul mit Modul-Titel als Überschrift.
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-```
-┌─ 📝 Abschlusstest — Fragenpool (30 aktive Fragen) ────────┐
-│                                                              │
-│ Modul 1: Grundlagen (3 Fragen)                              │
-│  ┌ Frage 1 ... ┐                                            │
-│  └ ✓/✗ Antworten ┘                                          │
-│                                                              │
-│ Modul 6: Datenerhebung (8 Fragen)                           │
-│  ┌ Frage 1 ... ┐                                            │
-│  └ ✓/✗ Antworten ┘                                          │
-│  ...                                                         │
-└──────────────────────────────────────────────────────────────┘
-```
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-### 2. Praxistest-Info
-Ein Info-Block der zeigt, was nach dem Abschlusstest kommt:
-- 3D-Scan-Link (URL-Eingabe)
-- Drohnenflug-Video (Upload)
-- Admin-Freigabe erforderlich (Verweis auf Quality Gate > Praxistests)
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
 
-Rein informativer Überblick, keine Bearbeitungsfunktion — die Freigabe passiert im Quality Gate.
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
 
-### Betroffene Datei
-- `src/features/admin/ui/akademie/AkademieAdminView.tsx` — zwei neue Sektionen unterhalb des Modul-Accordions
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 

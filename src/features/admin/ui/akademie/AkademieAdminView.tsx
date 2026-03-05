@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Plus, BookOpen, HelpCircle } from 'lucide-react';
+import { Plus, BookOpen, HelpCircle, ClipboardCheck, FileVideo, Link2, ShieldCheck } from 'lucide-react';
 import { AdminLayout } from '../AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Accordion, AccordionItem, AccordionTrigger, AccordionContent,
 } from '@/components/ui/accordion';
@@ -173,6 +174,87 @@ export function AkademieAdminView() {
           ))}
         </Accordion>
       )}
+
+      {/* Abschlusstest Fragenpool */}
+      {!isLoading && module && (() => {
+        const activeModulesWithQuiz = module
+          .filter(m => m.ist_aktiv && m.quizFragen.some(q => q.ist_aktiv));
+        const totalActive = activeModulesWithQuiz.reduce((sum, m) => sum + m.quizFragen.filter(q => q.ist_aktiv).length, 0);
+
+        return (
+          <Card className="mt-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ClipboardCheck className="w-5 h-5 text-primary" />
+                Abschlusstest — Fragenpool
+                <Badge variant="outline">{totalActive} aktive Fragen</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {activeModulesWithQuiz.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Keine aktiven Quiz-Fragen vorhanden</p>
+              ) : (
+                activeModulesWithQuiz.map(modul => {
+                  const activeFragen = modul.quizFragen.filter(q => q.ist_aktiv);
+                  return (
+                    <div key={modul.id}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-mono text-muted-foreground">{modul.code}</span>
+                        <span className="text-sm font-semibold">{modul.titel}</span>
+                        <Badge variant="secondary" className="text-xs">{activeFragen.length}</Badge>
+                      </div>
+                      <div className="space-y-1.5 pl-2">
+                        {activeFragen.map(frage => (
+                          <QuizFrageListItem
+                            key={frage.id}
+                            frage={frage}
+                            onEdit={handleEditQuiz}
+                            onToggleActive={handleToggleQuizActive}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Praxistest Info */}
+      <Card className="mt-4">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+            Praxistest — Anforderungen
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-3">
+            Nach bestandenem Abschlusstest müssen Contractors folgende Nachweise einreichen:
+          </p>
+          <ul className="space-y-2">
+            <li className="flex items-start gap-2 text-sm">
+              <Link2 className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
+              <div>
+                <span className="font-medium">3D-Scan / Autark-Projekt Link</span>
+                <span className="text-muted-foreground"> — URL zum fertiggestellten Projekt</span>
+              </div>
+            </li>
+            <li className="flex items-start gap-2 text-sm">
+              <FileVideo className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
+              <div>
+                <span className="font-medium">Drohnenflug-Video</span>
+                <span className="text-muted-foreground"> — Dateiupload (Bucket: contractor-documents)</span>
+              </div>
+            </li>
+          </ul>
+          <p className="text-xs text-muted-foreground mt-3 border-t pt-2">
+            Freigabe erfolgt über <span className="font-medium">Quality Gate → Praxistests</span>
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Dialogs */}
       <ModulEditor
