@@ -132,6 +132,9 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setOutroVideoWatched,
     hydrateFromDb,
     isStepComplete,
+    setPraxistestScanUrl,
+    setPraxistestVideoUrl,
+    setPraxistestEingereicht,
   } = useOnboardingState(initialProfile, isPreview, forceReset, dbStatus?.isTrainer ?? false);
   
   // Unlock "Weiter" sobald der Schritt gewechselt hat
@@ -157,6 +160,10 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       akademieTestBestanden: dbOnboardingState.akademieTestBestanden,
       introVideoWatched: dbOnboardingState.introVideoWatched,
       outroVideoWatched: dbOnboardingState.outroVideoWatched,
+      praxistestScanUrl: dbOnboardingState.praxistestScanUrl,
+      praxistestVideoUrl: dbOnboardingState.praxistestVideoUrl,
+      praxistestEingereicht: dbOnboardingState.praxistestEingereicht,
+      praxistestFreigabe: dbOnboardingState.praxistestFreigabe,
     });
   }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, hydrateFromDb]);
 
