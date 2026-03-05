@@ -1,16 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AdminLayout } from './AdminLayout';
-import { useAdminContractorList, STEP_LABELS } from '@/features/contractors/hooks/useAdminContractorList';
+import { useAdminContractorList, AdminContractor, STEP_LABELS } from '@/features/contractors/hooks/useAdminContractorList';
 import { useAdminDashboardStats } from '@/features/admin/hooks/useAdminDashboardStats';
-import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprints, CreditCard, MonitorSmartphone, ScanLine } from 'lucide-react';
+import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprints, CreditCard, MonitorSmartphone, ScanLine, GraduationCap, Car, FileCheck, UserX } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { format, parseISO, startOfMonth } from 'date-fns';
 import { de } from 'date-fns/locale';
 
+// ── Pipeline config ──
 const PIPELINE_LABELS: Record<string, string> = {
   wc1_durchfuehren: 'Abgeschlossen',
   termin_abwarten: 'Termin abwarten',
@@ -19,7 +20,6 @@ const PIPELINE_LABELS: Record<string, string> = {
   vot_abfragen: 'VoT abfragen',
   storniert: 'Storniert',
 };
-
 const PIPELINE_COLORS: Record<string, string> = {
   wc1_durchfuehren: 'hsl(var(--primary))',
   termin_bestaetigt: 'hsl(142 71% 45%)',
@@ -29,38 +29,142 @@ const PIPELINE_COLORS: Record<string, string> = {
   storniert: 'hsl(var(--muted-foreground))',
 };
 
-const ONBOARDING_STEPS = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
-
-// Mandatory item categories
-interface MandatoryItem {
-  key: string;
-  label: string;
-  icon: React.ReactNode;
-  check: (products: string[]) => boolean;
-}
-
-const MANDATORY_ITEMS: MandatoryItem[] = [
-  { key: 'oberteil', label: 'Oberteil', icon: <Shirt className="w-3 h-3" />, check: (p) => p.some(k => k === 'tshirt' || k === 'poloshirt') },
-  { key: 'schlappen', label: 'Schlappen', icon: <Footprints className="w-3 h-3" />, check: (p) => p.includes('schlappen') },
-  { key: 'ausweiskarte', label: 'Ausweis', icon: <CreditCard className="w-3 h-3" />, check: (p) => p.includes('ausweiskarte') },
-  { key: 'pullover', label: 'Pullover', icon: <Shirt className="w-3 h-3" />, check: (p) => p.includes('pullover') },
-  { key: 'scanner-lizenz', label: 'Scanner', icon: <ScanLine className="w-3 h-3" />, check: (p) => p.includes('scanner-lizenz') },
-  { key: 'google-workspace', label: 'Workspace', icon: <MonitorSmartphone className="w-3 h-3" />, check: (p) => p.includes('google-workspace') },
+// ── Mandatory items for Bestellungen tab ──
+const MANDATORY_ITEMS = [
+  { key: 'oberteil', label: 'Polo/T-Shirt', check: (p: string[]) => p.some(k => k === 'tshirt' || k === 'poloshirt') },
+  { key: 'schlappen', label: 'Schlappen', check: (p: string[]) => p.includes('schlappen') },
+  { key: 'ausweiskarte', label: 'Ausweis', check: (p: string[]) => p.includes('ausweiskarte') },
+  { key: 'pullover', label: 'Pullover', check: (p: string[]) => p.includes('pullover') },
+  { key: 'scanner-lizenz', label: 'Scanner-Lizenz', check: (p: string[]) => p.includes('scanner-lizenz') },
+  { key: 'google-workspace', label: 'Google Workspace', check: (p: string[]) => p.includes('google-workspace') },
 ];
 
-const STEP_COLORS: Record<string, string> = {
-  profil: 'bg-blue-100 text-blue-800',
-  dokumente: 'bg-purple-100 text-purple-800',
-  bestellungen: 'bg-amber-100 text-amber-800',
-  equipment: 'bg-orange-100 text-orange-800',
-  akademie: 'bg-emerald-100 text-emerald-800',
-  coaching: 'bg-cyan-100 text-cyan-800',
-  nachweise: 'bg-rose-100 text-rose-800',
-};
+// ── Filter tab definitions ──
+type TabKey = 'alle' | 'nicht_registriert' | 'stammdaten' | 'bestellungen' | 'akademie' | 'pruefung' | 'praxistest' | 'coaching';
 
+interface TabDef {
+  key: TabKey;
+  label: string;
+  filter: (c: AdminContractor) => boolean;
+}
+
+const TAB_DEFS: TabDef[] = [
+  { key: 'alle', label: 'Alle', filter: () => true },
+  { key: 'nicht_registriert', label: 'Nicht registriert', filter: c => c.onboardingStatus === 'invited' || c.onboardingStatus === 'angelegt' || !c.currentStep },
+  { key: 'stammdaten', label: 'Stammdaten', filter: c => c.currentStep === 'profil' || c.currentStep === 'dokumente' },
+  { key: 'bestellungen', label: 'Bestellungen', filter: c => c.currentStep === 'bestellungen' || c.currentStep === 'equipment' },
+  { key: 'akademie', label: 'Akademie', filter: c => c.currentStep === 'akademie' && !c.akademieTestBestanden },
+  { key: 'pruefung', label: 'Abschlussprüfung', filter: c => c.akademieTestBestanden || (c.lektionenCompleted >= c.lektionenTotal && !c.akademieTestBestanden) },
+  { key: 'praxistest', label: 'Praxistest', filter: c => c.praxistestEingereicht && !c.praxistestFreigabe },
+  { key: 'coaching', label: 'Coaching', filter: c => c.currentStep === 'coaching' || c.currentStep === 'nachweise' },
+];
+
+// ── Detail renderers per tab ──
+function DetailForTab({ tab, c }: { tab: TabKey; c: AdminContractor }) {
+  switch (tab) {
+    case 'nicht_registriert':
+      return (
+        <span className="text-xs text-muted-foreground">
+          Angelegt: {c.erstelltAm ? format(parseISO(c.erstelltAm), 'dd.MM.yyyy', { locale: de }) : '–'}
+        </span>
+      );
+
+    case 'stammdaten': {
+      const missing: string[] = [];
+      if (!c.vorname || !c.nachname) missing.push('Name');
+      if (!c.ort) missing.push('Adresse');
+      if (!c.gewerbescheinUrl && !c.gewerbescheinSpaeter) missing.push('Gewerbeschein');
+      return (
+        <div className="flex flex-wrap gap-1">
+          {missing.length === 0 ? (
+            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Vollständig</Badge>
+          ) : (
+            missing.map(m => (
+              <Badge key={m} variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+                <X className="w-2.5 h-2.5 mr-0.5" />{m}
+              </Badge>
+            ))
+          )}
+        </div>
+      );
+    }
+
+    case 'bestellungen':
+      return (
+        <div className="flex flex-wrap gap-1">
+          {MANDATORY_ITEMS.map(item => {
+            const has = item.check(c.bezahlteProdukte);
+            return (
+              <Badge
+                key={item.key}
+                variant="outline"
+                className={`text-[10px] ${has ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-muted text-muted-foreground'}`}
+              >
+                {has ? <Check className="w-2.5 h-2.5 mr-0.5" /> : <X className="w-2.5 h-2.5 mr-0.5" />}
+                {item.label}
+              </Badge>
+            );
+          })}
+        </div>
+      );
+
+    case 'akademie':
+      return (
+        <span className="text-xs text-muted-foreground">
+          <GraduationCap className="w-3 h-3 inline mr-1" />
+          {c.lektionenCompleted}/{c.lektionenTotal} Lektionen
+        </span>
+      );
+
+    case 'pruefung':
+      return c.akademieTestBestanden ? (
+        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+          <Check className="w-2.5 h-2.5 mr-0.5" />Bestanden
+        </Badge>
+      ) : (
+        <span className="text-xs text-muted-foreground">
+          {c.quizVersuche} Versuch{c.quizVersuche !== 1 ? 'e' : ''} · Bester: {c.quizBestScore}%
+        </span>
+      );
+
+    case 'praxistest':
+      return (
+        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+          Wartet auf Freigabe
+        </Badge>
+      );
+
+    case 'coaching':
+      return (
+        <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+          {c.coachingTermin ? (
+            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+              <Car className="w-2.5 h-2.5 mr-0.5" />
+              {format(parseISO(c.coachingTermin), 'dd.MM.yyyy', { locale: de })}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground">Kein Termin</Badge>
+          )}
+          {c.coachName && <span>Coach: {c.coachName}</span>}
+        </div>
+      );
+
+    default: // 'alle'
+      return c.currentStep ? (
+        <Badge variant="outline" className="text-[10px]">
+          {STEP_LABELS[c.currentStep] ?? c.currentStep}
+        </Badge>
+      ) : (
+        <span className="text-xs text-muted-foreground">Kein Schritt</span>
+      );
+  }
+}
+
+// ── Main component ──
 export function AdminDashboardView() {
   const { data: contractors, isLoading: cLoading } = useAdminContractorList();
   const { data: stats, isLoading: sLoading } = useAdminDashboardStats();
+  const [activeTab, setActiveTab] = useState<TabKey>('alle');
 
   // Active technicians (not ready, not deaktiviert, not trainer)
   const activeTechs = useMemo(() => {
@@ -68,17 +172,29 @@ export function AdminDashboardView() {
     return contractors.filter(c => !c.isTrainer && c.onboardingStatus !== 'ready' && c.onboardingStatus !== 'deaktiviert');
   }, [contractors]);
 
+  // Tab counts
+  const tabCounts = useMemo(() => {
+    const counts: Record<TabKey, number> = {} as any;
+    TAB_DEFS.forEach(t => { counts[t.key] = activeTechs.filter(t.filter).length; });
+    return counts;
+  }, [activeTechs]);
+
+  // Filtered list
+  const filteredTechs = useMemo(() => {
+    const tabDef = TAB_DEFS.find(t => t.key === activeTab);
+    return tabDef ? activeTechs.filter(tabDef.filter) : activeTechs;
+  }, [activeTechs, activeTab]);
+
   const kpis = useMemo(() => {
     const ready = contractors?.filter(c => c.onboardingStatus === 'ready').length ?? 0;
     const trainers = contractors?.filter(c => c.isTrainer).length ?? 0;
     return { ready, trainers };
   }, [contractors]);
 
-  // Activity trend data (cumulative started & ready per month)
+  // Activity trend
   const trendData = useMemo(() => {
     if (!contractors) return [];
     const monthMap = new Map<string, { started: number; ready: number }>();
-    
     contractors.filter(c => !c.isTrainer).forEach(c => {
       if (!c.erstelltAm) return;
       const month = format(startOfMonth(parseISO(c.erstelltAm)), 'yyyy-MM');
@@ -86,18 +202,12 @@ export function AdminDashboardView() {
       monthMap.get(month)!.started++;
       if (c.onboardingStatus === 'ready') monthMap.get(month)!.ready++;
     });
-
     const sorted = Array.from(monthMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-    let cumStarted = 0;
-    let cumReady = 0;
+    let cumStarted = 0, cumReady = 0;
     return sorted.map(([month, counts]) => {
       cumStarted += counts.started;
       cumReady += counts.ready;
-      return {
-        month: format(parseISO(`${month}-01`), 'MMM yy', { locale: de }),
-        Gestartet: cumStarted,
-        Einsatzbereit: cumReady,
-      };
+      return { month: format(parseISO(`${month}-01`), 'MMM yy', { locale: de }), Gestartet: cumStarted, Einsatzbereit: cumReady };
     });
   }, [contractors]);
 
@@ -113,66 +223,59 @@ export function AdminDashboardView() {
         <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={stats?.inVerzug ?? '–'} accent />
       </div>
 
-      {/* Techniker-Übersicht */}
+      {/* Techniker-Übersicht mit Filter-Tabs */}
       <Card className="mb-6">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">Techniker im Onboarding ({activeTechs.length})</CardTitle>
-          <p className="text-xs text-muted-foreground">Aktueller Schritt & Pflichtartikel</p>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="px-0">
+          {/* Horizontal scrollable tabs */}
+          <ScrollArea className="w-full px-4 pb-3">
+            <div className="flex gap-1.5">
+              {TAB_DEFS.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {tab.label}
+                  <span className={`ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold ${
+                    activeTab === tab.key ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-background text-foreground'
+                  }`}>
+                    {tabCounts[tab.key]}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+
+          {/* Filtered list */}
           {isLoading ? (
             <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">Lädt…</div>
-          ) : activeTechs.length === 0 ? (
-            <div className="p-6 text-center text-muted-foreground text-sm">Alle Techniker sind einsatzbereit</div>
+          ) : filteredTechs.length === 0 ? (
+            <div className="p-6 text-center text-muted-foreground text-sm">Keine Techniker in dieser Kategorie</div>
           ) : (
-            <div className="divide-y divide-border">
-              {activeTechs.map(c => {
-                const stepIdx = c.currentStep ? ONBOARDING_STEPS.indexOf(c.currentStep) : 0;
-                const progress = Math.round(((c.completedSteps.length) / ONBOARDING_STEPS.length) * 100);
+            <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
+              {filteredTechs.map(c => {
                 const initials = `${c.vorname?.[0] || ''}${c.nachname?.[0] || ''}`.toUpperCase() || '?';
+                const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Kein Profil';
 
                 return (
-                  <div key={c.id} className="px-4 py-3">
-                    {/* Row 1: Avatar, Name, Step Badge */}
-                    <div className="flex items-center gap-3 mb-2">
-                      <Avatar className="w-7 h-7">
-                        <AvatarImage src={c.avatarUrl || undefined} />
-                        <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {c.vorname} {c.nachname}
-                        </p>
+                  <div key={c.id} className="px-4 py-3 flex items-start gap-3">
+                    <Avatar className="w-8 h-8 shrink-0">
+                      <AvatarImage src={c.avatarUrl || undefined} />
+                      <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                      <div className="mt-1">
+                        <DetailForTab tab={activeTab} c={c} />
                       </div>
-                      {c.currentStep && (
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${STEP_COLORS[c.currentStep] || ''}`}>
-                          {STEP_LABELS[c.currentStep] ?? c.currentStep}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Row 2: Mandatory items + progress */}
-                    <div className="flex items-center gap-1.5 ml-10">
-                      {MANDATORY_ITEMS.map(item => {
-                        const has = item.check(c.bezahlteProdukte);
-                        return (
-                          <div
-                            key={item.key}
-                            title={`${item.label}: ${has ? '✓' : '✗'}`}
-                            className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                              has ? 'bg-emerald-100 text-emerald-600' : 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            {item.icon}
-                          </div>
-                        );
-                      })}
-                      <div className="flex-1 ml-2">
-                        <Progress value={progress} className="h-1.5" />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground ml-1 shrink-0">
-                        {c.completedSteps.length}/{ONBOARDING_STEPS.length}
-                      </span>
                     </div>
                   </div>
                 );
@@ -182,7 +285,7 @@ export function AdminDashboardView() {
         </CardContent>
       </Card>
 
-      {/* Aktivitäts-Trend */}
+      {/* Onboarding-Trend */}
       <Card className="mb-6">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">Onboarding-Trend</CardTitle>
@@ -190,9 +293,7 @@ export function AdminDashboardView() {
         </CardHeader>
         <CardContent>
           {isLoading || !trendData.length ? (
-            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
-              {isLoading ? 'Lädt…' : 'Keine Daten'}
-            </div>
+            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{isLoading ? 'Lädt…' : 'Keine Daten'}</div>
           ) : (
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
@@ -217,23 +318,14 @@ export function AdminDashboardView() {
         </CardHeader>
         <CardContent>
           {isLoading || !stats?.pipeline?.length ? (
-            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
-              {isLoading ? 'Lädt…' : 'Keine Daten'}
-            </div>
+            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{isLoading ? 'Lädt…' : 'Keine Daten'}</div>
           ) : (
             <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={stats.pipeline.map(p => ({ ...p, label: PIPELINE_LABELS[p.status] ?? p.status }))}
-                  layout="vertical"
-                  margin={{ left: 0, right: 16, top: 4, bottom: 4 }}
-                >
+                <BarChart data={stats.pipeline.map(p => ({ ...p, label: PIPELINE_LABELS[p.status] ?? p.status }))} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
                   <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
                   <YAxis dataKey="label" type="category" width={110} tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    formatter={(value: number) => [`${value} Aufträge`, '']}
-                    contentStyle={{ fontSize: 12 }}
-                  />
+                  <Tooltip formatter={(value: number) => [`${value} Aufträge`, '']} contentStyle={{ fontSize: 12 }} />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={24}>
                     {stats.pipeline.map((p, i) => (
                       <Cell key={i} fill={PIPELINE_COLORS[p.status] ?? 'hsl(var(--muted-foreground))'} />
