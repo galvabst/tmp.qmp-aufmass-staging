@@ -1,65 +1,77 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Fix: Akademie-Lektionen werden nie als "completed" in DB gespeichert
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Root Cause
 
-## 1. Themen-Kategorien einführen
+**`completeAkademieUnterpunkt()` schreibt NUR in localStorage**, nie in die DB-Tabelle `contractor_akademie_lektions_fortschritt`. Das `useSaveVideoProgress` Hook upserted immer mit `status: 'in_progress'` und hört auf zu speichern sobald `isCompleted = true` (also wenn die Lektion lokal als abgeschlossen gilt). Es gibt keinen Code der den DB-Record auf `status = 'completed'` + `completed_at` setzt.
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+Zum Vergleich: `PflichtVideoOverlay` macht es richtig — dort wird direkt `status: 'completed'` + `completed_at` in die DB geschrieben.
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+## Betroffene Stellen
 
-## 2. DB-Änderung
+| Stelle | Problem |
+|--------|---------|
+| `AkademieModul.tsx` → `handleMarkComplete()` | Navigiert nur zurück mit state, kein DB-Write |
+| `OnboardingScreen.tsx` → useEffect mit `completedUnterpunktId` | Ruft nur `completeAkademieUnterpunkt()` auf (localStorage only) |
+| `useSaveVideoProgress.ts` | Schreibt immer `status: 'in_progress'`, nie `completed` |
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+## Lösung
 
-## 3. UI-Änderungen
+### 1. DB-Completion beim "Als abgeschlossen markieren" Klick
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+In `OnboardingScreen.tsx` — dort wo `completeAkademieUnterpunkt` aufgerufen wird (Zeile 460-463): Zusätzlich einen DB-Upsert machen:
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+```typescript
+// Nach completeAkademieUnterpunkt (localStorage)
+await supabaseTC.from('contractor_akademie_lektions_fortschritt').upsert({
+  contractor_id: contractorId,
+  lektion_id: unterpunktId,
+  status: 'completed',
+  completed_at: new Date().toISOString(),
+  started_at: new Date().toISOString(),
+  video_progress_seconds: 0,
+}, { onConflict: 'contractor_id,lektion_id' });
+```
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+Der `contractorId` ist bereits via `useContractorProfile` im `OnboardingScreen` verfügbar (aus `dbStatus`).
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+### 2. Datenmigration: Bestehende in_progress Records fixen
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
+Für Marius und alle anderen Contractors, die Lektionen bereits abgeschlossen haben (lokal), aber deren DB-Records noch `in_progress` sind:
 
-## 4. Bestehende Threads kategorisieren (Migration)
+SQL-Migration die alle `in_progress` Records auf `completed` setzt, wenn der Contractor `akademie` in `completed_steps` hat (= hat die Akademie bestanden, also alle Lektionen gesehen).
 
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
+```sql
+UPDATE thermocheck.contractor_akademie_lektions_fortschritt f
+SET status = 'completed', completed_at = f.started_at
+FROM thermocheck.contractor_onboarding o
+WHERE f.contractor_id = o.id
+  AND f.status = 'in_progress'
+  AND 'akademie' = ANY(o.completed_steps);
+```
 
-## Dateien
+### Betroffene Dateien
 
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| `src/components/OnboardingScreen.tsx` | DB-Upsert mit `status: 'completed'` beim Lektion-Abschluss |
+| Migration (SQL) | Bestehende `in_progress` Records auf `completed` setzen |
+
+### Edge Cases
+
+- **Kein contractorId verfügbar**: Guard-Check, localStorage-Write passiert trotzdem
+- **DB-Fehler beim Upsert**: Warn-Log, localStorage bleibt korrekt → Lektion gilt lokal trotzdem als abgeschlossen
+- **Doppelklick/Race Condition**: Upsert mit `onConflict` ist idempotent
+- **intro-video / outro-video**: Haben eigene RPCs, nicht betroffen
+- **PflichtVideoOverlay**: Schreibt bereits korrekt `completed`, nicht betroffen
+- **Lektion ohne Video**: Wird ebenfalls über `handleMarkComplete` → gleicher Pfad → Fix greift
+
+### Rollen-Matrix
+
+| Rolle | DB-Write Fortschritt | Begründung |
+|-------|---------------------|-----------|
+| Contractor (authenticated) | ✅ | RLS: ALL for authenticated = true |
+| Admin | ✅ | Gleiche Policy |
+| Trainer | ✅ | Gleiche Policy (nutzt aber Onboarding-Bypass) |
 
