@@ -206,7 +206,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       erstelltAm: o.erstellt_am,
       lektionenCompleted: lekt?.completed ?? 0,
       lektionenInProgress: lekt?.inProgress ?? 0,
-      lektionenTotal: 51,
+      lektionenTotal: activeLektionenCount,
       akademieTestBestanden: o.akademie_test_bestanden ?? false,
       quizVersuche: quiz?.versuche ?? 0,
       quizBestScore: quiz?.bestScore ?? 0,
