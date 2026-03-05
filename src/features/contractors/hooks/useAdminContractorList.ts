@@ -81,6 +81,7 @@ export interface AdminContractor {
   // Bestellungen
   bestellungenTotal: number;
   bestellungenBezahlt: number;
+  bezahlteProdukte: string[];
   // Equipment
   equipmentStatus: Record<string, { hatEigenes?: boolean; nachweisUrl?: string }>;
   // Coaching
@@ -123,7 +124,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
     // Quiz results
     supabaseTC.from('contractor_akademie_quiz_ergebnis').select('contractor_id, versuch, score, bestanden'),
     // Bestellungen
-    supabaseTC.from('contractor_bestellungen').select('onboarding_id, stripe_payment_status'),
+    supabaseTC.from('contractor_bestellungen').select('onboarding_id, stripe_payment_status, produkt_key'),
   ]);
 
   // Build lookup maps
@@ -152,13 +153,16 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   });
 
   // Bestellungen: aggregate per onboarding
-  const bestellMap = new Map<string, { total: number; bezahlt: number }>();
+  const bestellMap = new Map<string, { total: number; bezahlt: number; paidKeys: string[] }>();
   (bestellungenRes.data || []).forEach(b => {
     const key = b.onboarding_id;
-    if (!bestellMap.has(key)) bestellMap.set(key, { total: 0, bezahlt: 0 });
+    if (!bestellMap.has(key)) bestellMap.set(key, { total: 0, bezahlt: 0, paidKeys: [] });
     const entry = bestellMap.get(key)!;
     entry.total++;
-    if (b.stripe_payment_status === 'paid') entry.bezahlt++;
+    if (b.stripe_payment_status === 'paid') {
+      entry.bezahlt++;
+      if (b.produkt_key) entry.paidKeys.push(b.produkt_key);
+    }
   });
 
   // 4. Build admin contractors
@@ -194,6 +198,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       quizBestanden: quiz?.bestanden ?? false,
       bestellungenTotal: best?.total ?? 0,
       bestellungenBezahlt: best?.bezahlt ?? 0,
+      bezahlteProdukte: best?.paidKeys ?? [],
       equipmentStatus: equipment,
       coachingBewertung: o.coaching_bewertung ?? 'ausstehend',
       coachingTermin: o.gebuchter_coaching_termin ?? null,

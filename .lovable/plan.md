@@ -1,68 +1,65 @@
 
 
-# Pool-Erweiterung & Dashboard-Umbau
+# Plan: Forum UX verbessern + Themen-Filter
 
-## 1. Pool: Zwei Kategorien mit Filter
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-**Problem:** Aktuell zeigt der Pool nur Terminvorschläge mit Status `vorgeschlagen`. Der Admin will auch Aufträge sehen, die noch gar nicht terminiert sind.
+## 1. Themen-Kategorien einführen
 
-**Datenstand:** Aktuell 1 vorgeschlagener Termin, 0 Aufträge ohne Termine im Pool (alle 512 unterminierten sind bereits `wc1_durchfuehren`). Trotzdem muss die Logik für zukünftige Aufträge vorbereitet sein.
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-### Hook-Änderung (`useAdminObjectOrders.ts`)
-Zwei Gruppen laden:
-- **Terminiert (offen):** `thermocheck_terminvorschlaege` mit `status = 'vorgeschlagen'` verknüpft mit Aufträgen
-- **Noch nicht terminiert:** Aufträge mit `pipeline_status NOT IN ('wc1_durchfuehren', 'termin_bestaetigt', 'vot_formular_abfragen', 'vot_formular_in_verzug')` UND `zugewiesener_techniker_id IS NULL` UND keine Terminvorschläge mit Status `vorgeschlagen` oder `angenommen`
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-Neues Interface erweitern um `kategorie: 'terminiert' | 'nicht_terminiert'`.
+## 2. DB-Änderung
 
-### View-Änderung (`ObjectOrderListView.tsx`)
-- Filter-Tabs oben: "Alle" | "Terminiert" | "Nicht terminiert"
-- Subtitle zeigt Counts pro Kategorie
-- Karten zeigen bei "Nicht terminiert" nur Adresse/PLZ/Ort (kein Datum)
-- Karte zeigt beide Kategorien farblich unterschieden (orange = terminiert, grau = nicht terminiert)
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
----
+## 3. UI-Änderungen
 
-## 2. Dashboard: Techniker-Einzelansicht mit Pflichtartikeln
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-**Problem:** Die Balkendiagramme sind zu abstrakt. Admin will auf einen Blick pro Techniker sehen: Welchen Schritt macht er gerade? Welche Pflichtartikel hat er schon?
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-**Pflichtartikel (aus DB):** tshirt ODER poloshirt (eines reicht als "Oberteil"), schlappen, ausweiskarte, pullover, scanner-lizenz, google-workspace = 6 Pflicht-Kategorien. Oberteil = tshirt ODER poloshirt, mindestens eins.
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
 
-### Hook-Änderung (`useAdminContractorList.ts`)
-Bereits vorhanden: `bestellungenBezahlt/Total`. Erweitern um `bezahlteProdukte: string[]` -- eine Liste der `produkt_key`s die paid sind. Daten kommen aus dem bereits geladenen `bestellungenRes`.
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
 
-### Dashboard-Umbau (`AdminDashboardView.tsx`)
-Kompletter Umbau in drei Sektionen:
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
 
-**Sektion 1: KPI-Zeile** (bleibt ähnlich)
+## 4. Bestehende Threads kategorisieren (Migration)
 
-**Sektion 2: Techniker-Übersicht** (NEU -- ersetzt Onboarding-Funnel-Balkendiagramm)
-Pro Techniker (nur aktive, nicht ready/deaktiviert) eine kompakte Zeile:
-- Avatar + Name
-- Aktueller Schritt als farbiger Badge
-- 6 kleine Icons/Dots für Pflichtartikel (grün = hat, grau = fehlt): Oberteil, Schlappen, Ausweiskarte, Pullover, Scanner, Workspace
-- Fortschrittsbalken (x/7 Schritte)
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
 
-Das ist die "Auf-einen-Blick"-Ansicht: Jeder Techniker = eine Zeile, sofort sichtbar was fehlt.
+## Dateien
 
-**Sektion 3: Aktivitäts-Trend** (NEU -- ersetzt die Balkendiagramme)
-Ein Liniendiagramm (recharts `LineChart`) mit:
-- X-Achse: Wochen/Monate (basierend auf `erstellt_am` der Techniker)
-- Y-Achse: Anzahl
-- Linie 1: Kumulativ einsatzbereite Techniker über Zeit
-- Linie 2: Kumulativ gestartete Techniker über Zeit
-
-Das zeigt den "Zacken-Graph" den der Admin will -- wie schnell kommen Leute durch.
-
-**Sektion 4: Auftrags-Pipeline + Auslastung** (kompakter, bleibt als Referenz)
-
-### Betroffene Dateien
-
-| Datei | Änderung |
-|-------|----------|
-| `useAdminObjectOrders.ts` | Zweite Kategorie "nicht terminiert" laden |
-| `ObjectOrderListView.tsx` | Filter-Tabs, farblich unterschiedene Karten |
-| `useAdminContractorList.ts` | `bezahlteProdukte: string[]` hinzufügen |
-| `AdminDashboardView.tsx` | Komplett umbauen: Techniker-Zeilen + Liniendiagramm |
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
