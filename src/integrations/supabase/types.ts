@@ -10274,6 +10274,7 @@ export type Database = {
         }
         Returns: {
           abgerechnet: boolean
+          ag_termin_datum: string
           created_at: string
           created_by: string
           id: string
