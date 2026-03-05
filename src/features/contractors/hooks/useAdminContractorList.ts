@@ -54,6 +54,12 @@ export const STEP_LABELS: Record<string, string> = {
   nachweise: 'Nachweise',
 };
 
+export interface BestellungDetail {
+  produktKey: string;
+  status: 'paid' | 'pending' | 'failed' | 'refunded';
+  groesse: string | null;
+}
+
 export interface AdminContractor {
   id: string;
   profileId: string | null;
@@ -82,6 +88,7 @@ export interface AdminContractor {
   bestellungenTotal: number;
   bestellungenBezahlt: number;
   bezahlteProdukte: string[];
+  bestellungen: BestellungDetail[];
   // Equipment
   equipmentStatus: Record<string, { hatEigenes?: boolean; nachweisUrl?: string }>;
   // Coaching
@@ -127,7 +134,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
     // Quiz results
     supabaseTC.from('contractor_akademie_quiz_ergebnis').select('contractor_id, versuch, score, bestanden'),
     // Bestellungen
-    supabaseTC.from('contractor_bestellungen').select('onboarding_id, stripe_payment_status, produkt_key'),
+    supabaseTC.from('contractor_bestellungen').select('onboarding_id, stripe_payment_status, produkt_key, groesse'),
   ]);
 
   // Build lookup maps
@@ -156,12 +163,13 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   });
 
   // Bestellungen: aggregate per onboarding
-  const bestellMap = new Map<string, { total: number; bezahlt: number; paidKeys: string[] }>();
+  const bestellMap = new Map<string, { total: number; bezahlt: number; paidKeys: string[]; details: BestellungDetail[] }>();
   (bestellungenRes.data || []).forEach(b => {
     const key = b.onboarding_id;
-    if (!bestellMap.has(key)) bestellMap.set(key, { total: 0, bezahlt: 0, paidKeys: [] });
+    if (!bestellMap.has(key)) bestellMap.set(key, { total: 0, bezahlt: 0, paidKeys: [], details: [] });
     const entry = bestellMap.get(key)!;
     entry.total++;
+    entry.details.push({ produktKey: b.produkt_key ?? '?', status: b.stripe_payment_status ?? 'pending', groesse: b.groesse ?? null });
     if (b.stripe_payment_status === 'paid') {
       entry.bezahlt++;
       if (b.produkt_key) entry.paidKeys.push(b.produkt_key);
@@ -202,6 +210,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       bestellungenTotal: best?.total ?? 0,
       bestellungenBezahlt: best?.bezahlt ?? 0,
       bezahlteProdukte: best?.paidKeys ?? [],
+      bestellungen: best?.details ?? [],
       equipmentStatus: equipment,
       coachingBewertung: o.coaching_bewertung ?? 'ausstehend',
       coachingTermin: o.gebuchter_coaching_termin ?? null,
