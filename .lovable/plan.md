@@ -1,71 +1,65 @@
 
 
-# Bug-Analyse: Bestellungen-Schritt wird trotz fehlgeschlagener Zahlungen übersprungen
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Root Cause
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-**Datei:** `src/hooks/useOnboardingState.ts`, Zeile 514:
+## 1. Themen-Kategorien einführen
 
-```typescript
-const canProceed = state.completedSteps.includes(state.currentStep) || isStepComplete(state.currentStep);
-```
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-Das Problem: `canProceed` hat **zwei Wege** um `true` zu werden:
-1. `isStepComplete('bestellungen')` -- prüft korrekt, ob genug **paid** Produkte vorhanden sind
-2. `state.completedSteps.includes('bestellungen')` -- **Bypass**: wenn der Schritt jemals als "completed" gespeichert wurde
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-### Was passiert:
+## 2. DB-Änderung
 
-1. Person startet Onboarding, gelangt zum Bestellungen-Schritt
-2. Klickt "Weiter" (zu einem Zeitpunkt, als Zahlungen noch "pending" waren oder eine Race-Condition vorlag)
-3. `handleNext()` speichert `'bestellungen'` in `completedSteps` in der DB (Zeile 668-681)
-4. Später scheitern die Stripe-Zahlungen → Webhook setzt Status auf `"failed"`
-5. `getPaidProductKeys()` gibt korrekt `[]` zurück → `bestellungenBestaetigt` ist leer
-6. **ABER**: `completedSteps` enthält immer noch `'bestellungen'` → `canProceed = true`
-7. Person kann alle weiteren Schritte durchlaufen, obwohl keine einzige Bestellung bezahlt ist
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-### Zweites Problem: `handleNext()` validiert nicht nochmal
+## 3. UI-Änderungen
 
-In `handleNext()` (OnboardingScreen.tsx, Zeile 583ff) gibt es spezielle Checks für `profil` (Adresse), `dokumente` (Gewerbeschein) und `equipment` -- aber **keinen Re-Check für `bestellungen`**. Es wird einfach `goToNextStep()` aufgerufen.
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-## Lösung
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-### Änderung 1: `canProceed` -- kritische Schritte immer re-validieren
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
 
-In `useOnboardingState.ts`, Zeile 514 ändern:
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
 
-```typescript
-// Schritte die immer re-validiert werden müssen (Daten können sich extern ändern)
-const ALWAYS_REVALIDATE_STEPS: OnboardingStepId[] = ['bestellungen'];
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
 
-const canProceed = ALWAYS_REVALIDATE_STEPS.includes(state.currentStep)
-  ? isStepComplete(state.currentStep)
-  : (state.completedSteps.includes(state.currentStep) || isStepComplete(state.currentStep));
-```
+## 4. Bestehende Threads kategorisieren (Migration)
 
-Das stellt sicher, dass der "Weiter"-Button für `bestellungen` **immer** auf den tatsächlichen Zahlungsstatus prüft, egal was in `completedSteps` steht.
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
 
-### Änderung 2: `handleNext()` -- Bestellungen-Gate
+## Dateien
 
-In `OnboardingScreen.tsx`, vor `goToNextStep()` (Zeile 664), einen expliziten Check einfügen:
-
-```typescript
-if (state.currentStep === 'bestellungen' && !isStepComplete('bestellungen')) {
-  toast.error('Bitte schließe erst alle Bestellungen ab.');
-  nextClickLockRef.current = false;
-  setIsAdvancing(false);
-  return;
-}
-```
-
-### Änderung 3: `completedSteps` bereinigen wenn Zahlungen fehlschlagen
-
-Im `useEffect` das `bestellungenBestaetigt` aus DB synct (OnboardingScreen.tsx, Zeile 286-299): Wenn die bezahlten Produkte unter dem Required-Count fallen, `'bestellungen'` aus `completedSteps` entfernen und DB updaten.
-
-### Betroffene Dateien
-
-| Datei | Änderung |
-|-------|----------|
-| `src/hooks/useOnboardingState.ts` | `canProceed` re-validiert Bestellungen immer |
-| `src/components/OnboardingScreen.tsx` | Gate in `handleNext()` + completedSteps-Bereinigung |
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
