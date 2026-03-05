@@ -6,12 +6,14 @@ import { BookingListView } from '@/features/bookings/ui/BookingListView';
 import { CheckinListView } from '@/features/checkins/ui/CheckinListView';
 import { QGQueueView } from '@/features/quality-gate/ui/QGQueueView';
 import { AkademieAdminView } from '@/features/admin/ui/akademie/AkademieAdminView';
+import { AdminDashboardView } from '@/features/admin/ui/AdminDashboardView';
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState<AdminTab>('contractors');
+  const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
 
   return (
     <div className="min-h-screen bg-background">
+      {activeTab === 'dashboard' && <AdminDashboardView />}
       {activeTab === 'contractors' && <ContractorListView />}
       {activeTab === 'pool' && <ObjectOrderListView />}
       {activeTab === 'bookings' && <BookingListView />}
