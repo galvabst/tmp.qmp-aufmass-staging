@@ -179,8 +179,8 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   // 4. Build admin contractors
   return onboardings.map((o): AdminContractor => {
     const profile = o.profile_id ? profileMap.get(o.profile_id) : null;
-    const lekt = o.profile_id ? lektionenMap.get(o.profile_id) : null;
-    const quiz = o.profile_id ? quizMap.get(o.profile_id) : null;
+    const lekt = lektionenMap.get(o.id) ?? null;
+    const quiz = quizMap.get(o.id) ?? null;
     const best = bestellMap.get(o.id);
     const equipment = typeof o.equipment_status === 'object' && o.equipment_status !== null
       ? (o.equipment_status as Record<string, any>) : {};
@@ -206,7 +206,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       akademieTestBestanden: o.akademie_test_bestanden ?? false,
       quizVersuche: quiz?.versuche ?? 0,
       quizBestScore: quiz?.bestScore ?? 0,
-      quizBestanden: quiz?.bestanden ?? false,
+      quizBestanden: quiz?.bestanden ?? (Array.isArray(o.completed_steps) && o.completed_steps.includes('akademie')),
       bestellungenTotal: best?.total ?? 0,
       bestellungenBezahlt: best?.bezahlt ?? 0,
       bezahlteProdukte: best?.paidKeys ?? [],
