@@ -1,28 +1,65 @@
 
 
-# Fix: Lektionen-Total dynamisch aus DB statt hardcoded "51"
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
-In `useAdminContractorList.ts` Zeile 205 steht `lektionenTotal: 51` hardcoded. Wenn Lektionen hinzugefügt oder deaktiviert werden, stimmt die Zahl nicht mehr. Der Admin soll immer den aktuellen Stand der aktiven Lektionen sehen.
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-## Lösung
+## 1. Themen-Kategorien einführen
 
-**Datei:** `src/features/contractors/hooks/useAdminContractorList.ts`
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-Im bereits vorhandenen `Promise.all` (Zeile 127) einen zusätzlichen Fetch hinzufügen:
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-```typescript
-// Aktive Lektionen zählen
-supabaseTC.from('contractor_akademie_lektionen')
-  .select('id', { count: 'exact', head: true })
-  .eq('ist_aktiv', true)
-```
+## 2. DB-Änderung
 
-Dann in Zeile 205 ersetzen:
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-```typescript
-lektionenTotal: activeLektionenCount ?? 0,
-```
+## 3. UI-Änderungen
 
-Das ist ein 3-Zeilen-Fix. Keine Migration, keine neuen Dateien.
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
