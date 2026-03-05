@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { AdminLayout } from '@/features/admin/ui/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Calendar, List, Map, Clock } from 'lucide-react';
+import { MapPin, Calendar, List, Map, Clock, CalendarX } from 'lucide-react';
 import { FilterRow } from '@/components/FilterRow';
 import { OrderMap } from '@/components/OrderMap';
 import { ListSkeleton } from '@/components/ListSkeleton';
@@ -11,61 +11,57 @@ import { useAdminPoolTermine } from '../hooks/useAdminObjectOrders';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 
-type KategorieFilter = 'alle' | 'terminiert' | 'nicht_terminiert';
+type KategorieFilter = 'alle' | 'mit_termin' | 'ohne_termin';
 
 export function ObjectOrderListView() {
-  const { data: termine, isLoading } = useAdminPoolTermine();
+  const { data: auftraege, isLoading } = useAdminPoolTermine();
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [kategorieFilter, setKategorieFilter] = useState<KategorieFilter>('alle');
 
   const filtered = useMemo(() => {
-    if (!termine) return [];
-    let result = termine;
+    if (!auftraege) return [];
+    let result = auftraege;
     if (kategorieFilter !== 'alle') {
-      result = result.filter(t => t.kategorie === kategorieFilter);
+      result = result.filter(a => a.kategorie === kategorieFilter);
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(t =>
-        t.address.toLowerCase().includes(q) ||
-        t.city.toLowerCase().includes(q) ||
-        t.postalCode.includes(q) ||
-        t.customerName.toLowerCase().includes(q)
+      result = result.filter(a =>
+        a.address.toLowerCase().includes(q) ||
+        a.city.toLowerCase().includes(q) ||
+        a.postalCode.includes(q) ||
+        a.customerName.toLowerCase().includes(q)
       );
     }
     return result;
-  }, [termine, searchQuery, kategorieFilter]);
+  }, [auftraege, searchQuery, kategorieFilter]);
 
   const counts = useMemo(() => {
-    if (!termine) return { alle: 0, terminiert: 0, nicht_terminiert: 0 };
+    if (!auftraege) return { alle: 0, mit_termin: 0, ohne_termin: 0 };
     return {
-      alle: termine.length,
-      terminiert: termine.filter(t => t.kategorie === 'terminiert').length,
-      nicht_terminiert: termine.filter(t => t.kategorie === 'nicht_terminiert').length,
+      alle: auftraege.length,
+      mit_termin: auftraege.filter(a => a.kategorie === 'mit_termin').length,
+      ohne_termin: auftraege.filter(a => a.kategorie === 'ohne_termin').length,
     };
-  }, [termine]);
-
-  const uniqueOrders = useMemo(() => new Set(filtered.map(t => t.auftragId)).size, [filtered]);
+  }, [auftraege]);
 
   return (
     <AdminLayout
-      title="Pool-Terminvorschläge"
-      subtitle={isLoading ? undefined : `${filtered.length} Einträge · ${uniqueOrders} Aufträge`}
+      title="Thermocheck-Aufträge"
+      subtitle={isLoading ? undefined : `${filtered.length} Aufträge`}
       count={isLoading ? undefined : filtered.length}
     >
       {isLoading ? <ListSkeleton count={5} showAvatar={false} showBadge /> : (
         <>
-          {/* Kategorie Filter */}
           <Tabs value={kategorieFilter} onValueChange={(v) => setKategorieFilter(v as KategorieFilter)} className="mb-3">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="alle">Alle ({counts.alle})</TabsTrigger>
-              <TabsTrigger value="terminiert">Terminiert ({counts.terminiert})</TabsTrigger>
-              <TabsTrigger value="nicht_terminiert">Offen ({counts.nicht_terminiert})</TabsTrigger>
+              <TabsTrigger value="ohne_termin">Ohne Termin ({counts.ohne_termin})</TabsTrigger>
+              <TabsTrigger value="mit_termin">Mit Termin ({counts.mit_termin})</TabsTrigger>
             </TabsList>
           </Tabs>
 
-          {/* View Mode */}
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')} className="mb-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="list" className="gap-2"><List className="w-4 h-4" />Liste</TabsTrigger>
@@ -84,42 +80,46 @@ export function ObjectOrderListView() {
           {viewMode === 'list' ? (
             <div className="space-y-3">
               {filtered.length === 0 ? (
-                <Card><CardContent className="p-6 text-center text-muted-foreground">Keine Einträge gefunden</CardContent></Card>
-              ) : filtered.map((t) => {
-                const isScheduled = t.kategorie === 'terminiert';
-                const timeStr = t.ganztaegig ? 'Ganztägig' : `${t.zeitVon?.slice(0, 5) || ''} – ${t.zeitBis?.slice(0, 5) || ''}`;
+                <Card><CardContent className="p-6 text-center text-muted-foreground">Keine Aufträge gefunden</CardContent></Card>
+              ) : filtered.map((a) => {
+                const hasTermin = a.kategorie === 'mit_termin';
                 return (
-                  <Card key={t.id} className={`shadow-sm ${isScheduled ? 'border-l-4 border-l-orange-400' : 'border-l-4 border-l-muted'}`}>
+                  <Card key={a.id} className={`shadow-sm ${hasTermin ? 'border-l-4 border-l-orange-400' : 'border-l-4 border-l-muted'}`}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
-                        <p className="font-medium text-sm text-foreground">{t.customerName}</p>
+                        <p className="font-medium text-sm text-foreground">{a.customerName}</p>
                         <div className="flex gap-1.5 items-center">
-                          {t.pipelineStatus && (
+                          {a.pipelineStatus && (
                             <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono text-muted-foreground">
-                              {t.pipelineStatus}
+                              {a.pipelineStatus}
                             </Badge>
                           )}
-                          <Badge variant={isScheduled ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0.5">
-                            {isScheduled ? 'Terminiert' : 'Offen'}
+                          <Badge variant={hasTermin ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0.5">
+                            {hasTermin ? `${a.terminCount} Termin${a.terminCount > 1 ? 'e' : ''}` : 'Offen'}
                           </Badge>
                         </div>
                       </div>
                       <div className="space-y-1.5 text-sm">
                         <div className="flex items-start gap-2">
                           <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                          <span className="text-foreground text-xs">{t.address}, {t.postalCode} {t.city}</span>
+                          <span className="text-foreground text-xs">{a.address}, {a.postalCode} {a.city}</span>
                         </div>
-                        {isScheduled && t.datum ? (
+                        {hasTermin && a.naechsterTermin ? (
                           <div className="flex items-center gap-2">
                             <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                             <span className="text-foreground text-xs">
-                              {format(parseISO(t.datum), 'EEE, d. MMM yyyy', { locale: de })} · {timeStr}
+                              {format(parseISO(a.naechsterTermin), 'EEE, d. MMM yyyy', { locale: de })} · {a.naechsteZeit}
                             </span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-muted-foreground text-xs italic">Noch kein Termin vorgeschlagen</span>
+                            <CalendarX className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-muted-foreground text-xs italic">Kein Terminvorschlag</span>
+                          </div>
+                        )}
+                        {a.technikerId && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground">Techniker zugewiesen</span>
                           </div>
                         )}
                       </div>
@@ -129,7 +129,7 @@ export function ObjectOrderListView() {
               })}
             </div>
           ) : (
-            <OrderMap orders={[]} onOrderClick={(id) => console.log('Termin:', id)} className="h-[60vh] rounded-lg overflow-hidden border border-border" />
+            <OrderMap orders={[]} onOrderClick={(id) => console.log('Auftrag:', id)} className="h-[60vh] rounded-lg overflow-hidden border border-border" />
           )}
         </>
       )}
