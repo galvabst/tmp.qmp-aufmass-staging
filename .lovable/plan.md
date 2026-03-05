@@ -1,39 +1,65 @@
 
 
-# Dashboard-Umbau: Detaillierte Filtertabelle
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
-Die aktuelle Ansicht mit abstrakten Fortschrittsbalken und kleinen Icons ist nicht intuitiv. Der Admin kann nicht auf einen Blick erkennen, wer genau wo steht. Gewünscht: Eine filterbare Übersicht, gruppiert nach konkreten Onboarding-Phasen.
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-## Lösung: Filter-Tabs mit detaillierter Auflistung
+## 1. Themen-Kategorien einführen
 
-Die Techniker-Sektion wird komplett umgebaut zu einer Tab-gefilterten Liste mit folgenden Kategorien:
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-### Filter-Tabs (horizontal scrollbar)
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-| Tab | Logik | Detail in der Zeile |
-|-----|-------|---------------------|
-| **Alle** | Alle nicht-ready, nicht-Trainer | Aktueller Schritt als Badge |
-| **Nicht registriert** | `onboardingStatus = 'invited'` ODER kein `currentStep` | Einladungsdatum |
-| **Stammdaten** | `currentStep = 'profil'` oder `'dokumente'` | Was fehlt (Name/Adresse/Gewerbeschein) |
-| **Bestellungen** | `currentStep = 'bestellungen'` oder `'equipment'` | Einzelne Produkte als Chips: ✓ Polo, ✗ Schlappen, ✗ Pullover, etc. |
-| **Akademie** | `currentStep = 'akademie'` | Fortschritt: "Modul 4/11, 23/51 Lektionen" |
-| **Abschlussprüfung** | `akademieTestBestanden` oder alle Lektionen fertig aber Test noch offen | Quiz-Status: bestanden/x Versuche |
-| **Praxistest** | `praxistestEingereicht` aber nicht freigegeben | Scan + Video eingereicht, wartet auf Freigabe |
-| **Coaching** | `currentStep = 'coaching'` oder `'nachweise'` | Termin gebucht? Coach-Name, Bewertung |
+## 2. DB-Änderung
 
-### Zeilen-Design (pro Techniker)
-Kompakte Zeile: Avatar | Name | Status-Detail (kontextabhängig je nach Tab) | Datum
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-### Daten-Erweiterung
-Der Hook `useAdminContractorList` muss um Praxistest-Felder erweitert werden (aus der neuen Migration):
-- `praxistestEingereicht: boolean`
-- `praxistestFreigabe: boolean`
+## 3. UI-Änderungen
 
-### Betroffene Dateien
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-| Datei | Änderung |
-|-------|----------|
-| `useAdminContractorList.ts` | Praxistest-Felder hinzufügen |
-| `AdminDashboardView.tsx` | Komplett umbauen: Filter-Tabs + kontextabhängige Detail-Zeilen |
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
