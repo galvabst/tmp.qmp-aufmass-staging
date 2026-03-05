@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AdminLayout } from './AdminLayout';
 import { useAdminContractorList, AdminContractor, STEP_LABELS } from '@/features/contractors/hooks/useAdminContractorList';
@@ -8,8 +8,28 @@ import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprint
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { format, parseISO, startOfMonth } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+
+// ── Funnel config ──
+const FUNNEL_STAGES = [
+  { label: 'Registriert', filter: () => true },
+  { label: 'Stammdaten', filter: (c: AdminContractor) => c.completedSteps.includes('profil') },
+  { label: 'Bestellungen', filter: (c: AdminContractor) => c.completedSteps.includes('bestellungen') },
+  { label: 'Akademie', filter: (c: AdminContractor) => c.completedSteps.includes('akademie') || (c.currentStep === 'akademie' && c.lektionenCompleted > 0) },
+  { label: 'Prüfung bestanden', filter: (c: AdminContractor) => c.akademieTestBestanden },
+  { label: 'Coaching', filter: (c: AdminContractor) => c.completedSteps.includes('coaching') || !!c.coachingTermin },
+  { label: 'Einsatzbereit', filter: (c: AdminContractor) => c.onboardingStatus === 'ready' },
+];
+const FUNNEL_COLORS = [
+  'hsl(var(--muted-foreground))',
+  'hsl(200 80% 50%)',
+  'hsl(45 93% 47%)',
+  'hsl(280 60% 55%)',
+  'hsl(var(--primary))',
+  'hsl(142 71% 45%)',
+  'hsl(142 71% 35%)',
+];
 
 // ── Pipeline config ──
 const PIPELINE_LABELS: Record<string, string> = {
