@@ -364,6 +364,23 @@ export function useOnboardingState(
     setState(prev => ({ ...prev, akademieTestBestanden: value }));
   }, []);
 
+  // Praxistest
+  const setPraxistestScanUrl = useCallback((url: string) => {
+    setState(prev => ({ ...prev, praxistestScanUrl: url }));
+  }, []);
+
+  const setPraxistestVideoUrl = useCallback((url: string) => {
+    setState(prev => ({ ...prev, praxistestVideoUrl: url }));
+  }, []);
+
+  const setPraxistestEingereicht = useCallback((value: boolean) => {
+    setState(prev => ({ ...prev, praxistestEingereicht: value }));
+  }, []);
+
+  const setPraxistestFreigabe = useCallback((value: boolean) => {
+    setState(prev => ({ ...prev, praxistestFreigabe: value }));
+  }, []);
+
   // Schritt 6: Nachweise
   const updateCheckliste = useCallback((key: string, value: boolean) => {
     setState(prev => ({
@@ -420,6 +437,10 @@ export function useOnboardingState(
     akademieTestBestanden?: boolean;
     introVideoWatched?: boolean;
     outroVideoWatched?: boolean;
+    praxistestScanUrl?: string;
+    praxistestVideoUrl?: string;
+    praxistestEingereicht?: boolean;
+    praxistestFreigabe?: boolean;
   }) => {
     setState(prev => ({
       ...prev,
@@ -435,6 +456,10 @@ export function useOnboardingState(
       akademieTestBestanden: dbState.akademieTestBestanden ?? prev.akademieTestBestanden,
       introVideoWatched: dbState.introVideoWatched ?? prev.introVideoWatched,
       outroVideoWatched: dbState.outroVideoWatched ?? prev.outroVideoWatched,
+      praxistestScanUrl: dbState.praxistestScanUrl ?? prev.praxistestScanUrl,
+      praxistestVideoUrl: dbState.praxistestVideoUrl ?? prev.praxistestVideoUrl,
+      praxistestEingereicht: dbState.praxistestEingereicht ?? prev.praxistestEingereicht,
+      praxistestFreigabe: dbState.praxistestFreigabe ?? prev.praxistestFreigabe,
     }));
     console.log('[Onboarding] Atomic DB hydration complete:', dbState);
   }, []);
@@ -484,7 +509,7 @@ export function useOnboardingState(
         if (isPreview) return true;
         // Trainer können die Akademie überspringen
         if (isTrainer) return true;
-        // Prüfe ob alle Leaf-Unterpunkte aller Hauptmodule abgeschlossen sind UND Test bestanden
+        // Prüfe ob alle Leaf-Unterpunkte aller Hauptmodule abgeschlossen sind UND Test bestanden UND Praxistest freigegeben
         const hauptmodule = state.akademieHauptmodule || [];
         const allLeafsComplete = hauptmodule.length > 0 && hauptmodule.every(hm =>
           (hm.unterpunkte || []).every(up => {
@@ -494,7 +519,7 @@ export function useOnboardingState(
             return up.abgeschlossen;
           })
         );
-        return allLeafsComplete && state.akademieTestBestanden;
+        return allLeafsComplete && state.akademieTestBestanden && state.praxistestFreigabe === true;
       case 'nachweise':
         if (isPreview) return true;
         if (isTrainer) return true;
@@ -551,6 +576,12 @@ export function useOnboardingState(
     completeAkademieModul,
     setAkademieTestBestanden,
     hydrateAkademieFromDb,
+    
+    // Praxistest
+    setPraxistestScanUrl,
+    setPraxistestVideoUrl,
+    setPraxistestEingereicht,
+    setPraxistestFreigabe,
     
     // Schritt 6
     updateCheckliste,
