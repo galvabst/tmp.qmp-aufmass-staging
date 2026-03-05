@@ -1,65 +1,35 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Fix: Contractor-Detail zeigt falsche/leere Daten
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Analyse der Probleme
 
-## 1. Themen-Kategorien einführen
+### 1. Akademie zeigt "Nicht bestanden" obwohl Marius beim Coaching ist
+- DB: `akademie_test_bestanden = false`, aber `akademie` ist in `completed_steps`
+- Es gibt 0 Lektionen-Fortschritt-Records und 0 Quiz-Ergebnisse für Marius
+- **Fix**: Frontend soll `akademie_test_bestanden` ODER `completedSteps.includes('akademie')` als "bestanden" werten (defensive Logik)
+- **DB-Fix**: Migration setzt `akademie_test_bestanden = true` für alle wo `akademie` in `completed_steps` ist
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+### 2. Bestellungen zeigen nur "6 von 9" ohne Details
+Marius hat 9 Bestellungen: tshirt(paid), poloshirt(paid), pullover(paid), ausweiskarte(paid), scanner-lizenz(paid), google-workspace(paid), schlappen(pending), 2x tshirt(pending)
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+**Fix**: Individuelle Produkte mit Status-Chips anzeigen statt nur Summe
 
-## 2. DB-Änderung
+### 3. Dokumente zeigen keine hochgeladenen Dateien
+Gewerbeschein-URL und andere Dokument-Links werden nicht angezeigt (sind null bei Marius, aber generell muss die UI das richtig darstellen)
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+## Änderungen
 
-## 3. UI-Änderungen
+| Datei | Änderung |
+|-------|----------|
+| `useAdminContractorList.ts` | Bestellungen als Array mit `{produktKey, status}` statt nur Summe zurückgeben |
+| `ContractorDetailView.tsx` | Bestellungen: individuelle Produkt-Chips. Akademie: defensive Logik (`completedSteps` als Fallback). Dokumente: Gewerbeschein-Link wenn vorhanden |
+| Migration (SQL) | `akademie_test_bestanden = true` setzen wo `akademie` in `completed_steps` |
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+### Bestellungen-UI (neu)
+Jedes Produkt als Zeile: `Poloshirt ✓ bezahlt` / `Schlappen ○ offen` — statt nur "6 von 9"
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
-
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+### Akademie-UI (Fix)
+- Wenn `akademie` in `completedSteps`: Abschlusstest = "Bestanden" (grüner Badge)
+- Lektionen 0/51 nur wenn wirklich keine Fortschritt-Records existieren (korrekt für Marius da keine Records)
 
