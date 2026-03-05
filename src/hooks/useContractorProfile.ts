@@ -17,6 +17,10 @@ interface ContractorOnboardingData {
   coaching_bewertung?: string | null;
   gebuchter_coaching_termin?: string | null;
   gebuchter_coach_name?: string | null;
+  praxistest_scan_url?: string | null;
+  praxistest_video_url?: string | null;
+  praxistest_eingereicht?: boolean | null;
+  praxistest_freigabe?: boolean | null;
 }
 
 export interface EquipmentItemStatus {
@@ -36,6 +40,10 @@ export interface ContractorOnboardingState {
   coachingBewertung?: string;
   coachingTermin?: string;
   coachName?: string;
+  praxistestScanUrl?: string;
+  praxistestVideoUrl?: string;
+  praxistestEingereicht: boolean;
+  praxistestFreigabe: boolean;
 }
 
 /**
@@ -145,6 +153,10 @@ export function useContractorProfile(profileId: string | null) {
           coachingBewertung: row.coaching_bewertung || undefined,
           coachingTermin: row.gebuchter_coaching_termin || undefined,
           coachName: row.gebuchter_coach_name || undefined,
+          praxistestScanUrl: row.praxistest_scan_url || undefined,
+          praxistestVideoUrl: row.praxistest_video_url || undefined,
+          praxistestEingereicht: row.praxistest_eingereicht || false,
+          praxistestFreigabe: row.praxistest_freigabe || false,
         };
       } catch {
         return null;
@@ -368,6 +380,49 @@ export function useContractorProfile(profileId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
     },
   });
+
+  // Praxistest-Daten speichern (Scan-URL + Video-URL)
+  const savePraxistestMutation = useMutation({
+    mutationFn: async (params: { scanUrl: string; videoUrl: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await (supabase.rpc as unknown as (
+        fn: string,
+        params: Record<string, unknown>
+      ) => Promise<{ error: Error | null }>)('update_contractor_praxistest', {
+        p_scan_url: params.scanUrl,
+        p_video_url: params.videoUrl,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
+    },
+  });
+
+  // Praxistest-Video Upload
+  const praxistestVideoMutation = useMutation({
+    mutationFn: async (file: File): Promise<string> => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const fileExt = file.name.split('.').pop() || 'mp4';
+      const fileName = `${user.id}/praxistest-video-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('contractor-documents')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('contractor-documents')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    },
+  });
   
   return {
     data: query.data,
@@ -391,6 +446,8 @@ export function useContractorProfile(profileId: string | null) {
     saveIntroVideoWatched: saveIntroVideoWatchedMutation.mutateAsync,
     saveOutroVideoWatched: saveOutroVideoWatchedMutation.mutateAsync,
     saveAkademieTestBestanden: saveAkademieTestBestandenMutation.mutateAsync,
+    savePraxistest: savePraxistestMutation.mutateAsync,
+    uploadPraxistestVideo: praxistestVideoMutation.mutateAsync,
     
     // Mutation states
     isUpdating: updateMutation.isPending,
