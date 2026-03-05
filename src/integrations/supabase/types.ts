@@ -9843,6 +9843,10 @@ export type Database = {
           gewerbeschein_url: string
           intro_video_watched: boolean
           outro_video_watched: boolean
+          praxistest_eingereicht: boolean
+          praxistest_freigabe: boolean
+          praxistest_scan_url: string
+          praxistest_video_url: string
         }[]
       }
       get_contractors: {
