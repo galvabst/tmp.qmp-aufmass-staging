@@ -1,65 +1,61 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Admin Dashboard mit Fortschritts-Diagrammen
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Kontext aus der Datenbank
 
-## 1. Themen-Kategorien einführen
+Aktuell: 20 Contractor-Records, davon 3 Trainer, 7 gestartet, 5 in Bearbeitung, 3 Mitfahrt, 1 eingeladen, 1 deaktiviert. Es gibt `deadline_aktivierung` als Feld (aktuell null bei allen). Aufträge: 543 gesamt, davon 512 abgeschlossen (wc1_durchfuehren), 8 bestätigt, 14 in Verzug.
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+## Was das Dashboard zeigen soll
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+Kein Enterprise-Overkill -- stattdessen die 3 Fragen, die ein Betriebsleiter täglich beantworten muss:
 
-## 2. DB-Änderung
+1. **Werden die Leute rechtzeitig einsatzbereit?** → Onboarding-Funnel als horizontaler Balken (wie viele stecken in welchem Schritt)
+2. **Wer arbeitet, wer nicht?** → Techniker-Auslastung: Aufträge pro aktivem Techniker als Bar-Chart
+3. **Läuft der Betrieb?** → Auftrags-Pipeline: Wie viele Aufträge in welchem Status (bestätigt → VoT abfragen → in Verzug → abgeschlossen)
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+## Technische Umsetzung
 
-## 3. UI-Änderungen
+### 1. Neuer Tab "Dashboard" als Standard-Tab in der Admin-BottomNav
+- Neuer Tab `dashboard` an erster Stelle (vor `contractors`)
+- Icon: `LayoutDashboard`
+- Wird beim Öffnen von /admin als erstes angezeigt
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+### 2. Neue Komponente `AdminDashboardView.tsx`
+Nutzt die vorhandenen Hooks (`useAdminContractorList`, `useAdminBookings`) plus einen neuen leichten Hook für Auftrags-Pipeline-Zahlen.
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+**Sektion 1: Onboarding-Fortschritt (Funnel-Balken)**
+- Horizontaler gestapelter BarChart (recharts) mit den 7 Onboarding-Schritten
+- Zeigt pro Schritt, wie viele Techniker dort aktuell stecken
+- Farben: Grün (fertig) → Gelb (aktuell) → Grau (noch nicht begonnen)
+- Berechnung rein aus `contractors.completedSteps` und `currentStep`
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+**Sektion 2: Techniker-Auslastung**
+- Vertikaler BarChart: X-Achse = Techniker-Name, Y-Achse = Anzahl aktive Aufträge
+- Daten aus `v_thermocheck_auftraege` gruppiert nach `zugewiesener_techniker_id`, aufgelöst zu Namen
+- Nur Techniker mit zugewiesenen Aufträgen
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+**Sektion 3: Auftrags-Pipeline**
+- Horizontaler BarChart oder Donut: Aufträge nach `pipeline_status` gruppiert
+- Farben je Status
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
+**Sektion 4: Kompakte KPI-Zeile** (wie bei ContractorListView)
+- Gesamt-Aufträge | Aktive Techniker | Offene Pool-Termine | In Verzug
 
-## 4. Bestehende Threads kategorisieren (Migration)
+### 3. Neuer Hook `useAdminDashboardStats.ts`
+- Lädt Auftrags-Pipeline-Counts (`v_thermocheck_auftraege` GROUP BY pipeline_status)
+- Lädt Techniker-Auslastung (Aufträge pro Techniker mit Namensauflösung)
+- Kombiniert mit Daten aus `useAdminContractorList`
 
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
+### Betroffene Dateien
 
-## Dateien
+| Datei | Änderung |
+|-------|----------|
+| `AdminBottomNav.tsx` | Neuer Tab `dashboard` an Position 1 |
+| `Admin.tsx` | Dashboard-View einbinden, Default-Tab auf `dashboard` |
+| `AdminDashboardView.tsx` | **Neu** -- Gesamte Dashboard-Seite |
+| `useAdminDashboardStats.ts` | **Neu** -- Auftrags- und Auslastungsdaten |
 
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+### Recharts-Nutzung
+`recharts` und `chart.tsx` (shadcn) sind bereits installiert. Verwendung von `BarChart`, `Bar`, `XAxis`, `YAxis`, `Tooltip`, `ResponsiveContainer`.
 
