@@ -1,65 +1,66 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Admin-Console Überarbeitung: Auftragnehmer, Pool & Buchungen
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Probleme
 
-## 1. Themen-Kategorien einführen
+1. **Auftragnehmer**: Trainer wie Till Ibendorf zeigen "In Bearbeitung" statt "Einsatzbereit" -- Trainer sind immer einsatzbereit. Kein Dashboard mit Zusammenfassung.
+2. **Pool**: Zeigt alle Objektaufträge mit abgeleitetem Status. Soll nur echte Terminvorschläge zeigen (pipeline_status = termin_abwarten, kein Techniker zugewiesen) -- wie der Vertriebler-Pool.
+3. **Buchungen**: Kein Techniker-Name sichtbar, kein Filter nach Techniker, keine Statistik zu aktiven Terminen pro Techniker.
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+---
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+## 1. Auftragnehmer: Trainer-Fix + Dashboard
 
-## 2. DB-Änderung
+### Trainer-Status-Fix
+In `useAdminContractorList.ts`: Wenn `is_trainer === true`, wird `onboardingStatus` auf `'ready'` gemappt, unabhängig vom DB-Wert. Das behebt das Problem mit Till Ibendorf.
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+### Dashboard-Header
+In `ContractorListView.tsx`: Oberhalb der Pipeline-Cards ein kompaktes Dashboard einfügen:
+- **Gesamt-Techniker** | **Einsatzbereit** | **In Onboarding** | **Trainer** (jeweils als Zahl)
+- Kompakte Card-Zeile mit 4 KPI-Kacheln
 
-## 3. UI-Änderungen
+---
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+## 2. Pool: Nur Terminvorschläge
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+### Hook komplett umbauen (`useAdminObjectOrders.ts`)
+Statt alle Aufträge zu laden und Status abzuleiten: Nur `thermocheck_terminvorschlaege` laden mit Status `vorgeschlagen` (nicht angenommen/abgelehnt), verknüpft mit Aufträgen wo `pipeline_status = 'termin_abwarten'` und `zugewiesener_techniker_id IS NULL`.
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+### Interface ändern
+Neues Interface `AdminPoolTermin` mit: Termin-ID, Auftrag-ID, Datum, Zeit, Kundenname, Adresse, PLZ, Ort.
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+### View umbauen (`ObjectOrderListView.tsx`)
+- Titel: "Pool-Terminvorschläge" statt "Objektaufträge"
+- Keine Pipeline-Status-Cards (alles ist "offen")
+- Einfache Liste: Datum, Kundenname, Adresse, PLZ/Ort
+- Suche nach Adresse/Name beibehalten
+- Karten-Ansicht beibehalten
+- Kein "+ Neu" Button (Termine kommen vom Vertrieb)
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
+---
 
-## 4. Bestehende Threads kategorisieren (Migration)
+## 3. Buchungen: Techniker-Info + Filter + Statistik
 
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
+### Hook erweitern (`useAdminBookings.ts`)
+- Techniker-Name auflösen: `zugewiesener_techniker_id` → `contractor_onboarding.profile_id` → `profiles.vorname/nachname`
+- Neues Feld `technikerName: string` im Interface
+- Neues Feld `technikerProfileId: string | null`
 
-## Dateien
+### View umbauen (`BookingListView.tsx`)
+- **Statistik-Header**: Cards mit "Gesamt Buchungen", "Pro Techniker" (Durchschnitt), "Bestätigt", "Ausstehend"
+- **Techniker-Filter**: Dropdown mit allen Technikern die Buchungen haben
+- **Techniker-Name** in jeder Booking-Card anzeigen (Avatar + Name)
+- **Techniker-Zusammenfassung**: Optionaler Bereich der zeigt, wie viele aktive Termine jeder Techniker hat (sortiert absteigend)
 
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+### Betroffene Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `useAdminContractorList.ts` | Trainer → ready-Mapping |
+| `ContractorListView.tsx` | Dashboard-KPIs oben |
+| `useAdminObjectOrders.ts` | Komplett umbauen auf Terminvorschläge |
+| `ObjectOrderListView.tsx` | Umbauen auf Pool-Terminliste |
+| `useAdminBookings.ts` | Techniker-Name auflösen |
+| `BookingListView.tsx` | Techniker-Filter, Stats, Name in Cards |
 
