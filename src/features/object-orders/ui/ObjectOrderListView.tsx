@@ -48,8 +48,8 @@ export function ObjectOrderListView() {
 
   return (
     <AdminLayout
-      title="Thermocheck-Aufträge"
-      subtitle={isLoading ? undefined : `${filtered.length} Aufträge`}
+      title="Pool – Offene Aufträge"
+      subtitle={isLoading ? undefined : `${filtered.length} unzugewiesene Aufträge`}
       count={isLoading ? undefined : filtered.length}
     >
       {isLoading ? <ListSkeleton count={5} showAvatar={false} showBadge /> : (
@@ -57,8 +57,8 @@ export function ObjectOrderListView() {
           <Tabs value={kategorieFilter} onValueChange={(v) => setKategorieFilter(v as KategorieFilter)} className="mb-3">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="alle">Alle ({counts.alle})</TabsTrigger>
-              <TabsTrigger value="ohne_termin">Ohne Termin ({counts.ohne_termin})</TabsTrigger>
-              <TabsTrigger value="mit_termin">Mit Termin ({counts.mit_termin})</TabsTrigger>
+              <TabsTrigger value="ohne_termin">Ohne Vorschlag ({counts.ohne_termin})</TabsTrigger>
+              <TabsTrigger value="mit_termin">Mit Vorschlag ({counts.mit_termin})</TabsTrigger>
             </TabsList>
           </Tabs>
 
