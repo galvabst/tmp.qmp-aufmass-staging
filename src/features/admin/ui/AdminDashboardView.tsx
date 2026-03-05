@@ -299,25 +299,28 @@ export function AdminDashboardView() {
         </CardContent>
       </Card>
 
-      {/* Onboarding-Trend */}
+      {/* Onboarding-Funnel */}
       <Card className="mb-6">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">Onboarding-Trend</CardTitle>
-          <p className="text-xs text-muted-foreground">Kumulativ gestartete vs. einsatzbereite Techniker</p>
+          <CardTitle className="text-sm font-semibold">Onboarding-Funnel</CardTitle>
+          <p className="text-xs text-muted-foreground">Kumulativ: Wie viele Techniker haben mindestens diese Stufe erreicht?</p>
         </CardHeader>
         <CardContent>
-          {isLoading || !trendData.length ? (
-            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{isLoading ? 'Lädt…' : 'Keine Daten'}</div>
+          {isLoading || !funnelData.length ? (
+            <div className="h-56 flex items-center justify-center text-muted-foreground text-sm">{isLoading ? 'Lädt…' : 'Keine Daten'}</div>
           ) : (
-            <div className="h-48">
+            <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="Gestartet" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="Einsatzbereit" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={false} />
-                </LineChart>
+                <BarChart data={funnelData} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="stage" type="category" width={110} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value: number) => [`${value} Techniker`, '']} contentStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                    {funnelData.map((_, i) => (
+                      <Cell key={i} fill={FUNNEL_COLORS[i] ?? 'hsl(var(--muted-foreground))'} />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           )}
