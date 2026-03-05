@@ -1,65 +1,23 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Pool-View: Nur unzugewiesene Aufträge zeigen
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
+Aktuell zeigt der Pool-Tab ALLE Thermocheck-Aufträge, auch die bereits einem Techniker zugewiesenen. Diese sind aber schon unter "Buchungen" sichtbar — doppelt und nutzlos. Der Admin will hier nur die offenen, unbedienten Aufträge sehen, aufgeteilt in:
 
-## 1. Themen-Kategorien einführen
+- **Ohne Termin**: Kein Techniker zugewiesen UND keine Terminvorschläge vorhanden
+- **Mit Termin**: Kein Techniker zugewiesen, ABER Terminvorschläge existieren (warten auf Annahme)
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+## Änderungen
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+| Datei | Änderung |
+|-------|----------|
+| `useAdminObjectOrders.ts` | Filter: `zugewiesener_techniker_id = null` auf der Query hinzufügen, sodass nur unzugewiesene Aufträge geladen werden |
+| `ObjectOrderListView.tsx` | Subtitle/Beschreibung anpassen: "Ohne Termin" = noch keine Vorschläge, "Mit Termin" = Vorschläge vorhanden, wartet auf Annahme |
 
-## 2. DB-Änderung
+### Hook-Änderung (1 Zeile)
+In `useAdminObjectOrders.ts` wird die Query um `.is('zugewiesener_techniker_id', null)` ergänzt, sodass bereits zugewiesene Aufträge herausgefiltert werden.
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
-
-## 3. UI-Änderungen
-
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
-
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
-
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+### View-Änderung
+Tab-Labels verdeutlichen: "Ohne Vorschlag" und "Mit Vorschlag (offen)" oder ähnlich, damit klar ist, dass es um ungebuchte Aufträge geht.
 
