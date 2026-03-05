@@ -13,6 +13,7 @@ export interface AdminPoolTermin {
   postalCode: string;
   city: string;
   kategorie: 'terminiert' | 'nicht_terminiert';
+  pipelineStatus: string;
 }
 
 export function useAdminPoolTermine() {
@@ -24,7 +25,7 @@ export function useAdminPoolTermine() {
         .from('v_thermocheck_auftraege')
         .select('id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,pipeline_status')
         .is('zugewiesener_techniker_id', null)
-        .not('pipeline_status', 'in', '("wc1_durchfuehren","termin_bestaetigt","vot_formular_abfragen","vot_formular_in_verzug","storniert")');
+        .neq('pipeline_status', 'storniert');
       if (aErr) throw aErr;
       if (!auftraege?.length) return [];
 
@@ -60,6 +61,7 @@ export function useAdminPoolTermine() {
           postalCode: a?.kunde_plz || '',
           city: a?.kunde_ort || '',
           kategorie: 'terminiert',
+          pipelineStatus: a?.pipeline_status || '',
         });
       });
 
@@ -78,6 +80,7 @@ export function useAdminPoolTermine() {
             postalCode: a.kunde_plz || '',
             city: a.kunde_ort || '',
             kategorie: 'nicht_terminiert',
+            pipelineStatus: a.pipeline_status || '',
           });
         }
       });
