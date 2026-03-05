@@ -296,6 +296,27 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       console.log('[Onboarding] Replacing bestellungenBestaetigt with DB values:', paidKeys);
       setBestellungenFromDb(paidKeys);
     }
+
+    // Bereinigung: Wenn Zahlungen fehlschlagen und "bestellungen" in completedSteps ist,
+    // aber nicht mehr genug bezahlte Produkte vorhanden → completedSteps bereinigen
+    const requiredCount = state.oberteilAuswahl === 'beides' ? 7 : 6;
+    if (paidKeys.length < requiredCount && state.completedSteps.includes('bestellungen')) {
+      console.log('[Onboarding] Removing bestellungen from completedSteps – paid products dropped below required count');
+      const cleanedSteps = state.completedSteps.filter(s => s !== 'bestellungen');
+      // Auch nachfolgende Schritte entfernen, da Bestellungen Voraussetzung ist
+      const stepOrder = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+      const bestellungenIndex = stepOrder.indexOf('bestellungen');
+      const finalSteps = cleanedSteps.filter(s => stepOrder.indexOf(s) < bestellungenIndex);
+      
+      try {
+        saveProgress({
+          currentStep: 'bestellungen',
+          completedSteps: finalSteps,
+        });
+      } catch (e) {
+        console.warn('[Onboarding] Failed to clean completedSteps in DB:', e);
+      }
+    }
   }, [ordersLoaded, dbOrders, state.bestellungenBestaetigt, setBestellungenFromDb]);
 
   // Polling nach Stripe-Checkout
@@ -656,6 +677,14 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     // Outro-Video Gate: Bei Akademie → Coaching Übergang Video zeigen (nur wenn noch nicht gesehen)
     if (state.currentStep === 'akademie' && !state.outroVideoWatched) {
       setShowOutroVideo(true);
+      nextClickLockRef.current = false;
+      setIsAdvancing(false);
+      return;
+    }
+
+    // Bestellungen-Gate: Zahlungsstatus immer re-validieren (Stripe kann async fehlschlagen)
+    if (state.currentStep === 'bestellungen' && !isStepComplete('bestellungen')) {
+      toast.error('Bitte schließe erst alle Bestellungen ab.');
       nextClickLockRef.current = false;
       setIsAdvancing(false);
       return;

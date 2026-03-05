@@ -511,7 +511,11 @@ export function useOnboardingState(
     }
   }, [state, isPreview, isTrainer]);
 
-  const canProceed = state.completedSteps.includes(state.currentStep) || isStepComplete(state.currentStep);
+  // Schritte die immer re-validiert werden müssen (Daten können sich extern ändern, z.B. Stripe-Zahlungen)
+  const ALWAYS_REVALIDATE_STEPS: OnboardingStepId[] = ['bestellungen'];
+  const canProceed = ALWAYS_REVALIDATE_STEPS.includes(state.currentStep)
+    ? isStepComplete(state.currentStep)
+    : (state.completedSteps.includes(state.currentStep) || isStepComplete(state.currentStep));
   const isComplete = state.completedSteps.length === STEP_ORDER.length || (state.coachingAbgeschlossen && state.completedSteps.includes('nachweise'));
 
   return {
