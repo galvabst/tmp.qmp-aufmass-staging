@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface AdminQGItem {
   id: string;
@@ -11,6 +12,16 @@ export interface AdminQGItem {
   hasBewertung: boolean;
   bewertung: number | null;
   bewertungCreatedAt: string | null;
+}
+
+export interface AdminQGPraxistest {
+  onboardingId: string;
+  profileId: string;
+  contractorName: string;
+  avatarUrl: string | null;
+  scanUrl: string;
+  videoUrl: string;
+  eingereichtAm: string;
 }
 
 export function useAdminQGQueue() {
@@ -52,5 +63,50 @@ export function useAdminQGQueue() {
       });
     },
     staleTime: 30_000,
+  });
+}
+
+export function useAdminQGPraxistests() {
+  return useQuery({
+    queryKey: ['admin-qg-praxistests'],
+    queryFn: async (): Promise<AdminQGPraxistest[]> => {
+      // Fetch pending praxistests via RPC
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+      ) => Promise<{ data: any[] | null; error: Error | null }>)(
+        'get_pending_praxistests'
+      );
+
+      if (error) throw error;
+      return (data || []).map((row: any): AdminQGPraxistest => ({
+        onboardingId: row.id,
+        profileId: row.profile_id,
+        contractorName: `${row.vorname || ''} ${row.nachname || ''}`.trim() || '–',
+        avatarUrl: row.avatar_url || null,
+        scanUrl: row.praxistest_scan_url || '',
+        videoUrl: row.praxistest_video_url || '',
+        eingereichtAm: row.praxistest_eingereicht_am,
+      }));
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useApprovePraxistest() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (onboardingId: string) => {
+      const { error } = await (supabase.rpc as unknown as (
+        fn: string,
+        params: Record<string, unknown>
+      ) => Promise<{ error: Error | null }>)('approve_contractor_praxistest', {
+        p_onboarding_id: onboardingId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-qg-praxistests'] });
+    },
   });
 }

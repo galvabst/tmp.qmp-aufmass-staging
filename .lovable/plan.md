@@ -1,93 +1,65 @@
 
 
-# Praxistest im Akademie-Schritt + Quality Gate Erweiterung
+# Plan: Forum UX verbessern + Themen-Filter
 
 ## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-Der Akademie-Schritt bekommt nach dem theoretischen Abschlusstest einen **Praxistest**: Techniker müssen einen 3D-Scan-Link und ein Drohnenvideo hochladen. Der Admin prüft und gibt diese in der Quality Gate frei. Erst dann gilt die Akademie als abgeschlossen.
+## 1. Themen-Kategorien einführen
 
----
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-## 1. Datenbank: Neue Felder + Tabelle
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-**Migration: `contractor_onboarding` erweitern**
-```sql
-ALTER TABLE thermocheck.contractor_onboarding
-  ADD COLUMN praxistest_scan_url TEXT,
-  ADD COLUMN praxistest_video_url TEXT,
-  ADD COLUMN praxistest_eingereicht_am TIMESTAMPTZ,
-  ADD COLUMN praxistest_freigabe BOOLEAN DEFAULT FALSE,
-  ADD COLUMN praxistest_freigabe_am TIMESTAMPTZ,
-  ADD COLUMN praxistest_freigabe_von UUID REFERENCES auth.users(id);
-```
+## 2. DB-Änderung
 
-RLS: Bestehende Policies auf `contractor_onboarding` decken diese Felder bereits ab.
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
----
+## 3. UI-Änderungen
 
-## 2. Onboarding State erweitern
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-**`src/types/onboarding.ts` -- OnboardingState**
-Neue Felder:
-- `praxistestScanUrl?: string`
-- `praxistestVideoUrl?: string`
-- `praxistestEingereicht?: boolean`
-- `praxistestFreigabe?: boolean`
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-**`src/hooks/useOnboardingState.ts`**
-- Neue Setter: `setPraxistestScanUrl`, `setPraxistestVideoUrl`, `setPraxistestEingereicht`
-- `isStepComplete('akademie')`: Zusätzlich prüfen `state.praxistestFreigabe === true` (neben `allLeafsComplete && akademieTestBestanden`)
-- `hydrateFromDb`: Neue Felder mit aufnehmen
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
 
----
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
 
-## 3. AcademyStep UI erweitern
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
 
-**`src/components/onboarding/steps/AcademyStep.tsx`**
+## 4. Bestehende Threads kategorisieren (Migration)
 
-Nach dem "Abschlusstest bestanden" Block: Neuer Abschnitt **"Praxistest"**:
-- Textfeld für Scan-Link (URL-Input)
-- Upload-Zone für Drohnenvideo (Datei-Upload nach `contractor-documents` Bucket)
-- "Einreichen" Button (disabled bis beides vorhanden)
-- Nach Einreichung: Wartestatus "Warte auf Admin-Freigabe"
-- Nach Freigabe: Grüner Erfolgshinweis
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
 
-Props erweitern um: `praxistestScanUrl`, `praxistestVideoUrl`, `praxistestEingereicht`, `praxistestFreigabe`, `onScanUrlChange`, `onVideoUpload`, `onEinreichen`
+## Dateien
 
----
-
-## 4. OnboardingScreen: Praxistest-Logik
-
-**`src/components/OnboardingScreen.tsx`**
-- Scan-URL und Video-URL in DB persistieren (wie gewerbeschein_url Pattern)
-- Einreichen-Action: `praxistest_eingereicht_am` setzen
-- DB-Hydration: `praxistest_freigabe` aus DB laden
-
----
-
-## 5. Quality Gate: Praxistests anzeigen
-
-**`src/features/quality-gate/hooks/useAdminQGQueue.ts`**
-- Zweite Query: `contractor_onboarding` WHERE `praxistest_eingereicht_am IS NOT NULL AND praxistest_freigabe = FALSE`
-- JOIN mit `profiles` für Name/Avatar
-- Neues Interface `AdminQGPraxistest` mit scanUrl, videoUrl, contractorName, eingereichtAm
-
-**`src/features/quality-gate/ui/QGQueueView.tsx`**
-- Tabs: "Aufträge" | "Praxistests"
-- Praxistest-Karten: Name, Scan-Link (klickbar), Video-Link/Preview, "Freigeben" Button
-- Freigeben-Action: UPDATE `praxistest_freigabe = true, praxistest_freigabe_am = now(), praxistest_freigabe_von = auth.uid()`
-
----
-
-## Betroffene Dateien
-
-| Datei | Änderung |
-|-------|----------|
-| Migration (SQL) | 6 neue Spalten in `contractor_onboarding` |
-| `src/types/onboarding.ts` | 4 neue Felder in OnboardingState |
-| `src/hooks/useOnboardingState.ts` | Setter + isStepComplete erweitern |
-| `src/components/onboarding/steps/AcademyStep.tsx` | Praxistest-UI nach Quiz |
-| `src/components/OnboardingScreen.tsx` | Praxistest-Persistierung + Hydration |
-| `src/features/quality-gate/hooks/useAdminQGQueue.ts` | Praxistests laden |
-| `src/features/quality-gate/ui/QGQueueView.tsx` | Tabs + Freigabe-UI |
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 

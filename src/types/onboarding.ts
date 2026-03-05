@@ -174,6 +174,12 @@ export interface OnboardingState {
   akademieTestBestanden: boolean;
   zertifikatUrl?: string;
   
+  // Praxistest (Teil der Akademie)
+  praxistestScanUrl?: string;
+  praxistestVideoUrl?: string;
+  praxistestEingereicht?: boolean;
+  praxistestFreigabe?: boolean;
+  
   // Schritt 6: Nachweise
   ausstattungCheckliste: Record<string, boolean>;
   gesamtfotoUrl?: string;

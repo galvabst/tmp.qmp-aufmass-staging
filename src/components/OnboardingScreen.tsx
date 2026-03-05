@@ -96,6 +96,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     saveIntroVideoWatched,
     saveOutroVideoWatched,
     saveAkademieTestBestanden,
+    savePraxistest,
+    uploadPraxistestVideo,
     onboardingState: dbOnboardingState,
     isOnboardingStateLoaded,
   } = useContractorProfile(dbStatus?.profileId || null);
@@ -132,6 +134,9 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setOutroVideoWatched,
     hydrateFromDb,
     isStepComplete,
+    setPraxistestScanUrl,
+    setPraxistestVideoUrl,
+    setPraxistestEingereicht,
   } = useOnboardingState(initialProfile, isPreview, forceReset, dbStatus?.isTrainer ?? false);
   
   // Unlock "Weiter" sobald der Schritt gewechselt hat
@@ -157,6 +162,10 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       akademieTestBestanden: dbOnboardingState.akademieTestBestanden,
       introVideoWatched: dbOnboardingState.introVideoWatched,
       outroVideoWatched: dbOnboardingState.outroVideoWatched,
+      praxistestScanUrl: dbOnboardingState.praxistestScanUrl,
+      praxistestVideoUrl: dbOnboardingState.praxistestVideoUrl,
+      praxistestEingereicht: dbOnboardingState.praxistestEingereicht,
+      praxistestFreigabe: dbOnboardingState.praxistestFreigabe,
     });
   }, [isPreview, isOnboardingStateLoaded, dbOnboardingState, hydrateFromDb]);
 
@@ -378,6 +387,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
   const [quizOpen, setQuizOpen] = useState(false);
   const [showOutroVideo, setShowOutroVideo] = useState(false);
+  const [isPraxistestUploading, setIsPraxistestUploading] = useState(false);
 
   // Coaching-Rides aus DB laden
   const { data: dbCoachingRides = [] } = useAvailableCoachingRides();
@@ -808,6 +818,28 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             testBestanden={state.akademieTestBestanden}
             onStartTest={handleStartTest}
             isTrainer={dbStatus?.isTrainer}
+            praxistestScanUrl={state.praxistestScanUrl || ''}
+            praxistestVideoUrl={state.praxistestVideoUrl || ''}
+            praxistestEingereicht={state.praxistestEingereicht || false}
+            praxistestFreigabe={state.praxistestFreigabe || false}
+            onPraxistestScanUrlChange={(url) => setPraxistestScanUrl(url)}
+            onPraxistestVideoUpload={async (file) => {
+              setIsPraxistestUploading(true);
+              try {
+                const url = await uploadPraxistestVideo(file);
+                setPraxistestVideoUrl(url);
+              } finally {
+                setIsPraxistestUploading(false);
+              }
+            }}
+            onPraxistestEinreichen={async () => {
+              await savePraxistest({
+                scanUrl: state.praxistestScanUrl || '',
+                videoUrl: state.praxistestVideoUrl || '',
+              });
+              setPraxistestEingereicht(true);
+            }}
+            isPraxistestUploading={isPraxistestUploading}
           />
         );
 
