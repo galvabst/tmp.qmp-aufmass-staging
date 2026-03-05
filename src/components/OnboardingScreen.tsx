@@ -96,6 +96,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     saveIntroVideoWatched,
     saveOutroVideoWatched,
     saveAkademieTestBestanden,
+    savePraxistest,
+    uploadPraxistestVideo,
     onboardingState: dbOnboardingState,
     isOnboardingStateLoaded,
   } = useContractorProfile(dbStatus?.profileId || null);
@@ -385,6 +387,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const [selectedCoachingSlot, setSelectedCoachingSlot] = useState<string | undefined>();
   const [quizOpen, setQuizOpen] = useState(false);
   const [showOutroVideo, setShowOutroVideo] = useState(false);
+  const [isPraxistestUploading, setIsPraxistestUploading] = useState(false);
 
   // Coaching-Rides aus DB laden
   const { data: dbCoachingRides = [] } = useAvailableCoachingRides();
