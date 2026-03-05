@@ -31,6 +31,7 @@ import {
 import { CoachingSlot, ApplicantProfile, OnboardingStepId } from '@/types/onboarding';
 import { Button } from '@/components/ui/button';
 import { getOnboardingStorageKey } from '@/lib/onboarding-storage';
+import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 
 interface OnboardingScreenProps {
   onComplete: () => void;
