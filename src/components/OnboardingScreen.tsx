@@ -131,6 +131,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setIntroVideoWatched,
     setOutroVideoWatched,
     hydrateFromDb,
+    isStepComplete,
   } = useOnboardingState(initialProfile, isPreview, forceReset, dbStatus?.isTrainer ?? false);
   
   // Unlock "Weiter" sobald der Schritt gewechselt hat
