@@ -1,0 +1,1 @@
+UPDATE thermocheck.contractor_onboarding SET akademie_test_bestanden = true WHERE 'akademie' = ANY(completed_steps) AND akademie_test_bestanden = false;
