@@ -211,39 +211,14 @@ export function AdminDashboardView() {
     return { ready, trainers };
   }, [contractors]);
 
-  // Activity trend
-  const trendData = useMemo(() => {
-    if (!contractors) return [];
-    const nonTrainers = contractors.filter(c => !c.isTrainer);
-    if (!nonTrainers.length) return [];
-
-    // Find date range: earliest erstelltAm to current month
-    const dates = nonTrainers.map(c => c.erstelltAm).filter(Boolean).map(d => parseISO(d));
-    if (!dates.length) return [];
-    const earliest = startOfMonth(new Date(Math.min(...dates.map(d => d.getTime()))));
-    const now = startOfMonth(new Date());
-
-    // Generate every month from earliest to now
-    const months: Date[] = [];
-    let cursor = earliest;
-    while (cursor <= now) {
-      months.push(cursor);
-      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-    }
-
-    // For each month endpoint, count cumulative started & ready
-    return months.map(monthDate => {
-      const endOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59);
-      const createdBefore = nonTrainers.filter(c => c.erstelltAm && parseISO(c.erstelltAm) <= endOfMonth);
-      const started = createdBefore.length;
-      const ready = createdBefore.filter(c => c.onboardingStatus === 'ready').length;
-      return {
-        month: format(monthDate, 'MMM yy', { locale: de }),
-        Gestartet: started,
-        Einsatzbereit: ready,
-      };
-    });
-  }, [contractors]);
+  // Funnel data
+  const funnelData = useMemo(() => {
+    if (!activeTechs.length) return [];
+    return FUNNEL_STAGES.map(stage => ({
+      stage: stage.label,
+      count: activeTechs.filter(stage.filter).length,
+    }));
+  }, [activeTechs]);
 
   const isLoading = cLoading || sLoading;
 
