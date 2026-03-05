@@ -9086,6 +9086,10 @@ export type Database = {
       admin_upsert_akademie_lektion: { Args: { p_data: Json }; Returns: Json }
       admin_upsert_akademie_modul: { Args: { p_data: Json }; Returns: Json }
       admin_upsert_akademie_quiz: { Args: { p_data: Json }; Returns: Json }
+      approve_contractor_praxistest: {
+        Args: { p_onboarding_id: string }
+        Returns: undefined
+      }
       assign_lead_to_bestellung: {
         Args: { p_lead_id: string }
         Returns: string
@@ -10187,6 +10191,19 @@ export type Database = {
           p_month_lock_id: string
         }
         Returns: number
+      }
+      get_pending_praxistests: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          id: string
+          nachname: string
+          praxistest_eingereicht_am: string
+          praxistest_scan_url: string
+          praxistest_video_url: string
+          profile_id: string
+          vorname: string
+        }[]
       }
       get_produkt_recht_dokument_by_slug: {
         Args: { p_slug: string }
