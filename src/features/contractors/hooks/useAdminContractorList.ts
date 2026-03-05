@@ -88,6 +88,9 @@ export interface AdminContractor {
   coachingBewertung: string;
   coachingTermin: string | null;
   coachName: string | null;
+  // Praxistest
+  praxistestEingereicht: boolean;
+  praxistestFreigabe: boolean;
   // Intern
   vertragGeprueft: boolean;
   kleidungBestellt: boolean;
@@ -208,6 +211,8 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       lizenzenBereitgestellt: o.lizenzen_bereitgestellt_intern ?? false,
       gewerbescheinUrl: o.gewerbeschein_url ?? null,
       gewerbescheinSpaeter: o.gewerbeschein_spaeter ?? false,
+      praxistestEingereicht: !!o.praxistest_eingereicht_am,
+      praxistestFreigabe: o.praxistest_freigabe ?? false,
       mitfahrtTermin: o.mitfahrt_termin ?? null,
       mitfahrtBezahltAm: o.mitfahrt_bezahlt_am ?? null,
     };
