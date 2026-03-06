@@ -10545,6 +10545,10 @@ export type Database = {
         }
         Returns: string
       }
+      insert_migration_terminvorschlag_admin: {
+        Args: { p_auftrag_id: string; p_datum: string; p_techniker_id: string }
+        Returns: undefined
+      }
       instantiate_thc_ag_termin_wp: {
         Args: { p_thermocheck_auftrag_id: string }
         Returns: Json
@@ -11672,55 +11676,35 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_thermocheck_auftrag_admin:
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_auftrag_id: string
-              p_created_at?: string
-              p_fussbodenheizung?: boolean
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_angebot_beschreibung?: string
-              p_angebot_datei_url?: string
-              p_auftrag_id: string
-              p_created_at?: string
-              p_fussbodenheizung?: boolean
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
+      update_thermocheck_auftrag_admin: {
+        Args: {
+          p_abgerechnet?: boolean
+          p_angebot_beschreibung?: string
+          p_angebot_datei_url?: string
+          p_auftrag_id: string
+          p_auswertung_erstellt_am?: string
+          p_buchung_bestaetigt_am?: string
+          p_created_at?: string
+          p_eingereicht_am?: string
+          p_fussbodenheizung?: boolean
+          p_info_vertrieb_pv_aufmass?: string
+          p_info_vertrieb_sonstiges?: string
+          p_info_vertrieb_thc_aufmass?: string
+          p_notizen?: string
+          p_pipeline_status?: string
+          p_quadratmeter?: number
+          p_rechnungsdatum?: string
+          p_rechnungsnummer?: string
+          p_signier_datum_thc?: string
+          p_storno_datum?: string
+          p_wc1_durchgefuehrt_am?: string
+          p_wc1_durchgefuehrt_von?: string
+          p_widerrufsbelehrung_url?: string
+          p_wohneinheiten?: number
+          p_zugewiesener_techniker_id?: string
+        }
+        Returns: undefined
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
@@ -11749,6 +11733,48 @@ export type Database = {
           p_thermocheck_auftrag_id: string
         }
         Returns: undefined
+      }
+      upsert_thermocheck_vot_formular_admin: {
+        Args: {
+          p_agb_akzeptiert?: boolean
+          p_alternative_1_vorhanden?: boolean
+          p_alternative_2_vorhanden?: boolean
+          p_anzahl_badewannen?: number
+          p_anzahl_duschen?: number
+          p_anzahl_unbegehbare_raeume?: number
+          p_bauantrag_datum?: string
+          p_bemerkungen?: string
+          p_check_alle_bilder?: boolean
+          p_check_anzahl_raeume?: boolean
+          p_check_aufstellort_besprochen?: boolean
+          p_check_heizkoerper_aufgenommen?: boolean
+          p_check_raeume_gescannt?: boolean
+          p_eingereicht_am?: string
+          p_eingereicht_von?: string
+          p_fossile_brennstoffe_nach_austausch?: boolean
+          p_hat_erdung?: boolean
+          p_hat_pv_anlage?: boolean
+          p_hat_regendusche?: boolean
+          p_heizkoerper_typ?: string
+          p_heizung_funktionstuechtig?: boolean
+          p_heizung_inbetriebnahme_datum?: string
+          p_heizungsart?: string
+          p_heizungsart_sonstige?: string
+          p_kunde_aufstellort_bestaetigt?: boolean
+          p_kunde_bestaetigung_nachname?: string
+          p_kunde_bestaetigung_vorname?: string
+          p_mehr_bilder_heizungsraum?: boolean
+          p_oeltank_anzahl?: number
+          p_oeltank_liter_aktuell?: number
+          p_oeltank_liter_gesamt?: number
+          p_oeltank_transport_beschreibung?: string
+          p_status?: string
+          p_techniker_name?: string
+          p_techniker_telefon?: string
+          p_thermocheck_auftrag_id: string
+          p_thermocheck_datum?: string
+        }
+        Returns: string
       }
       user_can_access_entity: {
         Args: {
