@@ -8,7 +8,8 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 export interface MonthlyActivityPoint {
   month: string;       // "Jan", "Feb", …
-  checks: number;      // Anzahl angenommener Termine
+  checks: number;      // Anzahl angenommener Thermocheck-Termine
+  einweisungen: number; // Anzahl angenommener Einweisungs-Termine
   avgRating: number | null;
   umsatz: number;      // vereinbarter_preis + boni
 }
@@ -34,8 +35,8 @@ export function useContractorActivityStats(contractorOnboardingId: string | null
       const accessToken = sessionData?.session?.access_token;
 
       // Step 1: Fetch all aufträge for this techniker
-      const auftraege = await tcFetch<{ id: string; vereinbarter_preis: number | null }>(
-        `v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${id}&select=id,vereinbarter_preis`,
+      const auftraege = await tcFetch<{ id: string; vereinbarter_preis: number | null; auftragstyp: string | null }>(
+        `v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${id}&select=id,vereinbarter_preis,auftragstyp`,
         accessToken
       );
 
@@ -43,6 +44,7 @@ export function useContractorActivityStats(contractorOnboardingId: string | null
 
       const auftragIds = auftraege.map(a => a.id);
       const preisMap = new Map(auftraege.map(a => [a.id, a.vereinbarter_preis ?? 0]));
+      const auftragstypMap = new Map(auftraege.map(a => [a.id, a.auftragstyp ?? 'thermocheck']));
       const idsParam = auftragIds.join(',');
 
       // Step 2: Parallel fetch termine, bewertungen, boni
@@ -66,9 +68,10 @@ export function useContractorActivityStats(contractorOnboardingId: string | null
       const months = Array.from({ length: 6 }, (_, i) => subMonths(now, 5 - i));
 
       return months.map((m): MonthlyActivityPoint => {
-        // Count termine by datum month
+        // Count termine by datum month, split by auftragstyp
         const monthTermine = termine.filter(t => isSameMonth(parseISO(t.datum), m));
-        const checks = monthTermine.length;
+        const checks = monthTermine.filter(t => (auftragstypMap.get(t.thermocheck_auftrag_id) ?? 'thermocheck') !== 'einweisung').length;
+        const einweisungen = monthTermine.filter(t => auftragstypMap.get(t.thermocheck_auftrag_id) === 'einweisung').length;
 
         // Umsatz: sum vereinbarter_preis for termine in this month + boni
         const terminUmsatz = monthTermine.reduce((sum, t) => sum + (preisMap.get(t.thermocheck_auftrag_id) ?? 0), 0);
@@ -86,6 +89,7 @@ export function useContractorActivityStats(contractorOnboardingId: string | null
         return {
           month: format(m, 'MMM', { locale: de }),
           checks,
+          einweisungen,
           avgRating: avg,
           umsatz: terminUmsatz + boniUmsatz,
         };
@@ -100,6 +104,7 @@ function buildEmptyMonths(): MonthlyActivityPoint[] {
   return Array.from({ length: 6 }, (_, i) => ({
     month: format(subMonths(now, 5 - i), 'MMM', { locale: de }),
     checks: 0,
+    einweisungen: 0,
     avgRating: null,
     umsatz: 0,
   }));

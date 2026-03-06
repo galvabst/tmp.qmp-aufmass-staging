@@ -54,7 +54,7 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
   const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Kein Profil';
 
   const { data: activityStats } = useContractorActivityStats(c.id);
-  const hasActivity = activityStats && activityStats.some(p => p.checks > 0 || p.avgRating !== null);
+  const hasActivity = activityStats && activityStats.some(p => p.checks > 0 || p.einweisungen > 0 || p.avgRating !== null);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -200,8 +200,16 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
               <Activity className="w-4 h-4 text-primary" />
               <p className="text-sm font-semibold text-foreground">Aktivität (letzte 6 Monate)</p>
             </div>
-            {/* Chart 1: Thermochecks */}
-            <p className="text-[11px] font-medium text-muted-foreground mb-1">Thermochecks</p>
+            {/* Chart 1: Aufträge */}
+            <div className="flex items-center gap-3 mb-1">
+              <p className="text-[11px] font-medium text-muted-foreground">Aufträge</p>
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className="w-2 h-2 rounded-full inline-block" style={{ background: 'hsl(var(--primary))' }} />TC
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className="w-2 h-2 rounded-full inline-block" style={{ background: 'hsl(280 60% 55%)' }} />EW
+              </span>
+            </div>
             <div className="h-[120px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={activityStats} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
@@ -210,9 +218,10 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <Tooltip
                     contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                    formatter={(value: number) => [value, 'Thermochecks']}
+                    formatter={(value: number, name: string) => [value, name === 'checks' ? 'Thermochecks' : 'Einweisungen']}
                   />
                   <Line type="monotone" dataKey="checks" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
+                  <Line type="monotone" dataKey="einweisungen" stroke="hsl(280 60% 55%)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(280 60% 55%)' }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

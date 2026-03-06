@@ -1,40 +1,65 @@
 
-# Einweisungen auf Performance-Graphen drauflegen
 
-## Ziel
-Zweite Linie "Einweisungen" (in einer anderen Farbe) auf dem "Thermochecks / Monat"-Chart im Admin-Dashboard, damit man sieht ob beide Auftragstypen parallel verlaufen. Auch in der Contractor-Detailansicht.
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Daten-Änderungen
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-### `useAdminAggregatedStats.ts`
-- Termine-Query erweitern: Statt nur `datum` auch den Auftragstyp laden. Da `thermocheck_terminvorschlaege` keinen `auftragstyp` hat, müssen wir die Aufträge parallel laden und joinen.
-- Zusätzliche Query: `v_thermocheck_auftraege` mit `id, auftragstyp` für alle Aufträge der letzten 6 Monate laden
-- Termine mit Auftragstyp matchen via `thermocheck_auftrag_id`
-- `MonthlyAggregatedPoint` bekommt neues Feld `einweisungen: number`
-- `AggregatedPerformance` bekommt `totalEinweisungenLast6: number`
-- Monatliche Aggregation: `checks` bleibt für Thermochecks, `einweisungen` zählt separat
+## 1. Themen-Kategorien einführen
 
-### `useContractorActivityStats.ts`
-- Aufträge-Query erweitert bereits `auftragstyp` (wird schon geladen via `v_thermocheck_auftraege`)
-- Auftragstyp an Termine joinen, dann pro Monat in `checks` (thermocheck) und `einweisungen` (einweisung) aufteilen
-- `MonthlyActivityPoint` bekommt `einweisungen: number`
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-## UI-Änderungen
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-### `AdminDashboardView.tsx`
-- Chart-Titel von "Thermochecks / Monat" zu "Aufträge / Monat"
-- Zweite `<Line>` für `einweisungen` in einer anderen Farbe (z.B. `hsl(280 60% 55%)` — Lila)
-- Legende hinzufügen (einfach als farbige Punkte + Labels über dem Chart)
-- Summary-Text: `35 Thermochecks · 8 Einweisungen · ...`
+## 2. DB-Änderung
 
-### `ContractorDetailView.tsx` (Aktivitäts-Chart)
-- Gleiche zweite Linie für Einweisungen im Volumen-Chart
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-## Betroffene Dateien
+## 3. UI-Änderungen
 
-| Datei | Änderung |
-|-------|----------|
-| `src/features/admin/hooks/useAdminAggregatedStats.ts` | Auftragstyp laden, `einweisungen` pro Monat aggregieren |
-| `src/features/contractors/hooks/useContractorActivityStats.ts` | Auftragstyp-Split in Monats-Buckets |
-| `src/features/admin/ui/AdminDashboardView.tsx` | Zweite Linie + Legende + Summary-Text |
-| `src/features/contractors/ui/ContractorDetailView.tsx` | Zweite Linie im Aktivitäts-Chart |
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+
