@@ -1,4 +1,8 @@
 import { ReactNode } from 'react';
+import { LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -15,6 +19,12 @@ export function AdminLayout({
   count,
   actionButton,
 }: AdminLayoutProps) {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success('Abgemeldet');
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
@@ -32,11 +42,18 @@ export function AdminLayout({
                 </p>
               )}
             </div>
-            {actionButton && (
-              <div className="flex-shrink-0">
-                {actionButton}
-              </div>
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {actionButton}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                className="text-muted-foreground hover:text-destructive"
+                title="Abmelden"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
