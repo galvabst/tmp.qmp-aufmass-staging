@@ -107,6 +107,8 @@ export interface AdminContractor {
   // Mitfahrt
   mitfahrtTermin: string | null;
   mitfahrtBezahltAm: string | null;
+  // Freigaben
+  einweisungFreigabe: boolean;
 }
 
 // ── Fetcher ──
@@ -228,6 +230,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       praxistestFreigabe: o.praxistest_freigabe ?? false,
       mitfahrtTermin: o.mitfahrt_termin ?? null,
       mitfahrtBezahltAm: o.mitfahrt_bezahlt_am ?? null,
+      einweisungFreigabe: o.einweisung_freigabe ?? false,
     };
   });
 }

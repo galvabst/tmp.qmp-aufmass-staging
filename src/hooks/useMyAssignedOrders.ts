@@ -28,6 +28,7 @@ interface AuftragRow {
   kunde_email: string | null;
   pipeline_status: string | null;
   zugewiesener_techniker_id: string | null;
+  auftragstyp: string | null;
   buchung_bestaetigt_am: string | null;
   vortag_bestaetigt_am: string | null;
   vor_ort_checkin_at: string | null;
@@ -142,7 +143,7 @@ export function useMyAssignedOrders() {
 
       // Step 2: Fetch auftraege assigned to contractor_onboarding.id
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,lead_id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis,quadratmeter,wohneinheiten,fussbodenheizung`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,lead_id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,auftragstyp,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis,quadratmeter,wohneinheiten,fussbodenheizung`,
         { headers }
       );
 
@@ -182,14 +183,13 @@ export function useMyAssignedOrders() {
       const bewertungen: BewertungRow[] = bewertungenRes.ok ? await bewertungenRes.json() : [];
 
       // Step 5: Fetch contractor grundpreise as fallback for orders without vereinbarter_preis
-      let grundpreisFallback: number | null = null;
+      let grundpreisMap: Record<string, number> = {};
       try {
         const { data: gpData } = await supabase.rpc("get_contractor_grundpreise", {
           p_contractor_id: contractorId,
         } as any);
         const prices = (gpData as { auftragstyp: string; betrag_netto: number }[]) || [];
-        const tc = prices.find(p => p.auftragstyp === 'thermocheck');
-        grundpreisFallback = tc?.betrag_netto ?? null;
+        prices.forEach(p => { grundpreisMap[p.auftragstyp] = p.betrag_netto; });
       } catch (e) {
         console.warn("[useMyAssignedOrders] Failed to fetch grundpreise fallback:", e);
       }
@@ -202,6 +202,7 @@ export function useMyAssignedOrders() {
         const auftrag = auftragMap.get(termin.thermocheck_auftrag_id);
         const bewertung = bewertungMap.get(termin.thermocheck_auftrag_id);
         const hasBewertung = !!bewertung;
+        const auftragstyp = auftrag?.auftragstyp || 'thermocheck';
 
         const customerName = auftrag
           ? `${auftrag.kunde_vorname || ""} ${auftrag.kunde_nachname || ""}`.trim() || "–"
@@ -216,8 +217,8 @@ export function useMyAssignedOrders() {
         const derivedStatus = auftrag ? deriveStatus(auftrag, hasBewertung) : 'booked';
         const derivedPhase = auftrag ? deriveCheckinPhase(auftrag) : undefined;
 
-        // Use vereinbarter_preis if available, otherwise fall back to contractor grundpreis
-        const billableAmount = auftrag?.vereinbarter_preis ?? grundpreisFallback ?? undefined;
+        // Use vereinbarter_preis if available, otherwise fall back to auftragstyp-specific grundpreis
+        const billableAmount = auftrag?.vereinbarter_preis ?? grundpreisMap[auftragstyp] ?? undefined;
 
         return {
           id: termin.id,
@@ -230,9 +231,9 @@ export function useMyAssignedOrders() {
           postalCode: auftrag?.kunde_plz || "",
           scheduledDate: termin.datum,
           scheduledTime: timeStr,
-          description: "Thermocheck-Termin",
+          description: auftragstyp === 'einweisung' ? 'Einweisung' : 'Thermocheck-Termin',
           status: derivedStatus,
-          auftragstyp: "thermocheck" as const,
+          auftragstyp: auftragstyp as any,
           createdAt: termin.created_at,
           contactPhone: auftrag?.kunde_telefon || undefined,
           contactEmail: auftrag?.kunde_email || undefined,
