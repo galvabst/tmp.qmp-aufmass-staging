@@ -213,19 +213,19 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
     return tabDef ? activeTechs.filter(tabDef.filter) : activeTechs;
   }, [activeTechs, activeTab]);
 
-  const kpis = useMemo(() => {
+  const { inVerzugList, ready, trainers } = useMemo(() => {
     const ready = contractors?.filter(c => c.onboardingStatus === 'ready').length ?? 0;
     const trainers = contractors?.filter(c => c.isTrainer).length ?? 0;
     const now = new Date();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    const inVerzug = contractors?.filter(c => {
+    const inVerzugList = contractors?.filter(c => {
       if (c.isTrainer || c.onboardingStatus === 'ready' || c.onboardingStatus === 'deaktiviert') return false;
       if (!c.erstelltAm) return false;
       const deadlineExceeded = now.getTime() - new Date(c.erstelltAm).getTime() > sevenDaysMs;
       const akademieNotDone = !c.completedSteps.includes('akademie');
       return deadlineExceeded && akademieNotDone;
-    }).length ?? 0;
-    return { ready, trainers, inVerzug };
+    }) ?? [];
+    return { inVerzugList, ready, trainers };
   }, [contractors]);
 
   // Funnel data (all non-trainer contractors, including ready)
