@@ -1,65 +1,28 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Farbige Progress-Bars: Kontingent + Pünktlichkeit
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Kontingent-Balken (Dual-Segment)
 
-## 1. Themen-Kategorien einführen
+Der aktuelle einfarbige `<Progress>` wird durch einen **Custom-Doppelbalken** ersetzt:
+- **Tiefes Orange** (links): Abgenommene Aufträge (z.B. 5/24)
+- **Pastell-Orange** (rechts daneben): Restliche angenommene, aber noch nicht abgenommene (z.B. 10/24)
+- **Grauer Hintergrund**: Verbleibend bis Ziel
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+Implementierung als eigener `<div>`-basierter Balken statt `<Progress>`, da zwei Segmente nötig sind.
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+## Pünktlichkeits-Balken (Farbstufen)
 
-## 2. DB-Änderung
+Der `<Progress>` für Pünktlichkeit bekommt eine **dynamische Farbe** basierend auf dem Prozentsatz:
+- **Grün** (`bg-green-500`): ≥ 85%
+- **Orange** (`bg-orange-500`): 70–84%
+- **Rot** (`bg-destructive`): < 70%
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+Die Textfarbe der Prozentzahl passt sich analog an.
 
-## 3. UI-Änderungen
+## Betroffene Datei
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
-
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
-
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| `src/components/ProfileView.tsx` | Kontingent: Custom Dual-Bar; Pünktlichkeit: Farbstufen-Logik |
 
