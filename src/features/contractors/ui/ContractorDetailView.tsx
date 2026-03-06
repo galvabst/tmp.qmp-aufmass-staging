@@ -125,41 +125,62 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
           </div>
         </div>
 
-        {/* ── Innendienst-Status ── */}
-        {(() => {
-          const tasks = [
-            { label: 'Vertrag', done: c.vertragGeprueft },
-            { label: 'Kleidung', done: c.kleidungBestellt },
-            { label: 'Lizenzen', done: c.lizenzenBereitgestellt },
-          ];
-          const doneCount = tasks.filter(t => t.done).length;
-          return (
-            <div className="bg-card rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-foreground">Innendienst-Aufgaben</p>
-                <span className={`text-xs font-bold ${doneCount === 3 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                  {doneCount}/3
-                </span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {tasks.map(t => (
-                  <span
-                    key={t.label}
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-                      t.done
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                    }`}
-                  >
-                    {t.done ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                    {t.label}
-                  </span>
+        {/* ── Innendienst + Bestellungen nebeneinander ── */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* Linke Spalte: Innendienst */}
+          <div className="bg-card rounded-2xl p-4 shadow-sm">
+            {(() => {
+              const tasks = [
+                { label: 'Vertrag', done: c.vertragGeprueft },
+                { label: 'Kleidung', done: c.kleidungBestellt },
+                { label: 'Lizenzen', done: c.lizenzenBereitgestellt },
+              ];
+              const doneCount = tasks.filter(t => t.done).length;
+              return (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-foreground">Innendienst</p>
+                    <span className={`text-[10px] font-bold ${doneCount === 3 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                      {doneCount}/3
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {tasks.map(t => (
+                      <div key={t.label} className="flex items-center gap-1.5 text-xs">
+                        {t.done ? <Check className="w-3.5 h-3.5 text-green-500 shrink-0" /> : <X className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                        <span className={t.done ? 'text-foreground' : 'text-muted-foreground'}>{t.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Rechte Spalte: Bestellungen */}
+          <div className="bg-card rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-foreground">Bestellungen</p>
+              <span className={`text-[10px] font-bold ${c.bestellungenBezahlt === c.bestellungenTotal && c.bestellungenTotal > 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                {c.bestellungenBezahlt}/{c.bestellungenTotal}
+              </span>
+            </div>
+            {c.bestellungen.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground">Keine</p>
+            ) : (
+              <div className="space-y-1.5">
+                {c.bestellungen.map((b, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-xs">
+                    {b.status === 'paid' ? <Check className="w-3.5 h-3.5 text-green-500 shrink-0" /> : <X className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                    <span className={`truncate ${b.status === 'paid' ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {b.produktKey.replace(/[-_]/g, ' ')}{b.groesse ? ` (${b.groesse})` : ''}
+                    </span>
+                  </div>
                 ))}
               </div>
-            </div>
-          );
-        })()}
-
+            )}
+          </div>
+        </div>
         {/* ── Quick Stats Row ── */}
         <div className="grid grid-cols-3 gap-2">
           <StatCard label="Lektionen" value={`${c.lektionenCompleted}/${c.lektionenTotal}`} sub={c.lektionenInProgress > 0 ? `${c.lektionenInProgress} in Arbeit` : undefined} />
@@ -253,28 +274,7 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
             </AccordionContent>
           </AccordionItem>
 
-          {/* Bestellungen */}
-          <AccordionItem value="bestellungen" className="bg-card rounded-xl border-0 shadow-sm overflow-hidden">
-            <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
-              <span className="flex items-center gap-2"><ShoppingBag className="w-4 h-4 text-muted-foreground" /> Bestellungen ({c.bestellungenTotal})</span>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              {c.bestellungen.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Keine Bestellungen vorhanden</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {c.bestellungen.map((b, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs py-1">
-                      <span className="text-foreground capitalize">{b.produktKey.replace(/[-_]/g, ' ')}{b.groesse ? ` (${b.groesse})` : ''}</span>
-                      <Badge variant={b.status === 'paid' ? 'default' : b.status === 'failed' ? 'destructive' : 'outline'} className="text-[10px]">
-                        {b.status === 'paid' ? '✓ Bezahlt' : b.status === 'failed' ? 'Fehlgeschlagen' : 'Offen'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
+
 
           {/* Equipment */}
           <AccordionItem value="equipment" className="bg-card rounded-xl border-0 shadow-sm overflow-hidden">
