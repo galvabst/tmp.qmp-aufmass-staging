@@ -10362,8 +10362,13 @@ export type Database = {
         Returns: {
           abgerechnet: boolean
           ag_termin_datum: string
+          angebot_beschreibung: string
+          angebot_datei_url: string
+          auswertung_erstellt_am: string
+          buchung_bestaetigt_am: string
           created_at: string
           created_by: string
+          eingereicht_am: string
           fussbodenheizung: boolean
           id: string
           info_vertrieb_pv_aufmass: string
@@ -10388,6 +10393,7 @@ export type Database = {
           referenz_nummer: string
           signier_datum_thc: string
           storno_datum: string
+          ta_signier_datum_thc: string
           techniker_email: string
           techniker_name: string
           techniker_telefon: string
@@ -10573,10 +10579,24 @@ export type Database = {
         }
         Returns: string
       }
-      insert_migration_terminvorschlag_admin: {
-        Args: { p_auftrag_id: string; p_datum: string; p_techniker_id: string }
-        Returns: undefined
-      }
+      insert_migration_terminvorschlag_admin:
+        | {
+            Args: {
+              p_auftrag_id: string
+              p_datum: string
+              p_techniker_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_auftrag_id: string
+              p_buchung_bestaetigt_am?: string
+              p_datum: string
+              p_techniker_id: string
+            }
+            Returns: undefined
+          }
       instantiate_thc_ag_termin_wp: {
         Args: { p_thermocheck_auftrag_id: string }
         Returns: Json

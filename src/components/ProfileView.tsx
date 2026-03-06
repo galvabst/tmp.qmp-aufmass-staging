@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Mail, Phone, MapPin, LogOut, ChevronRight, Award, Edit2, X, Save, Target, Eye, Gift, Timer, Star, GraduationCap, CheckCircle2, BookOpen } from 'lucide-react';
+import { User, Mail, Phone, MapPin, LogOut, ChevronRight, Award, Edit2, X, Save, Target, Eye, Gift, Timer, Star, GraduationCap, CheckCircle2, BookOpen, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ import { useContractorBoni, useBoniSummary } from '@/hooks/useContractorBoni';
 import { useContractorVerspaetungen, useVerspaetungStats } from '@/hooks/useContractorVerspaetungen';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useAkademieFortschritt } from '@/hooks/useAkademieFortschritt';
+import { useContractorActivityStats } from '@/features/contractors/hooks/useContractorActivityStats';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
@@ -37,6 +39,8 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
   const punctuality = useVerspaetungStats(verspaetungen, totalSubmittedOrders);
   const { data: akademieModules } = useAkademieContent();
   const { data: completedLektionIds } = useAkademieFortschritt(contractorOnboardingId || null);
+  const { data: activityStats } = useContractorActivityStats(contractorOnboardingId);
+  const hasActivityData = activityStats && activityStats.some(d => d.checks > 0 || d.avgRating !== null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
