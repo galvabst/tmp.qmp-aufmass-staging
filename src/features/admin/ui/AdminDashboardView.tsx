@@ -333,7 +333,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            {perfStats ? `${perfStats.totalChecksLast6} Thermochecks · ${perfStats.totalLateCount} Verspätungen · ${perfStats.overallLateFees.toFixed(0)} € Gebühren` : ''}
+            {perfStats ? `${perfStats.totalChecksLast6} Thermochecks · ${perfStats.totalEinweisungenLast6} Einweisungen · ${perfStats.totalLateCount} Verspätungen · ${perfStats.overallLateFees.toFixed(0)} € Gebühren` : ''}
             {perfStats?.overallAvgVorOrtMin != null && (
               <span className="block mt-0.5">⌀ {perfStats.overallAvgVorOrtMin} Min Vor-Ort · ⌀ {perfStats.overallAvgNachbearbeitungMin ?? '–'} Min Nachb. · ⌀ {perfStats.overallAvgGesamtMin ?? '–'} Min Gesamt</span>
             )}
@@ -344,17 +344,31 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
             <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">{pLoading ? 'Lädt…' : 'Keine Daten'}</div>
           ) : (
             <div className="space-y-4">
-              {/* Thermochecks volume */}
+              {/* Aufträge volume */}
               <div>
-                <p className="text-[10px] text-muted-foreground font-medium mb-1">Thermochecks / Monat</p>
+                <div className="flex items-center gap-4 mb-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">Aufträge / Monat</p>
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(var(--primary))' }} />Thermochecks
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(280 60% 55%)' }} />Einweisungen
+                    </span>
+                  </div>
+                </div>
                 <div className="h-32">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={perfStats.monthly} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v: number) => [`${v} Checks`, '']} contentStyle={{ fontSize: 12 }} />
+                      <Tooltip
+                        contentStyle={{ fontSize: 12 }}
+                        formatter={(v: number, name: string) => [v, name === 'checks' ? 'Thermochecks' : 'Einweisungen']}
+                      />
                       <Line type="monotone" dataKey="checks" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
+                      <Line type="monotone" dataKey="einweisungen" stroke="hsl(280 60% 55%)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(280 60% 55%)' }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

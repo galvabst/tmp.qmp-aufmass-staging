@@ -6,6 +6,7 @@ import { de } from 'date-fns/locale';
 export interface MonthlyAggregatedPoint {
   month: string;
   checks: number;
+  einweisungen: number;
   avgRating: number | null;
   lateCount: number;
   totalFee: number;
@@ -20,6 +21,7 @@ export interface AggregatedPerformance {
   overallAvgRating: number | null;
   overallRatingCount: number;
   totalChecksLast6: number;
+  totalEinweisungenLast6: number;
   overallOnTimePercent: number | null;
   overallLateFees: number;
   totalLateCount: number;
@@ -36,10 +38,10 @@ export function useAdminAggregatedStats() {
       const sixMonthsAgo = subMonths(now, 6);
       const sinceDate = format(sixMonthsAgo, 'yyyy-MM-dd');
 
-      const [termineRes, bewertungenRes, verspaetungenRes, durchlaufRes] = await Promise.all([
+      const [termineRes, bewertungenRes, verspaetungenRes, durchlaufRes, auftraegeRes] = await Promise.all([
         supabaseTC
           .from('thermocheck_terminvorschlaege')
-          .select('datum')
+          .select('thermocheck_auftrag_id,datum')
           .eq('status', 'angenommen')
           .gte('datum', sinceDate),
         supabaseTC
@@ -55,12 +57,20 @@ export function useAdminAggregatedStats() {
           .select('vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at')
           .not('vor_ort_checkin_at', 'is', null)
           .gte('vor_ort_checkin_at', sinceDate),
+        supabaseTC
+          .from('v_thermocheck_auftraege')
+          .select('id,auftragstyp'),
       ]);
 
       const termine = termineRes.data ?? [];
       const bewertungen = bewertungenRes.data ?? [];
       const verspaetungen = verspaetungenRes.data ?? [];
       const durchlauf = durchlaufRes.data ?? [];
+      const auftraege = auftraegeRes.data ?? [];
+
+      // Build auftragstyp lookup
+      const auftragstypMap = new Map<string, string>();
+      auftraege.forEach((a: any) => auftragstypMap.set(a.id, a.auftragstyp ?? 'thermocheck'));
 
       const months = Array.from({ length: 6 }, (_, i) => subMonths(now, 5 - i));
 
@@ -69,7 +79,9 @@ export function useAdminAggregatedStats() {
       const avgOrNull = (arr: number[]) => arr.length > 0 ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : null;
 
       const monthly: MonthlyAggregatedPoint[] = months.map(m => {
-        const checks = termine.filter(t => t.datum && isSameMonth(parseISO(t.datum), m)).length;
+        const monthTermine = termine.filter(t => t.datum && isSameMonth(parseISO(t.datum), m));
+        const checks = monthTermine.filter(t => (auftragstypMap.get(t.thermocheck_auftrag_id) ?? 'thermocheck') !== 'einweisung').length;
+        const einweisungen = monthTermine.filter(t => auftragstypMap.get(t.thermocheck_auftrag_id) === 'einweisung').length;
         const monthRatings = bewertungen.filter(b => b.created_at && isSameMonth(parseISO(b.created_at), m));
         const avg = monthRatings.length > 0
           ? Math.round((monthRatings.reduce((s, r) => s + (r.bewertung ?? 0), 0) / monthRatings.length) * 10) / 10
@@ -96,14 +108,15 @@ export function useAdminAggregatedStats() {
           .filter(v => v > 0);
 
         return {
-          month: format(m, 'MMM', { locale: de }), checks, avgRating: avg, lateCount, totalFee, onTimePercent,
+          month: format(m, 'MMM', { locale: de }), checks, einweisungen, avgRating: avg, lateCount, totalFee, onTimePercent,
           avgVorOrtMin: avgOrNull(vorOrtMins),
           avgNachbearbeitungMin: avgOrNull(nachbMins),
           avgGesamtMin: avgOrNull(gesamtMins),
         };
       });
 
-      const totalChecksLast6 = termine.length;
+      const totalChecksLast6 = termine.filter(t => (auftragstypMap.get(t.thermocheck_auftrag_id) ?? 'thermocheck') !== 'einweisung').length;
+      const totalEinweisungenLast6 = termine.filter(t => auftragstypMap.get(t.thermocheck_auftrag_id) === 'einweisung').length;
       const overallRatingCount = bewertungen.length;
       const overallAvgRating = overallRatingCount > 0
         ? Math.round((bewertungen.reduce((s, r) => s + (r.bewertung ?? 0), 0) / overallRatingCount) * 10) / 10
@@ -121,7 +134,7 @@ export function useAdminAggregatedStats() {
       const allGesamt = durchlauf.filter(d => d.vor_ort_checkin_at && d.nachbearbeitung_checkout_at).map(d => diffMin(d.vor_ort_checkin_at!, d.nachbearbeitung_checkout_at!)).filter(v => v > 0);
 
       return {
-        monthly, overallAvgRating, overallRatingCount, totalChecksLast6, overallOnTimePercent, overallLateFees, totalLateCount,
+        monthly, overallAvgRating, overallRatingCount, totalChecksLast6, totalEinweisungenLast6, overallOnTimePercent, overallLateFees, totalLateCount,
         overallAvgVorOrtMin: avgOrNull(allVorOrt),
         overallAvgNachbearbeitungMin: avgOrNull(allNachb),
         overallAvgGesamtMin: avgOrNull(allGesamt),
