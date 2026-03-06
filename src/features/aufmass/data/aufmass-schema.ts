@@ -10,6 +10,17 @@ export const aufmassDraftSchema = z.object({
   bauantrag_datum: z.string().optional(),
   fossile_brennstoffe_nach_austausch: z.boolean().optional(),
   mehr_bilder_heizungsraum: z.boolean().optional(),
+  heizungsraum_verlegen: z.boolean().optional(),
+  anschluss_vorlauf_vorhanden: z.boolean().optional(),
+  anschluss_vorlauf_distanz: z.number().min(0).optional(),
+  anschluss_ruecklauf_vorhanden: z.boolean().optional(),
+  anschluss_ruecklauf_distanz: z.number().min(0).optional(),
+  anschluss_warmwasser_vorhanden: z.boolean().optional(),
+  anschluss_warmwasser_distanz: z.number().min(0).optional(),
+  anschluss_kaltwasser_vorhanden: z.boolean().optional(),
+  anschluss_kaltwasser_distanz: z.number().min(0).optional(),
+  anschluss_zirkulation_vorhanden: z.boolean().optional(),
+  anschluss_zirkulation_distanz: z.number().min(0).optional(),
   heizungsart: z.enum(['gas', 'oel', 'sonstige']).optional(),
   heizungsart_sonstige: z.string().optional(),
   oeltank_liter_gesamt: z.number().int().positive().optional(),
@@ -53,6 +64,17 @@ export const aufmassSubmitSchema = z.object({
   bauantrag_datum: z.string().min(1, 'Bauantrag-Datum erforderlich'),
   fossile_brennstoffe_nach_austausch: z.boolean({ required_error: 'Bitte auswählen' }),
   mehr_bilder_heizungsraum: z.boolean(),
+  heizungsraum_verlegen: z.boolean({ required_error: 'Bitte auswählen' }),
+  anschluss_vorlauf_vorhanden: z.boolean().optional(),
+  anschluss_vorlauf_distanz: z.number().min(0).optional(),
+  anschluss_ruecklauf_vorhanden: z.boolean().optional(),
+  anschluss_ruecklauf_distanz: z.number().min(0).optional(),
+  anschluss_warmwasser_vorhanden: z.boolean().optional(),
+  anschluss_warmwasser_distanz: z.number().min(0).optional(),
+  anschluss_kaltwasser_vorhanden: z.boolean().optional(),
+  anschluss_kaltwasser_distanz: z.number().min(0).optional(),
+  anschluss_zirkulation_vorhanden: z.boolean().optional(),
+  anschluss_zirkulation_distanz: z.number().min(0).optional(),
   heizungsart: z.enum(['gas', 'oel', 'sonstige'], { required_error: 'Heizungsart wählen' }),
   heizungsart_sonstige: z.string().optional(),
   oeltank_liter_gesamt: z.number().int().positive().optional(),
@@ -99,6 +121,16 @@ export const aufmassSubmitSchema = z.object({
   // Conditional: Aufstellort-Änderung → Distanz Pflicht
   if (data.aufstellort_aenderung === true && !data.distanz_alter_neuer_aufstellort) {
     ctx.addIssue({ code: 'custom', path: ['distanz_alter_neuer_aufstellort'], message: 'Distanz erforderlich bei Aufstellort-Änderung' });
+  }
+  // Conditional: Heizungsraum verlegen → alle Anschluss-Felder Pflicht
+  if (data.heizungsraum_verlegen === true) {
+    const leitungen = ['vorlauf', 'ruecklauf', 'warmwasser', 'kaltwasser', 'zirkulation'] as const;
+    for (const l of leitungen) {
+      const vorhandenKey = `anschluss_${l}_vorhanden` as keyof typeof data;
+      const distanzKey = `anschluss_${l}_distanz` as keyof typeof data;
+      if (data[vorhandenKey] == null) ctx.addIssue({ code: 'custom', path: [vorhandenKey], message: 'Bitte auswählen' });
+      if (data[distanzKey] == null || (data[distanzKey] as number) < 0) ctx.addIssue({ code: 'custom', path: [distanzKey], message: 'Distanz erforderlich' });
+    }
   }
 });
 

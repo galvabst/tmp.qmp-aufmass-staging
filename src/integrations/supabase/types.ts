@@ -6855,6 +6855,7 @@ export type Database = {
           notizen: string | null
           spezialgebiete: string[] | null
           team_typ: Database["public"]["Enums"]["subunternehmer_team_typ_enum"]
+          team_typen: string[]
           telefon: string | null
           updated_at: string
         }
@@ -6871,6 +6872,7 @@ export type Database = {
           notizen?: string | null
           spezialgebiete?: string[] | null
           team_typ?: Database["public"]["Enums"]["subunternehmer_team_typ_enum"]
+          team_typen?: string[]
           telefon?: string | null
           updated_at?: string
         }
@@ -6887,6 +6889,7 @@ export type Database = {
           notizen?: string | null
           spezialgebiete?: string[] | null
           team_typ?: Database["public"]["Enums"]["subunternehmer_team_typ_enum"]
+          team_typen?: string[]
           telefon?: string | null
           updated_at?: string
         }
@@ -12091,6 +12094,7 @@ export type Database = {
         | "Quality-Nacharbeiten erforderlich"
         | "Quality-Nacharbeiten terminiert"
         | "Quality-Nacharbeiten erledigt"
+        | "Abnahme geprüft"
       bestellung_kategorie_abc_enum:
         | "a_komponente"
         | "b_komponente"
@@ -12707,6 +12711,7 @@ export const Constants = {
         "Quality-Nacharbeiten erforderlich",
         "Quality-Nacharbeiten terminiert",
         "Quality-Nacharbeiten erledigt",
+        "Abnahme geprüft",
       ],
       bestellung_kategorie_abc_enum: [
         "a_komponente",
