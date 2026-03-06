@@ -1,45 +1,65 @@
 
 
-# Dashboard Performance: Verspätungen + Farbkodierte Bewertungslinie
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Anforderung
-1. **Verspätungen aggregiert** in die Performance-Sektion einbauen (Pünktlichkeitsquote über alle Techniker)
-2. **Bewertungslinie farbkodiert**: grün ≥ 4.5, gelb 4.0–4.5, rot < 4.0
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-## Umsetzung
+## 1. Themen-Kategorien einführen
 
-### A. Hook erweitern: `useAdminAggregatedStats`
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-Zusätzlich zur bestehenden Abfrage parallel `contractor_verspaetungen` und die Gesamtzahl erledigter Aufträge (Status `wc1_durchfuehren`) fetchen. Pro Monat berechnen:
-- `lateCount`: Anzahl Verspätungen
-- `totalFee`: Summe Gebühren
-- `onTimePercent`: Pünktlichkeitsquote
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-Neue Felder im Interface:
-```text
-MonthlyAggregatedPoint += { lateCount, totalFee, onTimePercent }
-AggregatedPerformance  += { overallOnTimePercent, overallLateFees, totalLateCount }
-```
+## 2. DB-Änderung
 
-### B. Bewertungslinie farbkodiert
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-Die Rating-LineChart bekommt dynamische Farben pro Datenpunkt. Recharts unterstützt das über eine custom `dot`-Render-Funktion und `stroke` per Segment (via `<Line>` mit custom `stroke` function oder mehrere überlagerte Lines mit Referenzlinien).
+## 3. UI-Änderungen
 
-Einfachste Lösung: Drei horizontale Referenzlinien + farbige Dots:
-- Dot-Farbe: grün wenn avgRating ≥ 4.5, gelb wenn ≥ 4.0, rot wenn < 4.0
-- Zwei `<ReferenceLine>`s bei y=4.0 und y=4.5 als dezente Schwellwerte
-- Die Linie selbst bleibt neutral, die Dots zeigen den Zustand
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-### C. Pünktlichkeits-Chart im Dashboard
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-Neues drittes Chart in der Performance-Card:
-- **Pünktlichkeit / Monat** als BarChart oder LineChart mit `onTimePercent`
-- Gesamtquote als Badge im Header neben dem Rating-Badge
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
 
-### Betroffene Dateien
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
 
-| Datei | Änderung |
-|-------|----------|
-| `src/features/admin/hooks/useAdminAggregatedStats.ts` | Verspätungen + Pünktlichkeit aggregieren |
-| `src/features/admin/ui/AdminDashboardView.tsx` | Pünktlichkeits-Chart + farbkodierte Rating-Dots + Referenzlinien |
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, ReferenceLine } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AdminLayout } from './AdminLayout';
 import { useAdminContractorList, AdminContractor, STEP_LABELS } from '@/features/contractors/hooks/useAdminContractorList';
 import { useAdminDashboardStats } from '@/features/admin/hooks/useAdminDashboardStats';
 import { useAdminAggregatedStats } from '@/features/admin/hooks/useAdminAggregatedStats';
-import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprints, CreditCard, MonitorSmartphone, ScanLine, GraduationCap, Car, FileCheck, UserX, Star, TrendingUp } from 'lucide-react';
+import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprints, CreditCard, MonitorSmartphone, ScanLine, GraduationCap, Car, FileCheck, UserX, Star, TrendingUp, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -242,18 +242,34 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
       {/* Performance-Übersicht */}
       <Card className="mb-6">
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm font-semibold">Performance (letzte 6 Monate)</CardTitle>
-            {perfStats?.overallAvgRating !== null && perfStats?.overallAvgRating !== undefined && (
-              <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 rounded-full px-2.5 py-1">
-                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                <span className="text-xs font-bold text-foreground">{perfStats.overallAvgRating}</span>
-                <span className="text-[10px] text-muted-foreground">({perfStats.overallRatingCount})</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {perfStats?.overallOnTimePercent !== null && perfStats?.overallOnTimePercent !== undefined && (
+                <div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 ${
+                  perfStats.overallOnTimePercent >= 90 ? 'bg-emerald-50 dark:bg-emerald-950/30' : perfStats.overallOnTimePercent >= 75 ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-destructive/10'
+                }`}>
+                  <Clock className={`w-3.5 h-3.5 ${
+                    perfStats.overallOnTimePercent >= 90 ? 'text-emerald-500' : perfStats.overallOnTimePercent >= 75 ? 'text-amber-500' : 'text-destructive'
+                  }`} />
+                  <span className="text-xs font-bold text-foreground">{perfStats.overallOnTimePercent}%</span>
+                </div>
+              )}
+              {perfStats?.overallAvgRating !== null && perfStats?.overallAvgRating !== undefined && (
+                <div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 ${
+                  perfStats.overallAvgRating >= 4.5 ? 'bg-emerald-50 dark:bg-emerald-950/30' : perfStats.overallAvgRating >= 4.0 ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-destructive/10'
+                }`}>
+                  <Star className={`w-3.5 h-3.5 fill-current ${
+                    perfStats.overallAvgRating >= 4.5 ? 'text-emerald-500' : perfStats.overallAvgRating >= 4.0 ? 'text-amber-500' : 'text-destructive'
+                  }`} />
+                  <span className="text-xs font-bold text-foreground">{perfStats.overallAvgRating}</span>
+                  <span className="text-[10px] text-muted-foreground">({perfStats.overallRatingCount})</span>
+                </div>
+              )}
+            </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            {perfStats ? `${perfStats.totalChecksLast6} Thermochecks · Ø ${perfStats.overallAvgRating ?? '–'} Sterne` : ''}
+            {perfStats ? `${perfStats.totalChecksLast6} Thermochecks · ${perfStats.totalLateCount} Verspätungen · ${perfStats.overallLateFees.toFixed(0)} € Gebühren` : ''}
           </p>
         </CardHeader>
         <CardContent>
@@ -276,7 +292,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
                   </ResponsiveContainer>
                 </div>
               </div>
-              {/* Average rating trend */}
+              {/* Average rating trend – color-coded dots */}
               <div>
                 <p className="text-[10px] text-muted-foreground font-medium mb-1">Ø Bewertung / Monat</p>
                 <div className="h-32">
@@ -286,8 +302,55 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
                       <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                       <YAxis domain={[1, 5]} tick={{ fontSize: 10 }} />
                       <Tooltip formatter={(v: number) => [`${v} ★`, '']} contentStyle={{ fontSize: 12 }} />
-                      <Line type="monotone" dataKey="avgRating" stroke="hsl(45 93% 47%)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(45 93% 47%)' }} connectNulls />
+                      <ReferenceLine y={4.5} stroke="hsl(142 71% 45%)" strokeDasharray="3 3" strokeOpacity={0.5} />
+                      <ReferenceLine y={4.0} stroke="hsl(0 84% 60%)" strokeDasharray="3 3" strokeOpacity={0.5} />
+                      <Line
+                        type="monotone"
+                        dataKey="avgRating"
+                        stroke="hsl(var(--muted-foreground))"
+                        strokeWidth={2}
+                        connectNulls
+                        dot={(props: any) => {
+                          const { cx, cy, payload } = props;
+                          if (payload.avgRating == null) return <circle key={`dot-${cx}`} r={0} />;
+                          const color = payload.avgRating >= 4.5
+                            ? 'hsl(142 71% 45%)'
+                            : payload.avgRating >= 4.0
+                              ? 'hsl(45 93% 47%)'
+                              : 'hsl(0 84% 60%)';
+                          return <circle key={`dot-${cx}`} cx={cx} cy={cy} r={4} fill={color} stroke={color} strokeWidth={1} />;
+                        }}
+                      />
                     </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              {/* Pünktlichkeit / Monat */}
+              <div>
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">Pünktlichkeit / Monat</p>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={perfStats.monthly.map(p => ({ ...p, onTimePercent: p.onTimePercent ?? 0 }))} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
+                      <Tooltip formatter={(v: number) => [`${v}%`, 'Pünktlich']} contentStyle={{ fontSize: 12 }} />
+                      <ReferenceLine y={90} stroke="hsl(142 71% 45%)" strokeDasharray="3 3" strokeOpacity={0.5} />
+                      <Bar dataKey="onTimePercent" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                        {perfStats.monthly.map((p, i) => (
+                          <Cell
+                            key={i}
+                            fill={
+                              (p.onTimePercent ?? 0) >= 90
+                                ? 'hsl(142 71% 45%)'
+                                : (p.onTimePercent ?? 0) >= 75
+                                  ? 'hsl(45 93% 47%)'
+                                  : 'hsl(0 84% 60%)'
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
