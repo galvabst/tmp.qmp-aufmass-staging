@@ -1,65 +1,57 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Heizungsraum-Verlegung: Anschlüsse erfassen
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Ziel
+Neue Frage im Heizungsraum-Step: "Soll der Heizungsraum verlegt werden?" Bei Ja → für jede Leitung (Vorlauf, Rücklauf, Warmwasser, Kaltwasser, Zirkulationsleitung) erfassen: vorhanden ja/nein + Distanz zur Wärmepumpe in Metern.
 
-## 1. Themen-Kategorien einführen
+## Änderungen
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+| Datei | Änderung |
+|-------|----------|
+| DB-Migration | 11 neue nullable Spalten auf `thermocheck_vot_formulare` |
+| `aufmass-schema.ts` | 11 neue Felder in Draft + Submit Schema, conditional validation |
+| `HeizungsraumSection.tsx` | UI: Toggle "Heizungsraum verlegen?" + 5 Anschluss-Rows |
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+### DB-Spalten (alle nullable)
 
-## 2. DB-Änderung
+```
+heizungsraum_verlegen          BOOLEAN
+anschluss_vorlauf_vorhanden    BOOLEAN
+anschluss_vorlauf_distanz      NUMERIC
+anschluss_ruecklauf_vorhanden  BOOLEAN
+anschluss_ruecklauf_distanz    NUMERIC
+anschluss_warmwasser_vorhanden BOOLEAN
+anschluss_warmwasser_distanz   NUMERIC
+anschluss_kaltwasser_vorhanden BOOLEAN
+anschluss_kaltwasser_distanz   NUMERIC
+anschluss_zirkulation_vorhanden BOOLEAN
+anschluss_zirkulation_distanz  NUMERIC
+```
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+### Zod Schema
 
-## 3. UI-Änderungen
+- **Draft**: Alle 11 Felder optional
+- **Submit**: `heizungsraum_verlegen` required (boolean). Wenn `true` → alle 5 `_vorhanden`-Felder required, alle 5 `_distanz`-Felder required (min 0) via `superRefine`
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+### UI (HeizungsraumSection)
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+Nach dem bestehenden "Mehr Bilder?" Block:
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+```text
+┌─────────────────────────────────────┐
+│ Heizungsraum verlegen? *            │
+│ [Ja] [Nein]                         │
+│                                     │
+│ ── Nur wenn Ja: ──                  │
+│                                     │
+│ Vorlauf     [Ja][Nein]  [__] m      │
+│ Rücklauf    [Ja][Nein]  [__] m      │
+│ Warmwasser  [Ja][Nein]  [__] m      │
+│ Kaltwasser  [Ja][Nein]  [__] m      │
+│ Zirkulation [Ja][Nein]  [__] m      │
+└─────────────────────────────────────┘
+```
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+Jede Zeile: Label links, Ja/Nein-Toggle Mitte, Distanz-Input rechts (number, Suffix "m"). Die Distanz wird immer abgefragt, egal ob vorhanden oder nicht — sie gibt die Entfernung zur Wärmepumpe an.
 
