@@ -488,6 +488,8 @@ const Index = () => {
           profile={profile}
           profileId={profileId}
           totalSubmittedOrders={submittedCount}
+          bewertungCount={bewertungStats?.count || 0}
+          contractorOnboardingId={contractorOnboardingId}
           onSave={(updatedData) => {
             toast.success('Profil aktualisiert');
           }}
