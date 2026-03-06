@@ -1,65 +1,30 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# "In Verzug" KPI klickbar machen — Verzug-Liste anzeigen
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Umsetzung
 
-## 1. Themen-Kategorien einführen
+### 1. KpiCard um `onClick` erweitern
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+Die `KpiCard`-Komponente bekommt einen optionalen `onClick`-Handler. Wenn gesetzt, wird der Cursor zu `pointer` und die Karte klickbar.
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+### 2. Dialog mit Verzug-Technikern
 
-## 2. DB-Änderung
+Beim Klick auf "In Verzug" öffnet sich ein Dialog/Sheet mit der Liste aller Techniker in Verzug. Jeder Eintrag zeigt:
+- Avatar + Name
+- Erstellt am / Tage seit Erstellung
+- Aktueller Onboarding-Schritt
+- Akademie-Fortschritt (x/y Lektionen)
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+Klick auf einen Eintrag ruft `onSelectContractor` auf (navigiert zur Contractor-Detailansicht).
 
-## 3. UI-Änderungen
+### 3. Verzug-Liste als `useMemo`
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+Die bereits vorhandene Filter-Logik (Zeile 219-225) wird so refaktoriert, dass sie nicht nur die Anzahl, sondern auch die gefilterte Liste zurückgibt (`inVerzugList`), damit der Dialog sie direkt nutzen kann.
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+### Betroffene Datei
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| `src/features/admin/ui/AdminDashboardView.tsx` | KpiCard onClick, Dialog mit Verzug-Liste, Refaktor inVerzug-Berechnung |
 
