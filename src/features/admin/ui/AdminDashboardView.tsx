@@ -9,7 +9,8 @@ import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprint
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { format, parseISO } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { format, parseISO, differenceInDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 // ── Funnel config ──
@@ -191,6 +192,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
   const { data: stats, isLoading: sLoading } = useAdminDashboardStats();
   const { data: perfStats, isLoading: pLoading } = useAdminAggregatedStats();
   const [activeTab, setActiveTab] = useState<TabKey>('alle');
+  const [verzugOpen, setVerzugOpen] = useState(false);
 
   // Active technicians (not ready, not deaktiviert, not trainer)
   const activeTechs = useMemo(() => {
@@ -211,19 +213,19 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
     return tabDef ? activeTechs.filter(tabDef.filter) : activeTechs;
   }, [activeTechs, activeTab]);
 
-  const kpis = useMemo(() => {
+  const { inVerzugList, ready, trainers } = useMemo(() => {
     const ready = contractors?.filter(c => c.onboardingStatus === 'ready').length ?? 0;
     const trainers = contractors?.filter(c => c.isTrainer).length ?? 0;
     const now = new Date();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    const inVerzug = contractors?.filter(c => {
+    const inVerzugList = contractors?.filter(c => {
       if (c.isTrainer || c.onboardingStatus === 'ready' || c.onboardingStatus === 'deaktiviert') return false;
       if (!c.erstelltAm) return false;
       const deadlineExceeded = now.getTime() - new Date(c.erstelltAm).getTime() > sevenDaysMs;
       const akademieNotDone = !c.completedSteps.includes('akademie');
       return deadlineExceeded && akademieNotDone;
-    }).length ?? 0;
-    return { ready, trainers, inVerzug };
+    }) ?? [];
+    return { inVerzugList, ready, trainers };
   }, [contractors]);
 
   // Funnel data (all non-trainer contractors, including ready)
@@ -243,10 +245,63 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
       {/* KPI Row */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <KpiCard icon={<ClipboardList className="w-4 h-4" />} label="Aufträge gesamt" value={stats?.gesamtAuftraege ?? '–'} />
-        <KpiCard icon={<Users className="w-4 h-4" />} label="Einsatzbereit" value={kpis.ready} />
+        <KpiCard icon={<Users className="w-4 h-4" />} label="Einsatzbereit" value={ready} />
         <KpiCard icon={<MapPin className="w-4 h-4" />} label="Offene Pool-Termine" value={stats?.offenePool ?? '–'} />
-        <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={kpis.inVerzug} accent />
+        <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={inVerzugList.length} accent onClick={() => setVerzugOpen(true)} />
       </div>
+
+      {/* In Verzug Dialog */}
+      <Dialog open={verzugOpen} onOpenChange={setVerzugOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-4 h-4" />
+              In Verzug ({inVerzugList.length})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="divide-y divide-border overflow-y-auto flex-1 -mx-6 px-6">
+            {inVerzugList.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Keine Techniker in Verzug</p>
+            ) : (
+              inVerzugList.map(c => {
+                const initials = `${c.vorname?.[0] || ''}${c.nachname?.[0] || ''}`.toUpperCase() || '?';
+                const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Kein Profil';
+                const daysOverdue = c.erstelltAm ? differenceInDays(new Date(), parseISO(c.erstelltAm)) - 7 : 0;
+
+                return (
+                  <div
+                    key={c.id}
+                    className="py-3 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors rounded-md px-1 -mx-1"
+                    onClick={() => { setVerzugOpen(false); onSelectContractor?.(c.id); }}
+                  >
+                    <Avatar className="w-8 h-8 shrink-0">
+                      <AvatarImage src={c.avatarUrl || undefined} />
+                      <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+                          +{daysOverdue} Tag{daysOverdue !== 1 ? 'e' : ''} über Deadline
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          <GraduationCap className="w-3 h-3 inline mr-0.5" />
+                          {c.lektionenCompleted}/{c.lektionenTotal} Lektionen
+                        </span>
+                        {c.currentStep && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {STEP_LABELS[c.currentStep] ?? c.currentStep}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Performance-Übersicht */}
       <Card className="mb-6">
@@ -538,9 +593,9 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
   );
 }
 
-function KpiCard({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: number | string; accent?: boolean }) {
+function KpiCard({ icon, label, value, accent, onClick }: { icon: React.ReactNode; label: string; value: number | string; accent?: boolean; onClick?: () => void }) {
   return (
-    <Card className={accent ? 'border-destructive/30' : ''}>
+    <Card className={`${accent ? 'border-destructive/30' : ''} ${onClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`} onClick={onClick}>
       <CardContent className="p-3 flex items-center gap-3">
         <div className={`p-2 rounded-lg ${accent ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
           {icon}
