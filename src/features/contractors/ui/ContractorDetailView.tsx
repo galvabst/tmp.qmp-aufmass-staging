@@ -4,7 +4,6 @@ import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   AdminContractor,
@@ -23,7 +22,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
   contractor: AdminContractor;
@@ -412,6 +410,38 @@ function FlagRow({ label, checked }: { label: string; checked: boolean }) {
     <div className="flex items-center gap-2">
       <Checkbox checked={checked} disabled className="pointer-events-none" />
       <span className={`text-xs ${checked ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
+    </div>
+  );
+}
+
+function EinweisungFreigabeToggle({ contractorId, initial }: { contractorId: string; initial: boolean }) {
+  const [value, setValue] = useState(initial);
+  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleToggle = async (checked: boolean) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.rpc('update_contractor_einweisung_freigabe', {
+        p_contractor_id: contractorId,
+        p_freigabe: checked,
+      } as any);
+      if (error) throw error;
+      setValue(checked);
+      queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] });
+      toast.success(checked ? 'Einweisungs-Freigabe erteilt' : 'Einweisungs-Freigabe entzogen');
+    } catch (err: any) {
+      console.error('[EinweisungFreigabe]', err);
+      toast.error(err.message || 'Fehler beim Speichern');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between">
+      <span className={`text-xs ${value ? 'text-foreground' : 'text-muted-foreground'}`}>Einweisung freigegeben</span>
+      <Switch checked={value} onCheckedChange={handleToggle} disabled={loading} />
     </div>
   );
 }
