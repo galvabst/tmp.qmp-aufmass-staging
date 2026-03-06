@@ -121,8 +121,6 @@ export function useMyAssignedOrders() {
 
       const headers = await getAuthHeaders();
 
-      const headers = await getAuthHeaders();
-
       // Step 1: Resolve contractor_onboarding.id for current user
       const onboardingRes = await fetch(
         `${SUPABASE_URL}/rest/v1/contractor_onboarding?profile_id=eq.${userId}&select=id`,
