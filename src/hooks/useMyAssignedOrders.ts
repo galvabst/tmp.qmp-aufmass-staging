@@ -181,6 +181,19 @@ export function useMyAssignedOrders() {
       const termine: TerminRow[] = await termineRes.json();
       const bewertungen: BewertungRow[] = bewertungenRes.ok ? await bewertungenRes.json() : [];
 
+      // Step 5: Fetch contractor grundpreise as fallback for orders without vereinbarter_preis
+      let grundpreisFallback: number | null = null;
+      try {
+        const { data: gpData } = await supabase.rpc("get_contractor_grundpreise", {
+          p_contractor_id: contractorId,
+        } as any);
+        const prices = (gpData as { auftragstyp: string; betrag_netto: number }[]) || [];
+        const tc = prices.find(p => p.auftragstyp === 'thermocheck');
+        grundpreisFallback = tc?.betrag_netto ?? null;
+      } catch (e) {
+        console.warn("[useMyAssignedOrders] Failed to fetch grundpreise fallback:", e);
+      }
+
       // Build lookup maps
       const auftragMap = new Map(auftraege.map(a => [a.id, a]));
       const bewertungMap = new Map(bewertungen.map(b => [b.thermocheck_auftrag_id, b]));
@@ -202,6 +215,9 @@ export function useMyAssignedOrders() {
 
         const derivedStatus = auftrag ? deriveStatus(auftrag, hasBewertung) : 'booked';
         const derivedPhase = auftrag ? deriveCheckinPhase(auftrag) : undefined;
+
+        // Use vereinbarter_preis if available, otherwise fall back to contractor grundpreis
+        const billableAmount = auftrag?.vereinbarter_preis ?? grundpreisFallback ?? undefined;
 
         return {
           id: termin.id,
@@ -229,7 +245,7 @@ export function useMyAssignedOrders() {
           nachbearbeitungCheckoutAt: auftrag?.nachbearbeitung_checkout_at || undefined,
           submittedAt: auftrag?.eingereicht_am || undefined,
           approvedAt: bewertung?.created_at || undefined,
-          billableAmount: auftrag?.vereinbarter_preis ?? undefined,
+          billableAmount,
           quadratmeter: auftrag?.quadratmeter ?? undefined,
           wohneinheiten: auftrag?.wohneinheiten ?? undefined,
           fussbodenheizung: auftrag?.fussbodenheizung ?? undefined,
