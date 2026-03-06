@@ -1,65 +1,22 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Logout-Button in der Admin Console
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
+Die Admin Console (`/admin`) hat keinen Abmelden-Button. Der einzige Logout existiert in der Contractor `ProfileView`, die Admins nie sehen.
 
-## 1. Themen-Kategorien einführen
+## Lösung
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+**Datei:** `src/features/admin/ui/AdminLayout.tsx`
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+Einen Logout-Button im sticky Header rechts oben einfügen (LogOut-Icon von lucide-react). Klick → `supabase.auth.signOut()` → `window.location.reload()` → landet auf Login.
 
-## 2. DB-Änderung
+Da alle Admin-Subviews (`AdminDashboardView`, `ContractorListView`, etc.) das `AdminLayout` nutzen, ist der Button automatisch auf **jedem Tab** sichtbar.
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+**Umsetzung:**
+- Import `supabase` + `LogOut` Icon + `toast`
+- Button rechts im Header neben dem optionalen `actionButton`
+- Styling: `ghost` variant, `text-muted-foreground hover:text-destructive`
 
-## 3. UI-Änderungen
-
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
-
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
-
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+Ein einziger File-Edit, ca. 15 Zeilen.
 
