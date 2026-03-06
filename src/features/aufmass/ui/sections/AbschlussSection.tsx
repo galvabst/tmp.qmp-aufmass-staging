@@ -1,7 +1,7 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AufmassDraftData } from '../../data/aufmass-schema';
-import { VotBild } from '../../hooks/useVotBilder';
+import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { SignatureField } from '../components/SignatureField';
 import { PhotoUploadField } from '../components/PhotoUploadField';
 import { useUploadVotBild } from '../../hooks/useVotBilder';
@@ -45,7 +45,7 @@ export function AbschlussSection({ form, bilder, votFormularId, leadName, leadId
         </p>
         <PhotoUploadField
           kategorie="bewertung_nachweis"
-          existingBilder={bilder}
+          existingBilder={filterBilderByKategorie(bilder, 'bewertung_nachweis')}
           votFormularId={votFormularId}
           leadName={leadName}
           leadId={leadId}

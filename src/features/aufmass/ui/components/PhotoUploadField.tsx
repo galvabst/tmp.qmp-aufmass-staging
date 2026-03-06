@@ -102,6 +102,12 @@ export function PhotoUploadField({
         continue;
       }
 
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      if (['heic', 'heif'].includes(ext) || ['image/heic', 'image/heif'].includes(file.type)) {
+        toast.error(`${file.name}: HEIC-Format wird nicht unterstützt. Bitte als JPG oder PNG hochladen.`);
+        continue;
+      }
+
       try {
         const compressed = await compressImage(file);
         const nextIndex = existingBilder.length + uploadedCount + 1;
@@ -185,7 +191,7 @@ export function PhotoUploadField({
           <input
             id={fileInputId}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/tiff"
             multiple
             onChange={handleInputChange}
             disabled={inputsDisabled}
@@ -195,7 +201,7 @@ export function PhotoUploadField({
           <input
             id={cameraInputId}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             capture="environment"
             onChange={handleInputChange}
             disabled={inputsDisabled}
