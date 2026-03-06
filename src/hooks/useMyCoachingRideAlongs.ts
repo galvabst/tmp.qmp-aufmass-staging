@@ -18,6 +18,9 @@ export interface RideAlongTrainee {
   bewertung: CoachingBewertung;
   bewertungAm?: string;
   termine: { datum: string; ganztaegig: boolean; zeitVon?: string; zeitBis?: string }[];
+  praxistestEingereicht?: boolean;
+  praxistestScanUrl?: string;
+  praxistestVideoUrl?: string;
 }
 
 async function syncSession() {
@@ -54,7 +57,7 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
 
       const [profilesRes, traineeOnbsRes, termineRes] = await Promise.all([
         supabase.from('profiles').select('id, vorname, nachname, telefon, email, avatar_url').in('id', traineeProfileIds),
-        supabaseTC.from('contractor_onboarding').select('profile_id, anschrift_plz, anschrift_ort').in('profile_id', traineeProfileIds),
+        supabaseTC.from('contractor_onboarding').select('profile_id, anschrift_plz, anschrift_ort, praxistest_scan_url, praxistest_video_url, praxistest_eingereicht').in('profile_id', traineeProfileIds),
         supabaseTC.from('thermocheck_terminvorschlaege').select('thermocheck_auftrag_id, datum, ganztaegig, zeit_von, zeit_bis, sortierung').in('thermocheck_auftrag_id', auftragIds).order('sortierung', { ascending: true }),
       ]);
 
@@ -86,10 +89,12 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
           ort: onb?.anschrift_ort || '',
           avatarUrl: profile?.avatar_url || undefined,
           gebuchtAm: auftrag.coaching_gebucht_am || undefined,
-          // Bewertung from ORDER, not onboarding
           bewertung: (auftrag.coaching_bewertung as CoachingBewertung) || 'ausstehend',
           bewertungAm: auftrag.coaching_bewertung_am || undefined,
           termine: termineByAuftrag.get(auftrag.id) || [],
+          praxistestEingereicht: onb?.praxistest_eingereicht || false,
+          praxistestScanUrl: onb?.praxistest_scan_url || undefined,
+          praxistestVideoUrl: onb?.praxistest_video_url || undefined,
         });
       }
 
