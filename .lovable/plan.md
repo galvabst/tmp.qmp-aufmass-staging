@@ -1,65 +1,40 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Fix: PV-Formular — Upload, Datenpersistenz, HEIC-Block, Bewertungsnachweis
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Identifizierte Probleme
 
-## 1. Themen-Kategorien einführen
+### 1. Formulardaten gehen verloren (kritisch)
+**Ursache:** In `AufmassFormPage.tsx` Zeile 136 filtert die Prefill-Logik mit `key in form.getValues()` — aber `defaultValues: {}` enthält keine Keys, daher werden DB-Werte nie in das Formular geladen.
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+**Fix:** `form.reset()` direkt mit den DB-Daten aufrufen, wie es bei `pvForm` bereits korrekt gemacht wird:
+```ts
+form.reset({ ...form.getValues(), ...f });
+// statt der fehlerhaften Key-Filterung
+```
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+### 2. Bewertungsnachweis zeigt alle Bilder
+**Ursache:** `AbschlussSection.tsx` Zeile 48 übergibt `existingBilder={bilder}` (alle Bilder des Formulars) statt nach Kategorie zu filtern.
 
-## 2. DB-Änderung
+**Fix:** `filterBilderByKategorie(bilder, 'bewertung_nachweis')` verwenden.
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+### 3. HEIC-Dateien blockieren
+**Ursache:** `PhotoUploadField` prüft nur `file.type.startsWith('image/')` — HEIC-Dateien (`image/heic`, `image/heif`) passieren diese Prüfung. Außerdem können HEIC-Dateien manchmal einen leeren `type` haben (iOS).
 
-## 3. UI-Änderungen
+**Fix:** In `PhotoUploadField.tsx` explizite Prüfung auf Dateiendung `.heic` und `.heif` hinzufügen + `accept`-Attribut der Inputs einschränken (ohne HEIC).
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+### 4. PV-Bilder in eigenem Unterordner
+**Ursache:** Alle Bilder (THC + PV) landen aktuell im selben `thermocheck-auftrag_{id}/` Ordner.
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+**Fix:** `storage-path.ts` erweitern: Neue Funktion `buildPvImageStoragePath` die den Pfad `operations/leads/{name}_{leadId}/thermocheck-auftrag_{auftragId}/pv-auftrag/{kategorie}_{nr}_{ts}.{ext}` erzeugt. PV-Kategorien (prefix `pv_`) nutzen diesen neuen Pfad automatisch.
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+## Betroffene Dateien
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| `src/features/aufmass/ui/AufmassFormPage.tsx` | Prefill-Logik fixen (Zeile 131-141) |
+| `src/features/aufmass/ui/sections/AbschlussSection.tsx` | `existingBilder` filtern auf `bewertung_nachweis` |
+| `src/features/aufmass/ui/components/PhotoUploadField.tsx` | HEIC blockieren + `accept` ohne HEIC |
+| `src/features/aufmass/data/storage-path.ts` | `buildPvImageStoragePath` für PV-Unterordner |
+| `src/features/aufmass/hooks/useVotBilder.ts` | PV-Kategorien automatisch in PV-Pfad routen |
 
