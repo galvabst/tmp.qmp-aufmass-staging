@@ -245,10 +245,63 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
       {/* KPI Row */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <KpiCard icon={<ClipboardList className="w-4 h-4" />} label="Aufträge gesamt" value={stats?.gesamtAuftraege ?? '–'} />
-        <KpiCard icon={<Users className="w-4 h-4" />} label="Einsatzbereit" value={kpis.ready} />
+        <KpiCard icon={<Users className="w-4 h-4" />} label="Einsatzbereit" value={ready} />
         <KpiCard icon={<MapPin className="w-4 h-4" />} label="Offene Pool-Termine" value={stats?.offenePool ?? '–'} />
-        <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={kpis.inVerzug} accent />
+        <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={inVerzugList.length} accent onClick={() => setVerzugOpen(true)} />
       </div>
+
+      {/* In Verzug Dialog */}
+      <Dialog open={verzugOpen} onOpenChange={setVerzugOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-4 h-4" />
+              In Verzug ({inVerzugList.length})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="divide-y divide-border overflow-y-auto flex-1 -mx-6 px-6">
+            {inVerzugList.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Keine Techniker in Verzug</p>
+            ) : (
+              inVerzugList.map(c => {
+                const initials = `${c.vorname?.[0] || ''}${c.nachname?.[0] || ''}`.toUpperCase() || '?';
+                const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Kein Profil';
+                const daysOverdue = c.erstelltAm ? differenceInDays(new Date(), parseISO(c.erstelltAm)) - 7 : 0;
+
+                return (
+                  <div
+                    key={c.id}
+                    className="py-3 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors rounded-md px-1 -mx-1"
+                    onClick={() => { setVerzugOpen(false); onSelectContractor?.(c.id); }}
+                  >
+                    <Avatar className="w-8 h-8 shrink-0">
+                      <AvatarImage src={c.avatarUrl || undefined} />
+                      <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+                          +{daysOverdue} Tag{daysOverdue !== 1 ? 'e' : ''} über Deadline
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          <GraduationCap className="w-3 h-3 inline mr-0.5" />
+                          {c.lektionenCompleted}/{c.lektionenTotal} Lektionen
+                        </span>
+                        {c.currentStep && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {STEP_LABELS[c.currentStep] ?? c.currentStep}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Performance-Übersicht */}
       <Card className="mb-6">
