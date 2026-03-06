@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Calendar, MapPin, Phone, Mail, UserCircle, CheckCircle2, XCircle, Loader2, Ban, UserX } from 'lucide-react';
+import { Users, Calendar, MapPin, Phone, Mail, UserCircle, CheckCircle2, XCircle, Loader2, Ban, UserX, Link2, FileVideo } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -129,33 +129,49 @@ function TraineeCard({ trainee, isPast }: { trainee: RideAlongTrainee; isPast: b
 
         <div className="mx-4 border-t border-border/40" />
 
-        {/* Date & Contact */}
-        <div className="p-4 space-y-2.5">
+        {/* Date, Contact & Praxistest – compact */}
+        <div className="px-4 py-3 space-y-1.5">
           {firstDate && (
             <div className="flex items-center gap-2 text-sm">
-              <Calendar className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-foreground font-medium">
-                {format(parseISO(firstDate), 'EEEE, dd. MMMM yyyy', { locale: de })}
+              <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-foreground font-medium text-xs">
+                {format(parseISO(firstDate), 'EE, dd.MM.yyyy', { locale: de })}
               </span>
-              <span className="text-xs text-muted-foreground ml-auto">Ganztägig</span>
+              <span className="text-[10px] text-muted-foreground ml-auto">Ganztägig</span>
             </div>
           )}
-          <div className="flex items-center gap-2 text-sm">
-            <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
+          <div className="flex items-center gap-2 text-xs">
+            <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             {trainee.telefon ? (
               <a href={`tel:${trainee.telefon}`} className="text-primary hover:underline">{trainee.telefon}</a>
             ) : (
-              <span className="text-muted-foreground italic text-xs">Nicht hinterlegt</span>
+              <span className="text-muted-foreground italic">Nicht hinterlegt</span>
             )}
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+          <div className="flex items-center gap-2 text-xs">
+            <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             {trainee.email ? (
               <a href={`mailto:${trainee.email}`} className="text-primary hover:underline truncate">{trainee.email}</a>
             ) : (
-              <span className="text-muted-foreground italic text-xs">Nicht hinterlegt</span>
+              <span className="text-muted-foreground italic">Nicht hinterlegt</span>
             )}
           </div>
+
+          {/* Praxistest links */}
+          {trainee.praxistestEingereicht && (trainee.praxistestScanUrl || trainee.praxistestVideoUrl) && (
+            <div className="flex items-center gap-3 pt-1">
+              {trainee.praxistestScanUrl && (
+                <a href={trainee.praxistestScanUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Link2 className="w-3.5 h-3.5" /> 3D-Scan
+                </a>
+              )}
+              {trainee.praxistestVideoUrl && (
+                <a href={trainee.praxistestVideoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <FileVideo className="w-3.5 h-3.5" /> Drohnenvideo
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actions for past + pending */}
@@ -185,14 +201,11 @@ function TraineeCard({ trainee, isPast }: { trainee: RideAlongTrainee; isPast: b
 
         {/* Footer */}
         {trainee.gebuchtAm && (
-          <>
-            <div className="mx-4 border-t border-border/40" />
-            <div className="px-4 py-2.5">
-              <p className="text-[11px] text-muted-foreground">
-                Gebucht am {format(parseISO(trainee.gebuchtAm), 'dd.MM.yyyy', { locale: de })}
-              </p>
-            </div>
-          </>
+          <div className="px-4 py-1.5 border-t border-border/40">
+            <p className="text-[10px] text-muted-foreground">
+              Gebucht {format(parseISO(trainee.gebuchtAm), 'dd.MM.yyyy', { locale: de })}
+            </p>
+          </div>
         )}
       </div>
 

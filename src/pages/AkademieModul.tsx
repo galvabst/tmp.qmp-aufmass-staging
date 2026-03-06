@@ -311,7 +311,13 @@ function AkademieModulContent({
             variant="ghost" 
             size="icon"
             className="shrink-0 mt-0.5"
-            onClick={() => navigate('/')}
+            onClick={() => {
+              if (window.history.state && window.history.state.idx > 0) {
+                navigate(-1);
+              } else {
+                navigate('/');
+              }
+            }}
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
