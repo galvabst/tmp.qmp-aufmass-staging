@@ -32,7 +32,7 @@ INSERT für Techniker erfolgt über SECURITY DEFINER RPC, nicht direkt.
 - Lead-Conversion-Bonus: 50 € (noch kein automatischer Trigger, muss manuell/per Admin erstellt werden)
 
 ## Offene Punkte
-- [ ] Lead-Conversion-Trigger: Automatisierung wenn `leads.status = 'Gewonnen THC'` UND Anzahlung eingegangen
+- [x] Lead-Conversion-Trigger: DB-Trigger `trg_lead_conversion_bonus` auf `public.auftraege` — feuert wenn `anzahlung_eingang_datum` von NULL auf Wert wechselt, erstellt 50€ Bonus via `thermocheck.erstelle_lead_conversion_bonus()` mit ON CONFLICT DO NOTHING
 - [ ] Admin-UI für Bonus-Freigabe/Auszahlung
 - [ ] Auszahlungs-Export (monatlich)
 
