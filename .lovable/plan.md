@@ -1,65 +1,42 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Auto-Trigger: Lead-Conversion-Bonus (50 €)
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
+Der Lead-Conversion-Bonus (50 €) wird aktuell **nie automatisch erstellt** — das war als offener Punkt in der Boni-Validation dokumentiert. Wenn ein Lead zum Kunden wird (Anzahlung bezahlt), muss der Techniker, der den Thermocheck gemacht hat, automatisch 50 € Bonus erhalten.
 
-## 1. Themen-Kategorien einführen
+## Lösung: DB-Trigger auf `leads`
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+Eine neue SQL-Migration erstellt einen Trigger auf der `public.leads`-Tabelle, der bei Update von `anzahlung_eingang_datum` (von NULL auf einen Wert) automatisch einen `lead_conversion`-Bonus für den zugewiesenen Techniker anlegt.
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+### Trigger-Logik (Pseudocode)
+```text
+WHEN leads.anzahlung_eingang_datum changes from NULL → non-NULL:
+  1. Finde thermocheck_auftraege WHERE lead_id = leads.id
+  2. Für jeden Auftrag mit zugewiesener_techniker_id:
+     → INSERT contractor_boni (lead_conversion, 50€, ausstehend)
+     → ON CONFLICT DO NOTHING (Duplikatschutz)
+```
 
-## 2. DB-Änderung
+### Migration
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+| Objekt | Schema | Beschreibung |
+|--------|--------|-------------|
+| `thermocheck.erstelle_lead_conversion_bonus()` | Function | SECURITY DEFINER, erstellt 50€ Bonus für zugewiesenen Techniker |
+| `trg_lead_conversion_bonus` | Trigger | AFTER UPDATE auf `public.leads`, feuert wenn `anzahlung_eingang_datum` gesetzt wird |
 
-## 3. UI-Änderungen
+Die Funktion:
+- Sucht alle `thermocheck_auftraege` mit passender `lead_id`
+- Prüft ob `zugewiesener_techniker_id` vorhanden
+- Inserted mit `ON CONFLICT (thermocheck_auftrag_id, bonus_typ) DO NOTHING` → keine Duplikate
+- Betrag: fest 50 €
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+### Kein Frontend-Änderung nötig
+Die bestehende `get_my_contractor_boni` RPC und die ReviewView/ProfileView zeigen den Bonus automatisch an, sobald er in der DB existiert.
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+## Betroffene Dateien
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| Neue Migration (SQL) | Trigger-Funktion + Trigger auf `public.leads` |
 
