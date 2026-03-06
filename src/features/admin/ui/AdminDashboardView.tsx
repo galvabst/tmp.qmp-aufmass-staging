@@ -9,7 +9,8 @@ import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprint
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { format, parseISO } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { format, parseISO, differenceInDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 // ── Funnel config ──
