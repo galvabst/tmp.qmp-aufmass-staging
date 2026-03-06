@@ -593,9 +593,9 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
   );
 }
 
-function KpiCard({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: number | string; accent?: boolean }) {
+function KpiCard({ icon, label, value, accent, onClick }: { icon: React.ReactNode; label: string; value: number | string; accent?: boolean; onClick?: () => void }) {
   return (
-    <Card className={accent ? 'border-destructive/30' : ''}>
+    <Card className={`${accent ? 'border-destructive/30' : ''} ${onClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`} onClick={onClick}>
       <CardContent className="p-3 flex items-center gap-3">
         <div className={`p-2 rounded-lg ${accent ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
           {icon}
