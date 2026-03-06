@@ -16,7 +16,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useContractorActivityStats } from '../hooks/useContractorActivityStats';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
   contractor: AdminContractor;
@@ -143,13 +143,7 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
             <p className="text-[11px] font-medium text-muted-foreground mb-1">Thermochecks</p>
             <div className="h-[120px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={activityStats} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="checksGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                <LineChart data={activityStats} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -157,8 +151,8 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
                     contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
                     formatter={(value: number) => [value, 'Thermochecks']}
                   />
-                  <Area type="monotone" dataKey="checks" stroke="hsl(var(--primary))" fill="url(#checksGrad)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
-                </AreaChart>
+                  <Line type="monotone" dataKey="checks" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
+                </LineChart>
               </ResponsiveContainer>
             </div>
 
@@ -166,13 +160,7 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
             <p className="text-[11px] font-medium text-muted-foreground mb-1 mt-3">Ø Bewertung</p>
             <div className="h-[100px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={activityStats} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="ratingGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                <LineChart data={activityStats} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -180,8 +168,8 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
                     contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
                     formatter={(value: number | null) => [value !== null ? Number(value).toFixed(1) : '–', 'Ø Bewertung']}
                   />
-                  <Area type="monotone" dataKey="avgRating" stroke="hsl(142, 71%, 45%)" fill="url(#ratingGrad)" strokeWidth={2} dot={{ r: 4, fill: 'hsl(142, 71%, 45%)' }} connectNulls={false} />
-                </AreaChart>
+                  <Line type="monotone" dataKey="avgRating" stroke="hsl(142, 71%, 45%)" strokeWidth={2} dot={{ r: 4, fill: 'hsl(142, 71%, 45%)' }} connectNulls={false} />
+                </LineChart>
               </ResponsiveContainer>
             </div>
             {/* Umsatz row */}
