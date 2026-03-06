@@ -1,4 +1,4 @@
-import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award } from 'lucide-react';
+import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award, Activity } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -15,6 +15,8 @@ import {
 } from '../hooks/useAdminContractorList';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useContractorActivityStats } from '../hooks/useContractorActivityStats';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
   contractor: AdminContractor;
