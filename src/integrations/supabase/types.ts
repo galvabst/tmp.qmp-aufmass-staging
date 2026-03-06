@@ -380,6 +380,7 @@ export type Database = {
           datei_url: string | null
           dateien_urls: Json | null
           id: string
+          kommentar: string | null
           schritt_id: string
           updated_at: string
           wert: string | null
@@ -393,6 +394,7 @@ export type Database = {
           datei_url?: string | null
           dateien_urls?: Json | null
           id?: string
+          kommentar?: string | null
           schritt_id: string
           updated_at?: string
           wert?: string | null
@@ -406,6 +408,7 @@ export type Database = {
           datei_url?: string | null
           dateien_urls?: Json | null
           id?: string
+          kommentar?: string | null
           schritt_id?: string
           updated_at?: string
           wert?: string | null
@@ -11967,6 +11970,7 @@ export type Database = {
         | "Klärung Technik"
         | "Klärung Netz"
         | "Klärung Material"
+        | "Quality-Nacharbeiten"
       baustellenstatus_substatus_enum:
         | "WC2 durchführen"
         | "WC2 durchgeführt"
@@ -12021,6 +12025,9 @@ export type Database = {
         | "Vormontage Nacharbeiten erforderlich"
         | "Vormontage Abnahme"
         | "Nacharbeiten terminiert"
+        | "Quality-Nacharbeiten erforderlich"
+        | "Quality-Nacharbeiten terminiert"
+        | "Quality-Nacharbeiten erledigt"
       bestellung_kategorie_abc_enum:
         | "a_komponente"
         | "b_komponente"
@@ -12271,7 +12278,11 @@ export type Database = {
         | "Storno abgelehnt"
       strafabzug_typ: "Danger Loss" | "Follow-Up-Verlust"
       strategy_source_enum: "sales_academy" | "internal_meeting"
-      subunternehmer_team_typ_enum: "vormontage" | "wp_montage" | "beides"
+      subunternehmer_team_typ_enum:
+        | "vormontage"
+        | "wp_montage"
+        | "beides"
+        | "elektrik"
       system_email_status_enum:
         | "sent"
         | "delivered"
@@ -12285,7 +12296,11 @@ export type Database = {
         | "mb_reminder"
         | "notification"
       task_status_enum: "Ausstehend" | "Erledigt" | "Überfällig"
-      team_buchung_typ_enum: "wp_montage" | "vormontage" | "nacharbeiten"
+      team_buchung_typ_enum:
+        | "wp_montage"
+        | "vormontage"
+        | "nacharbeiten"
+        | "elektrik"
       team_verfuegbarkeit_status_enum:
         | "verfügbar"
         | "gebucht"
@@ -12569,6 +12584,7 @@ export const Constants = {
         "Klärung Technik",
         "Klärung Netz",
         "Klärung Material",
+        "Quality-Nacharbeiten",
       ],
       baustellenstatus_substatus_enum: [
         "WC2 durchführen",
@@ -12624,6 +12640,9 @@ export const Constants = {
         "Vormontage Nacharbeiten erforderlich",
         "Vormontage Abnahme",
         "Nacharbeiten terminiert",
+        "Quality-Nacharbeiten erforderlich",
+        "Quality-Nacharbeiten terminiert",
+        "Quality-Nacharbeiten erledigt",
       ],
       bestellung_kategorie_abc_enum: [
         "a_komponente",
@@ -12902,7 +12921,12 @@ export const Constants = {
       ],
       strafabzug_typ: ["Danger Loss", "Follow-Up-Verlust"],
       strategy_source_enum: ["sales_academy", "internal_meeting"],
-      subunternehmer_team_typ_enum: ["vormontage", "wp_montage", "beides"],
+      subunternehmer_team_typ_enum: [
+        "vormontage",
+        "wp_montage",
+        "beides",
+        "elektrik",
+      ],
       system_email_status_enum: [
         "sent",
         "delivered",
@@ -12918,7 +12942,12 @@ export const Constants = {
         "notification",
       ],
       task_status_enum: ["Ausstehend", "Erledigt", "Überfällig"],
-      team_buchung_typ_enum: ["wp_montage", "vormontage", "nacharbeiten"],
+      team_buchung_typ_enum: [
+        "wp_montage",
+        "vormontage",
+        "nacharbeiten",
+        "elektrik",
+      ],
       team_verfuegbarkeit_status_enum: [
         "verfügbar",
         "gebucht",
