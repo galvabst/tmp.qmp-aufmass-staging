@@ -46,7 +46,10 @@ export function buildImageStoragePath(
   const base = buildAuftragStoragePath(leadName, leadId, auftragId);
   const paddedIndex = String(index).padStart(3, '0');
   const timestamp = Date.now();
-  return `${base}/${kategorie}_${paddedIndex}_${timestamp}.${extension}`;
+  // PV categories go into a pv-auftrag subfolder
+  const isPv = kategorie.startsWith('pv_');
+  const folder = isPv ? `${base}/pv-auftrag` : base;
+  return `${folder}/${kategorie}_${paddedIndex}_${timestamp}.${extension}`;
 }
 
 export const STORAGE_BUCKET = 'galvanek_bau';

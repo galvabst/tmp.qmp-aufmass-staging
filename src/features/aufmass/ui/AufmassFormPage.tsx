@@ -131,13 +131,7 @@ export default function AufmassFormPage() {
   useEffect(() => {
     if (!formular) return;
     const f = formular as Record<string, any>;
-    const values: Partial<AufmassDraftData> = {};
-    for (const key of Object.keys(f)) {
-      if (key in form.getValues() || form.getValues()[key as keyof AufmassDraftData] !== undefined) {
-        (values as any)[key] = f[key];
-      }
-    }
-    form.reset({ ...form.getValues(), ...values });
+    form.reset({ ...form.getValues(), ...f });
   }, [formular]);
 
   // Prefill PV form when data loads
