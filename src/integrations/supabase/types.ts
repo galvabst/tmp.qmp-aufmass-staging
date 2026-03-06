@@ -9333,28 +9333,56 @@ export type Database = {
         Returns: string
       }
       count_superadmins: { Args: never; Returns: number }
-      create_contractor: {
-        Args: {
-          p_ag_domain_email?: string
-          p_anschrift_land?: string
-          p_anschrift_ort?: string
-          p_anschrift_plz?: string
-          p_anschrift_strasse?: string
-          p_erstellt_von?: string
-          p_nachname: string
-          p_notizen_intern?: string
-          p_private_email?: string
-          p_telefon?: string
-          p_vertragsbeginn?: string
-          p_vorname: string
-        }
-        Returns: unknown
-        SetofOptions: {
-          from: "*"
-          to: "contractor_onboarding"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+      create_contractor:
+        | {
+            Args: {
+              p_ag_domain_email?: string
+              p_anschrift_land?: string
+              p_anschrift_ort?: string
+              p_anschrift_plz?: string
+              p_anschrift_strasse?: string
+              p_erstellt_von?: string
+              p_nachname: string
+              p_notizen_intern?: string
+              p_private_email?: string
+              p_telefon?: string
+              p_vertragsbeginn?: string
+              p_vorname: string
+            }
+            Returns: unknown
+            SetofOptions: {
+              from: "*"
+              to: "contractor_onboarding"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_ag_domain_email?: string
+              p_anschrift_land?: string
+              p_anschrift_ort?: string
+              p_anschrift_plz?: string
+              p_anschrift_strasse?: string
+              p_erstellt_von?: string
+              p_nachname: string
+              p_notizen_intern?: string
+              p_private_email?: string
+              p_telefon?: string
+              p_vertragsbeginn?: string
+              p_vorname: string
+            }
+            Returns: unknown
+            SetofOptions: {
+              from: "*"
+              to: "contractor_onboarding"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+      create_contractor_historical: {
+        Args: { p_nachname: string; p_telefon?: string; p_vorname: string }
+        Returns: Json
       }
       create_produkt_recht_dokument: {
         Args: {
