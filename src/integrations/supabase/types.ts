@@ -8794,6 +8794,10 @@ export type Database = {
         Returns: unknown
       }
       _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      accept_einweisungs_termin: {
+        Args: { p_techniker_id?: string; p_terminvorschlag_id: string }
+        Returns: undefined
+      }
       accept_pool_order: { Args: { p_termin_id: string }; Returns: Json }
       accept_thermocheck_reschedule: {
         Args: { p_termin_id: string }
@@ -9403,6 +9407,10 @@ export type Database = {
         Args: { p_nachname: string; p_telefon?: string; p_vorname: string }
         Returns: Json
       }
+      create_einweisungs_auftrag: {
+        Args: { p_auftrag_id: string; p_termine: Json }
+        Returns: string
+      }
       create_produkt_recht_dokument: {
         Args: {
           p_beschreibung?: string
@@ -9938,6 +9946,7 @@ export type Database = {
           vorname: string
         }[]
       }
+      get_einweisungs_auftrag: { Args: { p_auftrag_id: string }; Returns: Json }
       get_enum_values: { Args: { enum_name: string }; Returns: string[] }
       get_group_permissions: { Args: { _group_id: string }; Returns: Json }
       get_hauptstatus_for_substatus:
@@ -10897,6 +10906,10 @@ export type Database = {
         Args: { p_follow_up_datum: string; p_lead_id: string; p_notiz: string }
         Returns: undefined
       }
+      reschedule_einweisungs_termin: {
+        Args: { p_auftrag_id: string; p_modus: string; p_termine?: Json }
+        Returns: undefined
+      }
       reschedule_thermocheck_termin: {
         Args: { p_auftrag_id: string; p_modus: string; p_termine?: Json }
         Returns: undefined
@@ -11680,6 +11693,10 @@ export type Database = {
       }
       update_contractor_bestellung_intern_status: {
         Args: { p_abgeschlossen: boolean; p_bestellung_id: string }
+        Returns: undefined
+      }
+      update_contractor_einweisung_freigabe: {
+        Args: { p_contractor_id: string; p_freigabe: boolean }
         Returns: undefined
       }
       update_contractor_equipment_status: {
