@@ -1,65 +1,38 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Innendienst-Arbeitspakete sichtbar machen
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
+Die internen Checks (Vertrag geprüft, Kleidung bestellt, Lizenzen bereitgestellt) sind im Accordion "Interne Checks" versteckt. Der Admin will auf einen Blick sehen, ob der Innendienst seine Arbeitspakete pro Techniker erledigt hat — um zu wissen, wo er nachhaken muss.
 
-## 1. Themen-Kategorien einführen
+## Lösung
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+Die drei Innendienst-Aufgaben werden als **prominente Status-Zeile direkt unter dem Onboarding-Fortschritt** angezeigt (nicht erst im Accordion). Jede Aufgabe wird als kompakter Chip dargestellt:
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+- ✓ Vertrag geprüft (grün) / ✗ Vertrag offen (rot/orange)
+- ✓ Kleidung bestellt (grün) / ✗ Kleidung offen
+- ✓ Lizenzen bereit (grün) / ✗ Lizenzen offen
 
-## 2. DB-Änderung
+Zusätzlich ein zusammenfassender Hinweis: **"Innendienst: 1/3 erledigt"** — sofort erkennbar ob Handlungsbedarf besteht.
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+Das bestehende "Interne Checks" Accordion bleibt erhalten (für Detailansicht), aber die Kerninfo ist sofort sichtbar.
 
-## 3. UI-Änderungen
+## Änderungen
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+| Datei | Änderung |
+|-------|----------|
+| `src/features/contractors/ui/ContractorDetailView.tsx` | Neue "Innendienst-Status"-Zeile zwischen Onboarding-Fortschritt und Quick Stats einfügen — 3 Chips mit farbigem Status |
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+## UI-Design
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+Direkt unter der 7-Step-Progress-Bar, als horizontale Reihe mit kleinen Status-Badges:
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+```text
+┌─────────────────────────────────────────────┐
+│ Innendienst-Aufgaben                   1/3  │
+│ [✓ Vertrag] [✗ Kleidung] [✗ Lizenzen]      │
+└─────────────────────────────────────────────┘
+```
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+Grüner Chip = erledigt, orangener/roter Chip = offen. So sieht der Admin sofort, was der Innendienst noch tun muss.
 
