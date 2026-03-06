@@ -42,7 +42,7 @@ export function BookingsView({ orders, onOrderClick, unreadCounts, angebotstermi
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="bg-gradient-to-br from-primary to-primary/85 text-primary-foreground safe-area-top sticky top-0 z-10">
+      <header className="bg-gradient-to-br from-primary to-primary/95 backdrop-blur-sm text-primary-foreground safe-area-top sticky top-0 z-10">
         <div className="p-4">
           <div className="flex items-center justify-between">
             <div>
