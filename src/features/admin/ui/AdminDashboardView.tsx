@@ -181,7 +181,11 @@ function DetailForTab({ tab, c }: { tab: TabKey; c: AdminContractor }) {
 }
 
 // ── Main component ──
-export function AdminDashboardView() {
+interface AdminDashboardViewProps {
+  onSelectContractor?: (contractorId: string) => void;
+}
+
+export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewProps) {
   const { data: contractors, isLoading: cLoading } = useAdminContractorList();
   const { data: stats, isLoading: sLoading } = useAdminDashboardStats();
   const [activeTab, setActiveTab] = useState<TabKey>('alle');

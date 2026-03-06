@@ -66,11 +66,26 @@ function KpiCard({ label, value, icon: Icon, accent }: { label: string; value: n
   );
 }
 
-export function ContractorListView() {
+interface ContractorListViewProps {
+  initialSelectedId?: string | null;
+  onClearSelection?: () => void;
+}
+
+export function ContractorListView({ initialSelectedId, onClearSelection }: ContractorListViewProps = {}) {
   const { data: contractors, isLoading } = useAdminContractorList();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [selectedContractor, setSelectedContractor] = useState<AdminContractor | null>(null);
+
+  // Auto-select contractor when initialSelectedId is provided
+  const hasAutoSelected = useState(false);
+  if (initialSelectedId && contractors?.length && !selectedContractor && !hasAutoSelected[0]) {
+    const found = contractors.find(c => c.id === initialSelectedId);
+    if (found) {
+      setSelectedContractor(found);
+      hasAutoSelected[1](true);
+    }
+  }
 
   // KPI values
   const kpis = useMemo(() => {
