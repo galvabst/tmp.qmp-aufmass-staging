@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Mail, Phone, MapPin, LogOut, ChevronRight, Award, Edit2, X, Save, Target, Eye, Gift, Timer, Star, GraduationCap, CheckCircle2, BookOpen } from 'lucide-react';
+import { User, Mail, Phone, MapPin, LogOut, ChevronRight, Award, Edit2, X, Save, Target, Eye, Gift, Timer, Star, GraduationCap, CheckCircle2, BookOpen, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ import { useContractorBoni, useBoniSummary } from '@/hooks/useContractorBoni';
 import { useContractorVerspaetungen, useVerspaetungStats } from '@/hooks/useContractorVerspaetungen';
 import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useAkademieFortschritt } from '@/hooks/useAkademieFortschritt';
+import { useContractorActivityStats } from '@/features/contractors/hooks/useContractorActivityStats';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
@@ -37,6 +39,8 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
   const punctuality = useVerspaetungStats(verspaetungen, totalSubmittedOrders);
   const { data: akademieModules } = useAkademieContent();
   const { data: completedLektionIds } = useAkademieFortschritt(contractorOnboardingId || null);
+  const { data: activityStats } = useContractorActivityStats(contractorOnboardingId);
+  const hasActivityData = activityStats && activityStats.some(d => d.checks > 0 || d.avgRating !== null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
@@ -276,6 +280,61 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
                 <p className="text-lg font-bold text-destructive">{punctuality.totalFee.toFixed(0)} €</p>
                 <p className="text-xs text-muted-foreground">Late Fees</p>
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+
+      {/* Aktivität */}
+      {hasActivityData && (
+        <section className="p-4 pt-0">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Aktivität</h2>
+          <div className="bg-card rounded-lg shadow-card p-4 space-y-6">
+            {/* Thermochecks */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Activity className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Thermochecks pro Monat</span>
+              </div>
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={activityStats}>
+                  <defs>
+                    <linearGradient id="profileChecksGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" width={30} />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 13 }} />
+                  <Area type="monotone" dataKey="checks" name="Checks" stroke="hsl(var(--primary))" fill="url(#profileChecksGrad)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Bewertung */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                <span className="text-sm font-medium text-foreground">Ø Bewertung pro Monat</span>
+              </div>
+              <ResponsiveContainer width="100%" height={160}>
+                <AreaChart data={activityStats}>
+                  <defs>
+                    <linearGradient id="profileRatingGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis domain={[1, 5]} tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" width={30} />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 13 }} />
+                  <Area type="monotone" dataKey="avgRating" name="Bewertung" stroke="hsl(142, 71%, 45%)" fill="url(#profileRatingGrad)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(142, 71%, 45%)' }} connectNulls={false} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </section>
