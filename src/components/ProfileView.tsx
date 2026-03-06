@@ -203,7 +203,22 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
                 <span className="text-sm font-medium text-foreground">Angenommene Aufträge</span>
                 <span className="text-sm font-bold text-foreground">{kontingent.angenommen} / {kontingent.minimum}</span>
               </div>
-              <Progress value={kontingentPercent} className="h-2" />
+              {/* Dual-segment bar: deep orange = abgenommen, pastel orange = rest of angenommen */}
+              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden flex">
+                <div
+                  style={{ width: `${kontingent.minimum > 0 ? Math.min((kontingent.abgenommen / kontingent.minimum) * 100, 100) : 0}%` }}
+                  className="bg-orange-600 h-full transition-all"
+                />
+                <div
+                  style={{ width: `${kontingent.minimum > 0 ? Math.min(((kontingent.angenommen - kontingent.abgenommen) / kontingent.minimum) * 100, 100 - Math.min((kontingent.abgenommen / kontingent.minimum) * 100, 100)) : 0}%` }}
+                  className="bg-orange-300 h-full transition-all"
+                />
+              </div>
+              {/* Legend */}
+              <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-600 inline-block" /> Abgenommen ({kontingent.abgenommen})</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-300 inline-block" /> Im Vorlauf ({kontingent.angenommen - kontingent.abgenommen})</span>
+              </div>
             </div>
           </div>
           {kontingent.abgenommen > 0 && (
@@ -260,11 +275,20 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-foreground">Pünktliche Abgaben</span>
-                  <span className={`text-sm font-bold ${punctuality.lateCount > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                  <span className={`text-sm font-bold ${
+                    punctuality.onTimePercent >= 85 ? 'text-green-600' : punctuality.onTimePercent >= 70 ? 'text-orange-500' : 'text-destructive'
+                  }`}>
                     {punctuality.onTimePercent}%
                   </span>
                 </div>
-                <Progress value={punctuality.onTimePercent} className="h-2" />
+                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                  <div
+                    style={{ width: `${punctuality.onTimePercent}%` }}
+                    className={`h-full transition-all rounded-full ${
+                      punctuality.onTimePercent >= 85 ? 'bg-green-500' : punctuality.onTimePercent >= 70 ? 'bg-orange-500' : 'bg-destructive'
+                    }`}
+                  />
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3 text-center">
