@@ -1,26 +1,65 @@
 
 
-# Thermochecks-Chart: Linie statt Area + dynamische Y-Achse
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-1. Der Thermochecks-Chart ist ein AreaChart (gefüllte Fläche), soll aber ein **Liniendiagramm** sein
-2. Die Y-Achse ist nicht dynamisch — bei Technikern mit 30-40 Checks/Monat muss sie automatisch skalieren (kein festes Maximum)
+## 1. Themen-Kategorien einführen
 
-## Lösung
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-Beide Charts (ProfileView + ContractorDetailView) ändern:
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-- **Thermochecks**: `AreaChart` → `LineChart` mit `Line` statt `Area`. Y-Achse bleibt `allowDecimals={false}` ohne festes `domain` — recharts skaliert automatisch
-- **Bewertung**: Ebenfalls `AreaChart` → `LineChart` mit `Line`. Y-Achse bleibt fix bei `domain={[0, 5]}`
-- Beide behalten Dots, Tooltip und CartesianGrid
+## 2. DB-Änderung
 
-Import `LineChart, Line` statt `AreaChart, Area` aus recharts. Die `defs`/`linearGradient` entfallen.
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-## Betroffene Dateien
+## 3. UI-Änderungen
 
-| Datei | Änderung |
-|-------|----------|
-| `src/components/ProfileView.tsx` | AreaChart → LineChart für beide Charts |
-| `src/features/contractors/ui/ContractorDetailView.tsx` | AreaChart → LineChart für beide Charts |
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
