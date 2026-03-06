@@ -10579,24 +10579,16 @@ export type Database = {
         }
         Returns: string
       }
-      insert_migration_terminvorschlag_admin:
-        | {
-            Args: {
-              p_auftrag_id: string
-              p_datum: string
-              p_techniker_id: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_auftrag_id: string
-              p_buchung_bestaetigt_am?: string
-              p_datum: string
-              p_techniker_id: string
-            }
-            Returns: undefined
-          }
+      insert_migration_terminvorschlag_admin: {
+        Args: {
+          p_angenommen_am?: string
+          p_auftrag_id: string
+          p_datum: string
+          p_techniker_id: string
+          p_zeit_von?: string
+        }
+        Returns: undefined
+      }
       instantiate_thc_ag_termin_wp: {
         Args: { p_thermocheck_auftrag_id: string }
         Returns: Json
@@ -10612,6 +10604,19 @@ export type Database = {
       is_verkaeufer_available: {
         Args: { p_datum: string; p_mitarbeiter_id: string; p_zeit?: string }
         Returns: boolean
+      }
+      log_migration_activity_admin: {
+        Args: {
+          p_action_type: string
+          p_created_at?: string
+          p_description?: string
+          p_entity_id: string
+          p_entity_type: string
+          p_field_name?: string
+          p_new_value?: string
+          p_old_value?: string
+        }
+        Returns: undefined
       }
       longtransactionsenabled: { Args: never; Returns: boolean }
       manually_assign_leads_batch:
@@ -11772,6 +11777,18 @@ export type Database = {
           p_wert?: string
         }
         Returns: string
+      }
+      upsert_migration_thc_wp_progress_admin: {
+        Args: {
+          p_abgeschlossen?: boolean
+          p_abgeschlossen_am?: string
+          p_auftrag_id: string
+          p_datei_url?: string
+          p_schritt_code: string
+          p_template_code: string
+          p_wert?: string
+        }
+        Returns: undefined
       }
       upsert_techniker_bewertung: {
         Args: {
