@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '@/features/admin/ui/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -78,14 +78,16 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   const [selectedContractor, setSelectedContractor] = useState<AdminContractor | null>(null);
 
   // Auto-select contractor when initialSelectedId is provided
-  const hasAutoSelected = useState(false);
-  if (initialSelectedId && contractors?.length && !selectedContractor && !hasAutoSelected[0]) {
-    const found = contractors.find(c => c.id === initialSelectedId);
-    if (found) {
-      setSelectedContractor(found);
-      hasAutoSelected[1](true);
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (initialSelectedId && contractors?.length && !autoSelectedRef.current) {
+      const found = contractors.find(c => c.id === initialSelectedId);
+      if (found) {
+        setSelectedContractor(found);
+        autoSelectedRef.current = true;
+      }
     }
-  }
+  }, [initialSelectedId, contractors]);
 
   // KPI values
   const kpis = useMemo(() => {
