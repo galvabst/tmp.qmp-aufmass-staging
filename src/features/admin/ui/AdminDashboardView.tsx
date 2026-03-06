@@ -192,6 +192,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
   const { data: stats, isLoading: sLoading } = useAdminDashboardStats();
   const { data: perfStats, isLoading: pLoading } = useAdminAggregatedStats();
   const [activeTab, setActiveTab] = useState<TabKey>('alle');
+  const [verzugOpen, setVerzugOpen] = useState(false);
 
   // Active technicians (not ready, not deaktiviert, not trainer)
   const activeTechs = useMemo(() => {
