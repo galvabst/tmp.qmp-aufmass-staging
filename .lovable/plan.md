@@ -1,30 +1,65 @@
 
 
-# "In Verzug" KPI: Onboarding-Deadline statt Pipeline-Status
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
-Die KPI-Karte "In Verzug" zählt aktuell nur Aufträge mit `pipeline_status === 'in_verzug'`. Der User will aber wissen, wie viele **Techniker im Onboarding ihre 7-Tage-Deadline überschritten haben** (ab Registrierung/`erstellt_am` haben sie 7 Tage, um die Akademie abzuschließen).
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-## Lösung
+## 1. Themen-Kategorien einführen
 
-Die "In Verzug"-Zahl wird aus den bereits geladenen `contractors`-Daten berechnet, nicht aus den Auftrags-Daten. Ein Techniker gilt als "in Verzug" wenn:
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-1. Er ist **nicht** ready, nicht deaktiviert, kein Trainer
-2. `erstellt_am` liegt mehr als 7 Tage in der Vergangenheit
-3. Die Akademie ist **nicht** abgeschlossen (`completedSteps` enthält nicht `'akademie'`)
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-### Änderungen
+## 2. DB-Änderung
 
-**`src/features/admin/ui/AdminDashboardView.tsx`**:
-- Die "In Verzug" KPI-Karte berechnet den Wert aus `contractors` statt aus `stats.inVerzug`
-- Logik: `activeTechs.filter(c => erstellt_am + 7 Tage < heute && !completedSteps.includes('akademie')).length`
-- Optional: `stats.inVerzug` (Pipeline-basiert) kann als zweite Zeile "Aufträge in Verzug" bleiben oder entfernt werden
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-**`src/features/admin/hooks/useAdminDashboardStats.ts`**: Keine Änderung nötig (Pipeline-Verzug bleibt als separater Datenpunkt erhalten).
+## 3. UI-Änderungen
 
-### Betroffene Dateien
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-| Datei | Änderung |
-|-------|----------|
-| `src/features/admin/ui/AdminDashboardView.tsx` | "In Verzug" KPI aus Onboarding-Deadline berechnen |
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
