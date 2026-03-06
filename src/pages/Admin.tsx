@@ -10,11 +10,30 @@ import { AdminDashboardView } from '@/features/admin/ui/AdminDashboardView';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
+  const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
+
+  const handleSelectContractor = (contractorId: string) => {
+    setSelectedContractorId(contractorId);
+    setActiveTab('contractors');
+  };
+
+  const handleTabChange = (tab: AdminTab) => {
+    // Clear contractor selection when manually switching tabs
+    if (tab !== 'contractors') {
+      setSelectedContractorId(null);
+    }
+    setActiveTab(tab);
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      {activeTab === 'dashboard' && <AdminDashboardView />}
-      {activeTab === 'contractors' && <ContractorListView />}
+      {activeTab === 'dashboard' && <AdminDashboardView onSelectContractor={handleSelectContractor} />}
+      {activeTab === 'contractors' && (
+        <ContractorListView
+          initialSelectedId={selectedContractorId}
+          onClearSelection={() => setSelectedContractorId(null)}
+        />
+      )}
       {activeTab === 'pool' && <ObjectOrderListView />}
       {activeTab === 'bookings' && <BookingListView />}
       {activeTab === 'checkins' && <CheckinListView />}
@@ -23,7 +42,7 @@ export default function Admin() {
 
       <AdminBottomNav
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
       />
     </div>
   );

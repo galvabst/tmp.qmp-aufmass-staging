@@ -1,40 +1,65 @@
 
 
-# Admin Dashboard: Aggregierte Performance + Techniker-Deeplink
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Anforderung
-1. **Aggregierte Performance-Sektion** im Dashboard: Durchschnittliches Rating aller Techniker, Gesamt-Thermochecks der letzten 6 Monate — wie die Einzelansicht, aber kumuliert
-2. **Klick auf Techniker-Zeile im Dashboard** navigiert direkt zum Techniker-Tab mit geöffneter Detailansicht
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-## Umsetzung
+## 1. Themen-Kategorien einführen
 
-### A. Aggregierte Performance-Charts im Dashboard
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-Neuer Hook `useAdminAggregatedStats` — fetcht alle `thermocheck_terminvorschlaege` (angenommen) und `techniker_bewertungen` der letzten 6 Monate, gruppiert nach Monat. Ergebnis:
-- **Thermochecks pro Monat** (LineChart, alle Techniker summiert)
-- **Ø Bewertung pro Monat** (LineChart, Durchschnitt aller Bewertungen)
-- **Ø Rating gesamt** als KPI-Karte
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-Darstellung in `AdminDashboardView.tsx` als neue Card unterhalb der KPIs (vor dem Onboarding-Funnel).
+## 2. DB-Änderung
 
-### B. Techniker-Zeile klickbar → Detail
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-In `Admin.tsx`:
-- Neuer State `selectedContractorId: string | null`
-- `AdminDashboardView` bekommt `onSelectContractor(id)` Callback
-- Klick setzt `activeTab = 'contractors'` + `selectedContractorId`
-- `ContractorListView` bekommt `initialSelectedId` Prop → öffnet sofort die Detailansicht
+## 3. UI-Änderungen
 
-In `AdminDashboardView.tsx`:
-- Techniker-Zeilen bekommen `onClick` → ruft `onSelectContractor(c.id)` auf
-- Cursor-Pointer-Styling
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-### Betroffene Dateien
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-| Datei | Änderung |
-|-------|----------|
-| `src/features/admin/hooks/useAdminAggregatedStats.ts` | Neuer Hook: aggregierte Performance über alle Techniker |
-| `src/features/admin/ui/AdminDashboardView.tsx` | Performance-Charts + klickbare Techniker-Zeilen |
-| `src/pages/Admin.tsx` | State-Management für Cross-Tab-Navigation |
-| `src/features/contractors/ui/ContractorListView.tsx` | `initialSelectedId` Prop |
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 

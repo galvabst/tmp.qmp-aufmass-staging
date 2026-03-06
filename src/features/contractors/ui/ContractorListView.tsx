@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '@/features/admin/ui/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,11 +66,28 @@ function KpiCard({ label, value, icon: Icon, accent }: { label: string; value: n
   );
 }
 
-export function ContractorListView() {
+interface ContractorListViewProps {
+  initialSelectedId?: string | null;
+  onClearSelection?: () => void;
+}
+
+export function ContractorListView({ initialSelectedId, onClearSelection }: ContractorListViewProps = {}) {
   const { data: contractors, isLoading } = useAdminContractorList();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [selectedContractor, setSelectedContractor] = useState<AdminContractor | null>(null);
+
+  // Auto-select contractor when initialSelectedId is provided
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (initialSelectedId && contractors?.length && !autoSelectedRef.current) {
+      const found = contractors.find(c => c.id === initialSelectedId);
+      if (found) {
+        setSelectedContractor(found);
+        autoSelectedRef.current = true;
+      }
+    }
+  }, [initialSelectedId, contractors]);
 
   // KPI values
   const kpis = useMemo(() => {
@@ -121,7 +138,7 @@ export function ContractorListView() {
   const statusOptions = Object.entries(ONBOARDING_STATUS_LABELS).map(([value, label]) => ({ value, label }));
 
   if (selectedContractor) {
-    return <ContractorDetailView contractor={selectedContractor} onBack={() => setSelectedContractor(null)} />;
+    return <ContractorDetailView contractor={selectedContractor} onBack={() => { setSelectedContractor(null); onClearSelection?.(); }} />;
   }
 
   return (
