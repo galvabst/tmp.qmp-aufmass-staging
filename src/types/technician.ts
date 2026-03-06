@@ -98,6 +98,9 @@ export interface TechnicianOrder {
   auftragId?: string;
   leadId?: string;
   zeitBis?: string;
+  // Lock state (e.g. Einweisung without freigabe)
+  isLocked?: boolean;
+  lockReason?: string;
   // Booking confirmation tracking
   buchungBestaetigtAm?: string;
   vortagBestaetigtAm?: string;

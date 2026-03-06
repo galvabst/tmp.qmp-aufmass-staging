@@ -31,17 +31,15 @@ export function useContractorGrundpreise(contractorId: string | undefined) {
 }
 
 /**
- * Returns a single grundpreis for a given auftragstyp.
- * Useful for Pool view to show thermocheck price.
+ * Returns all grundpreise for the current contractor as a Map<auftragstyp, betrag_netto>.
  */
-export function useMyThermocheckGrundpreis() {
+export function useMyGrundpreise() {
   return useQuery({
-    queryKey: ["my-thermocheck-grundpreis"],
-    queryFn: async (): Promise<number | null> => {
-      // Step 1: resolve own contractor_onboarding.id
+    queryKey: ["my-grundpreise"],
+    queryFn: async (): Promise<Record<string, number>> => {
       const { data: session } = await supabase.auth.getSession();
       const userId = session?.session?.user?.id;
-      if (!userId) return null;
+      if (!userId) return {};
 
       const { data: onboarding, error: obErr } = await supabase
         .from("contractor_onboarding" as any)
@@ -49,24 +47,38 @@ export function useMyThermocheckGrundpreis() {
         .eq("profile_id", userId)
         .maybeSingle();
 
-      if (obErr || !onboarding) return null;
+      if (obErr || !onboarding) return {};
 
-      // Step 2: fetch grundpreise
       const { data, error } = await supabase.rpc("get_contractor_grundpreise", {
         p_contractor_id: (onboarding as any).id,
       } as any);
 
       if (error) {
-        console.error("[useMyThermocheckGrundpreis]", error);
-        return null;
+        console.error("[useMyGrundpreise]", error);
+        return {};
       }
 
       const prices = (data as Grundpreis[]) || [];
-      const tc = prices.find((p) => p.auftragstyp === "thermocheck");
-      return tc?.betrag_netto ?? null;
+      const map: Record<string, number> = {};
+      prices.forEach((p) => {
+        map[p.auftragstyp] = p.betrag_netto;
+      });
+      return map;
     },
     staleTime: 60 * 1000,
   });
+}
+
+/**
+ * Returns a single grundpreis for a given auftragstyp.
+ * Useful for Pool view to show thermocheck price.
+ */
+export function useMyThermocheckGrundpreis() {
+  const { data: preise, ...rest } = useMyGrundpreise();
+  return {
+    ...rest,
+    data: preise?.thermocheck ?? null,
+  };
 }
 
 /**

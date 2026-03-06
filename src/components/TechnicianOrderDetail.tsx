@@ -610,7 +610,12 @@ Mit freundlichen Grüßen`;
 
       {/* ── Action Bar ── */}
       <div className="fixed bottom-20 left-0 right-0 p-4 bg-background/95 backdrop-blur-sm border-t border-border safe-area-bottom">
-        {isPoolOrder && onAccept && onReject && (
+        {isPoolOrder && order.isLocked && (
+          <div className="text-center py-2">
+            <p className="text-sm text-muted-foreground font-medium">{order.lockReason || 'Nicht freigegeben'}</p>
+          </div>
+        )}
+        {isPoolOrder && !order.isLocked && onAccept && onReject && (
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1 rounded-xl" onClick={onReject}>Ablehnen</Button>
             <Button className="flex-1 bg-green-600 hover:bg-green-700 rounded-xl" onClick={onAccept}>Annehmen</Button>

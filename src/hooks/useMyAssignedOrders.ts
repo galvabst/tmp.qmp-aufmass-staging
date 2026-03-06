@@ -28,6 +28,7 @@ interface AuftragRow {
   kunde_email: string | null;
   pipeline_status: string | null;
   zugewiesener_techniker_id: string | null;
+  auftragstyp: string | null;
   buchung_bestaetigt_am: string | null;
   vortag_bestaetigt_am: string | null;
   vor_ort_checkin_at: string | null;
@@ -142,7 +143,7 @@ export function useMyAssignedOrders() {
 
       // Step 2: Fetch auftraege assigned to contractor_onboarding.id
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,lead_id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis,quadratmeter,wohneinheiten,fussbodenheizung`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,lead_id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,auftragstyp,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis,quadratmeter,wohneinheiten,fussbodenheizung`,
         { headers }
       );
 
