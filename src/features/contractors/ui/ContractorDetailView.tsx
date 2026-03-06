@@ -48,6 +48,9 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
   const initials = `${c.vorname?.[0] ?? ''}${c.nachname?.[0] ?? ''}`.toUpperCase() || '??';
   const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Kein Profil';
 
+  const { data: activityStats } = useContractorActivityStats(c.id);
+  const hasActivity = activityStats && activityStats.some(p => p.checks > 0 || p.avgRating !== null);
+
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
