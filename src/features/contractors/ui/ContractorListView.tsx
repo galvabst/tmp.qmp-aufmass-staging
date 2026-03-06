@@ -138,7 +138,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   const statusOptions = Object.entries(ONBOARDING_STATUS_LABELS).map(([value, label]) => ({ value, label }));
 
   if (selectedContractor) {
-    return <ContractorDetailView contractor={selectedContractor} onBack={() => setSelectedContractor(null)} />;
+    return <ContractorDetailView contractor={selectedContractor} onBack={() => { setSelectedContractor(null); onClearSelection?.(); }} />;
   }
 
   return (
