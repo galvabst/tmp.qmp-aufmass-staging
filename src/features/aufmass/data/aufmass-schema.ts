@@ -122,6 +122,16 @@ export const aufmassSubmitSchema = z.object({
   if (data.aufstellort_aenderung === true && !data.distanz_alter_neuer_aufstellort) {
     ctx.addIssue({ code: 'custom', path: ['distanz_alter_neuer_aufstellort'], message: 'Distanz erforderlich bei Aufstellort-Änderung' });
   }
+  // Conditional: Heizungsraum verlegen → alle Anschluss-Felder Pflicht
+  if (data.heizungsraum_verlegen === true) {
+    const leitungen = ['vorlauf', 'ruecklauf', 'warmwasser', 'kaltwasser', 'zirkulation'] as const;
+    for (const l of leitungen) {
+      const vorhandenKey = `anschluss_${l}_vorhanden` as keyof typeof data;
+      const distanzKey = `anschluss_${l}_distanz` as keyof typeof data;
+      if (data[vorhandenKey] == null) ctx.addIssue({ code: 'custom', path: [vorhandenKey], message: 'Bitte auswählen' });
+      if (data[distanzKey] == null || (data[distanzKey] as number) < 0) ctx.addIssue({ code: 'custom', path: [distanzKey], message: 'Distanz erforderlich' });
+    }
+  }
 });
 
 export type AufmassDraftData = z.infer<typeof aufmassDraftSchema>;
