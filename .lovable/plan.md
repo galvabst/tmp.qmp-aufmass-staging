@@ -1,33 +1,65 @@
 
 
-# Fix: Aktivitäts-Diagramm — Zwei separate Liniendiagramme statt ComposedChart
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-Die aktuelle ComposedChart mit zwei Y-Achsen funktioniert schlecht, weil Thermochecks (0-40) und Bewertung (1-5) komplett unterschiedliche Skalen haben. Bei 30+ Checks wird die Bewertungslinie quasi unsichtbar am Boden. Außerdem soll die Bewertung ebenfalls als Liniendiagramm dargestellt werden.
+## 1. Themen-Kategorien einführen
 
-## Lösung
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-**Zwei separate, gestapelte Liniendiagramme** statt einem kombinierten Chart:
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-1. **Chart 1 — Thermochecks pro Monat**: Line/AreaChart mit dynamischer Y-Achse (auto-skaliert auf max Checks). Orange Linie mit leichtem Gradient.
+## 2. DB-Änderung
 
-2. **Chart 2 — Ø Bewertung pro Monat**: LineChart mit fester Y-Achse 1-5. Grüne Linie mit Dots. `connectNulls={false}` für Monate ohne Bewertung.
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-Beide teilen dieselbe X-Achse (Monate). Darunter bleibt die Umsatz-Zeile wie bisher.
+## 3. UI-Änderungen
 
-## Betroffene Dateien
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-| Datei | Änderung |
-|-------|----------|
-| `src/components/ProfileView.tsx` | ComposedChart → 2 separate Charts |
-| `src/features/contractors/ui/ContractorDetailView.tsx` | ComposedChart → 2 separate Charts |
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
 
-## Details
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
 
-- Chart 1: `AreaChart` mit `dataKey="checks"`, auto Y-Achse, Höhe ~120px
-- Chart 2: `AreaChart` mit `dataKey="avgRating"`, Y-Achse `domain={[0, 5]}`, `ticks={[1,2,3,4,5]}`, Höhe ~100px
-- Kleine Labels über jedem Chart ("Thermochecks", "Ø Bewertung")
-- Tooltip pro Chart zeigt nur den relevanten Wert
-- Umsatz-Zeile bleibt unverändert darunter
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 

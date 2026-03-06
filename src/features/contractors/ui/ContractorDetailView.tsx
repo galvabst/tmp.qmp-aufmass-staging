@@ -16,7 +16,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useContractorActivityStats } from '../hooks/useContractorActivityStats';
-import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
   contractor: AdminContractor;
@@ -139,9 +139,11 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
               <Activity className="w-4 h-4 text-primary" />
               <p className="text-sm font-semibold text-foreground">Aktivität (letzte 6 Monate)</p>
             </div>
-            <div className="h-[180px]">
+            {/* Chart 1: Thermochecks */}
+            <p className="text-[11px] font-medium text-muted-foreground mb-1">Thermochecks</p>
+            <div className="h-[120px]">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={activityStats} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                <AreaChart data={activityStats} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                   <defs>
                     <linearGradient id="checksGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -150,20 +152,36 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis yAxisId="left" allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis yAxisId="right" orientation="right" domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11 }} stroke="hsl(142, 71%, 45%)" />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <Tooltip
                     contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                    formatter={(value: number | null, name: string) => {
-                      if (name === 'Checks') return [value, 'Thermochecks'];
-                      if (name === 'Bewertung') return [value !== null ? Number(value).toFixed(1) : '–', 'Ø Bewertung'];
-                      if (name === 'Umsatz') return [`${Number(value).toFixed(0)} €`, 'Umsatz'];
-                      return [value, name];
-                    }}
+                    formatter={(value: number) => [value, 'Thermochecks']}
                   />
-                  <Area yAxisId="left" type="monotone" dataKey="checks" name="Checks" stroke="hsl(var(--primary))" fill="url(#checksGrad)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
-                  <Line yAxisId="right" type="monotone" dataKey="avgRating" name="Bewertung" stroke="hsl(142, 71%, 45%)" strokeWidth={2} dot={{ r: 4, fill: 'hsl(142, 71%, 45%)' }} connectNulls={false} />
-                </ComposedChart>
+                  <Area type="monotone" dataKey="checks" stroke="hsl(var(--primary))" fill="url(#checksGrad)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 2: Ø Bewertung */}
+            <p className="text-[11px] font-medium text-muted-foreground mb-1 mt-3">Ø Bewertung</p>
+            <div className="h-[100px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={activityStats} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="ratingGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="hsl(142, 71%, 45%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip
+                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                    formatter={(value: number | null) => [value !== null ? Number(value).toFixed(1) : '–', 'Ø Bewertung']}
+                  />
+                  <Area type="monotone" dataKey="avgRating" stroke="hsl(142, 71%, 45%)" fill="url(#ratingGrad)" strokeWidth={2} dot={{ r: 4, fill: 'hsl(142, 71%, 45%)' }} connectNulls={false} />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
             {/* Umsatz row */}
