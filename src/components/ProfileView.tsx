@@ -298,13 +298,7 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
             {/* Chart 1: Thermochecks */}
             <p className="text-[11px] font-medium text-muted-foreground mb-1">Thermochecks</p>
             <ResponsiveContainer width="100%" height={120}>
-              <AreaChart data={activityStats}>
-                <defs>
-                  <linearGradient id="profileChecksGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+              <LineChart data={activityStats}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={28} />
