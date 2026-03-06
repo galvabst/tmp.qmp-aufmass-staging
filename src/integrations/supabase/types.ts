@@ -11790,15 +11790,26 @@ export type Database = {
         }
         Returns: undefined
       }
-      upsert_techniker_bewertung: {
-        Args: {
-          p_bewertung: number
-          p_kommentar?: string
-          p_techniker_id: string
-          p_thermocheck_auftrag_id: string
-        }
-        Returns: undefined
-      }
+      upsert_techniker_bewertung:
+        | {
+            Args: {
+              p_bewertung: number
+              p_kommentar?: string
+              p_techniker_id: string
+              p_thermocheck_auftrag_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_bewertung: number
+              p_created_at?: string
+              p_kommentar?: string
+              p_techniker_id: string
+              p_thermocheck_auftrag_id: string
+            }
+            Returns: undefined
+          }
       upsert_thermocheck_vot_formular_admin: {
         Args: {
           p_agb_akzeptiert?: boolean
