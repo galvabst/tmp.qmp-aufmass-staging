@@ -16,7 +16,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useContractorActivityStats } from '../hooks/useContractorActivityStats';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
   contractor: AdminContractor;
@@ -132,62 +132,56 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
           <StatCard label="Coaching" value={c.coachingBewertung === 'bestanden' ? '✓' : c.coachingBewertung === 'nicht_bestanden' ? '✗' : '–'} sub={c.coachingBewertung === 'ausstehend' ? 'Ausstehend' : c.coachingBewertung === 'bestanden' ? 'Bestanden' : 'Nicht bestanden'} />
         </div>
 
-        {/* ── Activity Charts ── */}
+        {/* ── Activity Chart (Combined) ── */}
         {hasActivity && (
-          <div className="bg-card rounded-2xl p-4 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="bg-card rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
               <Activity className="w-4 h-4 text-primary" />
               <p className="text-sm font-semibold text-foreground">Aktivität (letzte 6 Monate)</p>
             </div>
-
-            {/* Thermochecks Chart */}
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Durchgeführte Thermochecks</p>
-              <div className="h-[140px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={activityStats} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="checksGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip
-                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                      formatter={(value: number) => [value, 'Checks']}
-                    />
-                    <Area type="monotone" dataKey="checks" stroke="hsl(var(--primary))" fill="url(#checksGrad)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={activityStats} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="checksGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis yAxisId="left" allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis yAxisId="right" orientation="right" domain={[0, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11 }} stroke="hsl(142, 71%, 45%)" />
+                  <Tooltip
+                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                    formatter={(value: number | null, name: string) => {
+                      if (name === 'Checks') return [value, 'Thermochecks'];
+                      if (name === 'Bewertung') return [value !== null ? Number(value).toFixed(1) : '–', 'Ø Bewertung'];
+                      if (name === 'Umsatz') return [`${Number(value).toFixed(0)} €`, 'Umsatz'];
+                      return [value, name];
+                    }}
+                  />
+                  <Area yAxisId="left" type="monotone" dataKey="checks" name="Checks" stroke="hsl(var(--primary))" fill="url(#checksGrad)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
+                  <Line yAxisId="right" type="monotone" dataKey="avgRating" name="Bewertung" stroke="hsl(142, 71%, 45%)" strokeWidth={2} dot={{ r: 4, fill: 'hsl(142, 71%, 45%)' }} connectNulls={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
-
-            {/* Rating Chart */}
-            {activityStats!.some(p => p.avgRating !== null) && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">Ø Bewertung</p>
-                <div className="h-[140px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={activityStats} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="ratingGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(142 71% 45%)" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="hsl(142 71% 45%)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip
-                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-                        formatter={(value: number | null) => [value !== null ? value.toFixed(1) : '–', 'Ø Bewertung']}
-                      />
-                      <Area type="monotone" dataKey="avgRating" stroke="hsl(142 71% 45%)" fill="url(#ratingGrad)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(142 71% 45%)' }} connectNulls={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+            {/* Umsatz row */}
+            {activityStats!.some(d => d.umsatz > 0) && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span className="font-medium">Umsatz</span>
+                  <span className="font-bold text-foreground">
+                    Σ {activityStats!.reduce((s, d) => s + d.umsatz, 0).toFixed(0)} €
+                  </span>
+                </div>
+                <div className="grid grid-cols-6 gap-1 text-center">
+                  {activityStats!.map((d, i) => (
+                    <div key={i}>
+                      <p className="text-[10px] text-muted-foreground">{d.month}</p>
+                      <p className="text-xs font-semibold text-foreground">{d.umsatz > 0 ? `${d.umsatz.toFixed(0)}€` : '–'}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
