@@ -1,65 +1,56 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Fixes: Akademie-Navigation, Praxistest-Einsicht für Trainer, Mitfahrten-Cleanup
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## 3 Probleme
 
-## 1. Themen-Kategorien einführen
+### 1. Zurück-Button in Akademie navigiert immer zu `/` statt zur vorherigen Ansicht
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+**Datei:** `src/pages/AkademieModul.tsx` (Zeile 314)
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+Aktuell: `onClick={() => navigate('/')}` — geht immer zum Pool/Dashboard.
+Fix: `navigate(-1)` mit 250ms Timeout-Fallback auf `/` (existierendes Pattern aus `navigation-exit-protocol`).
 
-## 2. DB-Änderung
+Betrifft auch den "Zurück zum Onboarding" Button in der Error-Ansicht (Zeile 150) und die `handleMarkComplete`-Funktion (Zeile 291-297) — dort bleibt `navigate('/')` korrekt, da es den State mitgibt.
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+### 2. Trainer kann eingereichte Praxistest-Nachweise (3D-Scan + Drohnenvideo) seiner Trainees nicht sehen
 
-## 3. UI-Änderungen
+Die Daten (`praxistest_scan_url`, `praxistest_video_url`, `praxistest_eingereicht`) liegen auf `contractor_onboarding`. Trainer sehen aktuell nur Name, Kontakt, Datum und Bewertungs-Buttons.
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+**Lösung:** Im `useMyCoachingRideAlongs` Hook die Praxistest-Felder vom Trainee-Onboarding-Record mitlesen und in der `TraineeCard` anzeigen.
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+**Hook-Änderung (`useMyCoachingRideAlongs.ts`):**
+- `contractor_onboarding` Select erweitern: `profile_id, anschrift_plz, anschrift_ort, praxistest_scan_url, praxistest_video_url, praxistest_eingereicht`
+- Neue Felder im `RideAlongTrainee` Interface
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+**UI-Änderung (`TrainerRideAlongs.tsx`):**
+- Neue Sektion in der TraineeCard (nach Kontakt, vor Aktions-Buttons): "Praxistest"
+- Scan-Link als klickbarer externer Link (mit `Link2`-Icon)
+- Video-URL als klickbarer externer Link (mit `FileVideo`-Icon)
+- Nur anzeigen wenn `praxistestEingereicht === true`
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+### 3. Mitfahrten-Karten kompakter
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
+Die Karten nehmen viel vertikalen Platz ein. Optimierungen:
+- Datum + "Ganztägig" in eine Zeile mit Kontaktdaten (statt eigener Block)
+- "Gebucht am" Footer kleiner/kompakter
+- Bei bereits bewerteten vergangenen Mitfahrten: Karte insgesamt kompakter (kein separator vor Footer)
 
-## 4. Bestehende Threads kategorisieren (Migration)
+---
 
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
+## Betroffene Dateien
 
-## Dateien
+| Datei | Änderung |
+|-------|----------|
+| `src/pages/AkademieModul.tsx` | Back-Button: `navigate(-1)` mit Fallback |
+| `src/hooks/useMyCoachingRideAlongs.ts` | Praxistest-Felder mitlesen |
+| `src/components/trainer/TrainerRideAlongs.tsx` | Praxistest-Anzeige + kompakteres Layout |
 
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+## RLS / Security
+- `contractor_onboarding.praxistest_*` Felder: Trainer liest via `supabaseTC` — RLS erlaubt SELECT für authenticated Users auf eigene Daten. Da der Trainer die Onboarding-Records über die Profile-IDs seiner Trainees abfragt (die er bereits über die Auftrags-Zuordnung kennt), funktioniert dies nur wenn die RLS-Policy SELECT für alle authenticated erlaubt. Das ist der Fall: die bestehende Query in Zeile 57 liest bereits `contractor_onboarding` Records fremder Profile-IDs.
+
+## Edge Cases
+- Kein Praxistest eingereicht → Sektion wird nicht angezeigt
+- Nur Scan-Link ohne Video (oder umgekehrt) → Nur vorhandenes anzeigen
+- Browser-History leer (Deep-Link zu Akademie) → Fallback auf `/` nach 250ms
 
