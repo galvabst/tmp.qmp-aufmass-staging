@@ -1,36 +1,65 @@
 
 
-# Innendienst-Aufgaben und Bestellungen nebeneinander
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Problem
-Innendienst-Aufgaben und Bestellungen sind derzeit in separaten Karten/Accordions untereinander dargestellt. Der Admin will auf einen Blick sehen: Links die internen Aufgaben (Vertrag, Kleidung, Lizenzen), rechts die Bestellungen mit Bezahlstatus — alles nebeneinander.
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-## Lösung
+## 1. Themen-Kategorien einführen
 
-Die Innendienst-Aufgaben-Karte (Zeile 128-161) und die Bestellungsliste werden in einem **2-Spalten-Grid** (`grid grid-cols-2 gap-2`) zusammengefasst:
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-- **Linke Spalte**: Innendienst-Aufgaben (Vertrag, Kleidung, Lizenzen) als vertikale Chip-Liste mit Haken/Kreuz
-- **Rechte Spalte**: Alle Bestellungen als vertikale Liste mit Bezahlt/Offen-Status
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-So sieht der Admin sofort, was intern erledigt ist und welche Bestellungen noch offen sind — ohne Accordion öffnen zu müssen. Das Bestellungen-Accordion wird dadurch entbehrlich (oder bleibt als Duplikat bestehen, kann aber entfernt werden).
+## 2. DB-Änderung
 
-## Änderungen
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-| Datei | Änderung |
-|-------|----------|
-| `src/features/contractors/ui/ContractorDetailView.tsx` | Innendienst-Karte (Z.128-161) durch 2-Spalten-Grid ersetzen: links Innendienst-Checks, rechts Bestellungsliste. Bestellungen-Accordion entfernen (Duplikat). |
+## 3. UI-Änderungen
 
-## UI-Skizze
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
 
-```text
-┌──────────────────────┬──────────────────────────┐
-│ Innendienst    2/3   │ Bestellungen       6/9   │
-│ ✓ Vertrag            │ ✓ Google Workspace       │
-│ ✗ Kleidung           │ ✗ Schlappen (44)         │
-│ ✓ Lizenzen           │ ✗ Tshirt (L)             │
-│                      │ ✓ Pullover (L)           │
-│                      │ ✓ Ausweiskarte           │
-│                      │ ...                      │
-└──────────────────────┴──────────────────────────┘
-```
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 

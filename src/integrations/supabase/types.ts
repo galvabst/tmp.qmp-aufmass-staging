@@ -597,6 +597,9 @@ export type Database = {
           bza_id: string | null
           created_at: string
           eingefrorener_provisionssatz: number | null
+          elektrik_abgeschlossen: boolean | null
+          elektrik_datum: string | null
+          elektrik_subunternehmer_id: string | null
           final_signing_date: string | null
           finanzierung_nachweis_url: string | null
           finanzierung_partner_id: string | null
@@ -674,6 +677,9 @@ export type Database = {
           bza_id?: string | null
           created_at?: string
           eingefrorener_provisionssatz?: number | null
+          elektrik_abgeschlossen?: boolean | null
+          elektrik_datum?: string | null
+          elektrik_subunternehmer_id?: string | null
           final_signing_date?: string | null
           finanzierung_nachweis_url?: string | null
           finanzierung_partner_id?: string | null
@@ -751,6 +757,9 @@ export type Database = {
           bza_id?: string | null
           created_at?: string
           eingefrorener_provisionssatz?: number | null
+          elektrik_abgeschlossen?: boolean | null
+          elektrik_datum?: string | null
+          elektrik_subunternehmer_id?: string | null
           final_signing_date?: string | null
           finanzierung_nachweis_url?: string | null
           finanzierung_partner_id?: string | null
@@ -806,6 +815,13 @@ export type Database = {
           zusatzkosten?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "auftraege_elektrik_subunternehmer_id_fkey"
+            columns: ["elektrik_subunternehmer_id"]
+            isOneToOne: false
+            referencedRelation: "subunternehmer"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "auftraege_finanzierung_partner_id_fkey"
             columns: ["finanzierung_partner_id"]
@@ -12301,6 +12317,7 @@ export type Database = {
         | "bestellung_email_list"
         | "rating"
         | "datetime"
+        | "elektrik_calendar"
       storno_status_enum:
         | "Zu Stornieren"
         | "Stornierung beantragt"
@@ -12942,6 +12959,7 @@ export const Constants = {
         "bestellung_email_list",
         "rating",
         "datetime",
+        "elektrik_calendar",
       ],
       storno_status_enum: [
         "Zu Stornieren",
