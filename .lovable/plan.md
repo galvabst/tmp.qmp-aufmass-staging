@@ -1,65 +1,64 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Fix: Aktivitäts-Diagramme — Daten korrekt fetchen + kombinieren + Umsatz
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem-Analyse
 
-## 1. Themen-Kategorien einführen
+1. **Thermochecks zeigen 0**: Der Hook filtert auf `vor_ort_checkin_at != null` — das sind nur Aufträge mit Check-in. Die meisten Aufträge haben noch keinen Check-in. Stattdessen muss über `thermocheck_terminvorschlaege` (angenommene Termine) nach `datum` gruppiert werden.
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+2. **Zwei getrennte Charts**: Sollen in ein kombiniertes Diagramm (ComposedChart) mit zwei Y-Achsen — Thermochecks links (Anzahl), Bewertung rechts (1-5 Skala).
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+3. **Umsatz fehlt**: Pro Monat soll der Umsatz angezeigt werden (`vereinbarter_preis` aus Aufträgen + Boni aus `contractor_boni`).
 
-## 2. DB-Änderung
+## Daten-Strategie
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+Der Hook muss 4 Quellen parallel fetchen:
 
-## 3. UI-Änderungen
+1. **Aufträge** (`v_thermocheck_auftraege`): `id, vereinbarter_preis` wo `zugewiesener_techniker_id = contractorId`
+2. **Termine** (`thermocheck_terminvorschlaege`): `datum, thermocheck_auftrag_id` wo `thermocheck_auftrag_id` in den Auftrags-IDs + `status = angenommen`
+3. **Bewertungen** (`techniker_bewertungen`): `bewertung, created_at` wo `techniker_id = contractorId`
+4. **Boni** (`contractor_boni`): `betrag, created_at` wo `contractor_onboarding_id = contractorId`
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+Gruppierung nach Monat von `termin.datum` (nicht Check-in!), Umsatz = Summe `vereinbarter_preis` der zugehörigen Aufträge + Boni-Betrag.
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+## Umsetzung
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+### Hook: `useContractorActivityStats.ts` — komplett neu
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+Erweitertes Interface:
+```ts
+interface MonthlyActivityPoint {
+  month: string;       // "Jan", "Feb"
+  checks: number;      // Anzahl Termine
+  avgRating: number | null;
+  umsatz: number;      // vereinbarter_preis + boni
+}
+```
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
+Ablauf:
+1. Aufträge fetchen → IDs + Preis-Map
+2. Parallel: Termine (gefiltert auf Auftrags-IDs), Bewertungen, Boni
+3. 6-Monats-Buckets: Termine nach `datum` zählen, Umsatz = Preis der zugehörigen Aufträge + Boni, Bewertung = Durchschnitt
 
-## 4. Bestehende Threads kategorisieren (Migration)
+### UI: Beide Views (`ContractorDetailView.tsx` + `ProfileView.tsx`)
 
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
+Statt 2 separate AreaCharts → 1 `ComposedChart`:
+- **Area** (primary/orange): Thermochecks pro Monat (linke Y-Achse)
+- **Line** (grün, mit Dots): Ø Bewertung (rechte Y-Achse, 1-5)
+- Tooltip zeigt alle Werte inkl. Umsatz
+- Unter dem Chart: Umsatz-Summe als kompakte Zeile pro Monat oder im Tooltip
 
-## Dateien
+### Betroffene Dateien
 
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| `src/features/contractors/hooks/useContractorActivityStats.ts` | Komplett neu: 4 Quellen, Termin-basierte Gruppierung, Umsatz |
+| `src/features/contractors/ui/ContractorDetailView.tsx` | 2 AreaCharts → 1 ComposedChart |
+| `src/components/ProfileView.tsx` | 2 AreaCharts → 1 ComposedChart |
+
+### Edge Cases
+- Keine Termine → Sektion hidden (wie bisher)
+- Auftrag ohne `vereinbarter_preis` → 0 € für den Auftrag
+- Monat ohne Bewertung → `null` (keine Linie)
+- Boni ohne Auftragszuordnung → nach `created_at` dem Monat zugeordnet
 
