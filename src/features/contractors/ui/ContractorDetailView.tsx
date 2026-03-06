@@ -3,6 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   AdminContractor,
@@ -16,6 +18,11 @@ import {
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useContractorActivityStats } from '../hooks/useContractorActivityStats';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
@@ -369,6 +376,7 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
                 <FlagRow label="Vertrag geprüft" checked={c.vertragGeprueft} />
                 <FlagRow label="Kleidung bestellt" checked={c.kleidungBestellt} />
                 <FlagRow label="Lizenzen bereitgestellt" checked={c.lizenzenBereitgestellt} />
+                <EinweisungFreigabeToggle contractorId={c.id} initial={c.einweisungFreigabe} />
               </div>
             </AccordionContent>
           </AccordionItem>
