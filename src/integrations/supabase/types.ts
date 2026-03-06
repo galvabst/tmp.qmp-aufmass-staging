@@ -10906,8 +10906,8 @@ export type Database = {
           p_start_substatus: Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
         }
         Returns: {
-          final_hauptstatus: Database["public"]["Enums"]["baustellenstatus"]
-          final_substatus: Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
+          resolved_hauptstatus: Database["public"]["Enums"]["baustellenstatus"]
+          resolved_substatus: Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
           skipped_count: number
         }[]
       }
