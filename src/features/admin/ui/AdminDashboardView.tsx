@@ -189,6 +189,7 @@ interface AdminDashboardViewProps {
 export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewProps) {
   const { data: contractors, isLoading: cLoading } = useAdminContractorList();
   const { data: stats, isLoading: sLoading } = useAdminDashboardStats();
+  const { data: perfStats, isLoading: pLoading } = useAdminAggregatedStats();
   const [activeTab, setActiveTab] = useState<TabKey>('alle');
 
   // Active technicians (not ready, not deaktiviert, not trainer)
