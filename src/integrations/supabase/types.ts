@@ -11747,6 +11747,36 @@ export type Database = {
               p_info_vertrieb_pv_aufmass?: string
               p_info_vertrieb_sonstiges?: string
               p_info_vertrieb_thc_aufmass?: string
+              p_nettoangebotssumme?: number
+              p_notizen?: string
+              p_pipeline_status?: string
+              p_quadratmeter?: number
+              p_rechnungsdatum?: string
+              p_rechnungsnummer?: string
+              p_signier_datum_thc?: string
+              p_storno_datum?: string
+              p_wc1_durchgefuehrt_am?: string
+              p_wc1_durchgefuehrt_von?: string
+              p_widerrufsbelehrung_url?: string
+              p_wohneinheiten?: number
+              p_zugewiesener_techniker_id?: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_abgerechnet?: boolean
+              p_angebot_beschreibung?: string
+              p_angebot_datei_url?: string
+              p_auftrag_id: string
+              p_auswertung_erstellt_am?: string
+              p_buchung_bestaetigt_am?: string
+              p_created_at?: string
+              p_eingereicht_am?: string
+              p_fussbodenheizung?: boolean
+              p_info_vertrieb_pv_aufmass?: string
+              p_info_vertrieb_sonstiges?: string
+              p_info_vertrieb_thc_aufmass?: string
               p_notizen?: string
               p_pipeline_status?: string
               p_quadratmeter?: number
