@@ -214,7 +214,16 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
   const kpis = useMemo(() => {
     const ready = contractors?.filter(c => c.onboardingStatus === 'ready').length ?? 0;
     const trainers = contractors?.filter(c => c.isTrainer).length ?? 0;
-    return { ready, trainers };
+    const now = new Date();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const inVerzug = contractors?.filter(c => {
+      if (c.isTrainer || c.onboardingStatus === 'ready' || c.onboardingStatus === 'deaktiviert') return false;
+      if (!c.erstelltAm) return false;
+      const deadlineExceeded = now.getTime() - new Date(c.erstelltAm).getTime() > sevenDaysMs;
+      const akademieNotDone = !c.completedSteps.includes('akademie');
+      return deadlineExceeded && akademieNotDone;
+    }).length ?? 0;
+    return { ready, trainers, inVerzug };
   }, [contractors]);
 
   // Funnel data (all non-trainer contractors, including ready)
@@ -236,7 +245,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
         <KpiCard icon={<ClipboardList className="w-4 h-4" />} label="Aufträge gesamt" value={stats?.gesamtAuftraege ?? '–'} />
         <KpiCard icon={<Users className="w-4 h-4" />} label="Einsatzbereit" value={kpis.ready} />
         <KpiCard icon={<MapPin className="w-4 h-4" />} label="Offene Pool-Termine" value={stats?.offenePool ?? '–'} />
-        <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={stats?.inVerzug ?? '–'} accent />
+        <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={kpis.inVerzug} accent />
       </div>
 
       {/* Performance-Übersicht */}
