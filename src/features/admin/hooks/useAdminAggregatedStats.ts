@@ -7,6 +7,9 @@ export interface MonthlyAggregatedPoint {
   month: string;
   checks: number;
   avgRating: number | null;
+  lateCount: number;
+  totalFee: number;
+  onTimePercent: number | null;
 }
 
 export interface AggregatedPerformance {
@@ -14,6 +17,9 @@ export interface AggregatedPerformance {
   overallAvgRating: number | null;
   overallRatingCount: number;
   totalChecksLast6: number;
+  overallOnTimePercent: number | null;
+  overallLateFees: number;
+  totalLateCount: number;
 }
 
 export function useAdminAggregatedStats() {
@@ -24,8 +30,7 @@ export function useAdminAggregatedStats() {
       const sixMonthsAgo = subMonths(now, 6);
       const sinceDate = format(sixMonthsAgo, 'yyyy-MM-dd');
 
-      // Parallel: fetch accepted termine + all bewertungen from last 6 months
-      const [termineRes, bewertungenRes] = await Promise.all([
+      const [termineRes, bewertungenRes, verspaetungenRes] = await Promise.all([
         supabaseTC
           .from('thermocheck_terminvorschlaege')
           .select('datum')
@@ -35,12 +40,16 @@ export function useAdminAggregatedStats() {
           .from('techniker_bewertungen')
           .select('bewertung, created_at')
           .gte('created_at', sinceDate),
+        supabaseTC
+          .from('contractor_verspaetungen')
+          .select('created_at, gebuehr')
+          .gte('created_at', sinceDate),
       ]);
 
       const termine = termineRes.data ?? [];
       const bewertungen = bewertungenRes.data ?? [];
+      const verspaetungen = verspaetungenRes.data ?? [];
 
-      // Build 6-month buckets
       const months = Array.from({ length: 6 }, (_, i) => subMonths(now, 5 - i));
 
       const monthly: MonthlyAggregatedPoint[] = months.map(m => {
@@ -50,21 +59,27 @@ export function useAdminAggregatedStats() {
           ? Math.round((monthRatings.reduce((s, r) => s + (r.bewertung ?? 0), 0) / monthRatings.length) * 10) / 10
           : null;
 
-        return {
-          month: format(m, 'MMM', { locale: de }),
-          checks,
-          avgRating: avg,
-        };
+        const monthLate = verspaetungen.filter(v => v.created_at && isSameMonth(parseISO(v.created_at), m));
+        const lateCount = monthLate.length;
+        const totalFee = monthLate.reduce((s, v) => s + (v.gebuehr ?? 0), 0);
+        const onTimePercent = checks > 0 ? Math.round(((checks - lateCount) / checks) * 100) : null;
+
+        return { month: format(m, 'MMM', { locale: de }), checks, avgRating: avg, lateCount, totalFee, onTimePercent };
       });
 
-      // Overall stats
       const totalChecksLast6 = termine.length;
       const overallRatingCount = bewertungen.length;
       const overallAvgRating = overallRatingCount > 0
         ? Math.round((bewertungen.reduce((s, r) => s + (r.bewertung ?? 0), 0) / overallRatingCount) * 10) / 10
         : null;
 
-      return { monthly, overallAvgRating, overallRatingCount, totalChecksLast6 };
+      const totalLateCount = verspaetungen.length;
+      const overallLateFees = verspaetungen.reduce((s, v) => s + (v.gebuehr ?? 0), 0);
+      const overallOnTimePercent = totalChecksLast6 > 0
+        ? Math.round(((totalChecksLast6 - totalLateCount) / totalChecksLast6) * 100)
+        : null;
+
+      return { monthly, overallAvgRating, overallRatingCount, totalChecksLast6, overallOnTimePercent, overallLateFees, totalLateCount };
     },
     staleTime: 5 * 60_000,
   });
