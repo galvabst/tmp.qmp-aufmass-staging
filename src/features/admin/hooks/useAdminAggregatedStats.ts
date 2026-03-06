@@ -10,6 +10,9 @@ export interface MonthlyAggregatedPoint {
   lateCount: number;
   totalFee: number;
   onTimePercent: number | null;
+  avgVorOrtMin: number | null;
+  avgNachbearbeitungMin: number | null;
+  avgGesamtMin: number | null;
 }
 
 export interface AggregatedPerformance {
@@ -20,6 +23,9 @@ export interface AggregatedPerformance {
   overallOnTimePercent: number | null;
   overallLateFees: number;
   totalLateCount: number;
+  overallAvgVorOrtMin: number | null;
+  overallAvgNachbearbeitungMin: number | null;
+  overallAvgGesamtMin: number | null;
 }
 
 export function useAdminAggregatedStats() {
@@ -30,7 +36,7 @@ export function useAdminAggregatedStats() {
       const sixMonthsAgo = subMonths(now, 6);
       const sinceDate = format(sixMonthsAgo, 'yyyy-MM-dd');
 
-      const [termineRes, bewertungenRes, verspaetungenRes] = await Promise.all([
+      const [termineRes, bewertungenRes, verspaetungenRes, durchlaufRes] = await Promise.all([
         supabaseTC
           .from('thermocheck_terminvorschlaege')
           .select('datum')
@@ -44,13 +50,23 @@ export function useAdminAggregatedStats() {
           .from('contractor_verspaetungen')
           .select('created_at, gebuehr')
           .gte('created_at', sinceDate),
+        supabaseTC
+          .from('v_thermocheck_auftraege')
+          .select('vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at')
+          .not('vor_ort_checkin_at', 'is', null)
+          .gte('vor_ort_checkin_at', sinceDate),
       ]);
 
       const termine = termineRes.data ?? [];
       const bewertungen = bewertungenRes.data ?? [];
       const verspaetungen = verspaetungenRes.data ?? [];
+      const durchlauf = durchlaufRes.data ?? [];
 
       const months = Array.from({ length: 6 }, (_, i) => subMonths(now, 5 - i));
+
+      // Helper: diff in minutes between two ISO timestamps
+      const diffMin = (a: string, b: string) => (new Date(b).getTime() - new Date(a).getTime()) / 60000;
+      const avgOrNull = (arr: number[]) => arr.length > 0 ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : null;
 
       const monthly: MonthlyAggregatedPoint[] = months.map(m => {
         const checks = termine.filter(t => t.datum && isSameMonth(parseISO(t.datum), m)).length;
@@ -64,7 +80,27 @@ export function useAdminAggregatedStats() {
         const totalFee = monthLate.reduce((s, v) => s + (v.gebuehr ?? 0), 0);
         const onTimePercent = checks > 0 ? Math.round(((checks - lateCount) / checks) * 100) : null;
 
-        return { month: format(m, 'MMM', { locale: de }), checks, avgRating: avg, lateCount, totalFee, onTimePercent };
+        // Durchlaufzeiten für diesen Monat
+        const monthDurchlauf = durchlauf.filter(d => d.vor_ort_checkin_at && isSameMonth(parseISO(d.vor_ort_checkin_at), m));
+        const vorOrtMins = monthDurchlauf
+          .filter(d => d.vor_ort_checkin_at && d.vor_ort_checkout_at)
+          .map(d => diffMin(d.vor_ort_checkin_at!, d.vor_ort_checkout_at!))
+          .filter(v => v > 0);
+        const nachbMins = monthDurchlauf
+          .filter(d => d.nachbearbeitung_checkin_at && d.nachbearbeitung_checkout_at)
+          .map(d => diffMin(d.nachbearbeitung_checkin_at!, d.nachbearbeitung_checkout_at!))
+          .filter(v => v > 0);
+        const gesamtMins = monthDurchlauf
+          .filter(d => d.vor_ort_checkin_at && d.nachbearbeitung_checkout_at)
+          .map(d => diffMin(d.vor_ort_checkin_at!, d.nachbearbeitung_checkout_at!))
+          .filter(v => v > 0);
+
+        return {
+          month: format(m, 'MMM', { locale: de }), checks, avgRating: avg, lateCount, totalFee, onTimePercent,
+          avgVorOrtMin: avgOrNull(vorOrtMins),
+          avgNachbearbeitungMin: avgOrNull(nachbMins),
+          avgGesamtMin: avgOrNull(gesamtMins),
+        };
       });
 
       const totalChecksLast6 = termine.length;
@@ -79,7 +115,17 @@ export function useAdminAggregatedStats() {
         ? Math.round(((totalChecksLast6 - totalLateCount) / totalChecksLast6) * 100)
         : null;
 
-      return { monthly, overallAvgRating, overallRatingCount, totalChecksLast6, overallOnTimePercent, overallLateFees, totalLateCount };
+      // Overall durchlaufzeiten
+      const allVorOrt = durchlauf.filter(d => d.vor_ort_checkin_at && d.vor_ort_checkout_at).map(d => diffMin(d.vor_ort_checkin_at!, d.vor_ort_checkout_at!)).filter(v => v > 0);
+      const allNachb = durchlauf.filter(d => d.nachbearbeitung_checkin_at && d.nachbearbeitung_checkout_at).map(d => diffMin(d.nachbearbeitung_checkin_at!, d.nachbearbeitung_checkout_at!)).filter(v => v > 0);
+      const allGesamt = durchlauf.filter(d => d.vor_ort_checkin_at && d.nachbearbeitung_checkout_at).map(d => diffMin(d.vor_ort_checkin_at!, d.nachbearbeitung_checkout_at!)).filter(v => v > 0);
+
+      return {
+        monthly, overallAvgRating, overallRatingCount, totalChecksLast6, overallOnTimePercent, overallLateFees, totalLateCount,
+        overallAvgVorOrtMin: avgOrNull(allVorOrt),
+        overallAvgNachbearbeitungMin: avgOrNull(allNachb),
+        overallAvgGesamtMin: avgOrNull(allGesamt),
+      };
     },
     staleTime: 5 * 60_000,
   });
