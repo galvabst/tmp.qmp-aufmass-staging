@@ -227,7 +227,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
     }));
   }, [allNonTrainers]);
 
-  const isLoading = cLoading || sLoading;
+  const isLoading = cLoading || sLoading || pLoading;
 
   return (
     <AdminLayout title="Dashboard" subtitle="Betriebsübersicht">
@@ -239,7 +239,63 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
         <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={stats?.inVerzug ?? '–'} accent />
       </div>
 
-      {/* Techniker-Übersicht mit Filter-Tabs */}
+      {/* Performance-Übersicht */}
+      <Card className="mb-6">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold">Performance (letzte 6 Monate)</CardTitle>
+            {perfStats?.overallAvgRating !== null && perfStats?.overallAvgRating !== undefined && (
+              <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/30 rounded-full px-2.5 py-1">
+                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                <span className="text-xs font-bold text-foreground">{perfStats.overallAvgRating}</span>
+                <span className="text-[10px] text-muted-foreground">({perfStats.overallRatingCount})</span>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {perfStats ? `${perfStats.totalChecksLast6} Thermochecks · Ø ${perfStats.overallAvgRating ?? '–'} Sterne` : ''}
+          </p>
+        </CardHeader>
+        <CardContent>
+          {pLoading || !perfStats?.monthly?.length ? (
+            <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">{pLoading ? 'Lädt…' : 'Keine Daten'}</div>
+          ) : (
+            <div className="space-y-4">
+              {/* Thermochecks volume */}
+              <div>
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">Thermochecks / Monat</p>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={perfStats.monthly} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number) => [`${v} Checks`, '']} contentStyle={{ fontSize: 12 }} />
+                      <Line type="monotone" dataKey="checks" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              {/* Average rating trend */}
+              <div>
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">Ø Bewertung / Monat</p>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={perfStats.monthly.map(p => ({ ...p, avgRating: p.avgRating ?? undefined }))} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                      <YAxis domain={[1, 5]} tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number) => [`${v} ★`, '']} contentStyle={{ fontSize: 12 }} />
+                      <Line type="monotone" dataKey="avgRating" stroke="hsl(45 93% 47%)" strokeWidth={2} dot={{ r: 3, fill: 'hsl(45 93% 47%)' }} connectNulls />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="mb-6">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">Techniker im Onboarding ({activeTechs.length})</CardTitle>
@@ -282,7 +338,11 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
                 const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Kein Profil';
 
                 return (
-                  <div key={c.id} className="px-4 py-3 flex items-start gap-3">
+                  <div
+                    key={c.id}
+                    className="px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => onSelectContractor?.(c.id)}
+                  >
                     <Avatar className="w-8 h-8 shrink-0">
                       <AvatarImage src={c.avatarUrl || undefined} />
                       <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
