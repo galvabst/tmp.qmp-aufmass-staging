@@ -270,6 +270,9 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
           </div>
           <p className="text-xs text-muted-foreground">
             {perfStats ? `${perfStats.totalChecksLast6} Thermochecks · ${perfStats.totalLateCount} Verspätungen · ${perfStats.overallLateFees.toFixed(0)} € Gebühren` : ''}
+            {perfStats?.overallAvgVorOrtMin != null && (
+              <span className="block mt-0.5">⌀ {perfStats.overallAvgVorOrtMin} Min Vor-Ort · ⌀ {perfStats.overallAvgNachbearbeitungMin ?? '–'} Min Nachb. · ⌀ {perfStats.overallAvgGesamtMin ?? '–'} Min Gesamt</span>
+            )}
           </p>
         </CardHeader>
         <CardContent>
@@ -351,6 +354,49 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
                         ))}
                       </Bar>
                     </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              {/* Durchlaufzeiten */}
+              <div>
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">Ø Vor-Ort-Dauer / Monat</p>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={perfStats.monthly} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} unit=" Min" />
+                      <Tooltip formatter={(v: number) => [`${v} Min`, 'Vor-Ort']} contentStyle={{ fontSize: 12 }} />
+                      <Line type="monotone" dataKey="avgVorOrtMin" stroke="hsl(25 95% 53%)" strokeWidth={2} connectNulls dot={{ r: 3, fill: 'hsl(25 95% 53%)' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">Ø Nachbearbeitung / Monat</p>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={perfStats.monthly} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} unit=" Min" />
+                      <Tooltip formatter={(v: number) => [`${v} Min`, 'Nachbearbeitung']} contentStyle={{ fontSize: 12 }} />
+                      <Line type="monotone" dataKey="avgNachbearbeitungMin" stroke="hsl(200 80% 50%)" strokeWidth={2} connectNulls dot={{ r: 3, fill: 'hsl(200 80% 50%)' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">Ø Gesamtdurchlauf / Monat</p>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={perfStats.monthly} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} unit=" Min" />
+                      <Tooltip formatter={(v: number) => [`${v} Min`, 'Gesamt']} contentStyle={{ fontSize: 12 }} />
+                      <Line type="monotone" dataKey="avgGesamtMin" stroke="hsl(var(--primary))" strokeWidth={2} connectNulls dot={{ r: 3, fill: 'hsl(var(--primary))' }} />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
