@@ -224,8 +224,13 @@ function TraineeCard({ trainee, isPast }: { trainee: RideAlongTrainee; isPast: b
 
 /* ───────── Section ───────── */
 
-function RideAlongSection({ title, trainees, isPast }: { title: string; trainees: RideAlongTrainee[]; isPast: boolean }) {
+function RideAlongSection({ title, trainees, isPast, collapsible = false, initialCount = 3 }: { title: string; trainees: RideAlongTrainee[]; isPast: boolean; collapsible?: boolean; initialCount?: number }) {
+  const [showAll, setShowAll] = useState(false);
   if (trainees.length === 0) return null;
+  
+  const shouldCollapse = collapsible && trainees.length > initialCount;
+  const displayed = shouldCollapse && !showAll ? trainees.slice(0, initialCount) : trainees;
+  
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
@@ -233,8 +238,16 @@ function RideAlongSection({ title, trainees, isPast }: { title: string; trainees
         <span className="text-[10px] font-medium text-primary bg-primary/8 px-1.5 py-0.5 rounded-full">{trainees.length}</span>
       </div>
       <div className="space-y-3">
-        {trainees.map((t) => <TraineeCard key={t.auftragId} trainee={t} isPast={isPast} />)}
+        {displayed.map((t) => <TraineeCard key={t.auftragId} trainee={t} isPast={isPast} />)}
       </div>
+      {shouldCollapse && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="w-full text-center text-xs font-medium text-primary py-2 hover:underline"
+        >
+          {showAll ? 'Weniger anzeigen' : `Alle ${trainees.length} anzeigen`}
+        </button>
+      )}
     </div>
   );
 }
@@ -280,7 +293,7 @@ export function TrainerRideAlongs({ profileId }: TrainerRideAlongsProps) {
       ) : (
         <div className="space-y-5">
           <RideAlongSection title="Anstehende Mitfahrten" trainees={upcoming} isPast={false} />
-          <RideAlongSection title="Vergangene Mitfahrten" trainees={past} isPast={true} />
+          <RideAlongSection title="Vergangene Mitfahrten" trainees={past} isPast={true} collapsible initialCount={3} />
         </div>
       )}
     </section>
