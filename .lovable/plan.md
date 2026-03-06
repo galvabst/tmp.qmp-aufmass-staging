@@ -1,65 +1,62 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Dashboard: Durchlaufzeiten-Analytik
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Ziel
+Neue Sektion "Durchlaufzeiten" in der Performance-Card: Monatliche Durchschnittsdauer jeder Phase als LineCharts — wie lange brauchen Techniker im Schnitt für Vor-Ort-Arbeit, Nachbearbeitung und den Gesamtprozess.
 
-## 1. Themen-Kategorien einführen
+## Verfügbare Timestamps
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+Aus `v_thermocheck_auftraege`:
+- `vor_ort_checkin_at` → `vor_ort_checkout_at` = **Vor-Ort-Dauer**
+- `nachbearbeitung_checkin_at` → `nachbearbeitung_checkout_at` = **Nachbearbeitungsdauer**
+- `vor_ort_checkin_at` → `nachbearbeitung_checkout_at` = **Gesamtdurchlauf**
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+## Umsetzung
 
-## 2. DB-Änderung
+### A. Hook erweitern: `useAdminAggregatedStats`
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+Zusätzlich alle Aufträge mit mindestens einem gesetzten Timestamp fetchen:
 
-## 3. UI-Änderungen
+```
+v_thermocheck_auftraege?select=vor_ort_checkin_at,vor_ort_checkout_at,
+  nachbearbeitung_checkin_at,nachbearbeitung_checkout_at
+  &not.vor_ort_checkin_at=is.null
+```
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+Pro Monat (gruppiert nach `vor_ort_checkin_at`) berechnen:
+- `avgVorOrtMin`: Ø Minuten Vor-Ort (nur wo beide Timestamps gesetzt)
+- `avgNachbearbeitungMin`: Ø Minuten Nachbearbeitung (nur wo beide gesetzt)
+- `avgGesamtMin`: Ø Minuten Gesamt (vor_ort_checkin → nachbearbeitung_checkout)
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+Neue Felder im Interface:
+```typescript
+MonthlyAggregatedPoint += {
+  avgVorOrtMin: number | null;
+  avgNachbearbeitungMin: number | null;
+  avgGesamtMin: number | null;
+}
+AggregatedPerformance += {
+  overallAvgVorOrtMin: number | null;
+  overallAvgNachbearbeitungMin: number | null;
+  overallAvgGesamtMin: number | null;
+}
+```
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+### B. Drei neue LineCharts im Dashboard
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+Unterhalb der bestehenden Performance-Charts, drei weitere LineCharts:
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
+1. **Ø Vor-Ort-Dauer / Monat** — Y-Achse in Minuten, orange Linie
+2. **Ø Nachbearbeitung / Monat** — Y-Achse in Minuten, blaue Linie
+3. **Ø Gesamtdurchlauf / Monat** — Y-Achse in Minuten, primärfarbene Linie
 
-## 4. Bestehende Threads kategorisieren (Migration)
+Tooltip zeigt z.B. "45 Min" an. Übersichts-Badges im Header mit den Gesamtdurchschnitten (z.B. "⌀ 42 Min Vor-Ort · ⌀ 28 Min Nachb.").
 
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
+### Betroffene Dateien
 
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| `src/features/admin/hooks/useAdminAggregatedStats.ts` | Timestamps fetchen + Durchlaufzeiten berechnen |
+| `src/features/admin/ui/AdminDashboardView.tsx` | 3 neue LineCharts für Durchlaufzeiten |
 
