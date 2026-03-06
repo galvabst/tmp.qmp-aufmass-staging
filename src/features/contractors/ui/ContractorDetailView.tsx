@@ -125,6 +125,41 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
           </div>
         </div>
 
+        {/* ── Innendienst-Status ── */}
+        {(() => {
+          const tasks = [
+            { label: 'Vertrag', done: c.vertragGeprueft },
+            { label: 'Kleidung', done: c.kleidungBestellt },
+            { label: 'Lizenzen', done: c.lizenzenBereitgestellt },
+          ];
+          const doneCount = tasks.filter(t => t.done).length;
+          return (
+            <div className="bg-card rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-foreground">Innendienst-Aufgaben</p>
+                <span className={`text-xs font-bold ${doneCount === 3 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {doneCount}/3
+                </span>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {tasks.map(t => (
+                  <span
+                    key={t.label}
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                      t.done
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    }`}
+                  >
+                    {t.done ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                    {t.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Quick Stats Row ── */}
         <div className="grid grid-cols-3 gap-2">
           <StatCard label="Lektionen" value={`${c.lektionenCompleted}/${c.lektionenTotal}`} sub={c.lektionenInProgress > 0 ? `${c.lektionenInProgress} in Arbeit` : undefined} />
