@@ -213,6 +213,13 @@ export type Database = {
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "angebote_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       angebots_positionen: {
@@ -870,6 +877,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auftraege_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "auftraege_mitarbeiter_id_fkey"
@@ -1539,6 +1553,98 @@ export type Database = {
           },
         ]
       }
+      bug_report_images: {
+        Row: {
+          bug_report_id: string
+          created_at: string
+          file_size_bytes: number | null
+          id: string
+          image_order: number
+          image_url: string
+          original_filename: string | null
+        }
+        Insert: {
+          bug_report_id: string
+          created_at?: string
+          file_size_bytes?: number | null
+          id?: string
+          image_order?: number
+          image_url: string
+          original_filename?: string | null
+        }
+        Update: {
+          bug_report_id?: string
+          created_at?: string
+          file_size_bytes?: number | null
+          id?: string
+          image_order?: number
+          image_url?: string
+          original_filename?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bug_report_images_bug_report_id_fkey"
+            columns: ["bug_report_id"]
+            isOneToOne: false
+            referencedRelation: "bug_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bug_reports: {
+        Row: {
+          app_code: string
+          bereich_beschreibung: string | null
+          beschreibung: string
+          created_at: string
+          erstellt_von: string
+          geloest_am: string | null
+          geloest_von: string | null
+          id: string
+          loesungs_notiz: string | null
+          prioritaet: string
+          project_key: string
+          route: string | null
+          status: string
+          titel: string
+          updated_at: string
+        }
+        Insert: {
+          app_code?: string
+          bereich_beschreibung?: string | null
+          beschreibung: string
+          created_at?: string
+          erstellt_von: string
+          geloest_am?: string | null
+          geloest_von?: string | null
+          id?: string
+          loesungs_notiz?: string | null
+          prioritaet?: string
+          project_key?: string
+          route?: string | null
+          status?: string
+          titel: string
+          updated_at?: string
+        }
+        Update: {
+          app_code?: string
+          bereich_beschreibung?: string | null
+          beschreibung?: string
+          created_at?: string
+          erstellt_von?: string
+          geloest_am?: string | null
+          geloest_von?: string | null
+          id?: string
+          loesungs_notiz?: string | null
+          prioritaet?: string
+          project_key?: string
+          route?: string | null
+          status?: string
+          titel?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cron_job_log: {
         Row: {
           created_at: string
@@ -2116,6 +2222,13 @@ export type Database = {
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       forms: {
@@ -2331,6 +2444,92 @@ export type Database = {
           },
         ]
       }
+      ideen: {
+        Row: {
+          beschreibung: string | null
+          created_at: string
+          erstellt_von: string | null
+          geloest_am: string | null
+          geloest_von: string | null
+          id: string
+          kategorie: string | null
+          prioritaet: string
+          project_key: string
+          status: string
+          titel: string
+          updated_at: string
+          wirkung: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          created_at?: string
+          erstellt_von?: string | null
+          geloest_am?: string | null
+          geloest_von?: string | null
+          id?: string
+          kategorie?: string | null
+          prioritaet?: string
+          project_key?: string
+          status?: string
+          titel: string
+          updated_at?: string
+          wirkung?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          created_at?: string
+          erstellt_von?: string | null
+          geloest_am?: string | null
+          geloest_von?: string | null
+          id?: string
+          kategorie?: string | null
+          prioritaet?: string
+          project_key?: string
+          status?: string
+          titel?: string
+          updated_at?: string
+          wirkung?: string | null
+        }
+        Relationships: []
+      }
+      ideen_images: {
+        Row: {
+          created_at: string
+          file_size_bytes: number | null
+          id: string
+          idee_id: string
+          image_order: number
+          image_url: string
+          original_filename: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_size_bytes?: number | null
+          id?: string
+          idee_id: string
+          image_order?: number
+          image_url: string
+          original_filename?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_size_bytes?: number | null
+          id?: string
+          idee_id?: string
+          image_order?: number
+          image_url?: string
+          original_filename?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ideen_images_idee_id_fkey"
+            columns: ["idee_id"]
+            isOneToOne: false
+            referencedRelation: "ideen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       immobilien_exposes: {
         Row: {
           adresse_hausnummer: string | null
@@ -2539,6 +2738,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "kombiprojekt_tracking_kombiprojekt_lead_id_fkey"
+            columns: ["kombiprojekt_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "kombiprojekt_tracking_original_lead_id_fkey"
             columns: ["original_lead_id"]
             isOneToOne: false
@@ -2551,6 +2757,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kombiprojekt_tracking_original_lead_id_fkey"
+            columns: ["original_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -3008,6 +3221,13 @@ export type Database = {
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lead_assignment_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       lead_bestellungen: {
@@ -3265,6 +3485,13 @@ export type Database = {
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lead_deal_calculations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       lead_interactions: {
@@ -3315,6 +3542,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_interactions_mitarbeiter_id_fkey"
@@ -3468,6 +3702,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_reklamationen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_reklamationen_storno_beantragt_von_fkey"
             columns: ["storno_beantragt_von"]
             isOneToOne: false
@@ -3565,6 +3806,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_shares_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_shares_original_owner_mitarbeiter_id_fkey"
             columns: ["original_owner_mitarbeiter_id"]
             isOneToOne: false
@@ -3655,6 +3903,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -4745,6 +5000,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "markenbotschafter_kontakte_empfehlung_lead_id_fkey"
+            columns: ["empfehlung_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "markenbotschafter_kontakte_kontaktiert_von_fkey"
             columns: ["kontaktiert_von"]
             isOneToOne: false
@@ -4766,6 +5028,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      migration_tokens: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          expires_at: string
+          id: string
+          is_active: boolean | null
+          label: string | null
+          last_used_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          last_used_at?: string | null
+          token?: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          label?: string | null
+          last_used_at?: string | null
+          token?: string
+        }
+        Relationships: []
       }
       mitarbeiter: {
         Row: {
@@ -6623,6 +6918,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sales_auftrag_dokumente_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "sales_auftrag_dokumente_uploaded_by_fkey"
             columns: ["uploaded_by"]
             isOneToOne: false
@@ -7376,6 +7678,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "termine_historic_lead_id_fkey"
+            columns: ["historic_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "termine_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -7388,6 +7697,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "termine_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -7776,6 +8092,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transcripts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "transcripts_mitarbeiter_id_fkey"
@@ -8362,6 +8685,13 @@ export type Database = {
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "wp_wirtschaftlichkeitsanalysen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       "zoho-credentials": {
@@ -8705,6 +9035,32 @@ export type Database = {
           vorname?: string | null
         }
         Relationships: []
+      }
+      v_field_sales_thc_audit: {
+        Row: {
+          flag_cross_month: boolean | null
+          flag_no_termin_before_sign: boolean | null
+          flag_possible_duplicate: boolean | null
+          last_visit_date: string | null
+          lead_id: string | null
+          lead_name: string | null
+          mitarbeiter_id: string | null
+          mitarbeiter_name: string | null
+          nettoangebotssumme: number | null
+          sign_month: string | null
+          signier_datum_thc: string | null
+          thc_status: Database["public"]["Enums"]["thc_status_enum"] | null
+          visit_month: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -9463,17 +9819,31 @@ export type Database = {
         Args: { p_entity_id: string; p_inhalt: string; p_notiz_typ?: string }
         Returns: string
       }
-      create_thc_angebotstermin: {
-        Args: {
-          p_description?: string
-          p_end_datetime?: string
-          p_location?: string
-          p_meeting_location?: string
-          p_start_datetime?: string
-          p_thermocheck_auftrag_id: string
-        }
-        Returns: undefined
-      }
+      create_thc_angebotstermin:
+        | {
+            Args: {
+              p_description?: string
+              p_end_datetime?: string
+              p_location?: string
+              p_meeting_location?: string
+              p_start_datetime?: string
+              p_thermocheck_auftrag_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_created_at?: string
+              p_description?: string
+              p_eingestellt_von?: string
+              p_end_datetime?: string
+              p_location?: string
+              p_meeting_location?: string
+              p_start_datetime?: string
+              p_thermocheck_auftrag_id: string
+            }
+            Returns: undefined
+          }
       create_thermocheck_idee: {
         Args: {
           p_beschreibung?: string
@@ -10313,6 +10683,22 @@ export type Database = {
       get_profile_mitarbeiter_id: {
         Args: { user_id?: string }
         Returns: string
+      }
+      get_regionale_terminvorschlaege: {
+        Args: { p_auftrag_id: string }
+        Returns: {
+          auftrag_id: string
+          kunde_name: string
+          kunde_ort: string
+          kunde_plz: string
+          techniker_id: string
+          techniker_name: string
+          termin_datum: string
+          termin_ganztaegig: boolean
+          termin_status: string
+          termin_zeit_bis: string
+          termin_zeit_von: string
+        }[]
       }
       get_sales_training_coaches: {
         Args: never
@@ -11768,96 +12154,36 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_thermocheck_auftrag_admin:
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_angebot_beschreibung?: string
-              p_angebot_datei_url?: string
-              p_auftrag_id: string
-              p_auswertung_erstellt_am?: string
-              p_buchung_bestaetigt_am?: string
-              p_created_at?: string
-              p_eingereicht_am?: string
-              p_fussbodenheizung?: boolean
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_nettoangebotssumme?: number
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_wc1_durchgefuehrt_von?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_angebot_beschreibung?: string
-              p_angebot_datei_url?: string
-              p_auftrag_id: string
-              p_auswertung_erstellt_am?: string
-              p_buchung_bestaetigt_am?: string
-              p_created_at?: string
-              p_eingereicht_am?: string
-              p_fussbodenheizung?: boolean
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_wc1_durchgefuehrt_von?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_angebot_beschreibung?: string
-              p_angebot_datei_url?: string
-              p_auftrag_id: string
-              p_auswertung_erstellt_am?: string
-              p_buchung_bestaetigt_am?: string
-              p_created_at?: string
-              p_eingereicht_am?: string
-              p_fussbodenheizung?: boolean
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_nettoangebotssumme?: number
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_wc1_durchgefuehrt_von?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
+      update_thermocheck_auftrag_admin: {
+        Args: {
+          p_abgerechnet?: boolean
+          p_angebot_beschreibung?: string
+          p_angebot_datei_url?: string
+          p_auftrag_id: string
+          p_auswertung_erstellt_am?: string
+          p_buchung_bestaetigt_am?: string
+          p_created_at?: string
+          p_eingereicht_am?: string
+          p_fussbodenheizung?: boolean
+          p_info_vertrieb_pv_aufmass?: string
+          p_info_vertrieb_sonstiges?: string
+          p_info_vertrieb_thc_aufmass?: string
+          p_nettoangebotssumme?: number
+          p_notizen?: string
+          p_pipeline_status?: string
+          p_quadratmeter?: number
+          p_rechnungsdatum?: string
+          p_rechnungsnummer?: string
+          p_signier_datum_thc?: string
+          p_storno_datum?: string
+          p_wc1_durchgefuehrt_am?: string
+          p_wc1_durchgefuehrt_von?: string
+          p_widerrufsbelehrung_url?: string
+          p_wohneinheiten?: number
+          p_zugewiesener_techniker_id?: string
+        }
+        Returns: undefined
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
@@ -12339,6 +12665,7 @@ export type Database = {
         | "rating"
         | "datetime"
         | "elektrik_calendar"
+        | "url_or_file"
       storno_status_enum:
         | "Zu Stornieren"
         | "Stornierung beantragt"
@@ -12982,6 +13309,7 @@ export const Constants = {
         "rating",
         "datetime",
         "elektrik_calendar",
+        "url_or_file",
       ],
       storno_status_enum: [
         "Zu Stornieren",
