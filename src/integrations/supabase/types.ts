@@ -12154,36 +12154,75 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_thermocheck_auftrag_admin: {
-        Args: {
-          p_abgerechnet?: boolean
-          p_angebot_beschreibung?: string
-          p_angebot_datei_url?: string
-          p_auftrag_id: string
-          p_auswertung_erstellt_am?: string
-          p_buchung_bestaetigt_am?: string
-          p_created_at?: string
-          p_eingereicht_am?: string
-          p_fussbodenheizung?: boolean
-          p_info_vertrieb_pv_aufmass?: string
-          p_info_vertrieb_sonstiges?: string
-          p_info_vertrieb_thc_aufmass?: string
-          p_nettoangebotssumme?: number
-          p_notizen?: string
-          p_pipeline_status?: string
-          p_quadratmeter?: number
-          p_rechnungsdatum?: string
-          p_rechnungsnummer?: string
-          p_signier_datum_thc?: string
-          p_storno_datum?: string
-          p_wc1_durchgefuehrt_am?: string
-          p_wc1_durchgefuehrt_von?: string
-          p_widerrufsbelehrung_url?: string
-          p_wohneinheiten?: number
-          p_zugewiesener_techniker_id?: string
-        }
-        Returns: undefined
-      }
+      update_thermocheck_auftrag_admin:
+        | {
+            Args: {
+              p_abgerechnet?: boolean
+              p_angebot_beschreibung?: string
+              p_angebot_datei_url?: string
+              p_auftrag_id: string
+              p_auswertung_erstellt_am?: string
+              p_buchung_bestaetigt_am?: string
+              p_created_at?: string
+              p_eingereicht_am?: string
+              p_fussbodenheizung?: boolean
+              p_info_vertrieb_pv_aufmass?: string
+              p_info_vertrieb_sonstiges?: string
+              p_info_vertrieb_thc_aufmass?: string
+              p_nettoangebotssumme?: number
+              p_notizen?: string
+              p_pipeline_status?: string
+              p_quadratmeter?: number
+              p_rechnungsdatum?: string
+              p_rechnungsnummer?: string
+              p_signier_datum_thc?: string
+              p_storno_datum?: string
+              p_wc1_durchgefuehrt_am?: string
+              p_wc1_durchgefuehrt_von?: string
+              p_widerrufsbelehrung_url?: string
+              p_wohneinheiten?: number
+              p_zugewiesener_techniker_id?: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_abgerechnet?: boolean
+              p_angebot_beschreibung?: string
+              p_angebot_datei_url?: string
+              p_auftrag_id: string
+              p_auftragstyp?: string
+              p_auswertung_erstellt_am?: string
+              p_buchung_bestaetigt_am?: string
+              p_created_at?: string
+              p_eingereicht_am?: string
+              p_fussbodenheizung?: boolean
+              p_info_vertrieb_pv_aufmass?: string
+              p_info_vertrieb_sonstiges?: string
+              p_info_vertrieb_thc_aufmass?: string
+              p_nachbearbeitung_checkin_at?: string
+              p_nachbearbeitung_checkout_at?: string
+              p_nettoangebotssumme?: number
+              p_notizen?: string
+              p_pipeline_status?: string
+              p_quadratmeter?: number
+              p_rechnungsdatum?: string
+              p_rechnungsnummer?: string
+              p_signier_datum_thc?: string
+              p_storno_datum?: string
+              p_updated_at?: string
+              p_vereinbarter_preis?: number
+              p_vor_ort_checkin_at?: string
+              p_vor_ort_checkout_at?: string
+              p_vortag_bestaetigt_am?: string
+              p_wc1_durchgefuehrt_am?: string
+              p_wc1_durchgefuehrt_von?: string
+              p_widerrufsbelehrung_url?: string
+              p_wohneinheiten?: number
+              p_zugewiesener_techniker_id?: string
+            }
+            Returns: undefined
+          }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
