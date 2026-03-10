@@ -1,31 +1,65 @@
 
 
-# T-Shirt Bestellung auf "paid" setzen
+# Plan: Forum UX verbessern + Themen-Filter
 
-## Situation
-Für `onboarding_id = b8b6296a-af68-411f-bb96-0236adcacc34` gibt es 4 T-Shirt-Bestellungen:
-- 3x `failed` (alte Versuche)
-- 1x `pending` (ID: `9e929b79-7316-495f-8779-b289d1ac63ca`, XL, neueste)
+## Überblick
+Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
 
-Bereits bezahlt: Schlappen, Pullover, Ausweiskarte (3 Stück `paid`).
+## 1. Themen-Kategorien einführen
 
-## Was zu tun ist
+Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
 
-**Daten-Update** (kein Schema-Change, kein Migration nötig):
+- **Aufmaß** — Fragen zum ThermoCheck-Formular
+- **Technik** — Wärmepumpen, Hydraulik, Elektrik
+- **Montage** — Aufstellort, Abstände, Schallschutz
+- **App & Tools** — Raumscan, Software-Probleme
+- **Sonstiges** — Alles andere
 
-```sql
-UPDATE thermocheck.contractor_bestellungen
-SET stripe_payment_status = 'paid',
-    paid_at = now()
-WHERE id = '9e929b79-7316-495f-8779-b289d1ac63ca';
-```
+## 2. DB-Änderung
 
-## Warum das reicht
+`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
 
-- `bestellungen_bezahlt` wird **live berechnet** im `get_my_contractor_onboarding` RPC via `COUNT(*) WHERE stripe_payment_status = 'paid'` — kein Cache, kein Trigger nötig
-- Der Onboarding-Flow prüft nur diesen Count → nach dem Update zählt das T-Shirt automatisch als bezahlt
-- Der Contractor kann sofort weitermachen
+## 3. UI-Änderungen
 
-## Kein Code-Change nötig
-Die Logik funktioniert bereits korrekt — es war nur ein Webhook-Problem (Stripe hat den Status nicht korrekt zurückgemeldet).
+**`ForumView.tsx`**:
+- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
+- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
+- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+
+**`ForumThreadCard.tsx`**:
+- Farbiger Kategorie-Badge oben rechts in der Card
+- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
+- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+
+**`ForumNewThread.tsx`**:
+- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+
+**`useForumThreads.ts`**:
+- `kategorie` im ForumThread-Interface ergänzen
+- Optional: Kategorie-Filter als Parameter
+
+**`useCreateThread.ts`**:
+- `kategorie` Parameter beim Insert mitschicken
+
+## 4. Bestehende Threads kategorisieren (Migration)
+
+| Thread | Kategorie |
+|--------|-----------|
+| Vorlauftemperatur Altbau | Technik |
+| Raumscan-App stürzt ab | App & Tools |
+| Mindestabstände Außengerät | Montage |
+| Unbegehbare Räume | Aufmaß |
+| Pufferspeicher Fußbodenheizung | Technik |
+| Neuer Zählerplatz | Technik |
+| Fotos Heizungsraum | Aufmaß |
+| Schallschutznachweis | Montage |
+
+## Dateien
+
+- **Migration**: `kategorie text` Spalte + Update bestehender Threads
+- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
+- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
+- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
+- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
+- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
 
