@@ -320,6 +320,16 @@ export function TrainerRideAlongs({ profileId }: TrainerRideAlongsProps) {
         )}
       </div>
 
+      {/* Pending praxistest banner */}
+      {pendingApprovalCount > 0 && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-accent/10 border border-accent/20">
+          <Bell className="w-4 h-4 text-accent shrink-0" />
+          <p className="text-xs font-medium text-foreground">
+            {pendingApprovalCount} Praxistest{pendingApprovalCount > 1 ? 's' : ''} warten auf deine Freigabe
+          </p>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-32 rounded-xl" />
