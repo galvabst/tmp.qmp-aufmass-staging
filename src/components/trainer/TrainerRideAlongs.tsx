@@ -294,6 +294,10 @@ function RideAlongSection({ title, trainees, isPast, collapsible = false, initia
 export function TrainerRideAlongs({ profileId }: TrainerRideAlongsProps) {
   const { data: rideAlongs, isLoading } = useMyCoachingRideAlongs(profileId);
 
+  const pendingApprovalCount = useMemo(
+    () => (rideAlongs || []).filter(r => r.praxistestEingereicht && !r.praxistestFreigabe).length,
+    [rideAlongs]
+  );
   const today = startOfDay(new Date());
   const upcoming = (rideAlongs || []).filter((r) => {
     const firstDate = r.termine[0]?.datum;
