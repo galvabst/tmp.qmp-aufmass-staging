@@ -92,7 +92,7 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
           bewertung: (auftrag.coaching_bewertung as CoachingBewertung) || 'ausstehend',
           bewertungAm: auftrag.coaching_bewertung_am || undefined,
           termine: termineByAuftrag.get(auftrag.id) || [],
-          praxistestEingereicht: onb?.praxistest_eingereicht || false,
+          praxistestEingereicht: !!onb?.praxistest_eingereicht_am,
           praxistestScanUrl: onb?.praxistest_scan_url || undefined,
           praxistestVideoUrl: onb?.praxistest_video_url || undefined,
         });
