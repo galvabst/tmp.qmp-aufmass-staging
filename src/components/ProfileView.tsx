@@ -33,6 +33,48 @@ interface ProfileViewProps {
   onStartOnboardingPreview?: () => void;
 }
 
+function TrainerSection({ profileId }: { profileId: string }) {
+  const [trainerTab, setTrainerTab] = useState<'mitfahrten' | 'praxistests'>('mitfahrten');
+  const { data: rideAlongs } = useMyCoachingRideAlongs(profileId);
+  const pendingCount = (rideAlongs || []).filter(r => r.praxistestEingereicht && !r.praxistestFreigabe).length;
+
+  return (
+    <>
+      <TrainerProfileEditor profileId={profileId} />
+      <div className="px-4 pb-2 flex gap-2">
+        <Button
+          size="sm"
+          variant={trainerTab === 'mitfahrten' ? 'default' : 'outline'}
+          className="flex-1 gap-1.5"
+          onClick={() => setTrainerTab('mitfahrten')}
+        >
+          <Car className="w-4 h-4" />
+          Meine Mitfahrten
+        </Button>
+        <Button
+          size="sm"
+          variant={trainerTab === 'praxistests' ? 'default' : 'outline'}
+          className="flex-1 gap-1.5 relative"
+          onClick={() => setTrainerTab('praxistests')}
+        >
+          <Bell className="w-4 h-4" />
+          Praxistest-Freigabe
+          {pendingCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+              {pendingCount}
+            </span>
+          )}
+        </Button>
+      </div>
+      {trainerTab === 'mitfahrten' ? (
+        <TrainerRideAlongs profileId={profileId} />
+      ) : (
+        <TrainerPraxistestQueue profileId={profileId} />
+      )}
+    </>
+  );
+}
+
 export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewertungCount = 0, contractorOnboardingId, onSave, onStartOnboardingPreview }: ProfileViewProps) {
   const navigate = useNavigate();
   const { data: isTrainer } = useIsTrainer(profileId || null);
