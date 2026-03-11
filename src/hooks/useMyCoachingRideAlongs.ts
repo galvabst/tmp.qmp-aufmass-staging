@@ -19,8 +19,10 @@ export interface RideAlongTrainee {
   bewertungAm?: string;
   termine: { datum: string; ganztaegig: boolean; zeitVon?: string; zeitBis?: string }[];
   praxistestEingereicht?: boolean;
+  praxistestFreigabe?: boolean;
   praxistestScanUrl?: string;
   praxistestVideoUrl?: string;
+  onboardingId?: string;
 }
 
 async function syncSession() {
