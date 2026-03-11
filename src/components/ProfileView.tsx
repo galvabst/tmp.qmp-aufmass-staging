@@ -375,10 +375,7 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
       )}
 
       {isTrainer && profileId && (
-        <>
-          <TrainerProfileEditor profileId={profileId} />
-          <TrainerRideAlongs profileId={profileId} />
-        </>
+        <TrainerSection profileId={profileId} />
       )}
 
       {/* Akademie */}
