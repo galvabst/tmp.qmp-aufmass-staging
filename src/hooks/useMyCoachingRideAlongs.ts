@@ -57,7 +57,7 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
 
       const [profilesRes, traineeOnbsRes, termineRes] = await Promise.all([
         supabase.from('profiles').select('id, vorname, nachname, telefon, email, avatar_url').in('id', traineeProfileIds),
-        supabaseTC.from('contractor_onboarding').select('profile_id, anschrift_plz, anschrift_ort, praxistest_scan_url, praxistest_video_url, praxistest_eingereicht').in('profile_id', traineeProfileIds),
+        supabaseTC.from('contractor_onboarding').select('profile_id, anschrift_plz, anschrift_ort, praxistest_scan_url, praxistest_video_url, praxistest_eingereicht_am').in('profile_id', traineeProfileIds),
         supabaseTC.from('thermocheck_terminvorschlaege').select('thermocheck_auftrag_id, datum, ganztaegig, zeit_von, zeit_bis, sortierung').in('thermocheck_auftrag_id', auftragIds).order('sortierung', { ascending: true }),
       ]);
 
