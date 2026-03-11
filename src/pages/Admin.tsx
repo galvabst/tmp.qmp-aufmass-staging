@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AdminBottomNav, AdminTab } from '@/features/admin/ui/AdminBottomNav';
+import { useAdminQGPraxistests } from '@/features/quality-gate/hooks/useAdminQGQueue';
 import { ContractorListView } from '@/features/contractors/ui/ContractorListView';
 import { ObjectOrderListView } from '@/features/object-orders/ui/ObjectOrderListView';
 import { BookingListView } from '@/features/bookings/ui/BookingListView';
