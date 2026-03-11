@@ -86,6 +86,7 @@ function TraineeCard({ trainee, isPast }: { trainee: RideAlongTrainee; isPast: b
   const firstDate = trainee.termine[0]?.datum;
   const isPending = trainee.bewertung === 'ausstehend';
   const showActions = isPast && isPending;
+  const showPraxistestApproval = trainee.praxistestEingereicht && !trainee.praxistestFreigabe && trainee.onboardingId;
 
   const { mutate: bewerte, isPending: isMutating } = useBewerteCoachingMitfahrt();
   const [confirmAction, setConfirmAction] = useState<'bestanden' | 'nicht_bestanden' | 'abgesagt' | 'no_show' | null>(null);
