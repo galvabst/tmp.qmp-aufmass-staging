@@ -11,6 +11,8 @@ import { AdminDashboardView } from '@/features/admin/ui/AdminDashboardView';
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
+  const { data: pendingPraxistests } = useAdminQGPraxistests();
+  const praxisCount = pendingPraxistests?.length || 0;
 
   const handleSelectContractor = (contractorId: string) => {
     setSelectedContractorId(contractorId);
