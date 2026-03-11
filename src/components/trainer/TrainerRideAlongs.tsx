@@ -175,6 +175,27 @@ function TraineeCard({ trainee, isPast }: { trainee: RideAlongTrainee; isPast: b
               )}
             </div>
           )}
+
+          {/* Praxistest approve button for trainer */}
+          {showPraxistestApproval && (
+            <div className="pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+                disabled={isApproving}
+                onClick={() => {
+                  approvePraxistest(trainee.onboardingId!, {
+                    onSuccess: () => toast.success(`Praxistest von ${fullName} freigegeben`),
+                    onError: (err: any) => toast.error(err.message || 'Fehler bei der Freigabe'),
+                  });
+                }}
+              >
+                {isApproving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                Praxistest freigeben
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Actions for past + pending */}
