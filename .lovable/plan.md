@@ -1,65 +1,40 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Praxistest: Einreichung + Admin-Übersicht reparieren
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Analyse
 
-## 1. Themen-Kategorien einführen
+### Problem 1: Trainer-Mitfahrten-Query bricht (400 Error)
+In `useMyCoachingRideAlongs.ts` Zeile 60 wird `praxistest_eingereicht` als Spalte abgefragt — diese Spalte existiert aber nicht. Die tatsächliche Spalte heisst `praxistest_eingereicht_am` (Timestamp). Der 400-Error im Network-Log bestätigt das:
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+```
+"column contractor_onboarding.praxistest_eingereicht does not exist"
+"hint": "Perhaps you meant to reference the column contractor_onboarding.praxistest_eingereicht_am"
+```
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+Dieser Fehler kann den gesamten Coaching-View zum Absturz bringen und ggf. auch andere Queries blockieren (React Query Error Boundaries).
 
-## 2. DB-Änderung
+### Problem 2: Praxistest-Einreichung funktioniert technisch
+Die RPCs (`update_contractor_praxistest`, `get_pending_praxistests`, `approve_contractor_praxistest`) existieren alle korrekt. Die Onboarding-State-Hydration funktioniert. Der Praxistest-Bereich zeigt sich nach bestandenem Test korrekt an (Screenshot bestätigt).
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+### Problem 3: Admin-Übersicht existiert bereits
+Der Admin hat unter "Abnahme" → Tab "Praxistests" bereits die Übersicht. Sie zeigt aber leer an, weil noch kein Praxistest erfolgreich eingereicht wurde (DB bestätigt: `praxistest_eingereicht_am IS NULL` für alle Datensätze).
 
-## 3. UI-Änderungen
+## Fazit
+Der Hauptfehler ist die kaputte Query in `useMyCoachingRideAlongs.ts`, die einen 400-Error verursacht. Wenn der User als Trainer eingeloggt ist, könnte dieser Fehler Seiteneffekte haben.
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
+## Umsetzung
 
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
+### 1. Fix: `useMyCoachingRideAlongs.ts` — falsche Spalte
+**Zeile 60:** `praxistest_eingereicht` → `praxistest_eingereicht_am`
+**Zeile 95:** Ableitung anpassen: `praxistestEingereicht: !!onb?.praxistest_eingereicht_am`
 
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
+### 2. Sicherheit: Praxistest-Einreichung testen
+Nach dem Fix sollte die Einreichung E2E getestet werden, um sicherzustellen, dass keine weiteren Blocker bestehen.
 
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
+## Betroffene Datei
 
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| `src/hooks/useMyCoachingRideAlongs.ts` | Spaltenname korrigieren |
 
