@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Users, Calendar, MapPin, Phone, Mail, UserCircle, CheckCircle2, XCircle, Loader2, Ban, UserX, Link2, FileVideo } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Users, Calendar, MapPin, Phone, Mail, UserCircle, CheckCircle2, XCircle, Loader2, Ban, UserX, Link2, FileVideo, ShieldCheck, Bell } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useMyCoachingRideAlongs, useBewerteCoachingMitfahrt, type RideAlongTrainee, type CoachingBewertung } from '@/hooks/useMyCoachingRideAlongs';
+import { useApprovePraxistest } from '@/features/quality-gate/hooks/useAdminQGQueue';
 import { format, parseISO, isAfter, startOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -85,8 +86,10 @@ function TraineeCard({ trainee, isPast }: { trainee: RideAlongTrainee; isPast: b
   const firstDate = trainee.termine[0]?.datum;
   const isPending = trainee.bewertung === 'ausstehend';
   const showActions = isPast && isPending;
+  const showPraxistestApproval = trainee.praxistestEingereicht && !trainee.praxistestFreigabe && trainee.onboardingId;
 
   const { mutate: bewerte, isPending: isMutating } = useBewerteCoachingMitfahrt();
+  const { mutate: approvePraxistest, isPending: isApproving } = useApprovePraxistest();
   const [confirmAction, setConfirmAction] = useState<'bestanden' | 'nicht_bestanden' | 'abgesagt' | 'no_show' | null>(null);
 
   const handleBewertung = (entscheidung: typeof confirmAction) => {
@@ -170,6 +173,27 @@ function TraineeCard({ trainee, isPast }: { trainee: RideAlongTrainee; isPast: b
                   <FileVideo className="w-3.5 h-3.5" /> Drohnenvideo
                 </a>
               )}
+            </div>
+          )}
+
+          {/* Praxistest approve button for trainer */}
+          {showPraxistestApproval && (
+            <div className="pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+                disabled={isApproving}
+                onClick={() => {
+                  approvePraxistest(trainee.onboardingId!, {
+                    onSuccess: () => toast.success(`Praxistest von ${fullName} freigegeben`),
+                    onError: (err: any) => toast.error(err.message || 'Fehler bei der Freigabe'),
+                  });
+                }}
+              >
+                {isApproving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                Praxistest freigeben
+              </Button>
             </div>
           )}
         </div>
@@ -270,6 +294,10 @@ function RideAlongSection({ title, trainees, isPast, collapsible = false, initia
 export function TrainerRideAlongs({ profileId }: TrainerRideAlongsProps) {
   const { data: rideAlongs, isLoading } = useMyCoachingRideAlongs(profileId);
 
+  const pendingApprovalCount = useMemo(
+    () => (rideAlongs || []).filter(r => r.praxistestEingereicht && !r.praxistestFreigabe).length,
+    [rideAlongs]
+  );
   const today = startOfDay(new Date());
   const upcoming = (rideAlongs || []).filter((r) => {
     const firstDate = r.termine[0]?.datum;
@@ -291,6 +319,16 @@ export function TrainerRideAlongs({ profileId }: TrainerRideAlongsProps) {
           </span>
         )}
       </div>
+
+      {/* Pending praxistest banner */}
+      {pendingApprovalCount > 0 && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-accent/10 border border-accent/20">
+          <Bell className="w-4 h-4 text-accent shrink-0" />
+          <p className="text-xs font-medium text-foreground">
+            {pendingApprovalCount} Praxistest{pendingApprovalCount > 1 ? 's' : ''} warten auf deine Freigabe
+          </p>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">

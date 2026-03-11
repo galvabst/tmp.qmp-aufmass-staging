@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AdminBottomNav, AdminTab } from '@/features/admin/ui/AdminBottomNav';
+import { useAdminQGPraxistests } from '@/features/quality-gate/hooks/useAdminQGQueue';
 import { ContractorListView } from '@/features/contractors/ui/ContractorListView';
 import { ObjectOrderListView } from '@/features/object-orders/ui/ObjectOrderListView';
 import { BookingListView } from '@/features/bookings/ui/BookingListView';
@@ -11,6 +12,8 @@ import { AdminDashboardView } from '@/features/admin/ui/AdminDashboardView';
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
+  const { data: pendingPraxistests } = useAdminQGPraxistests();
+  const praxisCount = pendingPraxistests?.length || 0;
 
   const handleSelectContractor = (contractorId: string) => {
     setSelectedContractorId(contractorId);
@@ -43,6 +46,7 @@ export default function Admin() {
       <AdminBottomNav
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        badges={praxisCount > 0 ? { 'quality-gate': praxisCount } : undefined}
       />
     </div>
   );
