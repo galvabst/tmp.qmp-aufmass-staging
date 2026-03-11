@@ -1,65 +1,41 @@
 
 
-# Plan: Forum UX verbessern + Themen-Filter
+# Praxistest-Freigabe sichtbar machen: Badges + Trainer-Hinweis
 
-## Überblick
-Die Forum-Ansicht bekommt eine bessere UX mit Themen-Tags und schöneren Cards. Threads werden mit Kategorien versehen, die als horizontale Filter-Chips funktionieren.
+## Problem
+1. **Admin**: Die "Abnahme"-Tab im Admin hat zwar einen Praxistests-Sub-Tab, aber es gibt **kein Badge** auf dem Tab selbst -- man sieht also nicht, dass etwas zur Prüfung ansteht, ohne reinzuklicken.
+2. **Trainer**: Trainer sehen Praxistest-Links auf den Mitfahrt-Karten, haben aber **keinen eigenen Freigabe-Button** und keine Benachrichtigung, dass Praxistests eingereicht wurden.
 
-## 1. Themen-Kategorien einführen
+## Umsetzung
 
-Feste Kategorien als Frontend-Konstante (kein DB-Feld nötig — wir nutzen ein neues optionales `kategorie`-Feld in der DB):
+### 1. Admin: Badge auf "Abnahme"-Tab
+**Datei: `src/pages/Admin.tsx`**
+- `useAdminQGPraxistests` Hook importieren und aufrufen
+- Die Anzahl pendenter Praxistests als `badges` Prop an `AdminBottomNav` übergeben:
+  ```tsx
+  <AdminBottomNav badges={{ 'quality-gate': praxisCount }} ... />
+  ```
+- So sieht jeder Admin/Superadmin sofort einen roten Badge mit der Zahl ausstehender Praxistests auf dem "Abnahme"-Tab.
 
-- **Aufmaß** — Fragen zum ThermoCheck-Formular
-- **Technik** — Wärmepumpen, Hydraulik, Elektrik
-- **Montage** — Aufstellort, Abstände, Schallschutz
-- **App & Tools** — Raumscan, Software-Probleme
-- **Sonstiges** — Alles andere
+### 2. Trainer: Praxistest-Freigabe direkt auf der Mitfahrt-Karte
+**Datei: `src/components/trainer/TrainerRideAlongs.tsx`**
+- Wenn ein Trainee `praxistestEingereicht === true` und noch keine Freigabe hat, einen **"Praxistest prüfen & freigeben"-Button** auf der TraineeCard anzeigen.
+- Den `useApprovePraxistest` Hook importieren und den Button mit der Approve-Mutation verbinden.
+- So können Trainer direkt aus ihrer Mitfahrten-Übersicht den Praxistest freigeben, ohne in den Admin-Bereich wechseln zu müssen.
 
-## 2. DB-Änderung
+**Datei: `src/hooks/useMyCoachingRideAlongs.ts`**
+- Das Feld `praxistestFreigabe` (boolean) zum Interface und zur Query hinzufügen (`praxistest_freigabe` aus `contractor_onboarding`), damit die Karte den Freigabe-Status kennt.
 
-`thermocheck.contractor_forum_threads` um Spalte `kategorie text` erweitern. Bestehende 8 Threads mit passenden Kategorien updaten.
+### 3. Trainer-Profil: Hinweis-Banner
+**Datei: `src/components/trainer/TrainerRideAlongs.tsx`**
+- Oberhalb der Mitfahrten-Liste ein kompaktes Banner einblenden, wenn es mindestens einen Trainee mit `praxistestEingereicht && !praxistestFreigabe` gibt:
+  > "🔔 X Praxistest(s) warten auf deine Freigabe"
 
-## 3. UI-Änderungen
+### Betroffene Dateien
 
-**`ForumView.tsx`**:
-- Themen-Filter als horizontale Scroll-Leiste mit farbigen Chips unter dem bestehenden "Alle/Unbeantwortete"-Filter
-- Jeder Chip hat eine eigene dezente Farbe (analog zu Status-Badges)
-- Filter-Logik: Kategorie-Filter + bestehender Filter kombiniert
-
-**`ForumThreadCard.tsx`**:
-- Farbiger Kategorie-Badge oben rechts in der Card
-- Avatar-Initialen-Kreis links (erstes Buchstabe des Autorennamens) für persönlichere Optik
-- Dezenter Farbverlauf-Hintergrund bei gelösten Threads
-
-**`ForumNewThread.tsx`**:
-- Kategorie-Auswahl (Dropdown oder Chip-Select) als Pflichtfeld beim Erstellen
-
-**`useForumThreads.ts`**:
-- `kategorie` im ForumThread-Interface ergänzen
-- Optional: Kategorie-Filter als Parameter
-
-**`useCreateThread.ts`**:
-- `kategorie` Parameter beim Insert mitschicken
-
-## 4. Bestehende Threads kategorisieren (Migration)
-
-| Thread | Kategorie |
-|--------|-----------|
-| Vorlauftemperatur Altbau | Technik |
-| Raumscan-App stürzt ab | App & Tools |
-| Mindestabstände Außengerät | Montage |
-| Unbegehbare Räume | Aufmaß |
-| Pufferspeicher Fußbodenheizung | Technik |
-| Neuer Zählerplatz | Technik |
-| Fotos Heizungsraum | Aufmaß |
-| Schallschutznachweis | Montage |
-
-## Dateien
-
-- **Migration**: `kategorie text` Spalte + Update bestehender Threads
-- `src/features/forum/ui/ForumView.tsx` — Kategorie-Filter-Chips + Layout
-- `src/features/forum/ui/ForumThreadCard.tsx` — Avatar, Kategorie-Badge, schöneres Layout
-- `src/features/forum/ui/ForumNewThread.tsx` — Kategorie-Auswahl
-- `src/features/forum/hooks/useForumThreads.ts` — Kategorie im Interface + Filter
-- `src/features/forum/hooks/useCreateThread.ts` — Kategorie beim Insert
+| Datei | Änderung |
+|-------|----------|
+| `src/pages/Admin.tsx` | Badge-Count an BottomNav übergeben |
+| `src/components/trainer/TrainerRideAlongs.tsx` | Freigabe-Button + Banner |
+| `src/hooks/useMyCoachingRideAlongs.ts` | `praxistestFreigabe` Feld hinzufügen |
 
