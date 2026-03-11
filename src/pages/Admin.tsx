@@ -45,6 +45,7 @@ export default function Admin() {
       <AdminBottomNav
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        badges={praxisCount > 0 ? { 'quality-gate': praxisCount } : undefined}
       />
     </div>
   );

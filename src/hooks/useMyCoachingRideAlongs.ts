@@ -95,8 +95,10 @@ export function useMyCoachingRideAlongs(profileId: string | null) {
           bewertungAm: auftrag.coaching_bewertung_am || undefined,
           termine: termineByAuftrag.get(auftrag.id) || [],
           praxistestEingereicht: !!onb?.praxistest_eingereicht_am,
+          praxistestFreigabe: onb?.praxistest_freigabe ?? false,
           praxistestScanUrl: onb?.praxistest_scan_url || undefined,
           praxistestVideoUrl: onb?.praxistest_video_url || undefined,
+          onboardingId: onb?.id || undefined,
         });
       }
 
