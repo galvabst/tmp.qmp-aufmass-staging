@@ -89,6 +89,7 @@ function TraineeCard({ trainee, isPast }: { trainee: RideAlongTrainee; isPast: b
   const showPraxistestApproval = trainee.praxistestEingereicht && !trainee.praxistestFreigabe && trainee.onboardingId;
 
   const { mutate: bewerte, isPending: isMutating } = useBewerteCoachingMitfahrt();
+  const { mutate: approvePraxistest, isPending: isApproving } = useApprovePraxistest();
   const [confirmAction, setConfirmAction] = useState<'bestanden' | 'nicht_bestanden' | 'abgesagt' | 'no_show' | null>(null);
 
   const handleBewertung = (entscheidung: typeof confirmAction) => {
