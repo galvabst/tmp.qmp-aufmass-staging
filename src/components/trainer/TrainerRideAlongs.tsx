@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Users, Calendar, MapPin, Phone, Mail, UserCircle, CheckCircle2, XCircle, Loader2, Ban, UserX, Link2, FileVideo } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Users, Calendar, MapPin, Phone, Mail, UserCircle, CheckCircle2, XCircle, Loader2, Ban, UserX, Link2, FileVideo, ShieldCheck, Bell } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useMyCoachingRideAlongs, useBewerteCoachingMitfahrt, type RideAlongTrainee, type CoachingBewertung } from '@/hooks/useMyCoachingRideAlongs';
+import { useApprovePraxistest } from '@/features/quality-gate/hooks/useAdminQGQueue';
 import { format, parseISO, isAfter, startOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
