@@ -9417,6 +9417,10 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: undefined
       }
+      admin_remove_user_module_access: {
+        Args: { _module_id: string; _user_id: string }
+        Returns: undefined
+      }
       admin_reorder_akademie_lektionen: {
         Args: { p_modul_id: string; p_order: Json }
         Returns: Json
@@ -9613,6 +9617,18 @@ export type Database = {
       }
       check_module_access: {
         Args: { _app_code: string; _module_code: string; _user_id: string }
+        Returns: boolean
+      }
+      check_user_has_academy_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      check_user_has_access_groups: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      check_user_has_other_modules: {
+        Args: { _exclude_module_id: string; _user_id: string }
         Returns: boolean
       }
       check_user_is_admin: { Args: { _user_id: string }; Returns: boolean }
@@ -9926,6 +9942,14 @@ export type Database = {
           p_nachweis_path: string
         }
         Returns: Json
+      }
+      expire_academy_access: {
+        Args: never
+        Returns: {
+          email: string
+          expired_user_id: string
+          had_other_access: boolean
+        }[]
       }
       find_matching_bestellung: { Args: { p_lead_id: string }; Returns: string }
       find_potential_duplicates: {
@@ -10983,6 +11007,24 @@ export type Database = {
         Args: { p_verantwortlichkeit_id: string }
         Returns: boolean
       }
+      insert_field_sales_termin: {
+        Args: {
+          p_appointment_type: string
+          p_calendar_source?: string
+          p_description?: string
+          p_end_datetime: string
+          p_force_duplicate?: boolean
+          p_is_customer_meeting?: boolean
+          p_lead_id: string
+          p_meeting_location?: string
+          p_mitarbeiter_id: string
+          p_start_datetime: string
+          p_sync_status?: string
+          p_termin_status: string
+          p_title: string
+        }
+        Returns: string
+      }
       insert_kpi_nachweis: {
         Args: {
           p_kunde_id?: string
@@ -11021,6 +11063,15 @@ export type Database = {
       is_verkaeufer_available: {
         Args: { p_datum: string; p_mitarbeiter_id: string; p_zeit?: string }
         Returns: boolean
+      }
+      list_academy_users_for_revoke: {
+        Args: { _limit?: number; _module_id: string; _offset?: number }
+        Returns: {
+          access_id: string
+          email: string
+          name: string
+          user_id: string
+        }[]
       }
       log_migration_activity_admin: {
         Args: {
@@ -12191,6 +12242,38 @@ export type Database = {
               p_angebot_beschreibung?: string
               p_angebot_datei_url?: string
               p_auftrag_id: string
+              p_auswertung_erstellt_am?: string
+              p_buchung_bestaetigt_am?: string
+              p_created_at?: string
+              p_eingereicht_am?: string
+              p_fussbodenheizung?: boolean
+              p_info_vertrieb_pv_aufmass?: string
+              p_info_vertrieb_sonstiges?: string
+              p_info_vertrieb_thc_aufmass?: string
+              p_nettoangebotssumme?: number
+              p_notizen?: string
+              p_pipeline_status?: string
+              p_quadratmeter?: number
+              p_rechnungsdatum?: string
+              p_rechnungsnummer?: string
+              p_signier_datum_final?: string
+              p_signier_datum_thc?: string
+              p_storno_datum?: string
+              p_wc1_durchgefuehrt_am?: string
+              p_wc1_durchgefuehrt_von?: string
+              p_widerrufsbelehrung_url?: string
+              p_wohneinheiten?: number
+              p_zahlungsart?: string
+              p_zugewiesener_techniker_id?: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_abgerechnet?: boolean
+              p_angebot_beschreibung?: string
+              p_angebot_datei_url?: string
+              p_auftrag_id: string
               p_auftragstyp?: string
               p_auswertung_erstellt_am?: string
               p_buchung_bestaetigt_am?: string
@@ -12335,7 +12418,7 @@ export type Database = {
       }
       validate_conditional_logic: { Args: { logic: Json }; Returns: boolean }
       webhook_assign_academy_access: {
-        Args: { _module_id: string; _user_id: string }
+        Args: { _expires_at?: string; _module_id: string; _user_id: string }
         Returns: undefined
       }
       webhook_revoke_user_iam_access: {
