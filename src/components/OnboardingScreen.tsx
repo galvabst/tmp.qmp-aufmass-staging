@@ -845,35 +845,18 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             onPraxistestVideoUpload={async (file) => {
               setIsPraxistestUploading(true);
               try {
-                console.log('[Praxistest] Uploading video:', file.name, file.size);
                 const url = await uploadPraxistestVideo(file);
-                console.log('[Praxistest] Video uploaded, URL:', url);
                 setPraxistestVideoUrl(url);
-                toast.success('Video erfolgreich hochgeladen!');
-              } catch (err) {
-                console.error('[Praxistest] Video upload failed:', err);
-                toast.error('Video-Upload fehlgeschlagen. Bitte versuche es erneut.');
               } finally {
                 setIsPraxistestUploading(false);
               }
             }}
             onPraxistestEinreichen={async () => {
-              const scanUrl = state.praxistestScanUrl || '';
-              const videoUrl = state.praxistestVideoUrl || '';
-              console.log('[Praxistest] Einreichen called with:', { scanUrl, videoUrl });
-              if (!scanUrl || !videoUrl) {
-                toast.error('Bitte Scan-Link und Video hochladen');
-                return;
-              }
-              try {
-                await savePraxistest({ scanUrl, videoUrl });
-                setPraxistestEingereicht(true);
-                toast.success('Praxistest erfolgreich eingereicht!');
-                console.log('[Praxistest] Successfully submitted');
-              } catch (err) {
-                console.error('[Praxistest] Einreichen failed:', err);
-                toast.error('Fehler beim Einreichen des Praxistests. Bitte versuche es erneut.');
-              }
+              await savePraxistest({
+                scanUrl: state.praxistestScanUrl || '',
+                videoUrl: state.praxistestVideoUrl || '',
+              });
+              setPraxistestEingereicht(true);
             }}
             isPraxistestUploading={isPraxistestUploading}
           />
