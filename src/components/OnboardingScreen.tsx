@@ -845,8 +845,14 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             onPraxistestVideoUpload={async (file) => {
               setIsPraxistestUploading(true);
               try {
+                console.log('[Praxistest] Uploading video:', file.name, file.size);
                 const url = await uploadPraxistestVideo(file);
+                console.log('[Praxistest] Video uploaded, URL:', url);
                 setPraxistestVideoUrl(url);
+                toast.success('Video erfolgreich hochgeladen!');
+              } catch (err) {
+                console.error('[Praxistest] Video upload failed:', err);
+                toast.error('Video-Upload fehlgeschlagen. Bitte versuche es erneut.');
               } finally {
                 setIsPraxistestUploading(false);
               }
