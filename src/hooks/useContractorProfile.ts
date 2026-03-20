@@ -387,6 +387,8 @@ export function useContractorProfile(profileId: string | null) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      console.log('[savePraxistest] Calling RPC with:', { userId: user.id, ...params });
+
       const { error } = await (supabase.rpc as unknown as (
         fn: string,
         params: Record<string, unknown>
@@ -394,7 +396,13 @@ export function useContractorProfile(profileId: string | null) {
         p_scan_url: params.scanUrl,
         p_video_url: params.videoUrl,
       });
-      if (error) throw error;
+      
+      if (error) {
+        console.error('[savePraxistest] RPC error:', error);
+        throw error;
+      }
+      
+      console.log('[savePraxistest] RPC succeeded');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
