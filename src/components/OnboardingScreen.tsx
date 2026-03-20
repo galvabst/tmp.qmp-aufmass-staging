@@ -852,11 +852,22 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
               }
             }}
             onPraxistestEinreichen={async () => {
-              await savePraxistest({
-                scanUrl: state.praxistestScanUrl || '',
-                videoUrl: state.praxistestVideoUrl || '',
-              });
-              setPraxistestEingereicht(true);
+              const scanUrl = state.praxistestScanUrl || '';
+              const videoUrl = state.praxistestVideoUrl || '';
+              console.log('[Praxistest] Einreichen called with:', { scanUrl, videoUrl });
+              if (!scanUrl || !videoUrl) {
+                toast.error('Bitte Scan-Link und Video hochladen');
+                return;
+              }
+              try {
+                await savePraxistest({ scanUrl, videoUrl });
+                setPraxistestEingereicht(true);
+                toast.success('Praxistest erfolgreich eingereicht!');
+                console.log('[Praxistest] Successfully submitted');
+              } catch (err) {
+                console.error('[Praxistest] Einreichen failed:', err);
+                toast.error('Fehler beim Einreichen des Praxistests. Bitte versuche es erneut.');
+              }
             }}
             isPraxistestUploading={isPraxistestUploading}
           />
