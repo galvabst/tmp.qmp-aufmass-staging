@@ -6831,6 +6831,123 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_ag_vergleiche: {
+        Row: {
+          api_cost_eur: number | null
+          comparison_items: Json | null
+          competitor_manufacturer: string | null
+          competitor_name: string | null
+          competitor_offer_path: string | null
+          competitor_price_eur: number | null
+          created_at: string
+          created_by: string
+          customer_name: string | null
+          customer_street: string | null
+          customer_zip_city: string | null
+          findings_text: string | null
+          id: string
+          lead_id: string
+          own_offer_path: string | null
+          own_price_eur: number | null
+          price_analysis: string | null
+          price_difference_eur: number | null
+          quality_score: number | null
+          railway_comparison_id: string | null
+          status: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
+          status_message: string | null
+          thermocheck_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_cost_eur?: number | null
+          comparison_items?: Json | null
+          competitor_manufacturer?: string | null
+          competitor_name?: string | null
+          competitor_offer_path?: string | null
+          competitor_price_eur?: number | null
+          created_at?: string
+          created_by: string
+          customer_name?: string | null
+          customer_street?: string | null
+          customer_zip_city?: string | null
+          findings_text?: string | null
+          id?: string
+          lead_id: string
+          own_offer_path?: string | null
+          own_price_eur?: number | null
+          price_analysis?: string | null
+          price_difference_eur?: number | null
+          quality_score?: number | null
+          railway_comparison_id?: string | null
+          status?: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
+          status_message?: string | null
+          thermocheck_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_cost_eur?: number | null
+          comparison_items?: Json | null
+          competitor_manufacturer?: string | null
+          competitor_name?: string | null
+          competitor_offer_path?: string | null
+          competitor_price_eur?: number | null
+          created_at?: string
+          created_by?: string
+          customer_name?: string | null
+          customer_street?: string | null
+          customer_zip_city?: string | null
+          findings_text?: string | null
+          id?: string
+          lead_id?: string
+          own_offer_path?: string | null
+          own_price_eur?: number | null
+          price_analysis?: string | null
+          price_difference_eur?: number | null
+          quality_score?: number | null
+          railway_comparison_id?: string | null
+          status?: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
+          status_message?: string | null
+          thermocheck_path?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_vergleiche_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleiche_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleiche_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleiche_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleiche_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       sales_auftrag_dokumente: {
         Row: {
           auftrag_id: string | null
@@ -7707,6 +7824,69 @@ export type Database = {
           },
         ]
       }
+      tmp_academy_alternate_emails: {
+        Row: {
+          created_at: string
+          drive_error: string | null
+          drive_shared: boolean
+          drive_shared_at: string | null
+          email: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          drive_error?: string | null
+          drive_shared?: boolean
+          drive_shared_at?: string | null
+          email: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          drive_error?: string | null
+          drive_shared?: boolean
+          drive_shared_at?: string | null
+          email?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tmp_academy_video_progress: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          progress_seconds: number
+          updated_at: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          progress_seconds?: number
+          updated_at?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          progress_seconds?: number
+          updated_at?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: []
+      }
       token_consumption_log: {
         Row: {
           consumed_at: string | null
@@ -8216,6 +8396,27 @@ export type Database = {
         }
         Relationships: []
       }
+      vdb_sales_kybernetik: {
+        Row: {
+          content: string | null
+          embedding: string | null
+          id: number
+          metadata: Json | null
+        }
+        Insert: {
+          content?: string | null
+          embedding?: string | null
+          id?: number
+          metadata?: Json | null
+        }
+        Update: {
+          content?: string | null
+          embedding?: string | null
+          id?: number
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
       vdb_sales_strategy: {
         Row: {
           content: string | null
@@ -8694,12 +8895,91 @@ export type Database = {
           },
         ]
       }
+      zoho_sync_audit: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          flow: string
+          id: string
+          lead_id: string | null
+          mode: string
+          payload_json: Json | null
+          referenz_nummer: string | null
+          request_id: string
+          response_json: Json | null
+          retry_count: number | null
+          success: boolean | null
+          zoho_status: number | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          flow: string
+          id?: string
+          lead_id?: string | null
+          mode: string
+          payload_json?: Json | null
+          referenz_nummer?: string | null
+          request_id: string
+          response_json?: Json | null
+          retry_count?: number | null
+          success?: boolean | null
+          zoho_status?: number | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          flow?: string
+          id?: string
+          lead_id?: string | null
+          mode?: string
+          payload_json?: Json | null
+          referenz_nummer?: string | null
+          request_id?: string
+          response_json?: Json | null
+          retry_count?: number | null
+          success?: boolean | null
+          zoho_status?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoho_sync_audit_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoho_sync_audit_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoho_sync_audit_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       "zoho-credentials": {
         Row: {
           access_token: string | null
           created_at: string
           expires_at: string | null
+          health_message: string | null
+          health_status: string
           id: number
+          last_health_check: string | null
           refresh_lock_deadline: string | null
           refresh_started_at: string | null
           refresh_token: string | null
@@ -8711,7 +8991,10 @@ export type Database = {
           access_token?: string | null
           created_at?: string
           expires_at?: string | null
+          health_message?: string | null
+          health_status?: string
           id?: number
+          last_health_check?: string | null
           refresh_lock_deadline?: string | null
           refresh_started_at?: string | null
           refresh_token?: string | null
@@ -8723,7 +9006,10 @@ export type Database = {
           access_token?: string | null
           created_at?: string
           expires_at?: string | null
+          health_message?: string | null
+          health_status?: string
           id?: number
+          last_health_check?: string | null
           refresh_lock_deadline?: string | null
           refresh_started_at?: string | null
           refresh_token?: string | null
@@ -11073,6 +11359,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      list_active_academy_users: {
+        Args: never
+        Returns: {
+          access_type: string
+          display_name: string
+          email: string
+          user_id: string
+        }[]
+      }
       log_migration_activity_admin: {
         Args: {
           p_action_type: string
@@ -11152,6 +11447,19 @@ export type Database = {
         Returns: {
           content: string
           id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
+      match_kybernetik: {
+        Args: {
+          filter_technique?: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: number
           metadata: Json
           similarity: number
         }[]
@@ -12743,6 +13051,13 @@ export type Database = {
         | "RTC1"
         | "RTC2"
         | "RTC3"
+      sales_ag_vergleich_status_enum:
+        | "draft"
+        | "uploading"
+        | "processing"
+        | "review"
+        | "approved"
+        | "failed"
       sales_auftrag_dokument_status_enum:
         | "uploaded"
         | "processing"
@@ -13383,6 +13698,14 @@ export const Constants = {
         "RTC1",
         "RTC2",
         "RTC3",
+      ],
+      sales_ag_vergleich_status_enum: [
+        "draft",
+        "uploading",
+        "processing",
+        "review",
+        "approved",
+        "failed",
       ],
       sales_auftrag_dokument_status_enum: [
         "uploaded",
