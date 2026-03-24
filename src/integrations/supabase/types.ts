@@ -7822,6 +7822,13 @@ export type Database = {
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "termine_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tmp_academy_alternate_emails: {
@@ -7851,6 +7858,30 @@ export type Database = {
           email?: string
           id?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      tmp_academy_drive_files: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          file_id: string
+          id: string
+          label: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          file_id: string
+          id?: string
+          label?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          file_id?: string
+          id?: string
+          label?: string | null
         }
         Relationships: []
       }
@@ -8974,11 +9005,15 @@ export type Database = {
       "zoho-credentials": {
         Row: {
           access_token: string | null
+          alert_count: number
+          consecutive_failures: number
           created_at: string
+          critical_since: string | null
           expires_at: string | null
           health_message: string | null
           health_status: string
           id: number
+          last_alert_sent_at: string | null
           last_health_check: string | null
           refresh_lock_deadline: string | null
           refresh_started_at: string | null
@@ -8989,11 +9024,15 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          alert_count?: number
+          consecutive_failures?: number
           created_at?: string
+          critical_since?: string | null
           expires_at?: string | null
           health_message?: string | null
           health_status?: string
           id?: number
+          last_alert_sent_at?: string | null
           last_health_check?: string | null
           refresh_lock_deadline?: string | null
           refresh_started_at?: string | null
@@ -9004,11 +9043,15 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          alert_count?: number
+          consecutive_failures?: number
           created_at?: string
+          critical_since?: string | null
           expires_at?: string | null
           health_message?: string | null
           health_status?: string
           id?: number
+          last_alert_sent_at?: string | null
           last_health_check?: string | null
           refresh_lock_deadline?: string | null
           refresh_started_at?: string | null
@@ -11248,6 +11291,14 @@ export type Database = {
           quelle: string
         }[]
       }
+      get_verkaufer_with_lead_counts: {
+        Args: never
+        Returns: {
+          id: string
+          leadCount: number
+          name: string
+        }[]
+      }
       get_won_leads_public: {
         Args: {
           p_limit?: number
@@ -13002,6 +13053,7 @@ export type Database = {
         | "thc_sales"
         | "ag_termine"
         | "ag_sales"
+        | "monatsziel_eur"
       nachverkauf_potenzial_status_enum:
         | "offen"
         | "interesse"
@@ -13145,6 +13197,7 @@ export type Database = {
         | "Stattgefunden"
         | "No Show"
         | "No Show Same Day"
+        | "Abgesagt"
       thc_status_enum:
         | "Neuer Thermo-Check"
         | "Nicht erreicht Thermo-Check"
@@ -13642,6 +13695,7 @@ export const Constants = {
         "thc_sales",
         "ag_termine",
         "ag_sales",
+        "monatsziel_eur",
       ],
       nachverkauf_potenzial_status_enum: [
         "offen",
@@ -13804,6 +13858,7 @@ export const Constants = {
         "Stattgefunden",
         "No Show",
         "No Show Same Day",
+        "Abgesagt",
       ],
       thc_status_enum: [
         "Neuer Thermo-Check",
