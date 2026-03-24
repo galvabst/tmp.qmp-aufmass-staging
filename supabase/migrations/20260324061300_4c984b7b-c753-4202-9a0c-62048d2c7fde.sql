@@ -1,0 +1,1 @@
+UPDATE thermocheck.contractor_produkte SET stripe_price_id = 'price_1TENzJLnjPqrEfxxNOAqYggf' WHERE produkt_key = 'scanner-lizenz';
