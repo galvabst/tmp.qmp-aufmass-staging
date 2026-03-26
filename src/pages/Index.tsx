@@ -39,6 +39,29 @@ const Index = () => {
   
   const { session, isLoading: isSessionLoading } = useSupabaseSession();
   
+  // Grace period: track when session was first established to avoid flash of error screen
+  const [sessionEstablishedAt, setSessionEstablishedAt] = useState<number | null>(null);
+  const [gracePeriodElapsed, setGracePeriodElapsed] = useState(false);
+  
+  useEffect(() => {
+    if (session && !sessionEstablishedAt) {
+      setSessionEstablishedAt(Date.now());
+    }
+    if (!session) {
+      setSessionEstablishedAt(null);
+      setGracePeriodElapsed(false);
+    }
+  }, [session, sessionEstablishedAt]);
+  
+  useEffect(() => {
+    if (sessionEstablishedAt && !gracePeriodElapsed) {
+      const elapsed = Date.now() - sessionEstablishedAt;
+      const remaining = Math.max(0, 5000 - elapsed);
+      const timer = setTimeout(() => setGracePeriodElapsed(true), remaining);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionEstablishedAt, gracePeriodElapsed]);
+  
   const { 
     isReady: isDbReady, 
     isLoading: isDbLoading, 
@@ -336,6 +359,10 @@ const Index = () => {
   }
 
   if (!hasContractorRecord && !isAdmin) {
+    // During grace period after login, show loading instead of error screen
+    if (!gracePeriodElapsed) {
+      return <OnboardingLoadingScreen message="Prüfe Zugriffsrechte..." />;
+    }
     return <NoContractorAccessScreen userEmail={onboardingRecord?.ag_domain_email || session.user.email || undefined} />;
   }
   

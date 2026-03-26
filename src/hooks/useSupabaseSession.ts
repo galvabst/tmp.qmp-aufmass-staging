@@ -28,7 +28,13 @@ export function useSupabaseSession(): UseSupabaseSessionResult {
         setIsLoading(false);
         
         // Invalidate all auth-dependent queries when session changes
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        if (event === 'SIGNED_IN') {
+          // Token needs time to propagate server-side before RPC calls work
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-status'] });
+            queryClient.invalidateQueries({ queryKey: ['iam'] });
+          }, 1500);
+        } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
           queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-status'] });
           queryClient.invalidateQueries({ queryKey: ['iam'] });
         }
