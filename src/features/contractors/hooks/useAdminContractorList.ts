@@ -89,6 +89,9 @@ export interface AdminContractor {
   bestellungenBezahlt: number;
   bezahlteProdukte: string[];
   bestellungen: BestellungDetail[];
+  // Pflichtprodukte
+  pflichtProdukteTotal: number;
+  pflichtProdukteBezahlt: number;
   // Equipment
   equipmentStatus: Record<string, { hatEigenes?: boolean; nachweisUrl?: string }>;
   // Coaching
@@ -126,7 +129,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   const onboardingIds = onboardings.map(o => o.id);
 
   // 3. Parallel fetches
-  const [profilesRes, lektionenRes, quizRes, bestellungenRes, lektionenCountRes] = await Promise.all([
+  const [profilesRes, lektionenRes, quizRes, bestellungenRes, lektionenCountRes, pflichtProdukteRes] = await Promise.all([
     // Profiles from public schema
     profileIds.length > 0
       ? supabase.from('profiles').select('id, vorname, nachname, email, telefon, avatar_url').in('id', profileIds)
@@ -139,9 +142,12 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
     supabaseTC.from('contractor_bestellungen').select('onboarding_id, stripe_payment_status, produkt_key, groesse'),
     // Aktive Lektionen zählen
     supabaseTC.from('contractor_akademie_lektionen').select('id', { count: 'exact', head: true }).eq('ist_aktiv', true),
+    // Pflichtprodukte laden
+    supabaseTC.from('contractor_produkte').select('produkt_key').eq('ist_aktiv', true).eq('ist_pflicht', true),
   ]);
 
   const activeLektionenCount = lektionenCountRes.count ?? 0;
+  const pflichtProduktKeys = new Set((pflichtProdukteRes.data || []).map(p => p.produkt_key));
 
   // Build lookup maps
   const profileMap = new Map<string, any>();
@@ -217,6 +223,8 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       bestellungenBezahlt: best?.bezahlt ?? 0,
       bezahlteProdukte: best?.paidKeys ?? [],
       bestellungen: best?.details ?? [],
+      pflichtProdukteTotal: pflichtProduktKeys.size,
+      pflichtProdukteBezahlt: [...pflichtProduktKeys].filter(pk => best?.paidKeys.includes(pk)).length,
       equipmentStatus: equipment,
       coachingBewertung: o.coaching_bewertung ?? 'ausstehend',
       coachingTermin: o.gebuchter_coaching_termin ?? null,

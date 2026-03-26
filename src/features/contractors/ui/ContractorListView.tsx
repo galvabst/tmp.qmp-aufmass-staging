@@ -227,9 +227,9 @@ function ContractorCard({ contractor: c, onClick }: { contractor: AdminContracto
               <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                 <GraduationCap className="w-3 h-3" /> {c.lektionenCompleted}/{c.lektionenTotal}
               </span>
-              {c.bestellungenTotal > 0 && (
+              {c.pflichtProdukteTotal > 0 && (
                 <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                  <ShoppingBag className="w-3 h-3" /> {c.bestellungenBezahlt}/{c.bestellungenTotal} bezahlt
+                  <ShoppingBag className="w-3 h-3" /> {c.pflichtProdukteBezahlt}/{c.pflichtProdukteTotal} Pflichtprodukte
                 </span>
               )}
             </div>
