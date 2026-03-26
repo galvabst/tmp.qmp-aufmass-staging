@@ -147,6 +147,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   ]);
 
   const activeLektionenCount = lektionenCountRes.count ?? 0;
+  const pflichtProduktKeys = new Set((pflichtProdukteRes.data || []).map(p => p.produkt_key));
 
   // Build lookup maps
   const profileMap = new Map<string, any>();
