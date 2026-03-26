@@ -89,6 +89,9 @@ export interface AdminContractor {
   bestellungenBezahlt: number;
   bezahlteProdukte: string[];
   bestellungen: BestellungDetail[];
+  // Pflichtprodukte
+  pflichtProdukteTotal: number;
+  pflichtProdukteBezahlt: number;
   // Equipment
   equipmentStatus: Record<string, { hatEigenes?: boolean; nachweisUrl?: string }>;
   // Coaching
