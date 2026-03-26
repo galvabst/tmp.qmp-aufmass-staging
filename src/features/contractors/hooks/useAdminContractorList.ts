@@ -225,6 +225,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       bestellungen: best?.details ?? [],
       pflichtProdukteTotal: pflichtProduktKeys.size,
       pflichtProdukteBezahlt: [...pflichtProduktKeys].filter(pk => best?.paidKeys.includes(pk)).length,
+      equipmentStatus: equipment,
       coachingBewertung: o.coaching_bewertung ?? 'ausstehend',
       coachingTermin: o.gebuchter_coaching_termin ?? null,
       coachName: o.gebuchter_coach_name ?? null,
