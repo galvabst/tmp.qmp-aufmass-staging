@@ -81,10 +81,11 @@ export function useContractorOnboardingStatus(userId?: string | null): UseContra
         };
       }
 
-      // Check for empty result (legitimate "no record" case)
+      // Check for empty result -- may be a token propagation race condition
       if (!rpcData || (Array.isArray(rpcData) && rpcData.length === 0)) {
-        console.log('[ContractorOnboardingStatus] No contractor_onboarding record found for user:', userId);
-        return { record: null, errorMessage: null };
+        console.log('[ContractorOnboardingStatus] No record found, will retry if possible');
+        // Throw a special error so React Query retries (token may not have propagated yet)
+        throw new Error('EMPTY_RESULT_RETRY');
       }
 
       const record = Array.isArray(rpcData) ? rpcData[0] : rpcData;
@@ -121,11 +122,20 @@ export function useContractorOnboardingStatus(userId?: string | null): UseContra
     },
     staleTime: 30_000, // 30 seconds
     refetchOnWindowFocus: true,
+    // Auto-retry when result is empty but userId exists (token propagation race)
+    retry: (failureCount, error) => {
+      // Retry up to 3 times for empty-result errors
+      if ((error as any)?.message === 'EMPTY_RESULT_RETRY') return failureCount < 3;
+      return failureCount < 1; // normal errors: 1 retry
+    },
+    retryDelay: 1500,
   });
 
   // Extract record and error message from query result
   const onboardingRecord = data?.record ?? null;
-  const errorMessage = data?.errorMessage ?? (error ? String(error) : null);
+  // Don't treat the retry-sentinel as a real error for the UI
+  const isRetryError = error && (error as any)?.message === 'EMPTY_RESULT_RETRY';
+  const errorMessage = isRetryError ? null : (data?.errorMessage ?? (error ? String(error) : null));
   const isError = !!errorMessage;
 
   // Determine if user is fully ready

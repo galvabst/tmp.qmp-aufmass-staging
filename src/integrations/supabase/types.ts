@@ -11333,6 +11333,14 @@ export type Database = {
         Args: { _lead_id: string; _user_id?: string }
         Returns: boolean
       }
+      has_module_rls: {
+        Args: { _app_code: string; _module_code: string }
+        Returns: boolean
+      }
+      has_module_rls_write: {
+        Args: { _app_code: string; _module_code: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           required_role: Database["public"]["Enums"]["app_role"]
@@ -11539,6 +11547,15 @@ export type Database = {
         Returns: {
           content: string
           id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
+      match_vdb_kybernetik: {
+        Args: { filter?: Json; match_count?: number; query_embedding: string }
+        Returns: {
+          content: string
+          id: number
           metadata: Json
           similarity: number
         }[]
