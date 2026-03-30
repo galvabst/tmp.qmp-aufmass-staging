@@ -1,0 +1,1 @@
+UPDATE thermocheck.contractor_produkte SET ist_pflicht = true WHERE produkt_key = 'pullover';
