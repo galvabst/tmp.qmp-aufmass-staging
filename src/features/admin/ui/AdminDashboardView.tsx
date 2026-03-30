@@ -228,15 +228,15 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
     return { inVerzugList, ready, trainers };
   }, [contractors]);
 
-  // Funnel data (all non-trainer contractors, including ready)
-  const allNonTrainers = useMemo(() => contractors?.filter(c => !c.isTrainer) ?? [], [contractors]);
+  // Funnel data (all contractors including trainers)
+  const allContractors = useMemo(() => contractors ?? [], [contractors]);
   const funnelData = useMemo(() => {
-    if (!allNonTrainers.length) return [];
+    if (!allContractors.length) return [];
     return FUNNEL_STAGES.map(stage => ({
       stage: stage.label,
-      count: allNonTrainers.filter(stage.filter).length,
+      count: allContractors.filter(stage.filter).length,
     }));
-  }, [allNonTrainers]);
+  }, [allContractors]);
 
   const isLoading = cLoading || sLoading || pLoading;
 
