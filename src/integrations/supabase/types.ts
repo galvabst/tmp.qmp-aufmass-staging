@@ -7428,6 +7428,7 @@ export type Database = {
           resend_id: string | null
           resend_payload: Json | null
           resend_response: Json | null
+          retry_of_log_id: string | null
           status: string
           updated_at: string
           webhook_payload: Json | null
@@ -7453,6 +7454,7 @@ export type Database = {
           resend_id?: string | null
           resend_payload?: Json | null
           resend_response?: Json | null
+          retry_of_log_id?: string | null
           status?: string
           updated_at?: string
           webhook_payload?: Json | null
@@ -7478,6 +7480,7 @@ export type Database = {
           resend_id?: string | null
           resend_payload?: Json | null
           resend_response?: Json | null
+          retry_of_log_id?: string | null
           status?: string
           updated_at?: string
           webhook_payload?: Json | null
@@ -7516,6 +7519,13 @@ export type Database = {
             columns: ["gesendet_von"]
             isOneToOne: false
             referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_email_logs_retry_of_log_id_fkey"
+            columns: ["retry_of_log_id"]
+            isOneToOne: false
+            referencedRelation: "system_email_logs"
             referencedColumns: ["id"]
           },
         ]
