@@ -162,22 +162,22 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
             })()}
           </div>
 
-          {/* Rechte Spalte: Bestellungen */}
+          {/* Rechte Spalte: Pflichtprodukte */}
           <div className="bg-card rounded-2xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-foreground">Bestellungen</p>
-              <span className={`text-[10px] font-bold ${c.bestellungenBezahlt === c.bestellungenTotal && c.bestellungenTotal > 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                {c.bestellungenBezahlt}/{c.bestellungenTotal}
+              <p className="text-xs font-semibold text-foreground">Pflichtprodukte</p>
+              <span className={`text-[10px] font-bold ${c.pflichtProdukteBezahlt >= c.pflichtProdukteTotal && c.pflichtProdukteTotal > 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                {c.pflichtProdukteBezahlt}/{c.pflichtProdukteTotal}
               </span>
             </div>
             {c.bestellungen.length === 0 ? (
               <p className="text-[10px] text-muted-foreground">Keine</p>
             ) : (
               <div className="space-y-1.5">
-                {c.bestellungen.map((b, i) => (
+                {c.bestellungen.filter(b => b.status === 'paid').map((b, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-xs">
-                    {b.status === 'paid' ? <Check className="w-3.5 h-3.5 text-green-500 shrink-0" /> : <X className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-                    <span className={`truncate ${b.status === 'paid' ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                    <span className="truncate text-foreground">
                       {b.produktKey.replace(/[-_]/g, ' ')}{b.groesse ? ` (${b.groesse})` : ''}
                     </span>
                   </div>
@@ -189,7 +189,7 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
         {/* ── Quick Stats Row ── */}
         <div className="grid grid-cols-3 gap-2">
           <StatCard label="Lektionen" value={`${c.lektionenCompleted}/${c.lektionenTotal}`} sub={c.lektionenInProgress > 0 ? `${c.lektionenInProgress} in Arbeit` : undefined} />
-          <StatCard label="Bestellungen" value={`${c.bestellungenBezahlt}/${c.bestellungenTotal}`} sub={c.bestellungenTotal === 0 ? 'Keine' : c.bestellungenBezahlt === c.bestellungenTotal ? 'Alle bezahlt' : 'Offen'} />
+          <StatCard label="Pflichtprodukte" value={`${c.pflichtProdukteBezahlt}/${c.pflichtProdukteTotal}`} sub={c.pflichtProdukteTotal === 0 ? 'Keine' : c.pflichtProdukteBezahlt >= c.pflichtProdukteTotal ? 'Alle bezahlt' : 'Offen'} />
           <StatCard label="Coaching" value={c.coachingBewertung === 'bestanden' ? '✓' : c.coachingBewertung === 'nicht_bestanden' ? '✗' : '–'} sub={c.coachingBewertung === 'ausstehend' ? 'Ausstehend' : c.coachingBewertung === 'bestanden' ? 'Bestanden' : 'Nicht bestanden'} />
         </div>
 
