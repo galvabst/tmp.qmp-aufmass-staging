@@ -11520,6 +11520,15 @@ export type Database = {
           similarity: number
         }[]
       }
+      match_internal_meetings_v2: {
+        Args: { filter?: Json; match_count?: number; query_embedding: string }
+        Returns: {
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
       match_kybernetik: {
         Args: {
           filter_technique?: string
