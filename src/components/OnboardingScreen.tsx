@@ -308,6 +308,22 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       setBestellungenFromDb(paidKeys);
     }
 
+    // Auto-detect oberteilAuswahl from paid orders if not set (e.g. new device / cleared cache)
+    if (!state.oberteilAuswahl && paidKeys.length > 0) {
+      const hasTshirt = paidKeys.includes('tshirt');
+      const hasPoloshirt = paidKeys.includes('poloshirt');
+      if (hasTshirt && hasPoloshirt) {
+        console.log('[Onboarding] Auto-detected oberteilAuswahl: beides (from paid orders)');
+        setOberteilAuswahl('beides');
+      } else if (hasTshirt) {
+        console.log('[Onboarding] Auto-detected oberteilAuswahl: tshirt (from paid orders)');
+        setOberteilAuswahl('tshirt');
+      } else if (hasPoloshirt) {
+        console.log('[Onboarding] Auto-detected oberteilAuswahl: poloshirt (from paid orders)');
+        setOberteilAuswahl('poloshirt');
+      }
+    }
+
     // Bereinigung: Wenn Zahlungen fehlschlagen und "bestellungen" in completedSteps ist,
     // aber nicht mehr genug bezahlte Produkte vorhanden → completedSteps bereinigen
     const requiredCount = state.oberteilAuswahl === 'beides' ? 7 : 6;
@@ -328,7 +344,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         console.warn('[Onboarding] Failed to clean completedSteps in DB:', e);
       }
     }
-  }, [ordersLoaded, dbOrders, state.bestellungenBestaetigt, setBestellungenFromDb]);
+  }, [ordersLoaded, dbOrders, state.bestellungenBestaetigt, setBestellungenFromDb, state.oberteilAuswahl, setOberteilAuswahl]);
 
   // Polling nach Stripe-Checkout
   useEffect(() => {
