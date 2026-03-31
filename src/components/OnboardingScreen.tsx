@@ -276,12 +276,16 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const { data: completedLektionIds } = useAkademieFortschritt(dbStatus?.onboardingId || null);
   
   useEffect(() => {
-    if (isPreview || hasHydratedRef.current) return;
+    if (hasHydratedRef.current) return;
     if (!dbLoaded || !dbAkademieModule || dbAkademieModule.length === 0) return;
-    if (completedLektionIds === undefined) return; // Warten bis Fortschritt geladen
+    if (!isPreview && completedLektionIds === undefined) return; // Warten bis Fortschritt geladen (nur produktiv)
     
     hasHydratedRef.current = true;
-    hydrateAkademieFromDb(dbAkademieModule, completedLektionIds, dbStatus?.onboardingStatus);
+    hydrateAkademieFromDb(
+      dbAkademieModule,
+      isPreview ? new Set<string>() : completedLektionIds,
+      dbStatus?.onboardingStatus
+    );
   }, [dbLoaded, dbAkademieModule, isPreview, hydrateAkademieFromDb, completedLektionIds]);
 
   // Bestellungen aus DB laden
@@ -852,6 +856,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             onUnterpunktComplete={completeAkademieUnterpunkt}
             testBestanden={state.akademieTestBestanden}
             onStartTest={handleStartTest}
+            isPreview={isPreview}
             isTrainer={dbStatus?.isTrainer}
             praxistestScanUrl={state.praxistestScanUrl || ''}
             praxistestVideoUrl={state.praxistestVideoUrl || ''}
