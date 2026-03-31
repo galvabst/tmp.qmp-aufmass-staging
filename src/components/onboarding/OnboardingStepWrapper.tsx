@@ -28,6 +28,8 @@ interface OnboardingStepWrapperProps {
   showBack?: boolean;
   progress: number;
   erstelltAm?: string;
+  isPreview?: boolean;
+  onSkipStep?: () => void;
 }
 
 export function OnboardingStepWrapper({

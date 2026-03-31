@@ -8,6 +8,7 @@ import { CheckinListView } from '@/features/checkins/ui/CheckinListView';
 import { QGQueueView } from '@/features/quality-gate/ui/QGQueueView';
 import { AkademieAdminView } from '@/features/admin/ui/akademie/AkademieAdminView';
 import { AdminDashboardView } from '@/features/admin/ui/AdminDashboardView';
+import { OnboardingScreen } from '@/components/OnboardingScreen';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
