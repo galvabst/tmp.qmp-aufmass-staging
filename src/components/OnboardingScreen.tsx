@@ -904,10 +904,18 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
               await savePraxistest({
                 scanUrl: state.praxistestScanUrl || '',
                 videoUrl: state.praxistestVideoUrl || '',
+                targetProfileId: isPreview ? selectedPraxistestContractor : undefined,
               });
               setPraxistestEingereicht(true);
+              if (isPreview && selectedPraxistestContractor) {
+                const name = previewContractors.find(c => c.profileId === selectedPraxistestContractor)?.name;
+                toast.success(`Praxistest für ${name || 'Techniker'} eingereicht!`);
+              }
             }}
             isPraxistestUploading={isPraxistestUploading}
+            previewContractors={isPreview ? previewContractors : undefined}
+            selectedContractorId={selectedPraxistestContractor}
+            onSelectContractor={setSelectedPraxistestContractor}
           />
         );
 

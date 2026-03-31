@@ -383,17 +383,22 @@ export function useContractorProfile(profileId: string | null) {
 
   // Praxistest-Daten speichern (Scan-URL + Video-URL)
   const savePraxistestMutation = useMutation({
-    mutationFn: async (params: { scanUrl: string; videoUrl: string }) => {
+    mutationFn: async (params: { scanUrl: string; videoUrl: string; targetProfileId?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      const rpcParams: Record<string, unknown> = {
+        p_scan_url: params.scanUrl,
+        p_video_url: params.videoUrl,
+      };
+      if (params.targetProfileId) {
+        rpcParams.p_target_profile_id = params.targetProfileId;
+      }
 
       const { error } = await (supabase.rpc as unknown as (
         fn: string,
         params: Record<string, unknown>
-      ) => Promise<{ error: Error | null }>)('update_contractor_praxistest', {
-        p_scan_url: params.scanUrl,
-        p_video_url: params.videoUrl,
-      });
+      ) => Promise<{ error: Error | null }>)('update_contractor_praxistest', rpcParams);
       if (error) throw error;
     },
     onSuccess: () => {
