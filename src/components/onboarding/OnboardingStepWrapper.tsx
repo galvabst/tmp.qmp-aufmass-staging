@@ -125,7 +125,9 @@ export function OnboardingStepWrapper({
                       ? 'h-5 w-5 bg-primary-foreground text-primary cursor-pointer hover:scale-110'
                       : isCurrent
                         ? 'h-5 w-5 bg-primary-foreground/30 border-[1.5px] border-primary-foreground animate-[pulse_4s_cubic-bezier(0.4,0,0.6,1)_infinite]'
-                        : 'h-2 w-2 bg-primary-foreground/25 cursor-default'
+                        : isPreview
+                          ? 'h-5 w-5 bg-primary-foreground/20 cursor-pointer hover:scale-110 hover:bg-primary-foreground/40'
+                          : 'h-2 w-2 bg-primary-foreground/25 cursor-default'
                   )}
                 >
                   {isCompleted && <Check className="w-3 h-3" strokeWidth={3} />}
