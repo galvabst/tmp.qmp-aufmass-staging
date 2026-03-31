@@ -28,6 +28,8 @@ interface OnboardingStepWrapperProps {
   showBack?: boolean;
   progress: number;
   erstelltAm?: string;
+  isPreview?: boolean;
+  onSkipStep?: () => void;
 }
 
 export function OnboardingStepWrapper({
@@ -45,6 +47,8 @@ export function OnboardingStepWrapper({
   showBack = true,
   progress,
   erstelltAm,
+  isPreview = false,
+  onSkipStep,
 }: OnboardingStepWrapperProps) {
   const currentIndex = getStepIndex(currentStep);
   const totalSteps = STEP_ORDER.length;
@@ -107,7 +111,7 @@ export function OnboardingStepWrapper({
             {STEP_ORDER.map((stepId, index) => {
               const isCompleted = isStepCompleted(stepId, completedSteps);
               const isCurrent = stepId === currentStep;
-              const isClickable = (isCompleted || isCurrent) && onStepClick;
+              const isClickable = (isPreview || isCompleted || isCurrent) && onStepClick;
               
               return (
                 <button
@@ -147,15 +151,28 @@ export function OnboardingStepWrapper({
           <Progress value={progress} className="h-2" />
         </div>
         
-        <Button 
-          onClick={onNext} 
-          disabled={nextDisabled}
-          className="w-full gap-2"
-          size="lg"
-        >
-          {nextLabel}
-          <ArrowRight className="w-4 h-4" />
-        </Button>
+        <div className="flex gap-2">
+          {isPreview && onSkipStep && (
+            <Button 
+              onClick={onSkipStep} 
+              variant="outline"
+              size="lg"
+              className="gap-2"
+            >
+              Überspringen
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          )}
+          <Button 
+            onClick={onNext} 
+            disabled={nextDisabled}
+            className="flex-1 gap-2"
+            size="lg"
+          >
+            {nextLabel}
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
       </footer>
     </div>
   );

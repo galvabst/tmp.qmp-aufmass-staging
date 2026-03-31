@@ -1,7 +1,7 @@
-import { Users, Briefcase, Calendar, MapPin, ClipboardCheck, GraduationCap, LayoutDashboard } from 'lucide-react';
+import { Users, Briefcase, Calendar, MapPin, ClipboardCheck, GraduationCap, LayoutDashboard, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type AdminTab = 'dashboard' | 'contractors' | 'pool' | 'bookings' | 'checkins' | 'quality-gate' | 'akademie';
+export type AdminTab = 'dashboard' | 'contractors' | 'pool' | 'bookings' | 'checkins' | 'quality-gate' | 'akademie' | 'onboarding-preview';
 
 interface AdminBottomNavProps {
   activeTab: AdminTab;
@@ -17,6 +17,7 @@ const tabs: { id: AdminTab; label: string; icon: typeof Users }[] = [
   { id: 'checkins', label: 'Check-in', icon: MapPin },
   { id: 'quality-gate', label: 'Abnahme', icon: ClipboardCheck },
   { id: 'akademie', label: 'Akademie', icon: GraduationCap },
+  { id: 'onboarding-preview', label: 'Vorschau', icon: Eye },
 ];
 
 export function AdminBottomNav({ activeTab, onTabChange, badges = {} }: AdminBottomNavProps) {
