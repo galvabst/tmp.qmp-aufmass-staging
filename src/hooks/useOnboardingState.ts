@@ -128,12 +128,14 @@ export function useOnboardingState(
     }
   }, [state, isPreview, forceReset, storageKey]);
 
-  // Reset state when entering preview mode or force reset
+  // Reset state when force reset is triggered (preview uses initial useState only)
+  const forceResetAppliedRef = useRef(false);
   useEffect(() => {
-    if (isPreview || forceReset) {
+    if (forceReset && !forceResetAppliedRef.current) {
+      forceResetAppliedRef.current = true;
       setState(createInitialOnboardingState(initialProfile));
     }
-  }, [isPreview, forceReset, initialProfile]);
+  }, [forceReset]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Hydrate akademie from external data (called by component with DB data)
   const hydrateAkademieFromDb = useCallback((dbModules: AkademieHauptmodul[], completedLektionIds?: Set<string>, onboardingStatus?: string) => {
