@@ -47,6 +47,8 @@ export function OnboardingStepWrapper({
   showBack = true,
   progress,
   erstelltAm,
+  isPreview = false,
+  onSkipStep,
 }: OnboardingStepWrapperProps) {
   const currentIndex = getStepIndex(currentStep);
   const totalSteps = STEP_ORDER.length;
