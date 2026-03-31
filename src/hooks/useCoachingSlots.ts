@@ -81,11 +81,13 @@ export function useAvailableCoachingRides() {
       const auftragIds = auftraege.map(a => a.id);
       const leadIds = [...new Set(auftraege.map(a => a.lead_id).filter(Boolean))];
 
-      // 3. Terminvorschläge laden
+      // 3. Terminvorschläge laden (nur zukünftige)
+      const today = new Date().toISOString().slice(0, 10);
       const { data: termine } = await thermocheckClient
         .from('thermocheck_terminvorschlaege')
         .select('thermocheck_auftrag_id, datum, ganztaegig, zeit_von, zeit_bis, sortierung')
         .in('thermocheck_auftrag_id', auftragIds)
+        .gte('datum', today)
         .order('sortierung', { ascending: true });
 
       const termineByAuftrag = new Map<string, CoachingTermin[]>();
@@ -124,12 +126,10 @@ export function useAvailableCoachingRides() {
         );
       }
 
-      // 6. Zusammenbauen: contractor_onboarding.id -> profile_id -> profiles
+      // 6. Zusammenbauen — nur Aufträge mit zukünftigen Terminen
       const results: DbCoachingRide[] = [];
-      const today = new Date().toISOString().slice(0, 10);
       for (const auftrag of auftraege) {
-        const auftragTermine = (termineByAuftrag.get(auftrag.id) || [])
-          .filter(t => t.datum >= today);
+        const auftragTermine = termineByAuftrag.get(auftrag.id) || [];
         if (auftragTermine.length === 0) continue;
 
         const trainerRecord = trainerByContractorId.get(auftrag.zugewiesener_techniker_id);
