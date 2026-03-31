@@ -8,6 +8,11 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { PraxistestSection } from './PraxistestSection';
 
+interface ContractorOption {
+  profileId: string;
+  name: string;
+}
+
 interface AcademyStepProps {
   hauptmodule: AkademieHauptmodul[];
   onUnterpunktComplete: (hauptmodulId: string, unterpunktId: string) => void;
@@ -24,6 +29,10 @@ interface AcademyStepProps {
   onPraxistestVideoUpload?: (file: File) => Promise<void>;
   onPraxistestEinreichen?: () => Promise<void>;
   isPraxistestUploading?: boolean;
+  // Admin preview contractor targeting
+  previewContractors?: ContractorOption[];
+  selectedContractorId?: string;
+  onSelectContractor?: (id: string) => void;
 }
 
 /** Counts all leaf unterpunkte (children count, not groups) */
