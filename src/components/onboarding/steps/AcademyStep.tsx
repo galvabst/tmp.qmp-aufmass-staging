@@ -367,6 +367,10 @@ export function AcademyStep({
           onVideoUpload={onPraxistestVideoUpload || (async () => {})}
           onEinreichen={onPraxistestEinreichen || (async () => {})}
           isUploading={isPraxistestUploading}
+          isPreview={isPreview}
+          contractors={previewContractors}
+          selectedContractorId={selectedContractorId}
+          onSelectContractor={onSelectContractor}
         />
       )}
     </div>
