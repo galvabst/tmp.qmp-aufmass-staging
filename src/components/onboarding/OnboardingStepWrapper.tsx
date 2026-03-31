@@ -111,7 +111,7 @@ export function OnboardingStepWrapper({
             {STEP_ORDER.map((stepId, index) => {
               const isCompleted = isStepCompleted(stepId, completedSteps);
               const isCurrent = stepId === currentStep;
-              const isClickable = (isCompleted || isCurrent) && onStepClick;
+              const isClickable = (isPreview || isCompleted || isCurrent) && onStepClick;
               
               return (
                 <button
