@@ -1,7 +1,7 @@
-import { Users, Briefcase, Calendar, MapPin, ClipboardCheck, GraduationCap, LayoutDashboard } from 'lucide-react';
+import { Users, Briefcase, Calendar, MapPin, ClipboardCheck, GraduationCap, LayoutDashboard, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type AdminTab = 'dashboard' | 'contractors' | 'pool' | 'bookings' | 'checkins' | 'quality-gate' | 'akademie';
+export type AdminTab = 'dashboard' | 'contractors' | 'pool' | 'bookings' | 'checkins' | 'quality-gate' | 'akademie' | 'onboarding-preview';
 
 interface AdminBottomNavProps {
   activeTab: AdminTab;
