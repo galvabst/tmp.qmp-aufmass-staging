@@ -1,8 +1,14 @@
 import { useState, useRef } from 'react';
-import { CheckCircle2, Upload, Link as LinkIcon, Video, Clock, Loader2 } from 'lucide-react';
+import { CheckCircle2, Upload, Link as LinkIcon, Video, Clock, Loader2, CircleDot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+
+interface ContractorOption {
+  profileId: string;
+  name: string;
+}
 
 interface PraxistestSectionProps {
   testBestanden: boolean;
@@ -14,7 +20,19 @@ interface PraxistestSectionProps {
   onVideoUpload: (file: File) => Promise<void>;
   onEinreichen: () => Promise<void>;
   isUploading?: boolean;
+  // Admin preview props
+  isPreview?: boolean;
+  contractors?: ContractorOption[];
+  selectedContractorId?: string;
+  onSelectContractor?: (id: string) => void;
 }
+
+const CHECKLIST_ITEMS = [
+  'Autarc-Projekt für dein eigenes Haus anlegen',
+  'Alle Räume mit 3D-Raumscan erfassen',
+  'Kompletten Thermocheck-Durchlauf durchführen (Heizlastberechnung, Aufmaß, alle Eingaben)',
+  'Drohnenflug des Gebäudes aufnehmen und als Video speichern',
+];
 
 export function PraxistestSection({
   testBestanden,
@@ -26,6 +44,10 @@ export function PraxistestSection({
   onVideoUpload,
   onEinreichen,
   isUploading = false,
+  isPreview = false,
+  contractors = [],
+  selectedContractorId,
+  onSelectContractor,
 }: PraxistestSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +67,7 @@ export function PraxistestSection({
   }
 
   // Waiting for admin approval
-  if (eingereicht) {
+  if (eingereicht && !isPreview) {
     return (
       <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 text-center">
         <Clock className="w-8 h-8 text-amber-500 mx-auto mb-2" />
@@ -60,7 +82,8 @@ export function PraxistestSection({
     );
   }
 
-  const canSubmit = scanUrl.trim().length > 0 && videoUrl.length > 0 && !isSubmitting && !isUploading;
+  const canSubmit = scanUrl.trim().length > 0 && videoUrl.length > 0 && !isSubmitting && !isUploading
+    && (!isPreview || !!selectedContractorId);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -90,6 +113,46 @@ export function PraxistestSection({
           </p>
         </div>
       </div>
+
+      {/* Anforderungen-Checkliste */}
+      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+        <p className="text-sm font-medium text-foreground">📋 Anforderungen:</p>
+        <ul className="space-y-1.5">
+          {CHECKLIST_ITEMS.map((item, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+              <CircleDot className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs text-muted-foreground mt-2 italic">
+          ⚠️ Nutze ausschließlich die Autarc-App. Der Praxistest simuliert einen echten Thermocheck-Auftrag 1:1.
+        </p>
+      </div>
+
+      {/* Admin Preview: Contractor Dropdown */}
+      {isPreview && contractors.length > 0 && (
+        <div className="space-y-1.5 bg-amber-50 rounded-lg p-3 border border-amber-200">
+          <label className="text-sm font-medium text-foreground">
+            🔧 Admin: Zuordnung zu Techniker
+          </label>
+          <Select value={selectedContractorId || ''} onValueChange={(v) => onSelectContractor?.(v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Techniker auswählen..." />
+            </SelectTrigger>
+            <SelectContent>
+              {contractors.map((c) => (
+                <SelectItem key={c.profileId} value={c.profileId}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Der Praxistest wird dem ausgewählten Techniker zugeordnet.
+          </p>
+        </div>
+      )}
 
       {/* Scan-Link */}
       <div className="space-y-1.5">
