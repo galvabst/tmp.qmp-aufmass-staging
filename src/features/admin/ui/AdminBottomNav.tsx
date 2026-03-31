@@ -17,6 +17,7 @@ const tabs: { id: AdminTab; label: string; icon: typeof Users }[] = [
   { id: 'checkins', label: 'Check-in', icon: MapPin },
   { id: 'quality-gate', label: 'Abnahme', icon: ClipboardCheck },
   { id: 'akademie', label: 'Akademie', icon: GraduationCap },
+  { id: 'onboarding-preview', label: 'Vorschau', icon: Eye },
 ];
 
 export function AdminBottomNav({ activeTab, onTabChange, badges = {} }: AdminBottomNavProps) {

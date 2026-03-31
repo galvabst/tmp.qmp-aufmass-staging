@@ -43,6 +43,13 @@ export default function Admin() {
       {activeTab === 'checkins' && <CheckinListView />}
       {activeTab === 'quality-gate' && <QGQueueView />}
       {activeTab === 'akademie' && <AkademieAdminView />}
+      {activeTab === 'onboarding-preview' && (
+        <OnboardingScreen
+          isPreview
+          onComplete={() => handleTabChange('dashboard')}
+          onExitPreview={() => handleTabChange('dashboard')}
+        />
+      )}
 
       <AdminBottomNav
         activeTab={activeTab}
