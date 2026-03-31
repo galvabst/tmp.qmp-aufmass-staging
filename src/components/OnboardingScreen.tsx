@@ -409,6 +409,34 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const [quizOpen, setQuizOpen] = useState(false);
   const [showOutroVideo, setShowOutroVideo] = useState(false);
   const [isPraxistestUploading, setIsPraxistestUploading] = useState(false);
+  const [selectedPraxistestContractor, setSelectedPraxistestContractor] = useState<string | undefined>();
+
+  // Load contractor list for admin preview praxistest targeting
+  const [previewContractors, setPreviewContractors] = useState<Array<{profileId: string; name: string}>>([]);
+  useEffect(() => {
+    if (!isPreview) return;
+    (async () => {
+      try {
+        const { data, error } = await supabaseTC
+          .from('contractor_onboarding')
+          .select('profile_id, contractors(vorname, nachname)')
+          .not('profile_id', 'is', null);
+        if (error) {
+          console.warn('[OnboardingPreview] Failed to load contractors:', error);
+          return;
+        }
+        const list = (data || [])
+          .filter((r: any) => r.profile_id && r.contractors)
+          .map((r: any) => ({
+            profileId: r.profile_id as string,
+            name: `${r.contractors.vorname || ''} ${r.contractors.nachname || ''}`.trim() || 'Unbekannt',
+          }));
+        setPreviewContractors(list);
+      } catch (e) {
+        console.warn('[OnboardingPreview] Failed to load contractors:', e);
+      }
+    })();
+  }, [isPreview]);
 
   // Coaching-Rides aus DB laden
   const { data: dbCoachingRides = [] } = useAvailableCoachingRides();
@@ -876,10 +904,18 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
               await savePraxistest({
                 scanUrl: state.praxistestScanUrl || '',
                 videoUrl: state.praxistestVideoUrl || '',
+                targetProfileId: isPreview ? selectedPraxistestContractor : undefined,
               });
               setPraxistestEingereicht(true);
+              if (isPreview && selectedPraxistestContractor) {
+                const name = previewContractors.find(c => c.profileId === selectedPraxistestContractor)?.name;
+                toast.success(`Praxistest für ${name || 'Techniker'} eingereicht!`);
+              }
             }}
             isPraxistestUploading={isPraxistestUploading}
+            previewContractors={isPreview ? previewContractors : undefined}
+            selectedContractorId={selectedPraxistestContractor}
+            onSelectContractor={setSelectedPraxistestContractor}
           />
         );
 
