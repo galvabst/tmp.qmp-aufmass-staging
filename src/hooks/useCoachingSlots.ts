@@ -81,11 +81,13 @@ export function useAvailableCoachingRides() {
       const auftragIds = auftraege.map(a => a.id);
       const leadIds = [...new Set(auftraege.map(a => a.lead_id).filter(Boolean))];
 
-      // 3. Terminvorschläge laden
+      // 3. Terminvorschläge laden (nur zukünftige)
+      const today = new Date().toISOString().slice(0, 10);
       const { data: termine } = await thermocheckClient
         .from('thermocheck_terminvorschlaege')
         .select('thermocheck_auftrag_id, datum, ganztaegig, zeit_von, zeit_bis, sortierung')
         .in('thermocheck_auftrag_id', auftragIds)
+        .gte('datum', today)
         .order('sortierung', { ascending: true });
 
       const termineByAuftrag = new Map<string, CoachingTermin[]>();
