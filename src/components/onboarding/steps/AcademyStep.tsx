@@ -13,6 +13,7 @@ interface AcademyStepProps {
   onUnterpunktComplete: (hauptmodulId: string, unterpunktId: string) => void;
   testBestanden: boolean;
   onStartTest: () => void;
+  isPreview?: boolean;
   isTrainer?: boolean;
   // Praxistest
   praxistestScanUrl?: string;
@@ -164,6 +165,7 @@ export function AcademyStep({
   onUnterpunktComplete,
   testBestanden,
   onStartTest,
+  isPreview = false,
   isTrainer = false,
   praxistestScanUrl = '',
   praxistestVideoUrl = '',
@@ -177,6 +179,7 @@ export function AcademyStep({
   const navigate = useNavigate();
   const totalProgress = getTotalAkademieProgress(hauptmodule);
   const allModulesComplete = totalProgress.completed === totalProgress.total;
+  const testGateOpen = testBestanden || isPreview;
 
   const handleStartUnterpunkt = (unterpunkt: AkademieUnterpunkt) => {
     navigate(`/akademie/modul/${unterpunkt.id}`);
@@ -233,7 +236,7 @@ export function AcademyStep({
         className="space-y-3"
       >
         {hauptmodule.map((hauptmodul, hauptmodulIndex) => {
-          const isUnlocked = isTrainer || isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
+          const isUnlocked = isTrainer || isPreview || isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
           const isComplete = isHauptmodulComplete(hauptmodul);
           const progress = countLeafUnterpunkte(hauptmodul.unterpunkte);
           
@@ -315,7 +318,7 @@ export function AcademyStep({
       </Accordion>
 
       {/* Globaler Abschlusstest */}
-      {allModulesComplete && !testBestanden && (
+      {allModulesComplete && !testBestanden && !isPreview && (
         <div className="bg-card rounded-xl p-4 shadow-card border-2 border-primary">
           <h3 className="font-semibold text-foreground mb-2">📝 Abschlusstest</h3>
           <p className="text-sm text-muted-foreground mb-3">
@@ -324,6 +327,12 @@ export function AcademyStep({
           <Button onClick={onStartTest} className="w-full">
             Test starten
           </Button>
+        </div>
+      )}
+
+      {isPreview && !testBestanden && (
+        <div className="bg-muted rounded-xl p-3 border border-border text-sm text-muted-foreground">
+          Vorschau-Modus: Abschlusstest ist simuliert, damit du den Praxistest-Upload direkt testen kannst.
         </div>
       )}
 
@@ -337,7 +346,7 @@ export function AcademyStep({
       {/* Praxistest Section - nach dem theoretischen Test */}
       {!isTrainer && (
         <PraxistestSection
-          testBestanden={testBestanden}
+          testBestanden={testGateOpen}
           scanUrl={praxistestScanUrl}
           videoUrl={praxistestVideoUrl}
           eingereicht={praxistestEingereicht}
