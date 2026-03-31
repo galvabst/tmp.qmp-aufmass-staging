@@ -184,6 +184,9 @@ export function AcademyStep({
   onPraxistestVideoUpload,
   onPraxistestEinreichen,
   isPraxistestUploading = false,
+  previewContractors = [],
+  selectedContractorId,
+  onSelectContractor,
 }: AcademyStepProps) {
   const navigate = useNavigate();
   const totalProgress = getTotalAkademieProgress(hauptmodule);
