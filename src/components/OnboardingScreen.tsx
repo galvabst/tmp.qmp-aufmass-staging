@@ -974,6 +974,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         nextDisabled={!canProceed || isAdvancing || (state.currentStep === 'nachweise' && !dbStatus?.isTrainer && (dbOnboardingState as any)?.coachingBewertung !== 'bestanden')}
         progress={progress}
         erstelltAm={isPreview ? undefined : dbStatus?.erstelltAm}
+        isPreview={isPreview}
+        onSkipStep={isPreview ? goToNextStep : undefined}
       >
         {renderStep()}
       </OnboardingStepWrapper>
