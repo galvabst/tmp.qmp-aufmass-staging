@@ -174,18 +174,34 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
     if (q.bestanden) entry.bestanden = true;
   });
 
-  // Bestellungen: aggregate per onboarding
+  // Bestellungen: aggregate per onboarding, deduplicate by produkt_key (keep best status)
+  const STATUS_PRIORITY: Record<string, number> = { paid: 3, pending: 2, failed: 1, refunded: 0 };
   const bestellMap = new Map<string, { total: number; bezahlt: number; paidKeys: string[]; details: BestellungDetail[] }>();
+  // First pass: collect all orders grouped by onboarding + produkt_key
+  const rawByOnboarding = new Map<string, Map<string, { status: string; groesse: string | null }>>();
   (bestellungenRes.data || []).forEach(b => {
-    const key = b.onboarding_id;
-    if (!bestellMap.has(key)) bestellMap.set(key, { total: 0, bezahlt: 0, paidKeys: [], details: [] });
-    const entry = bestellMap.get(key)!;
-    entry.total++;
-    entry.details.push({ produktKey: b.produkt_key ?? '?', status: b.stripe_payment_status ?? 'pending', groesse: b.groesse ?? null });
-    if (b.stripe_payment_status === 'paid') {
-      entry.bezahlt++;
-      if (b.produkt_key) entry.paidKeys.push(b.produkt_key);
+    const onbKey = b.onboarding_id;
+    const prodKey = b.produkt_key ?? '?';
+    if (!rawByOnboarding.has(onbKey)) rawByOnboarding.set(onbKey, new Map());
+    const prodMap = rawByOnboarding.get(onbKey)!;
+    const existing = prodMap.get(prodKey);
+    const newStatus = b.stripe_payment_status ?? 'pending';
+    // Keep the entry with the highest priority status
+    if (!existing || (STATUS_PRIORITY[newStatus] ?? 0) > (STATUS_PRIORITY[existing.status] ?? 0)) {
+      prodMap.set(prodKey, { status: newStatus, groesse: b.groesse ?? null });
     }
+  });
+  // Second pass: build deduplicated bestellMap
+  rawByOnboarding.forEach((prodMap, onbKey) => {
+    const entry = { total: prodMap.size, bezahlt: 0, paidKeys: [] as string[], details: [] as BestellungDetail[] };
+    prodMap.forEach((val, prodKey) => {
+      entry.details.push({ produktKey: prodKey, status: val.status as BestellungDetail['status'], groesse: val.groesse });
+      if (val.status === 'paid') {
+        entry.bezahlt++;
+        entry.paidKeys.push(prodKey);
+      }
+    });
+    bestellMap.set(onbKey, entry);
   });
 
   // 4. Build admin contractors
