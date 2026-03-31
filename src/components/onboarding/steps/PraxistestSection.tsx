@@ -95,15 +95,15 @@ export function PraxistestSection({
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
           <LinkIcon className="w-3.5 h-3.5" />
-          Autark-Projekt Link
+          Autarc-Projekt Link
         </label>
         <Input
           type="url"
-          placeholder="https://... (Link zum Autark-Projekt)"
+          placeholder="https://... (Link zum Autarc-Projekt)"
           value={scanUrl}
           onChange={(e) => onScanUrlChange(e.target.value)}
         />
-        <p className="text-xs text-muted-foreground">Füge den Link zu deinem fertigen Autark-Projekt ein — inkl. Raumscans und komplettem Thermocheck-Durchlauf</p>
+        <p className="text-xs text-muted-foreground">Füge den Link zu deinem fertigen Autarc-Projekt ein — inkl. Raumscans und komplettem Thermocheck-Durchlauf</p>
       </div>
 
       {/* Video Upload */}
