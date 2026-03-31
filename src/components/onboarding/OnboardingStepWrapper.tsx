@@ -151,15 +151,28 @@ export function OnboardingStepWrapper({
           <Progress value={progress} className="h-2" />
         </div>
         
-        <Button 
-          onClick={onNext} 
-          disabled={nextDisabled}
-          className="w-full gap-2"
-          size="lg"
-        >
-          {nextLabel}
-          <ArrowRight className="w-4 h-4" />
-        </Button>
+        <div className="flex gap-2">
+          {isPreview && onSkipStep && (
+            <Button 
+              onClick={onSkipStep} 
+              variant="outline"
+              size="lg"
+              className="gap-2"
+            >
+              Überspringen
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          )}
+          <Button 
+            onClick={onNext} 
+            disabled={nextDisabled}
+            className="flex-1 gap-2"
+            size="lg"
+          >
+            {nextLabel}
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
       </footer>
     </div>
   );
