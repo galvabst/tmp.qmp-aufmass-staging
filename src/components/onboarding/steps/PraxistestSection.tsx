@@ -86,7 +86,7 @@ export function PraxistestSection({
         <div>
           <h3 className="font-semibold text-foreground">🎯 Praxistest</h3>
           <p className="text-sm text-muted-foreground">
-            Scanne dein eigenes Haus und nimm einen Drohnenflug auf
+            Führe einen vollständigen Thermocheck an deinem eigenen Haus durch
           </p>
         </div>
       </div>
@@ -95,15 +95,15 @@ export function PraxistestSection({
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
           <LinkIcon className="w-3.5 h-3.5" />
-          3D-Scan Link
+          Autark-Projekt Link
         </label>
         <Input
           type="url"
-          placeholder="https://... (Link zum 3D-Scan)"
+          placeholder="https://... (Link zum Autark-Projekt)"
           value={scanUrl}
           onChange={(e) => onScanUrlChange(e.target.value)}
         />
-        <p className="text-xs text-muted-foreground">Füge den Link zu deinem 3D-Scan ein (z.B. von Polycam, Matterport o.ä.)</p>
+        <p className="text-xs text-muted-foreground">Füge den Link zu deinem fertigen Autark-Projekt ein — inkl. Raumscans und komplettem Thermocheck-Durchlauf</p>
       </div>
 
       {/* Video Upload */}
