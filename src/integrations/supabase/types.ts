@@ -9966,6 +9966,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      check_user_has_jarvis_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       check_user_has_other_modules: {
         Args: { _exclude_module_id: string; _user_id: string }
         Returns: boolean
@@ -10273,6 +10277,7 @@ export type Database = {
         Args: { p_auftrag_id: string; p_substatus: string }
         Returns: string
       }
+      ensure_sdr_profile: { Args: { _user_id: string }; Returns: undefined }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       erstelle_bewertungs_bonus: {
         Args: {
