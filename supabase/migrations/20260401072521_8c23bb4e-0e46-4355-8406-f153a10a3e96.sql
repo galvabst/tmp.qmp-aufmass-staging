@@ -1,0 +1,1 @@
+UPDATE thermocheck.contractor_produkte SET stripe_price_id = 'price_1THJ70LnjPqrEfxx1sQ3sHQH' WHERE produkt_key = 'schlappen';
