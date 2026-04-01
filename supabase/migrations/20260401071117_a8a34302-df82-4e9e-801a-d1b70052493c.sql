@@ -1,0 +1,1 @@
+UPDATE thermocheck.contractor_produkte SET stripe_price_id = 'price_1THIsCLnjPqrEfxxObLn8m2o' WHERE produkt_key = 'google-workspace';
