@@ -1,0 +1,1 @@
+UPDATE thermocheck.contractor_produkte SET stripe_price_id = 'price_1THJAmLnjPqrEfxxzoyd11Or' WHERE produkt_key = 'poloshirt';
