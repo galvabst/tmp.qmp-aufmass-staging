@@ -10311,6 +10311,7 @@ export type Database = {
           type: string
         }[]
       }
+      find_similar_records: { Args: { p_auftrag_id: string }; Returns: Json }
       generate_bestellnummer: {
         Args: {
           p_gebiet_config: Json
@@ -11774,6 +11775,21 @@ export type Database = {
       save_dev_todo: {
         Args: { p_content: string; p_todo_id?: string; p_user_id: string }
         Returns: string
+      }
+      search_auftraege_fuzzy: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          auftrag_id: string
+          baustellenstatus: string
+          baustellenstatus_substatus: string
+          firmenname: string
+          kunde_name: string
+          lead_name: string
+          netto_summe: number
+          ort: string
+          plz: string
+          similarity_score: number
+        }[]
       }
       search_leads_minimal: {
         Args: { p_search_term: string }
