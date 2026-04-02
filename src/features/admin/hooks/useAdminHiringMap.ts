@@ -82,7 +82,7 @@ export function useAdminHiringMap(selectedMonth?: Date) {
           plz: d.anschrift_plz || '',
           ort: d.anschrift_ort || '',
           name: profile ? `${profile.vorname || ''} ${profile.nachname || ''}`.trim() : 'Unbekannt',
-          status: d.onboarding_status === 'ready' ? 'active' : 'onboarding',
+          status: d.onboarding_status === 'ready' ? 'active' : d.onboarding_status === 'inaktiv' ? 'inaktiv' : 'onboarding',
           wunschRadiusKm: d.wunsch_radius_km ?? 60,
           avatarUrl: profile?.avatar_url || null,
         };
