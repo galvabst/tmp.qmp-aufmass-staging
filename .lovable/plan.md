@@ -1,101 +1,38 @@
 
 
-# Ampelsystem & Aktive Techniker im Dashboard
+# Fix: Quartalskontingent-Ampel am Quartalsanfang
 
-## Übersicht
+## Problem
+Am 2. April (Tag 2 des neuen Quartals) zeigt die Ampel alle Techniker auf Rot, weil:
+- `weeksPassed = max(1, differenceInWeeks(now, qStart))` = 1
+- `expected = (1/13) * 24` ≈ 1.85
+- `0 >= 1.85 * 0.8` → false → `0 >= 1.85 * 0.5` → false → **Rot**
 
-Zwei Erweiterungen der Dashboard-Ansicht:
+Das ist unlogisch — am Anfang des Quartals kann niemand schon TCs haben.
 
-**A) Onboarding-Ampel**: Jeder Techniker im Onboarding bekommt einen farbcodierten Indikator (Grün/Orange/Rot) basierend auf verbleibender Zeit vs. aktuellem Schritt, plus Anzeige "X Tage verbleibend".
-
-**B) Aktive Techniker-Sektion**: Neue Card unterhalb des Onboarding-Bereichs, die alle `ready`-Techniker mit Quartalskontingent-Fortschritt und Ampel zeigt.
-
----
-
-## A) Onboarding-Ampel (7-Tage-Deadline)
-
-**Datei: `AdminDashboardView.tsx`**
-
-Logik für die Ampelfarbe pro Onboarding-Techniker:
-
-```text
-Tag 0-2: Grün, solange mindestens "Bestellungen" erreicht
-Tag 3-4: Orange, wenn noch nicht bei "Akademie"
-Tag 5+:  Rot, wenn Akademie nicht abgeschlossen
-Tag 7+:  Rot ("Überfällig")
-```
-
-Konkrete Regeln:
-- **Grün**: `verbleibend >= 5` ODER `currentStep` ist `akademie`/`coaching`/`nachweise`
-- **Orange**: `verbleibend >= 3` UND `currentStep` ist noch `profil`/`dokumente`/`bestellungen`/`equipment`
-- **Rot**: `verbleibend < 3` UND Akademie nicht erreicht, ODER `verbleibend < 0` (überfällig)
-
-Anzeige pro Zeile in der Techniker-Liste:
-- Farbiger Punkt (●) links neben dem Namen
-- Text: "5 Tage verbleibend" / "Überfällig (+2 Tage)"
-
-**Berechnung**: `verbleibend = 7 - differenceInDays(now, erstelltAm)`
-
-Gilt für alle Tabs im "Techniker im Onboarding"-Bereich.
-
----
-
-## B) Aktive Techniker (Ready) mit Kontingent-Ampel
-
-**Datei: `AdminDashboardView.tsx`**
-
-Neue Card "Aktive Techniker (X)" nach dem Onboarding-Block:
-
-- Listet alle Contractors mit `onboardingStatus === 'ready'` (ohne Trainer)
-- Pro Techniker: Name, Avatar, Quartalskontingent-Fortschritt
-
-**Kontingent-Ampel (24 TCs/Quartal)**:
-
-```text
-Quartal = 13 Wochen
-Erwartete TCs zum aktuellen Zeitpunkt = (vergangene Wochen / 13) × 24
-Ist-Stand = Anzahl abgeschlossener TCs im laufenden Quartal
-
-Grün:  Ist >= 80% des Erwarteten
-Orange: Ist >= 50% des Erwarteten  
-Rot:   Ist < 50% des Erwarteten
-```
-
-**Datenquelle**: `useAdminDashboardStats` liefert bereits `auslastung` (Aufträge pro Techniker). Diese Daten werden mit den `ready`-Contractors gejoint.
-
-Anzeige pro Zeile:
-- Farbiger Ampel-Punkt
-- "X / 24 TCs" als kompakte Badge
-- Kleiner Fortschrittsbalken
-
----
+## Lösung
+Eine **Karenzzeit von 2 Wochen** einbauen: In den ersten 14 Tagen des Quartals sind alle automatisch Grün (es sei denn, sie haben bereits TCs — dann normal bewerten). Danach greift die bestehende Logik.
 
 ## Technisch
 
-### Dateien
-
-| Datei | Änderung |
-|---|---|
-| `AdminDashboardView.tsx` | Ampel-Punkt + verbleibende Tage bei Onboarding-Liste; neue "Aktive Techniker"-Card mit Kontingent-Ampel |
-| `useAdminContractorList.ts` | Keine Änderung nötig — `erstelltAm` und `onboardingStatus` sind bereits vorhanden |
-| `useAdminDashboardStats.ts` | Quartalsdaten erweitern: TCs pro Techniker im aktuellen Quartal filtern (statt alle Zeit) |
-
-### Ampel-Helper (in AdminDashboardView)
+**Datei: `src/features/admin/ui/AdminDashboardView.tsx` (Zeile 94-101)**
 
 ```typescript
-function getOnboardingTrafficLight(c: AdminContractor): 'green' | 'orange' | 'red' {
-  const daysLeft = 7 - differenceInDays(new Date(), parseISO(c.erstelltAm));
-  const stepIndex = ONBOARDING_STEPS.indexOf(c.currentStep);
-  // Akademie = index 4
-  if (daysLeft <= 0) return 'red';
-  if (stepIndex >= 4) return 'green'; // Akademie oder weiter
-  if (daysLeft <= 2) return 'red';
-  if (daysLeft <= 4 && stepIndex < 3) return 'orange';
-  return 'green';
+function getQuotaTrafficLight(quartalTCs: number): 'green' | 'orange' | 'red' {
+  const now = new Date();
+  const qStart = startOfQuarter(now);
+  const daysPassed = differenceInDays(now, qStart);
+  
+  // Karenzzeit: erste 2 Wochen → Grün (noch keine sinnvolle Erwartung)
+  if (daysPassed < 14) return 'green';
+  
+  const weeksPassed = Math.max(1, differenceInWeeks(now, qStart));
+  const expected = (weeksPassed / 13) * 24;
+  if (quartalTCs >= expected * 0.8) return 'green';
+  if (quartalTCs >= expected * 0.5) return 'orange';
+  return 'red';
 }
 ```
 
-### Quartal-Filter in useAdminDashboardStats
-
-Aktuelles Quartal berechnen (Q1=Jan-Mar, Q2=Apr-Jun, etc.), dann nur Aufträge zählen deren `termin_datum` im aktuellen Quartal liegt.
+Einzige Änderung: 3 Zeilen hinzufügen für den Early-Quarter-Check mit `differenceInDays`.
 
