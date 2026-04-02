@@ -541,40 +541,6 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
         </section>
       )}
 
-      {/* Einsatzradius */}
-      {contractorOnboardingId && (
-        <section className="p-4 pt-0">
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Einsatzradius</h2>
-          <div className="bg-card rounded-lg shadow-card p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Navigation className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-foreground">Wunschradius</span>
-                  <span className="text-sm font-bold text-foreground">{wunschRadius ?? 60} km</span>
-                </div>
-              </div>
-            </div>
-            <Slider
-              value={[wunschRadius ?? 60]}
-              min={10}
-              max={150}
-              step={5}
-              onValueCommit={(vals) => handleSaveRadius(vals[0])}
-              onValueChange={(vals) => setWunschRadius(vals[0])}
-              disabled={savingRadius}
-              className="mt-1"
-            />
-            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-              <span>10 km</span>
-              <span>150 km</span>
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* Contact Info */}
       <section className="p-4 pt-0">
         <h2 className="text-sm font-medium text-muted-foreground mb-3">Kontaktdaten</h2>
