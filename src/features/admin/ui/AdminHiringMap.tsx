@@ -199,7 +199,13 @@ export function AdminHiringMap() {
     const group = layersRef.current?.contractorGroup;
     if (!group) return;
     group.clearLayers();
-    if (!showContractors) return;
+    if (!showActive && !showOnboarding) return;
+
+    const filteredContractors = contractors.filter(c => {
+      if (c.status === 'active') return showActive;
+      if (c.status === 'inaktiv') return showActive; // inaktive follow active toggle
+      return showOnboarding; // onboarding
+    });
 
     const offsets = applySpiderOffset(contractors.map(c => ({ lat: c.lat, lng: c.lng })));
 
