@@ -84,19 +84,22 @@ function createAvatarIcon(avatarUrl: string, borderColor: string) {
   });
 }
 
-function generateMonthOptions(count: number): { date: Date; label: string }[] {
-  const months: { date: Date; label: string }[] = [];
+function generateMonthOptions(count: number): { date: Date | null; label: string }[] {
+  const months: { date: Date | null; label: string }[] = [];
   const now = new Date();
   for (let i = 0; i < count; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const label = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
     months.push({ date: d, label });
   }
-  return months.reverse();
+  months.reverse();
+  // Add "Gesamt" at the end
+  months.push({ date: null, label: 'Gesamt' });
+  return months;
 }
 
 export function AdminHiringMap() {
-  const [selectedMonth, setSelectedMonth] = useState<Date>(() => {
+  const [selectedMonth, setSelectedMonth] = useState<Date | null>(() => {
     const d = new Date();
     d.setDate(1);
     d.setHours(0, 0, 0, 0);
@@ -116,7 +119,7 @@ export function AdminHiringMap() {
   const [isOpen, setIsOpen] = useState(true);
   const [showSales, setShowSales] = useState(true);
   const [showContractors, setShowContractors] = useState(true);
-  const [showThcOrders, setShowThcOrders] = useState(true);
+  const [showThcOrders, setShowThcOrders] = useState(false); // Default off — heatmap is primary
   const [showHeatmap, setShowHeatmap] = useState(true);
 
   const monthOptions = useMemo(() => generateMonthOptions(6), []);
@@ -243,7 +246,7 @@ export function AdminHiringMap() {
     });
   }, [contractors, showContractors, thcOrders]);
 
-  // Place THC order markers (detail dots)
+  // Place THC order markers (detail dots) — off by default
   useEffect(() => {
     const group = layersRef.current?.thcGroup;
     if (!group) return;
@@ -251,8 +254,8 @@ export function AdminHiringMap() {
     if (!showThcOrders) return;
 
     thcOrders.forEach(order => {
-      const size = Math.min(Math.max(order.count * 3, 10), 40);
-      const opacity = Math.min(0.3 + order.count * 0.07, 0.85);
+      const size = Math.min(Math.max(order.count * 2, 6), 15);
+      const opacity = Math.min(0.2 + order.count * 0.05, 0.4);
 
       L.circleMarker([order.lat, order.lng], {
         radius: size / 2,
@@ -273,13 +276,12 @@ export function AdminHiringMap() {
     });
   }, [thcOrders, showThcOrders]);
 
-  // Heatmap layer
+  // Heatmap layer — visible at ALL zoom levels
   useEffect(() => {
     const map = mapRef.current;
     const layers = layersRef.current;
     if (!map || !layers) return;
 
-    // Remove old heat layer
     if (layers.heatLayer) {
       map.removeLayer(layers.heatLayer);
       layers.heatLayer = null;
@@ -295,10 +297,11 @@ export function AdminHiringMap() {
     ]);
 
     const heat = (L as any).heatLayer(heatData, {
-      radius: 35,
-      blur: 25,
-      maxZoom: 10,
+      radius: 25,
+      blur: 20,
+      maxZoom: 18,
       max: 1,
+      minOpacity: 0.3,
       gradient: {
         0.0: '#00ff00',
         0.3: '#adff2f',
@@ -316,7 +319,9 @@ export function AdminHiringMap() {
   const onboardingCount = contractors.filter(c => c.status === 'onboarding').length;
   const totalThc = thcOrders.reduce((s, o) => s + o.count, 0);
 
-  const selectedMonthLabel = selectedMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  const selectedMonthLabel = selectedMonth
+    ? selectedMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
+    : 'Gesamt';
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -377,16 +382,18 @@ export function AdminHiringMap() {
                 🔥 Heatmap
               </Button>
               <span className="text-xs text-muted-foreground ml-1">
-                {totalThc} THCs im {selectedMonthLabel}
+                {totalThc} THCs {selectedMonth ? `im ${selectedMonthLabel}` : '(Gesamt)'}
               </span>
             </div>
 
             {/* Month selector */}
             <div className="flex flex-wrap items-center gap-1 mb-3">
               {monthOptions.map(opt => {
-                const isActive =
-                  opt.date.getFullYear() === selectedMonth.getFullYear() &&
-                  opt.date.getMonth() === selectedMonth.getMonth();
+                const isActive = selectedMonth === null
+                  ? opt.date === null
+                  : opt.date !== null &&
+                    opt.date.getFullYear() === selectedMonth.getFullYear() &&
+                    opt.date.getMonth() === selectedMonth.getMonth();
                 return (
                   <button
                     key={opt.label}
