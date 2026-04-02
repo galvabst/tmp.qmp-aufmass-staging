@@ -6,6 +6,7 @@ import { useAdminContractorList, AdminContractor, STEP_LABELS } from '@/features
 import { useAdminDashboardStats } from '@/features/admin/hooks/useAdminDashboardStats';
 import { useAdminAggregatedStats } from '@/features/admin/hooks/useAdminAggregatedStats';
 import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprints, CreditCard, MonitorSmartphone, ScanLine, GraduationCap, Car, FileCheck, UserX, Star, TrendingUp, Clock } from 'lucide-react';
+import { AdminHiringMap } from './AdminHiringMap';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
