@@ -106,7 +106,7 @@ export async function geocodePlz(plz: string, _city?: string): Promise<PlzCoordi
 }
 
 /**
- * Batch-geocode a list of PLZ strings – sequential with throttling for Nominatim rate limits.
+ * Batch-geocode a list of PLZ strings – parallel in chunks for speed.
  */
 export async function geocodePlzBatch(
   plzList: string[],
@@ -122,26 +122,28 @@ export async function geocodePlzBatch(
     const cached = getCached(normalized);
     if (cached) {
       result.set(plz, cached);
-      // Also set by normalized key for lookup consistency
       if (plz !== normalized) result.set(normalized, cached);
     } else {
       uncached.push(plz);
     }
   }
 
-  // Sequential fetch with 200ms throttle for Nominatim
-  for (let i = 0; i < uncached.length; i++) {
-    const plz = uncached[i];
-    const city = cityMap?.get(plz);
-    const coord = await geocodePlz(plz, city);
-    if (coord) {
-      result.set(plz, coord);
-      const normalized = normalizePlz(plz);
-      if (plz !== normalized) result.set(normalized, coord);
-    }
-    // Throttle: wait 200ms between requests (skip after last)
-    if (i < uncached.length - 1) {
-      await delay(200);
+  // Parallel fetch in chunks of 5 with 300ms between chunks
+  const CHUNK_SIZE = 5;
+  for (let i = 0; i < uncached.length; i += CHUNK_SIZE) {
+    const chunk = uncached.slice(i, i + CHUNK_SIZE);
+    const promises = chunk.map(async (plz) => {
+      const city = cityMap?.get(plz);
+      const coord = await geocodePlz(plz, city);
+      if (coord) {
+        result.set(plz, coord);
+        const normalized = normalizePlz(plz);
+        if (plz !== normalized) result.set(normalized, coord);
+      }
+    });
+    await Promise.all(promises);
+    if (i + CHUNK_SIZE < uncached.length) {
+      await delay(300);
     }
   }
 
