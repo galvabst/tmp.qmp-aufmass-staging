@@ -231,7 +231,7 @@ export function AdminHiringMap() {
             <div style="font-weight:700;font-size:14px;color:#111;">${c.name}</div>
             <div style="font-size:12px;color:#666;margin-top:2px;">📍 ${c.plz} ${c.ort}</div>
             <div style="font-size:12px;color:${color};font-weight:600;margin-top:2px;">
-              ${isActive ? '✅ Aktiv' : '🔶 Onboarding'} · ${c.wunschRadiusKm} km
+              ${isInaktiv ? '⏸️ Inaktiv' : isActive ? '✅ Aktiv' : '🔶 Onboarding'} · ${c.wunschRadiusKm} km
             </div>
             <div style="font-size:12px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
               🔥 ${thcCount} THC${thcCount !== 1 ? 's' : ''} im Umkreis
