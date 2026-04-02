@@ -222,7 +222,7 @@ export function AdminHiringMap() {
       });
       marker.addTo(group);
     });
-  }, [contractors, showContractors]);
+  }, [contractors, showContractors, thcOrders]);
 
   // Place THC order markers
   useEffect(() => {
