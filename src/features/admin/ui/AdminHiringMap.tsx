@@ -201,8 +201,49 @@ export function AdminHiringMap() {
     });
   }, [contractors, showContractors]);
 
+  // Place THC order markers
+  useEffect(() => {
+    const group = layersRef.current?.thcGroup;
+    if (!group) return;
+    group.clearLayers();
+    if (!showThcOrders) return;
+
+    thcOrders.forEach(order => {
+      const size = Math.min(Math.max(order.count * 3, 10), 40);
+      const opacity = Math.min(0.3 + order.count * 0.07, 0.85);
+
+      L.circleMarker([order.lat, order.lng], {
+        radius: size / 2,
+        color: 'hsl(280, 70%, 50%)',
+        fillColor: 'hsl(280, 70%, 50%)',
+        fillOpacity: opacity,
+        weight: 1,
+      })
+        .bindPopup(`
+          <div style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:120px;">
+            <div style="font-weight:700;font-size:14px;color:#111;">📍 ${order.plz} ${order.ort}</div>
+            <div style="font-size:13px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
+              ${order.count} Thermocheck${order.count > 1 ? 's' : ''}
+            </div>
+          </div>
+        `)
+        .addTo(group);
+    });
+  }, [thcOrders, showThcOrders]);
+
+  // Count THCs in radius for each contractor
+  const getThcCountInRadius = (lat: number, lng: number, radiusKm: number) => {
+    let count = 0;
+    thcOrders.forEach(o => {
+      const d = getDistanceKm(lat, lng, o.lat, o.lng);
+      if (d <= radiusKm) count += o.count;
+    });
+    return count;
+  };
+
   const activeCount = contractors.filter(c => c.status === 'active').length;
   const onboardingCount = contractors.filter(c => c.status === 'onboarding').length;
+  const totalThc = thcOrders.reduce((s, o) => s + o.count, 0);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -214,7 +255,7 @@ export function AdminHiringMap() {
                 <MapIcon className="w-4 h-4 text-primary" />
                 <CardTitle className="text-sm font-semibold">Hiring-Map</CardTitle>
                 <span className="text-xs text-muted-foreground">
-                  {salesReps.length} Vertriebler · {activeCount} Aktive · {onboardingCount} Onboarding
+                  {salesReps.length} Vertriebler · {activeCount} Aktive · {onboardingCount} Onboarding · {totalThc} THCs
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">{isOpen ? '▼' : '▶'}</span>
@@ -244,6 +285,15 @@ export function AdminHiringMap() {
                 Aktive
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(25, 95%, 53%)' }} />
                 Onboarding
+              </Button>
+              <Button
+                variant={showThcOrders ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setShowThcOrders(!showThcOrders)}
+              >
+                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(280, 70%, 50%)' }} />
+                Thermochecks ({totalThc})
               </Button>
             </div>
 
