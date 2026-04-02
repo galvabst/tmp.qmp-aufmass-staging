@@ -215,7 +215,7 @@ export function AdminHiringMap() {
               ${isActive ? '✅ Aktiv' : '🔶 Onboarding'} · ${c.wunschRadiusKm} km
             </div>
             <div style="font-size:12px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
-              🔥 ${thcCount} THC${thcCount !== 1 ? 's' : ''} im Umkreis
+              🔥 ${thcCount} THC${thcCount !== 1 ? 's' : ''} diesen Monat im Umkreis
             </div>
           </div>
         `;
