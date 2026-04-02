@@ -20,7 +20,7 @@ interface ProfileStepProps {
   onWunschRadiusChange: (km: number) => void;
 }
 
-export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: ProfileStepProps) {
+export function ProfileStep({ profile, onProfileChange, onAvatarUpload, wunschRadiusKm, onWunschRadiusChange }: ProfileStepProps) {
   const [dragActive, setDragActive] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
