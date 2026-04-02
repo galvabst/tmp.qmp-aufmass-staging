@@ -102,6 +102,8 @@ export function useAdminDashboardStats() {
         auslastung = technikerIds.map(tid => ({
           name: profileMap.get(profileIdMap.get(tid) ?? '') ?? '–',
           auftraege: technikerCounts.get(tid) ?? 0,
+          onboardingId: tid,
+          quartalTCs: quarterTCCounts.get(tid) ?? 0,
         })).sort((a, b) => b.auftraege - a.auftraege);
       }
 
