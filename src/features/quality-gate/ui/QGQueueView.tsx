@@ -15,13 +15,35 @@ import { de } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+const NEXT_STATUS: Partial<Record<AbrechnungStatusEnum, AbrechnungStatusEnum>> = {
+  rechnung_eingegangen: 'in_pruefung',
+  in_pruefung: 'bezahlt',
+};
+
+const STATUS_ICON: Record<AbrechnungStatusEnum, React.ReactNode> = {
+  offen: <Clock className="w-3.5 h-3.5" />,
+  rechnung_eingegangen: <Receipt className="w-3.5 h-3.5" />,
+  in_pruefung: <Search className="w-3.5 h-3.5" />,
+  bezahlt: <Banknote className="w-3.5 h-3.5" />,
+};
+
+const STATUS_BADGE_VARIANT: Record<AbrechnungStatusEnum, 'secondary' | 'default' | 'destructive' | 'outline'> = {
+  offen: 'secondary',
+  rechnung_eingegangen: 'outline',
+  in_pruefung: 'default',
+  bezahlt: 'default',
+};
+
 export function QGQueueView() {
   const { data: items, isLoading } = useAdminQGQueue();
   const { data: praxistests, isLoading: praxisLoading } = useAdminQGPraxistests();
+  const { data: abrechnungen, isLoading: abrLoading } = useAdminAbrechnungen();
   const approveMutation = useApprovePraxistest();
+  const updateAbrStatus = useUpdateAbrechnungStatus();
   
   const pendingCount = useMemo(() => items?.filter(i => !i.hasBewertung).length ?? 0, [items]);
   const praxisCount = praxistests?.length ?? 0;
+  const abrPendingCount = useMemo(() => abrechnungen?.filter(a => a.status !== 'offen' && a.status !== 'bezahlt').length ?? 0, [abrechnungen]);
 
   const handleApprove = async (onboardingId: string, name: string) => {
     try {
