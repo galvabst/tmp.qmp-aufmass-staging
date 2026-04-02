@@ -199,15 +199,27 @@ export function AdminHiringMap() {
         : createMarkerIcon(color, isActive ? '✓' : '⏳');
 
       const marker = L.marker([pos.lat, pos.lng], { icon });
-      marker.bindPopup(`
-        <div style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:140px;">
-          <div style="font-weight:700;font-size:14px;color:#111;">${c.name}</div>
-          <div style="font-size:12px;color:#666;margin-top:2px;">📍 ${c.plz} ${c.ort}</div>
-          <div style="font-size:12px;color:${color};font-weight:600;margin-top:2px;">
-            ${isActive ? '✅ Aktiv' : '🔶 Onboarding'} · ${c.wunschRadiusKm} km
+      // THC count will be added when thcOrders are available via a separate binding
+      marker.bindPopup(() => {
+        // Dynamically calculate THC count at popup open time
+        let thcCount = 0;
+        thcOrders.forEach(o => {
+          const d = getDistanceKm(c.lat, c.lng, o.lat, o.lng);
+          if (d <= c.wunschRadiusKm) thcCount += o.count;
+        });
+        return `
+          <div style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:140px;">
+            <div style="font-weight:700;font-size:14px;color:#111;">${c.name}</div>
+            <div style="font-size:12px;color:#666;margin-top:2px;">📍 ${c.plz} ${c.ort}</div>
+            <div style="font-size:12px;color:${color};font-weight:600;margin-top:2px;">
+              ${isActive ? '✅ Aktiv' : '🔶 Onboarding'} · ${c.wunschRadiusKm} km
+            </div>
+            <div style="font-size:12px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
+              🔥 ${thcCount} THC${thcCount !== 1 ? 's' : ''} im Umkreis
+            </div>
           </div>
-        </div>
-      `);
+        `;
+      });
       marker.addTo(group);
     });
   }, [contractors, showContractors]);
