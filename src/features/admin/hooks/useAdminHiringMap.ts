@@ -223,8 +223,3 @@ export function useAdminHiringMap() {
     isGeocoding,
   };
 }
-    contractors,
-    isLoading: salesQuery.isLoading || contractorQuery.isLoading,
-    isGeocoding,
-  };
-}
