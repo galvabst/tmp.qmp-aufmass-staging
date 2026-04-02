@@ -91,13 +91,20 @@ export function useAdminHiringMap(selectedMonth?: Date) {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Load THC orders (only completed this month, grouped by PLZ)
+  // Load THC orders grouped by PLZ for selected month
+  const monthKey = selectedMonth
+    ? `${selectedMonth.getFullYear()}-${selectedMonth.getMonth()}`
+    : `${new Date().getFullYear()}-${new Date().getMonth()}`;
+
   const thcQuery = useQuery({
-    queryKey: ['admin-hiring-map-thc-current-month'],
+    queryKey: ['admin-hiring-map-thc', monthKey],
     queryFn: async () => {
-      const monthStart = new Date();
+      const monthStart = selectedMonth ? new Date(selectedMonth) : new Date();
       monthStart.setDate(1);
       monthStart.setHours(0, 0, 0, 0);
+
+      const monthEnd = new Date(monthStart);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
 
       const { data, error } = await (supabaseTC
         .from('v_thermocheck_auftraege' as any)
