@@ -29,6 +29,11 @@ function getCached(plz: string): PlzCoordinate | null {
       localStorage.removeItem(CACHE_PREFIX + plz);
       return null;
     }
+    // Reject cached entries with zero/missing coordinates
+    if (!parsed.lat || !parsed.lng) {
+      localStorage.removeItem(CACHE_PREFIX + plz);
+      return null;
+    }
     return parsed;
   } catch {
     return null;

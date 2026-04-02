@@ -6,6 +6,30 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useAdminHiringMap, SalesRepMapEntry, ContractorMapEntry } from '../hooks/useAdminHiringMap';
 import { Button } from '@/components/ui/button';
 
+/** Offset overlapping markers at the same lat/lng so they're all visible */
+function applySpiderOffset(items: { lat: number; lng: number }[]): { lat: number; lng: number }[] {
+  const groups = new Map<string, number[]>();
+  items.forEach((item, i) => {
+    const key = `${item.lat.toFixed(4)}_${item.lng.toFixed(4)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(i);
+  });
+
+  const result = items.map(item => ({ lat: item.lat, lng: item.lng }));
+
+  groups.forEach(indices => {
+    if (indices.length < 2) return;
+    const radius = 0.008; // ~800m offset for visibility
+    indices.forEach((idx, i) => {
+      const angle = (2 * Math.PI * i) / indices.length;
+      result[idx].lat += radius * Math.cos(angle);
+      result[idx].lng += radius * Math.sin(angle);
+    });
+  });
+
+  return result;
+}
+
 function createMarkerIcon(color: string, label?: string) {
   return L.divIcon({
     className: '',
@@ -138,11 +162,15 @@ export function AdminHiringMap() {
     group.clearLayers();
     if (!showContractors) return;
 
-    contractors.forEach(c => {
+    // Apply spider offset to prevent overlapping markers
+    const offsets = applySpiderOffset(contractors.map(c => ({ lat: c.lat, lng: c.lng })));
+
+    contractors.forEach((c, idx) => {
       const isActive = c.status === 'active';
       const color = isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
+      const pos = offsets[idx];
 
-      // Wunschradius circle
+      // Wunschradius circle (use original position for accurate radius)
       L.circle([c.lat, c.lng], {
         radius: c.wunschRadiusKm * 1000,
         color,
@@ -156,7 +184,7 @@ export function AdminHiringMap() {
         ? createAvatarIcon(c.avatarUrl, color)
         : createMarkerIcon(color, isActive ? '✓' : '⏳');
 
-      const marker = L.marker([c.lat, c.lng], { icon });
+      const marker = L.marker([pos.lat, pos.lng], { icon });
       marker.bindPopup(`
         <div style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:140px;">
           <div style="font-weight:700;font-size:14px;color:#111;">${c.name}</div>
