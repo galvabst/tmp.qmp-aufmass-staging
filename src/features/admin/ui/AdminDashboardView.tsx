@@ -253,12 +253,12 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
     return tabDef ? activeTechs.filter(tabDef.filter) : activeTechs;
   }, [activeTechs, activeTab]);
 
-  // Ready technicians (active, non-trainer)
+  // Ready technicians (active, including trainers who do TCs)
   const readyTechs = useMemo(() => {
     if (!contractors || !stats) return [];
     const auslastungMap = new Map(stats.auslastung.map(a => [a.onboardingId, a]));
     return contractors
-      .filter(c => c.onboardingStatus === 'ready' && !c.isTrainer)
+      .filter(c => c.onboardingStatus === 'ready')
       .map(c => ({
         ...c,
         quartalTCs: auslastungMap.get(c.id)?.quartalTCs ?? 0,
