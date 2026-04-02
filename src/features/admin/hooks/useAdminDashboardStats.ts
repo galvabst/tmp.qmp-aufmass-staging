@@ -26,10 +26,16 @@ export function useAdminDashboardStats() {
   return useQuery({
     queryKey: ['admin-dashboard-stats'],
     queryFn: async (): Promise<DashboardStats> => {
+      // Current quarter boundaries
+      const now = new Date();
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      const quarterStart = new Date(now.getFullYear(), qMonth, 1).toISOString().slice(0, 10);
+      const quarterEnd = new Date(now.getFullYear(), qMonth + 3, 0).toISOString().slice(0, 10);
+
       // 1. Pipeline counts from v_thermocheck_auftraege
       const { data: auftraege, error: aErr } = await supabaseTC
         .from('v_thermocheck_auftraege')
-        .select('pipeline_status, zugewiesener_techniker_id');
+        .select('pipeline_status, zugewiesener_techniker_id, termin_datum');
       if (aErr) throw aErr;
 
       // Group by pipeline_status
