@@ -20,7 +20,7 @@ export interface ContractorMapEntry {
   ort: string;
   lat: number;
   lng: number;
-  status: 'active' | 'onboarding';
+  status: 'active' | 'onboarding' | 'inaktiv';
   wunschRadiusKm: number;
   avatarUrl: string | null;
 }
