@@ -251,7 +251,7 @@ export function AdminHiringMap() {
       });
       marker.addTo(group);
     });
-  }, [contractors, showContractors, thcOrders]);
+  }, [contractors, showActive, showOnboarding, thcOrders]);
 
   // Place THC order markers (detail dots) — off by default
   useEffect(() => {
