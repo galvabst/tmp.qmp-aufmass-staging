@@ -33,7 +33,7 @@ export interface ThcOrderMapEntry {
   count: number;
 }
 
-export function useAdminHiringMap() {
+export function useAdminHiringMap(selectedMonth?: Date) {
   const [salesReps, setSalesReps] = useState<SalesRepMapEntry[]>([]);
   const [contractors, setContractors] = useState<ContractorMapEntry[]>([]);
   const [thcOrders, setThcOrders] = useState<ThcOrderMapEntry[]>([]);
@@ -91,19 +91,27 @@ export function useAdminHiringMap() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Load THC orders (only completed this month, grouped by PLZ)
+  // Load THC orders grouped by PLZ for selected month
+  const monthKey = selectedMonth
+    ? `${selectedMonth.getFullYear()}-${selectedMonth.getMonth()}`
+    : `${new Date().getFullYear()}-${new Date().getMonth()}`;
+
   const thcQuery = useQuery({
-    queryKey: ['admin-hiring-map-thc-current-month'],
+    queryKey: ['admin-hiring-map-thc', monthKey],
     queryFn: async () => {
-      const monthStart = new Date();
+      const monthStart = selectedMonth ? new Date(selectedMonth) : new Date();
       monthStart.setDate(1);
       monthStart.setHours(0, 0, 0, 0);
+
+      const monthEnd = new Date(monthStart);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
 
       const { data, error } = await (supabaseTC
         .from('v_thermocheck_auftraege' as any)
         .select('kunde_plz, kunde_ort, wc1_durchgefuehrt_am')
         .not('kunde_plz', 'is', null)
-        .gte('wc1_durchgefuehrt_am', monthStart.toISOString()) as any);
+        .gte('wc1_durchgefuehrt_am', monthStart.toISOString())
+        .lt('wc1_durchgefuehrt_am', monthEnd.toISOString()) as any);
       if (error) throw error;
 
       const grouped = new Map<string, { plz: string; ort: string; count: number }>();
