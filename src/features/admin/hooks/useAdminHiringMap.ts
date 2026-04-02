@@ -91,28 +91,37 @@ export function useAdminHiringMap() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Load THC orders (grouped by PLZ)
+  // Load THC orders (only completed this month, grouped by PLZ)
   const thcQuery = useQuery({
-    queryKey: ['admin-hiring-map-thc'],
+    queryKey: ['admin-hiring-map-thc-current-month'],
     queryFn: async () => {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
       const { data, error } = await (supabaseTC
         .from('v_thermocheck_auftraege' as any)
-        .select('kunde_plz, kunde_ort')
-        .not('kunde_plz', 'is', null) as any);
+        .select('kunde_plz, kunde_ort, wc1_durchgefuehrt_am')
+        .not('kunde_plz', 'is', null)
+        .gte('wc1_durchgefuehrt_am', monthStart.toISOString()) as any);
       if (error) throw error;
 
-      // Group by PLZ
       const grouped = new Map<string, { plz: string; ort: string; count: number }>();
       (data ?? []).forEach((d: any) => {
         const plz = (d.kunde_plz || '').trim();
         if (plz.length < 4) return;
         const existing = grouped.get(plz);
         if (existing) {
-          existing.count++;
+          existing.count += 1;
         } else {
-          grouped.set(plz, { plz, ort: d.kunde_ort || '', count: 1 });
+          grouped.set(plz, {
+            plz,
+            ort: (d.kunde_ort || '').trim(),
+            count: 1,
+          });
         }
       });
+
       return Array.from(grouped.values());
     },
     staleTime: 1000 * 60 * 5,
