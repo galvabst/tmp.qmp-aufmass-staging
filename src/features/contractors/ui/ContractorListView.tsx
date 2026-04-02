@@ -57,9 +57,24 @@ function getStatusBadgeVariant(status: OnboardingStatusEnum): 'default' | 'secon
     case 'started':
     case 'mitfahrt': return 'secondary';
     case 'blocked':
-    case 'deaktiviert': return 'destructive';
+    case 'deaktiviert':
+    case 'gefeuert': return 'destructive';
+    case 'inaktiv': return 'outline';
     default: return 'outline';
   }
+}
+
+function formatRelativeDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 1) return 'heute';
+  if (diffDays === 1) return 'gestern';
+  if (diffDays < 7) return `vor ${diffDays} Tagen`;
+  if (diffDays < 30) return `vor ${Math.floor(diffDays / 7)} Wo.`;
+  if (diffDays < 365) return `vor ${Math.floor(diffDays / 30)} Mon.`;
+  return `vor ${Math.floor(diffDays / 365)} J.`;
 }
 
 // ── KPI Dashboard ──
