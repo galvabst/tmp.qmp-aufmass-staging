@@ -149,6 +149,14 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   const activeLektionenCount = lektionenCountRes.count ?? 0;
   const pflichtProduktKeys = new Set((pflichtProdukteRes.data || []).map(p => p.produkt_key));
 
+  // T-Shirt und Poloshirt gelten als EINE Pflicht-Gruppe (eins von beiden reicht)
+  const OBERTEIL_KEYS = ['tshirt', 'poloshirt'];
+  const hasOberteilGroup = OBERTEIL_KEYS.some(k => pflichtProduktKeys.has(k));
+  // Effektive Pflicht-Anzahl: alle Keys minus die doppelten Oberteile + 1 Gruppe
+  const pflichtProdukteEffektiv = hasOberteilGroup
+    ? pflichtProduktKeys.size - OBERTEIL_KEYS.filter(k => pflichtProduktKeys.has(k)).length + 1
+    : pflichtProduktKeys.size;
+
   // Build lookup maps
   const profileMap = new Map<string, any>();
   (profilesRes.data || []).forEach(p => profileMap.set(p.id, p));
