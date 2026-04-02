@@ -50,7 +50,7 @@ export function useAdminAggregatedStats() {
           .gte('created_at', sinceDate),
         supabaseTC
           .from('contractor_verspaetungen')
-          .select('created_at, gebuehr')
+          .select('created_at, gesamtbetrag')
           .gte('created_at', sinceDate),
         supabaseTC
           .from('v_thermocheck_auftraege')

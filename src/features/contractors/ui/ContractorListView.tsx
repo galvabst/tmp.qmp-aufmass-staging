@@ -351,16 +351,22 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
               </div>
             </div>
 
-            <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-              {c.erstelltAm && <span>Registriert {formatRelativeDate(c.erstelltAm)}</span>}
-              {c.onboardingSubstatus ? ` · ${ONBOARDING_SUBSTATUS_LABELS[c.onboardingSubstatus] ?? c.onboardingSubstatus}` : ''}
-              {c.ort ? ` · ${c.ort}` : ''}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {c.currentStep && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-medium border-primary/30 text-primary">
+                  {STEP_LABELS[c.currentStep] ?? c.currentStep}
+                </Badge>
+              )}
+              <span className="text-[10px] text-muted-foreground truncate">
+                {c.erstelltAm && <span>Seit {formatRelativeDate(c.erstelltAm)}</span>}
+                {c.ort ? ` · ${c.ort}` : ''}
+              </span>
+            </div>
 
             <div className="mt-2">
               <div className="flex items-center justify-between mb-0.5">
                 <span className="text-[10px] text-muted-foreground">
-                  {c.currentStep ? `Schritt: ${STEP_LABELS[c.currentStep] ?? c.currentStep}` : `${c.completedSteps.length}/7 Schritte`}
+                  {c.completedSteps.length}/7 Schritte
                 </span>
                 <span className="text-[10px] font-medium text-foreground">{stepsProgress}%</span>
               </div>
@@ -369,11 +375,11 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
 
             <div className="flex gap-3 mt-1.5">
               <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                <GraduationCap className="w-3 h-3" /> {c.lektionenCompleted}/{c.lektionenTotal}
+                <GraduationCap className="w-3 h-3" /> {c.lektionenCompleted}/{c.lektionenTotal} Lektionen
               </span>
               {c.pflichtProdukteTotal > 0 && (
                 <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                  <ShoppingBag className="w-3 h-3" /> {c.pflichtProdukteBezahlt}/{c.pflichtProdukteTotal} Pflichtprodukte
+                  <ShoppingBag className="w-3 h-3" /> {c.pflichtProdukteBezahlt}/{c.pflichtProdukteTotal} Produkte
                 </span>
               )}
             </div>
