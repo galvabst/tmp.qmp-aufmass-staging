@@ -265,6 +265,31 @@ export function ProfileStep({ profile, onProfileChange, onAvatarUpload, wunschRa
           </div>
         </div>
       </div>
+
+      {/* Wunschumkreis */}
+      <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-foreground">Wunschumkreis</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Wie weit bist du bereit, für Aufträge zu fahren?
+        </p>
+        <div className="space-y-3">
+          <Slider
+            value={[wunschRadiusKm]}
+            onValueChange={(v) => onWunschRadiusChange(v[0])}
+            min={10}
+            max={150}
+            step={5}
+          />
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">10 km</span>
+            <span className="font-bold text-primary">{wunschRadiusKm} km</span>
+            <span className="text-muted-foreground">150 km</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
