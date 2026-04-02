@@ -173,11 +173,10 @@ export function AdminHiringMap() {
     salesReps.forEach(rep => {
       L.circle([rep.lat, rep.lng], {
         radius: rep.radiusKm * 1000,
-        color: 'hsl(210, 80%, 50%)',
-        fillColor: 'hsl(210, 80%, 50%)',
-        fillOpacity: 0.08,
-        weight: 1.5,
-        dashArray: '4 4',
+        color: 'hsl(210, 80%, 55%)',
+        fillColor: 'hsl(210, 80%, 60%)',
+        fillOpacity: 0.12,
+        weight: 2.5,
       }).addTo(group);
 
       const marker = L.marker([rep.lat, rep.lng], {
