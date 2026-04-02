@@ -28,6 +28,8 @@ const STATUS_ICON_MAP: Record<OnboardingStatusEnum, LucideIcon> = {
   ready: UserCheck,
   deaktiviert: UserX,
   mitfahrt: Car,
+  inaktiv: UserX,
+  gefeuert: UserX,
 };
 
 const STATUS_BG_MAP: Record<OnboardingStatusEnum, string> = {
@@ -39,6 +41,8 @@ const STATUS_BG_MAP: Record<OnboardingStatusEnum, string> = {
   ready: 'bg-emerald-50 dark:bg-emerald-950/30',
   deaktiviert: 'bg-gray-50 dark:bg-gray-900/30',
   mitfahrt: 'bg-indigo-50 dark:bg-indigo-950/30',
+  inaktiv: 'bg-gray-50 dark:bg-gray-900/30',
+  gefeuert: 'bg-red-50 dark:bg-red-950/30',
 };
 
 function getStatusBadgeVariant(status: OnboardingStatusEnum): 'default' | 'secondary' | 'destructive' | 'outline' {

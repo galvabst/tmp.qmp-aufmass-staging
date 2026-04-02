@@ -120,10 +120,10 @@ export interface AdminContractor {
 
 async function fetchAdminContractors(): Promise<AdminContractor[]> {
   // 1. Fetch all onboarding records
-  const { data: onboardings, error: onbErr } = await supabaseTC
+  const { data: onboardings, error: onbErr } = await (supabaseTC
     .from('contractor_onboarding')
     .select('*')
-    .neq('onboarding_status', 'deaktiviert');
+    .not('onboarding_status', 'in', '("deaktiviert","gefeuert")') as any);
   if (onbErr) throw onbErr;
   if (!onboardings?.length) return [];
 
