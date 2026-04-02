@@ -73,17 +73,19 @@ function createAvatarIcon(avatarUrl: string, borderColor: string) {
 }
 
 export function AdminHiringMap() {
-  const { salesReps, contractors, isLoading, isGeocoding } = useAdminHiringMap();
+  const { salesReps, contractors, thcOrders, isLoading, isGeocoding } = useAdminHiringMap();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<{
     salesGroup: L.LayerGroup;
     contractorGroup: L.LayerGroup;
+    thcGroup: L.LayerGroup;
   } | null>(null);
   
   const [isOpen, setIsOpen] = useState(true);
   const [showSales, setShowSales] = useState(true);
   const [showContractors, setShowContractors] = useState(true);
+  const [showThcOrders, setShowThcOrders] = useState(true);
 
   // Init map
   useEffect(() => {
