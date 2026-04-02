@@ -90,12 +90,11 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
   const hasActivityData = activityStats && activityStats.some(d => d.checks > 0 || d.avgRating !== null);
   // Radius state
   const [wunschRadius, setWunschRadius] = useState<number | null>(null);
-  const [radiusLoaded, setRadiusLoaded] = useState(false);
   const [savingRadius, setSavingRadius] = useState(false);
 
-  // Load radius on first render
-  if (!radiusLoaded && contractorOnboardingId) {
-    setRadiusLoaded(true);
+  // Load radius via useEffect
+  useEffect(() => {
+    if (!contractorOnboardingId) return;
     supabaseTC
       .from('contractor_onboarding')
       .select('wunsch_radius_km')
@@ -104,7 +103,7 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
       .then(({ data }) => {
         if (data?.wunsch_radius_km) setWunschRadius(data.wunsch_radius_km);
       });
-  }
+  }, [contractorOnboardingId]);
 
   const handleSaveRadius = async (val: number) => {
     if (!contractorOnboardingId) return;
