@@ -361,13 +361,20 @@ export function AdminHiringMap() {
                 Vertriebler
               </Button>
               <Button
-                variant={showContractors ? 'default' : 'outline'}
+                variant={showActive ? 'default' : 'outline'}
                 size="sm"
                 className="h-7 text-xs gap-1.5"
-                onClick={() => setShowContractors(!showContractors)}
+                onClick={() => setShowActive(!showActive)}
               >
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(142, 71%, 45%)' }} />
                 Aktive
+              </Button>
+              <Button
+                variant={showOnboarding ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setShowOnboarding(!showOnboarding)}
+              >
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(25, 95%, 53%)' }} />
                 Onboarding
               </Button>
