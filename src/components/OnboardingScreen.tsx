@@ -69,6 +69,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const paymentHandledRef = useRef(false);
 
   const [isAdvancing, setIsAdvancing] = useState(false);
+  const [wunschRadiusKm, setWunschRadiusKm] = useState(60);
 
   // KRITISCH: Payment-Success in URL? Dann NIEMALS forceReset!
   const hasPaymentSuccess = searchParams.get('payment') === 'success';
