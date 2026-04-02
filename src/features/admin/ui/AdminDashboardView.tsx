@@ -5,13 +5,14 @@ import { AdminLayout } from './AdminLayout';
 import { useAdminContractorList, AdminContractor, STEP_LABELS } from '@/features/contractors/hooks/useAdminContractorList';
 import { useAdminDashboardStats } from '@/features/admin/hooks/useAdminDashboardStats';
 import { useAdminAggregatedStats } from '@/features/admin/hooks/useAdminAggregatedStats';
-import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprints, CreditCard, MonitorSmartphone, ScanLine, GraduationCap, Car, FileCheck, UserX, Star, TrendingUp, Clock } from 'lucide-react';
+import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprints, CreditCard, MonitorSmartphone, ScanLine, GraduationCap, Car, FileCheck, UserX, Star, TrendingUp, Clock, Activity } from 'lucide-react';
 import { AdminHiringMap } from './AdminHiringMap';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { format, parseISO, differenceInDays, startOfQuarter, differenceInWeeks } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 // ── Funnel config ──
@@ -61,6 +62,44 @@ const MANDATORY_ITEMS = [
   { key: 'scanner-lizenz', label: 'Scanner-Lizenz', check: (p: string[]) => p.includes('scanner-lizenz') },
   { key: 'google-workspace', label: 'Google Workspace', check: (p: string[]) => p.includes('google-workspace') },
 ];
+
+// ── Onboarding steps index ──
+const ONBOARDING_STEPS = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+
+function getOnboardingTrafficLight(c: AdminContractor): 'green' | 'orange' | 'red' {
+  if (!c.erstelltAm) return 'green';
+  const daysLeft = 7 - differenceInDays(new Date(), parseISO(c.erstelltAm));
+  const stepIdx = ONBOARDING_STEPS.indexOf(c.currentStep ?? '');
+  if (daysLeft <= 0) return 'red';
+  if (stepIdx >= 4) return 'green'; // Akademie or further
+  if (daysLeft <= 2) return 'red';
+  if (daysLeft <= 4 && stepIdx < 3) return 'orange';
+  return 'green';
+}
+
+function getOnboardingDaysLabel(c: AdminContractor): string {
+  if (!c.erstelltAm) return '';
+  const daysLeft = 7 - differenceInDays(new Date(), parseISO(c.erstelltAm));
+  if (daysLeft < 0) return `Überfällig (+${Math.abs(daysLeft)} T)`;
+  if (daysLeft === 0) return 'Heute fällig';
+  return `${daysLeft} Tag${daysLeft !== 1 ? 'e' : ''} verbl.`;
+}
+
+const TRAFFIC_COLORS = {
+  green: 'bg-emerald-500',
+  orange: 'bg-amber-500',
+  red: 'bg-destructive',
+};
+
+function getQuotaTrafficLight(quartalTCs: number): 'green' | 'orange' | 'red' {
+  const now = new Date();
+  const qStart = startOfQuarter(now);
+  const weeksPassed = Math.max(1, differenceInWeeks(now, qStart));
+  const expected = (weeksPassed / 13) * 24;
+  if (quartalTCs >= expected * 0.8) return 'green';
+  if (quartalTCs >= expected * 0.5) return 'orange';
+  return 'red';
+}
 
 // ── Filter tab definitions ──
 type TabKey = 'alle' | 'nicht_registriert' | 'stammdaten' | 'bestellungen' | 'akademie' | 'pruefung' | 'praxistest' | 'coaching';
@@ -213,6 +252,19 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
     const tabDef = TAB_DEFS.find(t => t.key === activeTab);
     return tabDef ? activeTechs.filter(tabDef.filter) : activeTechs;
   }, [activeTechs, activeTab]);
+
+  // Ready technicians (active, non-trainer)
+  const readyTechs = useMemo(() => {
+    if (!contractors || !stats) return [];
+    const auslastungMap = new Map(stats.auslastung.map(a => [a.onboardingId, a]));
+    return contractors
+      .filter(c => c.onboardingStatus === 'ready' && !c.isTrainer)
+      .map(c => ({
+        ...c,
+        quartalTCs: auslastungMap.get(c.id)?.quartalTCs ?? 0,
+      }))
+      .sort((a, b) => b.quartalTCs - a.quartalTCs);
+  }, [contractors, stats]);
 
   const { inVerzugList, ready, trainers } = useMemo(() => {
     const ready = contractors?.filter(c => c.onboardingStatus === 'ready').length ?? 0;
@@ -527,6 +579,8 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
               {filteredTechs.map(c => {
                 const initials = `${c.vorname?.[0] || ''}${c.nachname?.[0] || ''}`.toUpperCase() || '?';
                 const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Kein Profil';
+                const tl = getOnboardingTrafficLight(c);
+                const daysLabel = getOnboardingDaysLabel(c);
 
                 return (
                   <div
@@ -534,15 +588,79 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
                     className="px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => onSelectContractor?.(c.id)}
                   >
-                    <Avatar className="w-8 h-8 shrink-0">
-                      <AvatarImage src={c.avatarUrl || undefined} />
-                      <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
-                    </Avatar>
+                    <div className="relative shrink-0">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={c.avatarUrl || undefined} />
+                        <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
+                      </Avatar>
+                      <span className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${TRAFFIC_COLORS[tl]}`} />
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                        {daysLabel && (
+                          <span className={`text-[10px] font-medium shrink-0 ${tl === 'red' ? 'text-destructive' : tl === 'orange' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                            {daysLabel}
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-1">
                         <DetailForTab tab={activeTab} c={c} />
                       </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Aktive Techniker */}
+      <Card className="mb-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-500" />
+            Aktive Techniker ({readyTechs.length})
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Quartalskontingent: 24 TCs · Aktuelle Periode</p>
+        </CardHeader>
+        <CardContent>
+          {readyTechs.length === 0 ? (
+            <div className="p-6 text-center text-muted-foreground text-sm">Keine aktiven Techniker</div>
+          ) : (
+            <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
+              {readyTechs.map(c => {
+                const initials = `${c.vorname?.[0] || ''}${c.nachname?.[0] || ''}`.toUpperCase() || '?';
+                const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Kein Profil';
+                const tl = getQuotaTrafficLight(c.quartalTCs);
+                const pct = Math.min(100, Math.round((c.quartalTCs / 24) * 100));
+
+                return (
+                  <div
+                    key={c.id}
+                    className="py-3 px-1 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors rounded-md"
+                    onClick={() => onSelectContractor?.(c.id)}
+                  >
+                    <div className="relative shrink-0">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={c.avatarUrl || undefined} />
+                        <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
+                      </Avatar>
+                      <span className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${TRAFFIC_COLORS[tl]}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                        <Badge variant="outline" className={`text-[10px] shrink-0 ${
+                          tl === 'green' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          tl === 'orange' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-destructive/10 text-destructive border-destructive/20'
+                        }`}>
+                          {c.quartalTCs} / 24 TCs
+                        </Badge>
+                      </div>
+                      <Progress value={pct} className="h-1.5 mt-1.5" />
                     </div>
                   </div>
                 );

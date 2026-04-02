@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 export interface TechnikerAuslastung {
   name: string;
   auftraege: number;
+  onboardingId: string;
+  quartalTCs: number;
 }
 
 export interface PipelineCount {
@@ -24,10 +26,16 @@ export function useAdminDashboardStats() {
   return useQuery({
     queryKey: ['admin-dashboard-stats'],
     queryFn: async (): Promise<DashboardStats> => {
+      // Current quarter boundaries
+      const now = new Date();
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      const quarterStart = new Date(now.getFullYear(), qMonth, 1).toISOString().slice(0, 10);
+      const quarterEnd = new Date(now.getFullYear(), qMonth + 3, 0).toISOString().slice(0, 10);
+
       // 1. Pipeline counts from v_thermocheck_auftraege
       const { data: auftraege, error: aErr } = await supabaseTC
         .from('v_thermocheck_auftraege')
-        .select('pipeline_status, zugewiesener_techniker_id');
+        .select('pipeline_status, zugewiesener_techniker_id, termin_datum');
       if (aErr) throw aErr;
 
       // Group by pipeline_status
@@ -35,6 +43,7 @@ export function useAdminDashboardStats() {
       let inVerzug = 0;
       let offenePool = 0;
       const technikerCounts = new Map<string, number>();
+      const quarterTCCounts = new Map<string, number>();
 
       (auftraege || []).forEach(a => {
         const s = a.pipeline_status ?? 'unbekannt';
@@ -48,6 +57,14 @@ export function useAdminDashboardStats() {
             a.zugewiesener_techniker_id,
             (technikerCounts.get(a.zugewiesener_techniker_id) ?? 0) + 1
           );
+          // Count TCs in current quarter
+          const td = a.termin_datum as string | null;
+          if (td && td >= quarterStart && td <= quarterEnd) {
+            quarterTCCounts.set(
+              a.zugewiesener_techniker_id,
+              (quarterTCCounts.get(a.zugewiesener_techniker_id) ?? 0) + 1
+            );
+          }
         }
       });
 
@@ -85,6 +102,8 @@ export function useAdminDashboardStats() {
         auslastung = technikerIds.map(tid => ({
           name: profileMap.get(profileIdMap.get(tid) ?? '') ?? '–',
           auftraege: technikerCounts.get(tid) ?? 0,
+          onboardingId: tid,
+          quartalTCs: quarterTCCounts.get(tid) ?? 0,
         })).sort((a, b) => b.auftraege - a.auftraege);
       }
 
