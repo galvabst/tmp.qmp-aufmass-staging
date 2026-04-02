@@ -52,7 +52,7 @@ function normalizeCity(city?: string): string {
   return (city ?? "").replace(/\s+/g, " ").trim();
 }
 
-async function fetchFromNominatim(params: URLSearchParams): Promise<PlzCoordinate | null> {
+async function fetchFromNominatimRequest(params: URLSearchParams): Promise<PlzCoordinate | null> {
   try {
     const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
     const res = await fetch(url, {
@@ -102,7 +102,7 @@ async function fetchFromNominatim(plz: string): Promise<PlzCoordinate | null> {
     limit: '1',
   });
 
-  const result = await fetchFromNominatim(params);
+  const result = await fetchFromNominatimRequest(params);
   return result ? { ...result, plz: result.plz || plz } : null;
 }
 
@@ -115,7 +115,7 @@ async function fetchFromNominatimQuery(query: string, fallbackPlz: string): Prom
     limit: '1',
   });
 
-  const result = await fetchFromNominatim(params);
+  const result = await fetchFromNominatimRequest(params);
   return result ? { ...result, plz: result.plz || fallbackPlz } : null;
 }
 
