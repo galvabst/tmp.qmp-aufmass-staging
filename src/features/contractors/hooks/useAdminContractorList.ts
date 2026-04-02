@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 // ── Types ──
 
-export type OnboardingStatusEnum = 'angelegt' | 'invited' | 'started' | 'in_progress' | 'blocked' | 'ready' | 'deaktiviert' | 'mitfahrt';
+export type OnboardingStatusEnum = 'angelegt' | 'invited' | 'started' | 'in_progress' | 'blocked' | 'ready' | 'deaktiviert' | 'mitfahrt' | 'inaktiv' | 'gefeuert';
 
 export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatusEnum, string> = {
   angelegt: 'Angelegt',
@@ -15,6 +15,8 @@ export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatusEnum, string> = {
   ready: 'Einsatzbereit',
   deaktiviert: 'Deaktiviert',
   mitfahrt: 'Mitfahrt',
+  inaktiv: 'Inaktiv',
+  gefeuert: 'Gefeuert',
 };
 
 export type OnboardingSubstatusEnum =
@@ -118,10 +120,10 @@ export interface AdminContractor {
 
 async function fetchAdminContractors(): Promise<AdminContractor[]> {
   // 1. Fetch all onboarding records
-  const { data: onboardings, error: onbErr } = await supabaseTC
+  const { data: onboardings, error: onbErr } = await (supabaseTC
     .from('contractor_onboarding')
     .select('*')
-    .neq('onboarding_status', 'deaktiviert');
+    .not('onboarding_status', 'in', '("deaktiviert","gefeuert")') as any);
   if (onbErr) throw onbErr;
   if (!onboardings?.length) return [];
 

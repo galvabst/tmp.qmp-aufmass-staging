@@ -20,7 +20,7 @@ export interface ContractorMapEntry {
   ort: string;
   lat: number;
   lng: number;
-  status: 'active' | 'onboarding';
+  status: 'active' | 'onboarding' | 'inaktiv';
   wunschRadiusKm: number;
   avatarUrl: string | null;
 }
@@ -61,7 +61,7 @@ export function useAdminHiringMap(selectedMonth?: Date) {
       const { data, error } = await (supabaseTC
         .from('contractor_onboarding' as any)
         .select('profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km')
-        .not('onboarding_status', 'in', '("deaktiviert","invited")') as any);
+        .not('onboarding_status', 'in', '("deaktiviert","invited","gefeuert")') as any);
       if (error) throw error;
       
       // Get profile names
@@ -82,7 +82,7 @@ export function useAdminHiringMap(selectedMonth?: Date) {
           plz: d.anschrift_plz || '',
           ort: d.anschrift_ort || '',
           name: profile ? `${profile.vorname || ''} ${profile.nachname || ''}`.trim() : 'Unbekannt',
-          status: d.onboarding_status === 'ready' ? 'active' : 'onboarding',
+          status: d.onboarding_status === 'ready' ? 'active' : d.onboarding_status === 'inaktiv' ? 'inaktiv' : 'onboarding',
           wunschRadiusKm: d.wunsch_radius_km ?? 60,
           avatarUrl: profile?.avatar_url || null,
         };
