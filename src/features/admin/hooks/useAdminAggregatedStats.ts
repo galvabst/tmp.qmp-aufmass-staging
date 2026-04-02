@@ -50,7 +50,7 @@ export function useAdminAggregatedStats() {
           .gte('created_at', sinceDate),
         supabaseTC
           .from('contractor_verspaetungen')
-          .select('created_at, gebuehr')
+          .select('created_at, gesamtbetrag')
           .gte('created_at', sinceDate),
         supabaseTC
           .from('v_thermocheck_auftraege')
@@ -89,7 +89,7 @@ export function useAdminAggregatedStats() {
 
         const monthLate = verspaetungen.filter(v => v.created_at && isSameMonth(parseISO(v.created_at), m));
         const lateCount = monthLate.length;
-        const totalFee = monthLate.reduce((s, v) => s + (v.gebuehr ?? 0), 0);
+        const totalFee = monthLate.reduce((s, v) => s + (v.gesamtbetrag ?? 0), 0);
         const onTimePercent = checks > 0 ? Math.round(((checks - lateCount) / checks) * 100) : null;
 
         // Durchlaufzeiten für diesen Monat
@@ -123,7 +123,7 @@ export function useAdminAggregatedStats() {
         : null;
 
       const totalLateCount = verspaetungen.length;
-      const overallLateFees = verspaetungen.reduce((s, v) => s + (v.gebuehr ?? 0), 0);
+      const overallLateFees = verspaetungen.reduce((s, v) => s + (v.gesamtbetrag ?? 0), 0);
       const overallOnTimePercent = totalChecksLast6 > 0
         ? Math.round(((totalChecksLast6 - totalLateCount) / totalChecksLast6) * 100)
         : null;
