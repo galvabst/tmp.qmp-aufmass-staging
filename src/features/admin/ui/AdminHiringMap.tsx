@@ -316,7 +316,7 @@ export function AdminHiringMap() {
                 onClick={() => setShowThcOrders(!showThcOrders)}
               >
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(280, 70%, 50%)' }} />
-                Thermochecks ({totalThc})
+                Thermochecks diesen Monat ({totalThc})
               </Button>
             </div>
 
