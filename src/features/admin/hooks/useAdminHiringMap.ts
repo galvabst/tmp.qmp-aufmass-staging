@@ -25,9 +25,18 @@ export interface ContractorMapEntry {
   avatarUrl: string | null;
 }
 
+export interface ThcOrderMapEntry {
+  plz: string;
+  ort: string;
+  lat: number;
+  lng: number;
+  count: number;
+}
+
 export function useAdminHiringMap() {
   const [salesReps, setSalesReps] = useState<SalesRepMapEntry[]>([]);
   const [contractors, setContractors] = useState<ContractorMapEntry[]>([]);
+  const [thcOrders, setThcOrders] = useState<ThcOrderMapEntry[]>([]);
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   // Load Vertriebler (field_sales)
