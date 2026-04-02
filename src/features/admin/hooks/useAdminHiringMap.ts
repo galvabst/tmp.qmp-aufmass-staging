@@ -61,7 +61,7 @@ export function useAdminHiringMap(selectedMonth?: Date) {
       const { data, error } = await (supabaseTC
         .from('contractor_onboarding' as any)
         .select('profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km')
-        .not('onboarding_status', 'in', '("deaktiviert","invited")') as any);
+        .not('onboarding_status', 'in', '("deaktiviert","invited","gefeuert")') as any);
       if (error) throw error;
       
       // Get profile names
