@@ -92,3 +92,26 @@ export function useAbrechnungStatus(auftragId: string | undefined) {
     staleTime: 60 * 1000,
   });
 }
+
+/**
+ * Mutation for technicians to mark their invoice as "sent" (rechnung_eingegangen).
+ * Uses the SECURITY DEFINER RPC mark_rechnung_gestellt.
+ */
+export function useMarkRechnungGestellt() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (auftragId: string) => {
+      const { error } = await (supabase.rpc as unknown as (
+        fn: string,
+        params: Record<string, unknown>
+      ) => Promise<{ error: Error | null }>)('mark_rechnung_gestellt', {
+        p_auftrag_id: auftragId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, auftragId) => {
+      queryClient.invalidateQueries({ queryKey: ['abrechnung-status', auftragId] });
+    },
+  });
+}

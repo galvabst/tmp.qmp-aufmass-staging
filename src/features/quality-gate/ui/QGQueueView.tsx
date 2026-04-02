@@ -191,6 +191,69 @@ export function QGQueueView() {
             </div>
           )}
         </TabsContent>
+
+        {/* Abrechnung Tab */}
+        <TabsContent value="abrechnung">
+          {abrLoading ? <ListSkeleton count={4} showAvatar showBadge /> : (
+            <div className="space-y-3">
+              {!abrechnungen?.length ? (
+                <div className="text-center py-8 text-muted-foreground">Keine abgenommenen Aufträge</div>
+              ) : abrechnungen.filter(a => a.status !== 'offen').length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">Keine offenen Rechnungen</div>
+              ) : abrechnungen.filter(a => a.status !== 'offen').map((item) => {
+                const next = NEXT_STATUS[item.status];
+                return (
+                  <Card key={item.auftragId} className="shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-sm text-foreground">{item.customerName}</p>
+                          <p className="text-[11px] text-muted-foreground">{item.technikerName}</p>
+                        </div>
+                        <Badge variant={STATUS_BADGE_VARIANT[item.status]} className="text-[10px] gap-1">
+                          {STATUS_ICON[item.status]}
+                          {ABRECHNUNG_STATUS_LABELS[item.status]}
+                        </Badge>
+                      </div>
+
+                      {item.betrag != null && (
+                        <p className="text-sm font-bold text-foreground mb-2">{item.betrag.toFixed(0)} €</p>
+                      )}
+
+                      {item.rechnungEingegangenAm && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Rechnung: {format(parseISO(item.rechnungEingegangenAm), 'd. MMM yyyy', { locale: de })}
+                        </p>
+                      )}
+
+                      {next && (
+                        <Button
+                          size="sm"
+                          className="w-full mt-3 gap-1.5"
+                          onClick={() => handleAdvanceStatus(item.auftragId, item.status)}
+                          disabled={updateAbrStatus.isPending}
+                        >
+                          {updateAbrStatus.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <ArrowRight className="w-4 h-4" />
+                          )}
+                          → {ABRECHNUNG_STATUS_LABELS[next]}
+                        </Button>
+                      )}
+
+                      {item.status === 'bezahlt' && (
+                        <div className="mt-2 text-center text-green-600 text-xs font-medium">
+                          ✓ Bezahlt {item.bezahltAm && `am ${format(parseISO(item.bezahltAm), 'd. MMM yyyy', { locale: de })}`}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
     </AdminLayout>
   );

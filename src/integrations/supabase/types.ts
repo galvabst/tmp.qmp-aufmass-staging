@@ -11470,6 +11470,10 @@ export type Database = {
             }
             Returns: Json
           }
+      mark_rechnung_gestellt: {
+        Args: { p_auftrag_id: string }
+        Returns: undefined
+      }
       match_customer_interactions: {
         Args: {
           filter?: Json

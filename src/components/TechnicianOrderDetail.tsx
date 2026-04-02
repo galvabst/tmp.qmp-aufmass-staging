@@ -594,6 +594,7 @@ Mit freundlichen Grüßen`;
             geprueftAm={abrechnungData?.geprueftAm ?? null}
             bezahltAm={abrechnungData?.bezahltAm ?? null}
             betrag={abrechnungData?.betrag ?? order.billableAmount ?? null}
+            auftragId={order.auftragId}
           />
         )}
 
