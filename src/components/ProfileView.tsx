@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Mail, Phone, MapPin, LogOut, ChevronRight, Award, Edit2, X, Save, Target, Eye, Gift, Timer, Star, GraduationCap, CheckCircle2, BookOpen, Activity } from 'lucide-react';
+import { User, Mail, Phone, MapPin, LogOut, ChevronRight, Award, Edit2, X, Save, Target, Eye, Gift, Timer, Star, GraduationCap, CheckCircle2, BookOpen, Activity, Navigation } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
