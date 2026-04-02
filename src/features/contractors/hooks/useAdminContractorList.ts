@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 // ── Types ──
 
-export type OnboardingStatusEnum = 'angelegt' | 'invited' | 'started' | 'in_progress' | 'blocked' | 'ready' | 'deaktiviert' | 'mitfahrt';
+export type OnboardingStatusEnum = 'angelegt' | 'invited' | 'started' | 'in_progress' | 'blocked' | 'ready' | 'deaktiviert' | 'mitfahrt' | 'inaktiv' | 'gefeuert';
 
 export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatusEnum, string> = {
   angelegt: 'Angelegt',
@@ -15,6 +15,8 @@ export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatusEnum, string> = {
   ready: 'Einsatzbereit',
   deaktiviert: 'Deaktiviert',
   mitfahrt: 'Mitfahrt',
+  inaktiv: 'Inaktiv',
+  gefeuert: 'Gefeuert',
 };
 
 export type OnboardingSubstatusEnum =
