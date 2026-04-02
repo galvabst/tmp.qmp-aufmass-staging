@@ -30,6 +30,24 @@ function createMarkerIcon(color: string, label?: string) {
   });
 }
 
+function createAvatarIcon(avatarUrl: string, borderColor: string) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid ${borderColor};
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      overflow: hidden;
+      background: #e5e7eb;
+    "><img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='👤'" /></div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -22],
+  });
+}
+
 export function AdminHiringMap() {
   const { salesReps, contractors, isLoading, isGeocoding } = useAdminHiringMap();
   const containerRef = useRef<HTMLDivElement | null>(null);
