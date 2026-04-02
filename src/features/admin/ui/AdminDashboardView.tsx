@@ -94,6 +94,11 @@ const TRAFFIC_COLORS = {
 function getQuotaTrafficLight(quartalTCs: number): 'green' | 'orange' | 'red' {
   const now = new Date();
   const qStart = startOfQuarter(now);
+  const daysPassed = differenceInDays(now, qStart);
+
+  // Karenzzeit: erste 2 Wochen → Grün (noch keine sinnvolle Erwartung)
+  if (daysPassed < 14) return 'green';
+
   const weeksPassed = Math.max(1, differenceInWeeks(now, qStart));
   const expected = (weeksPassed / 13) * 24;
   if (quartalTCs >= expected * 0.8) return 'green';
