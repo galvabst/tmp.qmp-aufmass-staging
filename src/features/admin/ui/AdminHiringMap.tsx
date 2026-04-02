@@ -201,20 +201,23 @@ export function AdminHiringMap() {
 
     contractors.forEach((c, idx) => {
       const isActive = c.status === 'active';
-      const color = isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
+      const isInaktiv = c.status === 'inaktiv';
+      const color = isInaktiv ? 'hsl(0, 0%, 65%)' : isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
       const pos = offsets[idx];
 
       L.circle([c.lat, c.lng], {
         radius: c.wunschRadiusKm * 1000,
         color,
         fillColor: color,
-        fillOpacity: 0.06,
+        fillOpacity: isInaktiv ? 0.03 : 0.06,
         weight: 1.5,
+        dashArray: isInaktiv ? '6 4' : undefined,
+        opacity: isInaktiv ? 0.4 : 1,
       }).addTo(group);
 
       const icon = c.avatarUrl
         ? createAvatarIcon(c.avatarUrl, color)
-        : createMarkerIcon(color, isActive ? '✓' : '⏳');
+        : createMarkerIcon(color, isActive ? '✓' : isInaktiv ? '⏸' : '⏳');
 
       const marker = L.marker([pos.lat, pos.lng], { icon });
       marker.bindPopup(() => {
