@@ -246,7 +246,7 @@ export function AdminHiringMap() {
           <div style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:120px;">
             <div style="font-weight:700;font-size:14px;color:#111;">📍 ${order.plz} ${order.ort}</div>
             <div style="font-size:13px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
-              ${order.count} Thermocheck${order.count > 1 ? 's' : ''}
+              ${order.count} Thermocheck${order.count > 1 ? 's' : ''} diesen Monat
             </div>
           </div>
         `)
