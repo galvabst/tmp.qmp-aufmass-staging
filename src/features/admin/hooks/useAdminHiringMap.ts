@@ -22,6 +22,7 @@ export interface ContractorMapEntry {
   lng: number;
   status: 'active' | 'onboarding';
   wunschRadiusKm: number;
+  avatarUrl: string | null;
 }
 
 export function useAdminHiringMap() {
