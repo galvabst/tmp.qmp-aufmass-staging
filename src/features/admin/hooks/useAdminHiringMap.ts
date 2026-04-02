@@ -60,7 +60,7 @@ export function useAdminHiringMap() {
 
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, vorname, nachname')
+        .select('id, vorname, nachname, avatar_url')
         .in('id', profileIds);
 
       const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
