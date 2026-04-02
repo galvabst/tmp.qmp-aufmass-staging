@@ -566,6 +566,8 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
               {filteredTechs.map(c => {
                 const initials = `${c.vorname?.[0] || ''}${c.nachname?.[0] || ''}`.toUpperCase() || '?';
                 const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Kein Profil';
+                const tl = getOnboardingTrafficLight(c);
+                const daysLabel = getOnboardingDaysLabel(c);
 
                 return (
                   <div
@@ -573,12 +575,22 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
                     className="px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => onSelectContractor?.(c.id)}
                   >
-                    <Avatar className="w-8 h-8 shrink-0">
-                      <AvatarImage src={c.avatarUrl || undefined} />
-                      <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
-                    </Avatar>
+                    <div className="relative shrink-0">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={c.avatarUrl || undefined} />
+                        <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
+                      </Avatar>
+                      <span className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${TRAFFIC_COLORS[tl]}`} />
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                        {daysLabel && (
+                          <span className={`text-[10px] font-medium shrink-0 ${tl === 'red' ? 'text-destructive' : tl === 'orange' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                            {daysLabel}
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-1">
                         <DetailForTab tab={activeTab} c={c} />
                       </div>
