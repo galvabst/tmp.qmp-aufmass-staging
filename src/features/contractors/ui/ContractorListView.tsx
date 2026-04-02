@@ -298,13 +298,18 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
 
 // ── Contractor Card ──
 
-function ContractorCard({ contractor: c, onClick }: { contractor: AdminContractor; onClick: () => void }) {
+function ContractorCard({ contractor: c, onClick, onAction }: {
+  contractor: AdminContractor;
+  onClick: () => void;
+  onAction: (action: 'inaktiv' | 'gefeuert' | 'reaktivieren') => void;
+}) {
   const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Kein Profil';
   const initials = `${c.vorname?.[0] ?? ''}${c.nachname?.[0] ?? ''}`.toUpperCase() || '??';
   const stepsProgress = Math.round((c.completedSteps.length / 7) * 100);
+  const isInaktiv = c.onboardingStatus === 'inaktiv';
 
   return (
-    <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
+    <Card className={`shadow-sm cursor-pointer hover:shadow-md transition-shadow ${isInaktiv ? 'opacity-60' : ''}`} onClick={onClick}>
       <CardContent className="p-3">
         <div className="flex items-start gap-3">
           <Avatar className="h-10 w-10 shrink-0">
@@ -315,16 +320,40 @@ function ContractorCard({ contractor: c, onClick }: { contractor: AdminContracto
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 min-w-0">
-                <p className="font-medium text-sm text-foreground truncate">{displayName}</p>
+                <p className={`font-medium text-sm truncate ${isInaktiv ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{displayName}</p>
                 {c.isTrainer && <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
               </div>
-              <Badge variant={getStatusBadgeVariant(c.onboardingStatus)} className="text-[10px] shrink-0">
-                {ONBOARDING_STATUS_LABELS[c.onboardingStatus]}
-              </Badge>
+              <div className="flex items-center gap-1 shrink-0">
+                <Badge variant={getStatusBadgeVariant(c.onboardingStatus)} className="text-[10px]">
+                  {ONBOARDING_STATUS_LABELS[c.onboardingStatus]}
+                </Badge>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <button className="p-1 rounded hover:bg-muted transition-colors">
+                      <MoreVertical className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                    {isInaktiv ? (
+                      <DropdownMenuItem onClick={() => onAction('reaktivieren')}>
+                        <RotateCcw className="w-3.5 h-3.5 mr-2" /> Reaktivieren
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onClick={() => onAction('inaktiv')}>
+                        <Pause className="w-3.5 h-3.5 mr-2" /> Pausieren
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => onAction('gefeuert')} className="text-destructive focus:text-destructive">
+                      <Ban className="w-3.5 h-3.5 mr-2" /> Endgültig deaktivieren
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
 
             <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-              {c.onboardingSubstatus ? (ONBOARDING_SUBSTATUS_LABELS[c.onboardingSubstatus] ?? c.onboardingSubstatus) : ''}
+              {c.erstelltAm && <span>Registriert {formatRelativeDate(c.erstelltAm)}</span>}
+              {c.onboardingSubstatus ? ` · ${ONBOARDING_SUBSTATUS_LABELS[c.onboardingSubstatus] ?? c.onboardingSubstatus}` : ''}
               {c.ort ? ` · ${c.ort}` : ''}
             </p>
 
