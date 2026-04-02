@@ -54,15 +54,29 @@ export function QGQueueView() {
     }
   };
 
+  const handleAdvanceStatus = async (auftragId: string, currentStatus: AbrechnungStatusEnum) => {
+    const next = NEXT_STATUS[currentStatus];
+    if (!next) return;
+    try {
+      await updateAbrStatus.mutateAsync({ auftragId, newStatus: next });
+      toast.success(`Status auf "${ABRECHNUNG_STATUS_LABELS[next]}" gesetzt`);
+    } catch {
+      toast.error('Fehler beim Status-Update');
+    }
+  };
+
   return (
     <AdminLayout title="Quality Gate" subtitle={isLoading ? undefined : `${pendingCount} zur Prüfung`} count={isLoading ? undefined : (items?.length ?? 0) + praxisCount}>
       <Tabs defaultValue="auftraege" className="w-full">
         <TabsList className="w-full mb-4">
-          <TabsTrigger value="auftraege" className="flex-1">
-            Aufträge {pendingCount > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px]">{pendingCount}</Badge>}
+          <TabsTrigger value="auftraege" className="flex-1 text-xs">
+            Aufträge {pendingCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px]">{pendingCount}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="praxistests" className="flex-1">
-            Praxistests {praxisCount > 0 && <Badge variant="destructive" className="ml-1.5 text-[10px]">{praxisCount}</Badge>}
+          <TabsTrigger value="praxistests" className="flex-1 text-xs">
+            Praxistests {praxisCount > 0 && <Badge variant="destructive" className="ml-1 text-[10px]">{praxisCount}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="abrechnung" className="flex-1 text-xs">
+            Abrechnung {abrPendingCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px]">{abrPendingCount}</Badge>}
           </TabsTrigger>
         </TabsList>
 
