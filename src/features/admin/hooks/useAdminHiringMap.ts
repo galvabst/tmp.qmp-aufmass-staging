@@ -146,6 +146,7 @@ export function useAdminHiringMap() {
           lng: coord.lng,
           status: c.status,
           wunschRadiusKm: c.wunschRadiusKm,
+          avatarUrl: c.avatarUrl,
         });
       });
       setContractors(ctrs);
