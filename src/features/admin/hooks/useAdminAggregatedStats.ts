@@ -89,7 +89,7 @@ export function useAdminAggregatedStats() {
 
         const monthLate = verspaetungen.filter(v => v.created_at && isSameMonth(parseISO(v.created_at), m));
         const lateCount = monthLate.length;
-        const totalFee = monthLate.reduce((s, v) => s + (v.gebuehr ?? 0), 0);
+        const totalFee = monthLate.reduce((s, v) => s + (v.gesamtbetrag ?? 0), 0);
         const onTimePercent = checks > 0 ? Math.round(((checks - lateCount) / checks) * 100) : null;
 
         // Durchlaufzeiten für diesen Monat
