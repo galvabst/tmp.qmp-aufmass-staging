@@ -74,6 +74,7 @@ export function useAdminHiringMap() {
           name: profile ? `${profile.vorname || ''} ${profile.nachname || ''}`.trim() : 'Unbekannt',
           status: d.onboarding_status === 'ready' ? 'active' : 'onboarding',
           wunschRadiusKm: d.wunsch_radius_km ?? 60,
+          avatarUrl: profile?.avatar_url || null,
         };
       });
     },
