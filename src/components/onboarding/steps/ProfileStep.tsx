@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Camera, User, Lightbulb, Check, X } from 'lucide-react';
+import { Camera, User, Lightbulb, Check, X, MapPin } from 'lucide-react';
 
 // Beispielbilder für Foto-Anleitung
 import fotoGut from '@/assets/onboarding/foto-beispiel-gut.png';
