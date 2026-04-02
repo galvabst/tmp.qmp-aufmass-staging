@@ -233,11 +233,16 @@ export async function geocodePlzBatch(
       }
     }
 
-    // L3: Nominatim for remaining PLZs
+    // L3: Nominatim for remaining PLZs (limited to avoid rate-limiting)
     const newEntries: PlzCoordinate[] = [];
-    const CHUNK_SIZE = 5;
-    for (let i = 0; i < uncachedL2.length; i += CHUNK_SIZE) {
-      const chunk = uncachedL2.slice(i, i + CHUNK_SIZE);
+    const MAX_NOMINATIM = 10; // Only geocode a few at a time to avoid rate limits
+    const toGeocode = uncachedL2.slice(0, MAX_NOMINATIM);
+    if (uncachedL2.length > MAX_NOMINATIM) {
+      console.warn(`[plz-geocoder] ${uncachedL2.length - MAX_NOMINATIM} PLZs skipped (not in cache). Will be geocoded on next load.`);
+    }
+    const CHUNK_SIZE = 3;
+    for (let i = 0; i < toGeocode.length; i += CHUNK_SIZE) {
+      const chunk = toGeocode.slice(i, i + CHUNK_SIZE);
       const promises = chunk.map(async (plz) => {
         const originalPlz = unique.find(p => normalizePlz(p) === plz) || plz;
         const city = cityMap?.get(originalPlz) || cityMap?.get(plz);
@@ -249,8 +254,8 @@ export async function geocodePlzBatch(
         }
       });
       await Promise.all(promises);
-      if (i + CHUNK_SIZE < uncachedL2.length) {
-        await delay(300);
+      if (i + CHUNK_SIZE < toGeocode.length) {
+        await delay(1100); // Nominatim requires 1 req/sec
       }
     }
 

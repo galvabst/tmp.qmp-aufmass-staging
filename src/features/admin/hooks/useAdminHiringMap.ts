@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { geocodePlzBatch, PlzCoordinate } from '@/features/pool/utils/plz-geocoder';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export interface SalesRepMapEntry {
   id: string;
@@ -136,9 +136,13 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Geocode everything
+  // Geocode everything — use ref to prevent stale closures on rapid month changes
+  const geocodeAbortRef = useRef(0);
+
   useEffect(() => {
     if (!salesQuery.data && !contractorQuery.data && !thcQuery.data) return;
+
+    const runId = ++geocodeAbortRef.current;
 
     const doGeocode = async () => {
       setIsGeocoding(true);
@@ -165,6 +169,9 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
       });
 
       const coords = await geocodePlzBatch(plzList, cityMap);
+
+      // Abort if a newer geocode run has started
+      if (geocodeAbortRef.current !== runId) return;
 
       // Build sales reps
       const reps: SalesRepMapEntry[] = [];
