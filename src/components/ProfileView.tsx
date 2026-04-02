@@ -88,6 +88,42 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
   const { data: completedLektionIds } = useAkademieFortschritt(contractorOnboardingId || null);
   const { data: activityStats } = useContractorActivityStats(contractorOnboardingId);
   const hasActivityData = activityStats && activityStats.some(d => d.checks > 0 || d.avgRating !== null);
+  // Radius state
+  const [wunschRadius, setWunschRadius] = useState<number | null>(null);
+  const [radiusLoaded, setRadiusLoaded] = useState(false);
+  const [savingRadius, setSavingRadius] = useState(false);
+
+  // Load radius on first render
+  if (!radiusLoaded && contractorOnboardingId) {
+    setRadiusLoaded(true);
+    supabaseTC
+      .from('contractor_onboarding')
+      .select('wunsch_radius_km')
+      .eq('id', contractorOnboardingId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.wunsch_radius_km) setWunschRadius(data.wunsch_radius_km);
+      });
+  }
+
+  const handleSaveRadius = async (val: number) => {
+    if (!contractorOnboardingId) return;
+    setSavingRadius(true);
+    try {
+      const { error } = await supabaseTC
+        .from('contractor_onboarding')
+        .update({ wunsch_radius_km: val })
+        .eq('id', contractorOnboardingId);
+      if (error) throw error;
+      setWunschRadius(val);
+      toast.success(`Einsatzradius auf ${val} km gesetzt`);
+    } catch {
+      toast.error('Fehler beim Speichern');
+    } finally {
+      setSavingRadius(false);
+    }
+  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
