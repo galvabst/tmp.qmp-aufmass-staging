@@ -43,6 +43,7 @@ export function useAdminDashboardStats() {
       let inVerzug = 0;
       let offenePool = 0;
       const technikerCounts = new Map<string, number>();
+      const quarterTCCounts = new Map<string, number>();
 
       (auftraege || []).forEach(a => {
         const s = a.pipeline_status ?? 'unbekannt';
@@ -56,6 +57,14 @@ export function useAdminDashboardStats() {
             a.zugewiesener_techniker_id,
             (technikerCounts.get(a.zugewiesener_techniker_id) ?? 0) + 1
           );
+          // Count TCs in current quarter
+          const td = a.termin_datum as string | null;
+          if (td && td >= quarterStart && td <= quarterEnd) {
+            quarterTCCounts.set(
+              a.zugewiesener_techniker_id,
+              (quarterTCCounts.get(a.zugewiesener_techniker_id) ?? 0) + 1
+            );
+          }
         }
       });
 
