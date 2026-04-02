@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 export interface TechnikerAuslastung {
   name: string;
   auftraege: number;
+  onboardingId: string;
+  quartalTCs: number;
 }
 
 export interface PipelineCount {
