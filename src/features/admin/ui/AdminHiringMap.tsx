@@ -118,7 +118,8 @@ export function AdminHiringMap() {
   
   const [isOpen, setIsOpen] = useState(true);
   const [showSales, setShowSales] = useState(true);
-  const [showContractors, setShowContractors] = useState(true);
+  const [showActive, setShowActive] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const [showThcOrders, setShowThcOrders] = useState(false); // Default off — heatmap is primary
   const [showHeatmap, setShowHeatmap] = useState(true);
 
@@ -198,11 +199,17 @@ export function AdminHiringMap() {
     const group = layersRef.current?.contractorGroup;
     if (!group) return;
     group.clearLayers();
-    if (!showContractors) return;
+    if (!showActive && !showOnboarding) return;
 
-    const offsets = applySpiderOffset(contractors.map(c => ({ lat: c.lat, lng: c.lng })));
+    const filteredContractors = contractors.filter(c => {
+      if (c.status === 'active') return showActive;
+      if (c.status === 'inaktiv') return showActive; // inaktive follow active toggle
+      return showOnboarding; // onboarding
+    });
 
-    contractors.forEach((c, idx) => {
+    const offsets = applySpiderOffset(filteredContractors.map(c => ({ lat: c.lat, lng: c.lng })));
+
+    filteredContractors.forEach((c, idx) => {
       const isActive = c.status === 'active';
       const isInaktiv = c.status === 'inaktiv';
       const color = isInaktiv ? 'hsl(0, 0%, 65%)' : isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
@@ -244,7 +251,7 @@ export function AdminHiringMap() {
       });
       marker.addTo(group);
     });
-  }, [contractors, showContractors, thcOrders]);
+  }, [contractors, showActive, showOnboarding, thcOrders]);
 
   // Place THC order markers (detail dots) — off by default
   useEffect(() => {
@@ -354,13 +361,20 @@ export function AdminHiringMap() {
                 Vertriebler
               </Button>
               <Button
-                variant={showContractors ? 'default' : 'outline'}
+                variant={showActive ? 'default' : 'outline'}
                 size="sm"
                 className="h-7 text-xs gap-1.5"
-                onClick={() => setShowContractors(!showContractors)}
+                onClick={() => setShowActive(!showActive)}
               >
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(142, 71%, 45%)' }} />
                 Aktive
+              </Button>
+              <Button
+                variant={showOnboarding ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setShowOnboarding(!showOnboarding)}
+              >
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(25, 95%, 53%)' }} />
                 Onboarding
               </Button>
