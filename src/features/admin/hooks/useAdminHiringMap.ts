@@ -110,7 +110,8 @@ export function useAdminHiringMap(selectedMonth?: Date) {
         .from('v_thermocheck_auftraege' as any)
         .select('kunde_plz, kunde_ort, wc1_durchgefuehrt_am')
         .not('kunde_plz', 'is', null)
-        .gte('wc1_durchgefuehrt_am', monthStart.toISOString()) as any);
+        .gte('wc1_durchgefuehrt_am', monthStart.toISOString())
+        .lt('wc1_durchgefuehrt_am', monthEnd.toISOString()) as any);
       if (error) throw error;
 
       const grouped = new Map<string, { plz: string; ort: string; count: number }>();
