@@ -16,6 +16,8 @@ interface ProfileStepProps {
   profile: ApplicantProfile;
   onProfileChange: (profile: ApplicantProfile) => void;
   onAvatarUpload: (file: File) => void;
+  wunschRadiusKm: number;
+  onWunschRadiusChange: (km: number) => void;
 }
 
 export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: ProfileStepProps) {
