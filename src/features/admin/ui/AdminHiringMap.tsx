@@ -118,7 +118,8 @@ export function AdminHiringMap() {
   
   const [isOpen, setIsOpen] = useState(true);
   const [showSales, setShowSales] = useState(true);
-  const [showContractors, setShowContractors] = useState(true);
+  const [showActive, setShowActive] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const [showThcOrders, setShowThcOrders] = useState(false); // Default off — heatmap is primary
   const [showHeatmap, setShowHeatmap] = useState(true);
 
