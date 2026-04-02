@@ -616,6 +616,60 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
         </CardContent>
       </Card>
 
+      {/* Aktive Techniker */}
+      <Card className="mb-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-500" />
+            Aktive Techniker ({readyTechs.length})
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Quartalskontingent: 24 TCs · Aktuelle Periode</p>
+        </CardHeader>
+        <CardContent>
+          {readyTechs.length === 0 ? (
+            <div className="p-6 text-center text-muted-foreground text-sm">Keine aktiven Techniker</div>
+          ) : (
+            <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
+              {readyTechs.map(c => {
+                const initials = `${c.vorname?.[0] || ''}${c.nachname?.[0] || ''}`.toUpperCase() || '?';
+                const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Kein Profil';
+                const tl = getQuotaTrafficLight(c.quartalTCs);
+                const pct = Math.min(100, Math.round((c.quartalTCs / 24) * 100));
+
+                return (
+                  <div
+                    key={c.id}
+                    className="py-3 px-1 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors rounded-md"
+                    onClick={() => onSelectContractor?.(c.id)}
+                  >
+                    <div className="relative shrink-0">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={c.avatarUrl || undefined} />
+                        <AvatarFallback className="text-[10px] bg-muted">{initials}</AvatarFallback>
+                      </Avatar>
+                      <span className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${TRAFFIC_COLORS[tl]}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                        <Badge variant="outline" className={`text-[10px] shrink-0 ${
+                          tl === 'green' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          tl === 'orange' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-destructive/10 text-destructive border-destructive/20'
+                        }`}>
+                          {c.quartalTCs} / 24 TCs
+                        </Badge>
+                      </div>
+                      <Progress value={pct} className="h-1.5 mt-1.5" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Onboarding-Funnel */}
       <Card className="mb-6">
         <CardHeader className="pb-2">
