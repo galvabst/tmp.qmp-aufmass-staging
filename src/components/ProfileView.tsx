@@ -22,6 +22,8 @@ import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useAkademieFortschritt } from '@/hooks/useAkademieFortschritt';
 import { useContractorActivityStats } from '@/features/contractors/hooks/useContractorActivityStats';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Slider } from '@/components/ui/slider';
+import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
