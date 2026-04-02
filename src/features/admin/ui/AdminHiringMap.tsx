@@ -151,10 +151,12 @@ export function AdminHiringMap() {
         weight: 1.5,
       }).addTo(group);
 
-      // Marker
-      const marker = L.marker([c.lat, c.lng], {
-        icon: createMarkerIcon(color, isActive ? '✓' : '⏳'),
-      });
+      // Marker – use avatar if available
+      const icon = c.avatarUrl
+        ? createAvatarIcon(c.avatarUrl, color)
+        : createMarkerIcon(color, isActive ? '✓' : '⏳');
+
+      const marker = L.marker([c.lat, c.lng], { icon });
       marker.bindPopup(`
         <div style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:140px;">
           <div style="font-weight:700;font-size:14px;color:#111;">${c.name}</div>
