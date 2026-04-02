@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
+import 'leaflet.heat';
 import { Loader2, Map as MapIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -30,7 +31,7 @@ function applySpiderOffset(items: { lat: number; lng: number }[]): { lat: number
 
   groups.forEach(indices => {
     if (indices.length < 2) return;
-    const radius = 0.008; // ~800m offset for visibility
+    const radius = 0.008;
     indices.forEach((idx, i) => {
       const angle = (2 * Math.PI * i) / indices.length;
       result[idx].lat += radius * Math.cos(angle);
@@ -83,20 +84,42 @@ function createAvatarIcon(avatarUrl: string, borderColor: string) {
   });
 }
 
+function generateMonthOptions(count: number): { date: Date; label: string }[] {
+  const months: { date: Date; label: string }[] = [];
+  const now = new Date();
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const label = d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+    months.push({ date: d, label });
+  }
+  return months.reverse();
+}
+
 export function AdminHiringMap() {
-  const { salesReps, contractors, thcOrders, isLoading, isGeocoding } = useAdminHiringMap();
+  const [selectedMonth, setSelectedMonth] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
+  const { salesReps, contractors, thcOrders, isLoading, isGeocoding } = useAdminHiringMap(selectedMonth);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<{
     salesGroup: L.LayerGroup;
     contractorGroup: L.LayerGroup;
     thcGroup: L.LayerGroup;
+    heatLayer: L.Layer | null;
   } | null>(null);
   
   const [isOpen, setIsOpen] = useState(true);
   const [showSales, setShowSales] = useState(true);
   const [showContractors, setShowContractors] = useState(true);
   const [showThcOrders, setShowThcOrders] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(true);
+
+  const monthOptions = useMemo(() => generateMonthOptions(6), []);
 
   // Init map
   useEffect(() => {
@@ -119,7 +142,7 @@ export function AdminHiringMap() {
     const contractorGroup = L.layerGroup().addTo(map);
     const thcGroup = L.layerGroup().addTo(map);
 
-    layersRef.current = { salesGroup, contractorGroup, thcGroup };
+    layersRef.current = { salesGroup, contractorGroup, thcGroup, heatLayer: null };
     mapRef.current = map;
 
     return () => {
@@ -144,7 +167,6 @@ export function AdminHiringMap() {
     if (!showSales) return;
 
     salesReps.forEach(rep => {
-      // Radius circle
       L.circle([rep.lat, rep.lng], {
         radius: rep.radiusKm * 1000,
         color: 'hsl(210, 80%, 50%)',
@@ -154,7 +176,6 @@ export function AdminHiringMap() {
         dashArray: '4 4',
       }).addTo(group);
 
-      // Marker
       const marker = L.marker([rep.lat, rep.lng], {
         icon: createMarkerIcon('hsl(210, 80%, 50%)', 'V'),
       });
@@ -176,7 +197,6 @@ export function AdminHiringMap() {
     group.clearLayers();
     if (!showContractors) return;
 
-    // Apply spider offset to prevent overlapping markers
     const offsets = applySpiderOffset(contractors.map(c => ({ lat: c.lat, lng: c.lng })));
 
     contractors.forEach((c, idx) => {
@@ -184,7 +204,6 @@ export function AdminHiringMap() {
       const color = isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
       const pos = offsets[idx];
 
-      // Wunschradius circle (use original position for accurate radius)
       L.circle([c.lat, c.lng], {
         radius: c.wunschRadiusKm * 1000,
         color,
@@ -193,15 +212,12 @@ export function AdminHiringMap() {
         weight: 1.5,
       }).addTo(group);
 
-      // Marker – use avatar if available
       const icon = c.avatarUrl
         ? createAvatarIcon(c.avatarUrl, color)
         : createMarkerIcon(color, isActive ? '✓' : '⏳');
 
       const marker = L.marker([pos.lat, pos.lng], { icon });
-      // THC count will be added when thcOrders are available via a separate binding
       marker.bindPopup(() => {
-        // Dynamically calculate THC count at popup open time
         let thcCount = 0;
         thcOrders.forEach(o => {
           const d = getDistanceKm(c.lat, c.lng, o.lat, o.lng);
@@ -215,7 +231,7 @@ export function AdminHiringMap() {
               ${isActive ? '✅ Aktiv' : '🔶 Onboarding'} · ${c.wunschRadiusKm} km
             </div>
             <div style="font-size:12px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
-              🔥 ${thcCount} THC${thcCount !== 1 ? 's' : ''} diesen Monat im Umkreis
+              🔥 ${thcCount} THC${thcCount !== 1 ? 's' : ''} im Umkreis
             </div>
           </div>
         `;
@@ -224,7 +240,7 @@ export function AdminHiringMap() {
     });
   }, [contractors, showContractors, thcOrders]);
 
-  // Place THC order markers
+  // Place THC order markers (detail dots)
   useEffect(() => {
     const group = layersRef.current?.thcGroup;
     if (!group) return;
@@ -246,7 +262,7 @@ export function AdminHiringMap() {
           <div style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:120px;">
             <div style="font-weight:700;font-size:14px;color:#111;">📍 ${order.plz} ${order.ort}</div>
             <div style="font-size:13px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
-              ${order.count} Thermocheck${order.count > 1 ? 's' : ''} diesen Monat
+              ${order.count} Thermocheck${order.count > 1 ? 's' : ''}
             </div>
           </div>
         `)
@@ -254,19 +270,50 @@ export function AdminHiringMap() {
     });
   }, [thcOrders, showThcOrders]);
 
-  // Count THCs in radius for each contractor
-  const getThcCountInRadius = (lat: number, lng: number, radiusKm: number) => {
-    let count = 0;
-    thcOrders.forEach(o => {
-      const d = getDistanceKm(lat, lng, o.lat, o.lng);
-      if (d <= radiusKm) count += o.count;
+  // Heatmap layer
+  useEffect(() => {
+    const map = mapRef.current;
+    const layers = layersRef.current;
+    if (!map || !layers) return;
+
+    // Remove old heat layer
+    if (layers.heatLayer) {
+      map.removeLayer(layers.heatLayer);
+      layers.heatLayer = null;
+    }
+
+    if (!showHeatmap || thcOrders.length === 0) return;
+
+    const maxCount = Math.max(...thcOrders.map(o => o.count), 1);
+    const heatData: [number, number, number][] = thcOrders.map(o => [
+      o.lat,
+      o.lng,
+      o.count / maxCount,
+    ]);
+
+    const heat = (L as any).heatLayer(heatData, {
+      radius: 35,
+      blur: 25,
+      maxZoom: 10,
+      max: 1,
+      gradient: {
+        0.0: '#00ff00',
+        0.3: '#adff2f',
+        0.5: '#ffff00',
+        0.7: '#ffa500',
+        1.0: '#ff0000',
+      },
     });
-    return count;
-  };
+
+    heat.addTo(map);
+    layers.heatLayer = heat;
+  }, [thcOrders, showHeatmap]);
 
   const activeCount = contractors.filter(c => c.status === 'active').length;
   const onboardingCount = contractors.filter(c => c.status === 'onboarding').length;
   const totalThc = thcOrders.reduce((s, o) => s + o.count, 0);
+
+  const selectedMonthLabel = selectedMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -287,8 +334,8 @@ export function AdminHiringMap() {
         </CollapsibleTrigger>
         <CollapsibleContent>
           <CardContent className="pt-0">
-            {/* Toggle buttons + Legend */}
-            <div className="flex flex-wrap items-center gap-2 mb-3">
+            {/* Toggle buttons */}
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <Button
                 variant={showSales ? 'default' : 'outline'}
                 size="sm"
@@ -316,8 +363,41 @@ export function AdminHiringMap() {
                 onClick={() => setShowThcOrders(!showThcOrders)}
               >
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(280, 70%, 50%)' }} />
-                Thermochecks diesen Monat ({totalThc})
+                THC-Punkte
               </Button>
+              <Button
+                variant={showHeatmap ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setShowHeatmap(!showHeatmap)}
+              >
+                🔥 Heatmap
+              </Button>
+              <span className="text-xs text-muted-foreground ml-1">
+                {totalThc} THCs im {selectedMonthLabel}
+              </span>
+            </div>
+
+            {/* Month selector */}
+            <div className="flex flex-wrap items-center gap-1 mb-3">
+              {monthOptions.map(opt => {
+                const isActive =
+                  opt.date.getFullYear() === selectedMonth.getFullYear() &&
+                  opt.date.getMonth() === selectedMonth.getMonth();
+                return (
+                  <button
+                    key={opt.label}
+                    onClick={() => setSelectedMonth(opt.date)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                      isActive
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Map container */}
