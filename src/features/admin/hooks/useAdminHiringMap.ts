@@ -153,7 +153,7 @@ export function useAdminHiringMap() {
         }
       });
 
-      // THC orders
+      // THC orders (already reduced to this month only)
       (thcQuery.data ?? []).forEach((t: any) => {
         plzList.push(t.plz);
         if (t.ort) cityMap.set(t.plz, t.ort);
