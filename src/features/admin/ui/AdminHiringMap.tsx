@@ -106,8 +106,9 @@ export function AdminHiringMap() {
 
     const salesGroup = L.layerGroup().addTo(map);
     const contractorGroup = L.layerGroup().addTo(map);
+    const thcGroup = L.layerGroup().addTo(map);
 
-    layersRef.current = { salesGroup, contractorGroup };
+    layersRef.current = { salesGroup, contractorGroup, thcGroup };
     mapRef.current = map;
 
     return () => {
