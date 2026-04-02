@@ -25,9 +25,18 @@ export interface ContractorMapEntry {
   avatarUrl: string | null;
 }
 
+export interface ThcOrderMapEntry {
+  plz: string;
+  ort: string;
+  lat: number;
+  lng: number;
+  count: number;
+}
+
 export function useAdminHiringMap() {
   const [salesReps, setSalesReps] = useState<SalesRepMapEntry[]>([]);
   const [contractors, setContractors] = useState<ContractorMapEntry[]>([]);
+  const [thcOrders, setThcOrders] = useState<ThcOrderMapEntry[]>([]);
   const [isGeocoding, setIsGeocoding] = useState(false);
 
   // Load Vertriebler (field_sales)
@@ -82,9 +91,36 @@ export function useAdminHiringMap() {
     staleTime: 1000 * 60 * 5,
   });
 
+  // Load THC orders (grouped by PLZ)
+  const thcQuery = useQuery({
+    queryKey: ['admin-hiring-map-thc'],
+    queryFn: async () => {
+      const { data, error } = await (supabaseTC
+        .from('v_thermocheck_auftraege' as any)
+        .select('kunde_plz, kunde_ort')
+        .not('kunde_plz', 'is', null) as any);
+      if (error) throw error;
+
+      // Group by PLZ
+      const grouped = new Map<string, { plz: string; ort: string; count: number }>();
+      (data ?? []).forEach((d: any) => {
+        const plz = (d.kunde_plz || '').trim();
+        if (plz.length < 4) return;
+        const existing = grouped.get(plz);
+        if (existing) {
+          existing.count++;
+        } else {
+          grouped.set(plz, { plz, ort: d.kunde_ort || '', count: 1 });
+        }
+      });
+      return Array.from(grouped.values());
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
   // Geocode everything
   useEffect(() => {
-    if (!salesQuery.data && !contractorQuery.data) return;
+    if (!salesQuery.data && !contractorQuery.data && !thcQuery.data) return;
 
     const doGeocode = async () => {
       setIsGeocoding(true);
@@ -106,6 +142,12 @@ export function useAdminHiringMap() {
           plzList.push(c.plz);
           if (c.ort) cityMap.set(c.plz, c.ort);
         }
+      });
+
+      // THC orders
+      (thcQuery.data ?? []).forEach((t: any) => {
+        plzList.push(t.plz);
+        if (t.ort) cityMap.set(t.plz, t.ort);
       });
 
       const coords = await geocodePlzBatch(plzList, cityMap);
@@ -151,16 +193,33 @@ export function useAdminHiringMap() {
         });
       });
       setContractors(ctrs);
+
+      // Build THC order points
+      const orders: ThcOrderMapEntry[] = [];
+      (thcQuery.data ?? []).forEach((t: any) => {
+        const coord = coords.get(t.plz);
+        if (!coord) return;
+        orders.push({
+          plz: t.plz,
+          ort: t.ort || coord.city || '',
+          lat: coord.lat,
+          lng: coord.lng,
+          count: t.count,
+        });
+      });
+      setThcOrders(orders);
+
       setIsGeocoding(false);
     };
 
     doGeocode();
-  }, [salesQuery.data, contractorQuery.data]);
+  }, [salesQuery.data, contractorQuery.data, thcQuery.data]);
 
   return {
     salesReps,
     contractors,
-    isLoading: salesQuery.isLoading || contractorQuery.isLoading,
+    thcOrders,
+    isLoading: salesQuery.isLoading || contractorQuery.isLoading || thcQuery.isLoading,
     isGeocoding,
   };
 }
