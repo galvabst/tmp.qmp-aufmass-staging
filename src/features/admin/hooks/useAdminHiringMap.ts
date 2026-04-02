@@ -22,6 +22,7 @@ export interface ContractorMapEntry {
   lng: number;
   status: 'active' | 'onboarding';
   wunschRadiusKm: number;
+  avatarUrl: string | null;
 }
 
 export function useAdminHiringMap() {
@@ -59,7 +60,7 @@ export function useAdminHiringMap() {
 
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, vorname, nachname')
+        .select('id, vorname, nachname, avatar_url')
         .in('id', profileIds);
 
       const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
@@ -73,6 +74,7 @@ export function useAdminHiringMap() {
           name: profile ? `${profile.vorname || ''} ${profile.nachname || ''}`.trim() : 'Unbekannt',
           status: d.onboarding_status === 'ready' ? 'active' : 'onboarding',
           wunschRadiusKm: d.wunsch_radius_km ?? 60,
+          avatarUrl: profile?.avatar_url || null,
         };
       });
     },
@@ -144,6 +146,7 @@ export function useAdminHiringMap() {
           lng: coord.lng,
           status: c.status,
           wunschRadiusKm: c.wunschRadiusKm,
+          avatarUrl: c.avatarUrl,
         });
       });
       setContractors(ctrs);
