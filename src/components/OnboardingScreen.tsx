@@ -820,6 +820,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             profile={state.profil}
             onProfileChange={updateProfile}
             onAvatarUpload={handleAvatarUpload}
+            wunschRadiusKm={wunschRadiusKm}
+            onWunschRadiusChange={setWunschRadiusKm}
           />
         );
 
