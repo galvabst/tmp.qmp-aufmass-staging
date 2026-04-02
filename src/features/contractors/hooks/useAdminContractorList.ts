@@ -149,6 +149,14 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   const activeLektionenCount = lektionenCountRes.count ?? 0;
   const pflichtProduktKeys = new Set((pflichtProdukteRes.data || []).map(p => p.produkt_key));
 
+  // T-Shirt und Poloshirt gelten als EINE Pflicht-Gruppe (eins von beiden reicht)
+  const OBERTEIL_KEYS = ['tshirt', 'poloshirt'];
+  const hasOberteilGroup = OBERTEIL_KEYS.some(k => pflichtProduktKeys.has(k));
+  // Effektive Pflicht-Anzahl: alle Keys minus die doppelten Oberteile + 1 Gruppe
+  const pflichtProdukteEffektiv = hasOberteilGroup
+    ? pflichtProduktKeys.size - OBERTEIL_KEYS.filter(k => pflichtProduktKeys.has(k)).length + 1
+    : pflichtProduktKeys.size;
+
   // Build lookup maps
   const profileMap = new Map<string, any>();
   (profilesRes.data || []).forEach(p => profileMap.set(p.id, p));
@@ -239,8 +247,19 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       bestellungenBezahlt: best?.bezahlt ?? 0,
       bezahlteProdukte: best?.paidKeys ?? [],
       bestellungen: best?.details ?? [],
-      pflichtProdukteTotal: pflichtProduktKeys.size,
-      pflichtProdukteBezahlt: [...pflichtProduktKeys].filter(pk => best?.paidKeys.includes(pk)).length,
+      pflichtProdukteTotal: pflichtProdukteEffektiv,
+      pflichtProdukteBezahlt: (() => {
+        const paidKeys = best?.paidKeys ?? [];
+        // Count each non-oberteil pflicht key individually
+        let count = [...pflichtProduktKeys]
+          .filter(pk => !OBERTEIL_KEYS.includes(pk) && paidKeys.includes(pk))
+          .length;
+        // Oberteil-Gruppe: gilt als bezahlt wenn mind. eins bezahlt
+        if (hasOberteilGroup && OBERTEIL_KEYS.some(k => paidKeys.includes(k))) {
+          count++;
+        }
+        return count;
+      })(),
       equipmentStatus: equipment,
       coachingBewertung: o.coaching_bewertung ?? 'ausstehend',
       coachingTermin: o.gebuchter_coaching_termin ?? null,
