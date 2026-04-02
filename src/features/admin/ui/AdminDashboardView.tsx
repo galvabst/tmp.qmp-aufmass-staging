@@ -63,6 +63,44 @@ const MANDATORY_ITEMS = [
   { key: 'google-workspace', label: 'Google Workspace', check: (p: string[]) => p.includes('google-workspace') },
 ];
 
+// ── Onboarding steps index ──
+const ONBOARDING_STEPS = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+
+function getOnboardingTrafficLight(c: AdminContractor): 'green' | 'orange' | 'red' {
+  if (!c.erstelltAm) return 'green';
+  const daysLeft = 7 - differenceInDays(new Date(), parseISO(c.erstelltAm));
+  const stepIdx = ONBOARDING_STEPS.indexOf(c.currentStep ?? '');
+  if (daysLeft <= 0) return 'red';
+  if (stepIdx >= 4) return 'green'; // Akademie or further
+  if (daysLeft <= 2) return 'red';
+  if (daysLeft <= 4 && stepIdx < 3) return 'orange';
+  return 'green';
+}
+
+function getOnboardingDaysLabel(c: AdminContractor): string {
+  if (!c.erstelltAm) return '';
+  const daysLeft = 7 - differenceInDays(new Date(), parseISO(c.erstelltAm));
+  if (daysLeft < 0) return `Überfällig (+${Math.abs(daysLeft)} T)`;
+  if (daysLeft === 0) return 'Heute fällig';
+  return `${daysLeft} Tag${daysLeft !== 1 ? 'e' : ''} verbl.`;
+}
+
+const TRAFFIC_COLORS = {
+  green: 'bg-emerald-500',
+  orange: 'bg-amber-500',
+  red: 'bg-destructive',
+};
+
+function getQuotaTrafficLight(quartalTCs: number): 'green' | 'orange' | 'red' {
+  const now = new Date();
+  const qStart = startOfQuarter(now);
+  const weeksPassed = Math.max(1, differenceInWeeks(now, qStart));
+  const expected = (weeksPassed / 13) * 24;
+  if (quartalTCs >= expected * 0.8) return 'green';
+  if (quartalTCs >= expected * 0.5) return 'orange';
+  return 'red';
+}
+
 // ── Filter tab definitions ──
 type TabKey = 'alle' | 'nicht_registriert' | 'stammdaten' | 'bestellungen' | 'akademie' | 'pruefung' | 'praxistest' | 'coaching';
 
