@@ -253,6 +253,19 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
     return tabDef ? activeTechs.filter(tabDef.filter) : activeTechs;
   }, [activeTechs, activeTab]);
 
+  // Ready technicians (active, non-trainer)
+  const readyTechs = useMemo(() => {
+    if (!contractors || !stats) return [];
+    const auslastungMap = new Map(stats.auslastung.map(a => [a.onboardingId, a]));
+    return contractors
+      .filter(c => c.onboardingStatus === 'ready' && !c.isTrainer)
+      .map(c => ({
+        ...c,
+        quartalTCs: auslastungMap.get(c.id)?.quartalTCs ?? 0,
+      }))
+      .sort((a, b) => b.quartalTCs - a.quartalTCs);
+  }, [contractors, stats]);
+
   const { inVerzugList, ready, trainers } = useMemo(() => {
     const ready = contractors?.filter(c => c.onboardingStatus === 'ready').length ?? 0;
     const trainers = contractors?.filter(c => c.isTrainer).length ?? 0;
