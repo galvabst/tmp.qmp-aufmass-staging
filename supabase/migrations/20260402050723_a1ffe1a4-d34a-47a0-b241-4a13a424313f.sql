@@ -1,0 +1,1 @@
+ALTER TABLE thermocheck.contractor_onboarding ADD COLUMN IF NOT EXISTS wunsch_radius_km integer DEFAULT 60;

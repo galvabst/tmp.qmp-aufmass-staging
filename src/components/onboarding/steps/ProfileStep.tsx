@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Camera, User, Lightbulb, Check, X } from 'lucide-react';
+import { Camera, User, Lightbulb, Check, X, MapPin } from 'lucide-react';
 
 // Beispielbilder für Foto-Anleitung
 import fotoGut from '@/assets/onboarding/foto-beispiel-gut.png';
@@ -7,6 +7,7 @@ import fotoSchlecht from '@/assets/onboarding/foto-beispiel-schlecht.png';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ApplicantProfile } from '@/types/onboarding';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
@@ -15,9 +16,11 @@ interface ProfileStepProps {
   profile: ApplicantProfile;
   onProfileChange: (profile: ApplicantProfile) => void;
   onAvatarUpload: (file: File) => void;
+  wunschRadiusKm: number;
+  onWunschRadiusChange: (km: number) => void;
 }
 
-export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: ProfileStepProps) {
+export function ProfileStep({ profile, onProfileChange, onAvatarUpload, wunschRadiusKm, onWunschRadiusChange }: ProfileStepProps) {
   const [dragActive, setDragActive] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
@@ -259,6 +262,31 @@ export function ProfileStep({ profile, onProfileChange, onAvatarUpload }: Profil
               value={profile.ort}
               onChange={(e) => handleChange('ort', e.target.value)}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Wunschumkreis */}
+      <div className="bg-card rounded-xl p-4 shadow-card space-y-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-foreground">Wunschumkreis</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Wie weit bist du bereit, für Aufträge zu fahren?
+        </p>
+        <div className="space-y-3">
+          <Slider
+            value={[wunschRadiusKm]}
+            onValueChange={(v) => onWunschRadiusChange(v[0])}
+            min={10}
+            max={150}
+            step={5}
+          />
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">10 km</span>
+            <span className="font-bold text-primary">{wunschRadiusKm} km</span>
+            <span className="text-muted-foreground">150 km</span>
           </div>
         </div>
       </div>

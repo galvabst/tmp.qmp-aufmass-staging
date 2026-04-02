@@ -69,6 +69,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const paymentHandledRef = useRef(false);
 
   const [isAdvancing, setIsAdvancing] = useState(false);
+  const [wunschRadiusKm, setWunschRadiusKm] = useState(60);
 
   // KRITISCH: Payment-Success in URL? Dann NIEMALS forceReset!
   const hasPaymentSuccess = searchParams.get('payment') === 'success';
@@ -700,6 +701,12 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
       try {
         await saveProfileToDb(state.profil);
+        // Save wunschRadiusKm
+        try {
+          await (supabaseTC.from('contractor_onboarding' as any).update({ wunsch_radius_km: wunschRadiusKm } as any).eq('profile_id', dbStatus?.profileId || '') as any);
+        } catch (e) {
+          console.warn('[Onboarding] Failed to save wunsch_radius_km:', e);
+        }
         toast.success('Profildaten gespeichert');
       } catch (error) {
         console.error('[Onboarding] Failed to save profile:', error);
@@ -813,6 +820,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             profile={state.profil}
             onProfileChange={updateProfile}
             onAvatarUpload={handleAvatarUpload}
+            wunschRadiusKm={wunschRadiusKm}
+            onWunschRadiusChange={setWunschRadiusKm}
           />
         );
 
