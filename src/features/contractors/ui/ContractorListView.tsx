@@ -97,9 +97,12 @@ interface ContractorListViewProps {
 
 export function ContractorListView({ initialSelectedId, onClearSelection }: ContractorListViewProps = {}) {
   const { data: contractors, isLoading } = useAdminContractorList();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [showInaktiv, setShowInaktiv] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<AdminContractor | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ id: string; name: string; action: 'inaktiv' | 'gefeuert' | 'reaktivieren' } | null>(null);
 
   // Auto-select contractor when initialSelectedId is provided
   const autoSelectedRef = useRef(false);
@@ -113,27 +116,51 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     }
   }, [initialSelectedId, contractors]);
 
+  const handleStatusChange = useCallback(async (id: string, newStatus: 'inaktiv' | 'gefeuert' | 'in_progress') => {
+    const { error } = await (supabaseTC
+      .from('contractor_onboarding' as any)
+      .update({ onboarding_status: newStatus })
+      .eq('id', id) as any);
+    if (error) {
+      toast.error('Status konnte nicht geändert werden');
+      return;
+    }
+    toast.success(newStatus === 'inaktiv' ? 'Techniker pausiert' : newStatus === 'gefeuert' ? 'Techniker deaktiviert' : 'Techniker reaktiviert');
+    queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] });
+  }, [queryClient]);
+
+  const confirmAction = useCallback(() => {
+    if (!confirmDialog) return;
+    const newStatus = confirmDialog.action === 'reaktivieren' ? 'in_progress' : confirmDialog.action;
+    handleStatusChange(confirmDialog.id, newStatus as any);
+    setConfirmDialog(null);
+  }, [confirmDialog, handleStatusChange]);
+
   // KPI values
   const kpis = useMemo(() => {
-    if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0 };
+    if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0, inaktiv: 0 };
     return {
-      total: contractors.length,
+      total: contractors.filter(c => c.onboardingStatus !== 'inaktiv').length,
       ready: contractors.filter(c => c.onboardingStatus === 'ready').length,
       onboarding: contractors.filter(c => ['started', 'in_progress', 'mitfahrt'].includes(c.onboardingStatus)).length,
       trainers: contractors.filter(c => c.isTrainer).length,
+      inaktiv: contractors.filter(c => c.onboardingStatus === 'inaktiv').length,
     };
   }, [contractors]);
 
   // Pipeline stats
   const pipelineStats: PipelineStat[] = useMemo(() => {
     if (!contractors?.length) return [];
-    const total = contractors.length;
+    const activeContractors = contractors.filter(c => c.onboardingStatus !== 'inaktiv');
+    const total = activeContractors.length;
+    if (total === 0) return [];
     const counts = new Map<OnboardingStatusEnum, number>();
-    contractors.forEach(c => counts.set(c.onboardingStatus, (counts.get(c.onboardingStatus) || 0) + 1));
+    activeContractors.forEach(c => counts.set(c.onboardingStatus, (counts.get(c.onboardingStatus) || 0) + 1));
 
     return Array.from(counts.entries())
       .sort(([a], [b]) => {
-        const order: OnboardingStatusEnum[] = ['angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'ready', 'blocked', 'deaktiviert'];
+        const order: OnboardingStatusEnum[] = ['angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'ready', 'blocked', 'deaktiviert', 'inaktiv', 'gefeuert'];
         return order.indexOf(a) - order.indexOf(b);
       })
       .map(([status, count]) => ({
@@ -149,7 +176,13 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   const filtered = useMemo(() => {
     if (!contractors) return [];
     return contractors.filter(c => {
-      if (statusFilter && c.onboardingStatus !== statusFilter) return false;
+      // Inaktiv tab logic
+      if (showInaktiv) {
+        if (c.onboardingStatus !== 'inaktiv') return false;
+      } else {
+        if (c.onboardingStatus === 'inaktiv') return false;
+        if (statusFilter && c.onboardingStatus !== statusFilter) return false;
+      }
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const name = `${c.vorname} ${c.nachname}`.toLowerCase();
@@ -157,9 +190,11 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       }
       return true;
     });
-  }, [contractors, statusFilter, searchQuery]);
+  }, [contractors, statusFilter, searchQuery, showInaktiv]);
 
-  const statusOptions = Object.entries(ONBOARDING_STATUS_LABELS).map(([value, label]) => ({ value, label }));
+  const statusOptions = Object.entries(ONBOARDING_STATUS_LABELS)
+    .filter(([k]) => k !== 'inaktiv' && k !== 'gefeuert')
+    .map(([value, label]) => ({ value, label }));
 
   if (selectedContractor) {
     return <ContractorDetailView contractor={selectedContractor} onBack={() => { setSelectedContractor(null); onClearSelection?.(); }} />;
@@ -179,13 +214,33 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
             <KpiCard label="Trainer" value={kpis.trainers} icon={Award} accent="bg-indigo-50 dark:bg-indigo-950/30" />
           </div>
 
-          <PipelineCards stats={pipelineStats} activeFilter={statusFilter} onFilterChange={setStatusFilter} />
+          {/* Aktiv / Inaktiv toggle */}
+          <div className="flex gap-1">
+            <button
+              onClick={() => { setShowInaktiv(false); setStatusFilter(null); }}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                !showInaktiv ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              Aktiv ({kpis.total})
+            </button>
+            <button
+              onClick={() => { setShowInaktiv(true); setStatusFilter(null); }}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                showInaktiv ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              Inaktiv ({kpis.inaktiv})
+            </button>
+          </div>
+
+          {!showInaktiv && <PipelineCards stats={pipelineStats} activeFilter={statusFilter} onFilterChange={setStatusFilter} />}
 
           <FilterRow
             searchValue={searchQuery}
             onSearchChange={setSearchQuery}
             searchPlaceholder="Name, E-Mail oder Ort..."
-            statusOptions={statusOptions}
+            statusOptions={showInaktiv ? [] : statusOptions}
             statusValue={statusFilter || undefined}
             onStatusChange={(v) => setStatusFilter(v || null)}
             statusPlaceholder="Status"
@@ -196,11 +251,47 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
             {filtered.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">Keine Techniker gefunden</div>
             ) : (
-              filtered.map(c => <ContractorCard key={c.id} contractor={c} onClick={() => setSelectedContractor(c)} />)
+              filtered.map(c => (
+                <ContractorCard
+                  key={c.id}
+                  contractor={c}
+                  onClick={() => setSelectedContractor(c)}
+                  onAction={(action) => setConfirmDialog({ id: c.id, name: [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Techniker', action })}
+                />
+              ))
             )}
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!confirmDialog} onOpenChange={(open) => !open && setConfirmDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmDialog?.action === 'inaktiv' && '⏸️ Techniker pausieren'}
+              {confirmDialog?.action === 'gefeuert' && '🚫 Techniker deaktivieren'}
+              {confirmDialog?.action === 'reaktivieren' && '🔄 Techniker reaktivieren'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialog?.action === 'inaktiv' && `${confirmDialog.name} wird als inaktiv markiert. Er/sie bekommt keine neuen Aufträge, kann aber jederzeit reaktiviert werden.`}
+              {confirmDialog?.action === 'gefeuert' && `${confirmDialog?.name} wird endgültig deaktiviert und verschwindet aus allen Listen und der Hiring-Map. Diese Aktion kann nur manuell rückgängig gemacht werden.`}
+              {confirmDialog?.action === 'reaktivieren' && `${confirmDialog.name} wird reaktiviert und ist wieder für Aufträge verfügbar.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmAction}
+              className={confirmDialog?.action === 'gefeuert' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+            >
+              {confirmDialog?.action === 'inaktiv' && 'Pausieren'}
+              {confirmDialog?.action === 'gefeuert' && 'Endgültig deaktivieren'}
+              {confirmDialog?.action === 'reaktivieren' && 'Reaktivieren'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
