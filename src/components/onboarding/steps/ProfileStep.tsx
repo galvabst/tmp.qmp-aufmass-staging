@@ -7,6 +7,7 @@ import fotoSchlecht from '@/assets/onboarding/foto-beispiel-schlecht.png';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ApplicantProfile } from '@/types/onboarding';
 import { ImageLightbox } from '@/components/ui/image-lightbox';

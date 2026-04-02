@@ -304,6 +304,9 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
         </DialogContent>
       </Dialog>
 
+      {/* Hiring-Map */}
+      <AdminHiringMap />
+
       {/* Performance-Übersicht */}
       <Card className="mb-6">
         <CardHeader className="pb-2">
