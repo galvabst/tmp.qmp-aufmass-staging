@@ -51,7 +51,8 @@ export function useAdminHiringMap() {
     queryFn: async () => {
       const { data, error } = await (supabaseTC
         .from('contractor_onboarding' as any)
-        .select('profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km') as any);
+        .select('profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km')
+        .not('onboarding_status', 'in', '("deaktiviert","invited")') as any);
       if (error) throw error;
       
       // Get profile names
