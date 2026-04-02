@@ -33,7 +33,8 @@ export interface ThcOrderMapEntry {
   count: number;
 }
 
-export function useAdminHiringMap(selectedMonth?: Date) {
+/** selectedMonth === null means "Gesamt" (all time) */
+export function useAdminHiringMap(selectedMonth: Date | null) {
   const [salesReps, setSalesReps] = useState<SalesRepMapEntry[]>([]);
   const [contractors, setContractors] = useState<ContractorMapEntry[]>([]);
   const [thcOrders, setThcOrders] = useState<ThcOrderMapEntry[]>([]);
@@ -64,7 +65,6 @@ export function useAdminHiringMap(selectedMonth?: Date) {
         .not('onboarding_status', 'in', '("deaktiviert","invited","gefeuert")') as any);
       if (error) throw error;
       
-      // Get profile names
       const profileIds = (data ?? []).map((d: any) => d.profile_id).filter(Boolean);
       if (profileIds.length === 0) return [];
 
@@ -91,27 +91,32 @@ export function useAdminHiringMap(selectedMonth?: Date) {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Load THC orders grouped by PLZ for selected month
+  // Load THC orders grouped by PLZ
   const monthKey = selectedMonth
     ? `${selectedMonth.getFullYear()}-${selectedMonth.getMonth()}`
-    : `${new Date().getFullYear()}-${new Date().getMonth()}`;
+    : 'gesamt';
 
   const thcQuery = useQuery({
     queryKey: ['admin-hiring-map-thc', monthKey],
     queryFn: async () => {
-      const monthStart = selectedMonth ? new Date(selectedMonth) : new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
-      const monthEnd = new Date(monthStart);
-      monthEnd.setMonth(monthEnd.getMonth() + 1);
-
-      const { data, error } = await (supabaseTC
+      let query = (supabaseTC
         .from('v_thermocheck_auftraege' as any)
         .select('kunde_plz, kunde_ort, wc1_durchgefuehrt_am')
-        .not('kunde_plz', 'is', null)
-        .gte('wc1_durchgefuehrt_am', monthStart.toISOString())
-        .lt('wc1_durchgefuehrt_am', monthEnd.toISOString()) as any);
+        .not('kunde_plz', 'is', null) as any);
+
+      if (selectedMonth) {
+        const monthStart = new Date(selectedMonth);
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        const monthEnd = new Date(monthStart);
+        monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+        query = query
+          .gte('wc1_durchgefuehrt_am', monthStart.toISOString())
+          .lt('wc1_durchgefuehrt_am', monthEnd.toISOString());
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
 
       const grouped = new Map<string, { plz: string; ort: string; count: number }>();
@@ -122,11 +127,7 @@ export function useAdminHiringMap(selectedMonth?: Date) {
         if (existing) {
           existing.count += 1;
         } else {
-          grouped.set(plz, {
-            plz,
-            ort: (d.kunde_ort || '').trim(),
-            count: 1,
-          });
+          grouped.set(plz, { plz, ort: (d.kunde_ort || '').trim(), count: 1 });
         }
       });
 
@@ -142,18 +143,15 @@ export function useAdminHiringMap(selectedMonth?: Date) {
     const doGeocode = async () => {
       setIsGeocoding(true);
 
-      // Collect all PLZs
       const plzList: string[] = [];
       const cityMap = new Map<string, string>();
 
-      // Sales reps without lat/lng
       (salesQuery.data ?? []).forEach(s => {
         if (s.plz_hauptstandort && (!s.hauptstandort_lat || !s.hauptstandort_lng)) {
           plzList.push(s.plz_hauptstandort);
         }
       });
 
-      // Contractors
       (contractorQuery.data ?? []).forEach((c: any) => {
         if (c.plz && c.plz.trim().length >= 4) {
           plzList.push(c.plz);
@@ -161,7 +159,6 @@ export function useAdminHiringMap(selectedMonth?: Date) {
         }
       });
 
-      // THC orders (already reduced to this month only)
       (thcQuery.data ?? []).forEach((t: any) => {
         plzList.push(t.plz);
         if (t.ort) cityMap.set(t.plz, t.ort);
@@ -179,14 +176,7 @@ export function useAdminHiringMap(selectedMonth?: Date) {
           if (c) { lat = c.lat; lng = c.lng; }
         }
         if (lat && lng) {
-          reps.push({
-            id: s.id,
-            name: s.name || 'Unbekannt',
-            plz: s.plz_hauptstandort || '',
-            lat,
-            lng,
-            radiusKm: 60,
-          });
+          reps.push({ id: s.id, name: s.name || 'Unbekannt', plz: s.plz_hauptstandort || '', lat, lng, radiusKm: 60 });
         }
       });
       setSalesReps(reps);
@@ -198,15 +188,8 @@ export function useAdminHiringMap(selectedMonth?: Date) {
         const coord = coords.get(c.plz);
         if (!coord) return;
         ctrs.push({
-          id: c.profileId,
-          name: c.name,
-          plz: c.plz,
-          ort: c.ort || coord.city || '',
-          lat: coord.lat,
-          lng: coord.lng,
-          status: c.status,
-          wunschRadiusKm: c.wunschRadiusKm,
-          avatarUrl: c.avatarUrl,
+          id: c.profileId, name: c.name, plz: c.plz, ort: c.ort || coord.city || '',
+          lat: coord.lat, lng: coord.lng, status: c.status, wunschRadiusKm: c.wunschRadiusKm, avatarUrl: c.avatarUrl,
         });
       });
       setContractors(ctrs);
@@ -216,13 +199,7 @@ export function useAdminHiringMap(selectedMonth?: Date) {
       (thcQuery.data ?? []).forEach((t: any) => {
         const coord = coords.get(t.plz);
         if (!coord) return;
-        orders.push({
-          plz: t.plz,
-          ort: t.ort || coord.city || '',
-          lat: coord.lat,
-          lng: coord.lng,
-          count: t.count,
-        });
+        orders.push({ plz: t.plz, ort: t.ort || coord.city || '', lat: coord.lat, lng: coord.lng, count: t.count });
       });
       setThcOrders(orders);
 
