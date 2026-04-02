@@ -123,7 +123,7 @@ export function useAdminAggregatedStats() {
         : null;
 
       const totalLateCount = verspaetungen.length;
-      const overallLateFees = verspaetungen.reduce((s, v) => s + (v.gebuehr ?? 0), 0);
+      const overallLateFees = verspaetungen.reduce((s, v) => s + (v.gesamtbetrag ?? 0), 0);
       const overallOnTimePercent = totalChecksLast6 > 0
         ? Math.round(((totalChecksLast6 - totalLateCount) / totalChecksLast6) * 100)
         : null;
