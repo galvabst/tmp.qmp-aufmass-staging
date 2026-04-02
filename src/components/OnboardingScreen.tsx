@@ -701,6 +701,12 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
       try {
         await saveProfileToDb(state.profil);
+        // Save wunschRadiusKm
+        try {
+          await (supabaseTC.from('contractor_onboarding' as any).update({ wunsch_radius_km: wunschRadiusKm } as any).eq('profile_id', dbStatus?.profileId || '') as any);
+        } catch (e) {
+          console.warn('[Onboarding] Failed to save wunsch_radius_km:', e);
+        }
         toast.success('Profildaten gespeichert');
       } catch (error) {
         console.error('[Onboarding] Failed to save profile:', error);
