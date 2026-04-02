@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { Loader2, Map as MapIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useAdminHiringMap, SalesRepMapEntry, ContractorMapEntry } from '../hooks/useAdminHiringMap';
+import { useAdminHiringMap, SalesRepMapEntry, ContractorMapEntry, ThcOrderMapEntry } from '../hooks/useAdminHiringMap';
 import { Button } from '@/components/ui/button';
 
 /** Offset overlapping markers at the same lat/lng so they're all visible */
