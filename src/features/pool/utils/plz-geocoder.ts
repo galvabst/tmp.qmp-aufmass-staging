@@ -48,14 +48,15 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Primary: Nominatim (OpenStreetMap) – reliable for German PLZs
- */
-async function fetchFromNominatim(plz: string): Promise<PlzCoordinate | null> {
+function normalizeCity(city?: string): string {
+  return (city ?? "").replace(/\s+/g, " ").trim();
+}
+
+async function fetchFromNominatim(params: URLSearchParams): Promise<PlzCoordinate | null> {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(plz)}&country=de&format=json&limit=1`;
+    const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
     const res = await fetch(url, {
-      headers: { "User-Agent": "GalvanekTechApp/1.0" },
+      headers: { "Accept-Language": "de" },
     });
     if (!res.ok) return null;
 
@@ -66,19 +67,56 @@ async function fetchFromNominatim(plz: string): Promise<PlzCoordinate | null> {
     const lng = parseFloat(data[0].lon);
 
     if (!isValidDeCoord(lat, lng)) {
-      console.warn(`[plz-geocoder] Nominatim returned out-of-range coords for PLZ ${plz}: ${lat}, ${lng}`);
+      console.warn(`[plz-geocoder] Nominatim returned out-of-range coords: ${lat}, ${lng}`);
       return null;
     }
 
+    const address = data[0].address ?? {};
+
     return {
-      plz,
+      plz: address.postcode || "",
       lat,
       lng,
-      city: data[0].display_name?.split(",")[0]?.trim() || "",
+      city:
+        address.city ||
+        address.town ||
+        address.village ||
+        address.municipality ||
+        data[0].display_name?.split(",")[0]?.trim() ||
+        "",
     };
   } catch {
     return null;
   }
+}
+
+/**
+ * Primary: Nominatim (OpenStreetMap) – reliable for German PLZs
+ */
+async function fetchFromNominatim(plz: string): Promise<PlzCoordinate | null> {
+  const params = new URLSearchParams({
+    postalcode: plz,
+    countrycodes: 'de',
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '1',
+  });
+
+  const result = await fetchFromNominatim(params);
+  return result ? { ...result, plz: result.plz || plz } : null;
+}
+
+async function fetchFromNominatimQuery(query: string, fallbackPlz: string): Promise<PlzCoordinate | null> {
+  const params = new URLSearchParams({
+    q: query,
+    countrycodes: 'de',
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '1',
+  });
+
+  const result = await fetchFromNominatim(params);
+  return result ? { ...result, plz: result.plz || fallbackPlz } : null;
 }
 
 /**
@@ -88,20 +126,24 @@ export async function geocodePlz(plz: string, _city?: string): Promise<PlzCoordi
   if (!plz || plz.trim().length < 4) return null;
 
   const normalized = normalizePlz(plz);
+  const city = normalizeCity(_city);
 
   const cached = getCached(normalized);
   if (cached) return cached;
 
-  const result = await fetchFromNominatim(normalized);
+  const result =
+    (await fetchFromNominatim(normalized)) ||
+    (city ? await fetchFromNominatimQuery(`${normalized} ${city}, Deutschland`, normalized) : null) ||
+    (city ? await fetchFromNominatimQuery(`${city}, Deutschland`, normalized) : null);
 
   if (result) {
     // Store with normalized PLZ
-    const entry = { ...result, plz: normalized };
+    const entry = { ...result, plz: normalized, city: result.city || city };
     setCache(normalized, entry);
     return entry;
   }
 
-  console.warn(`[plz-geocoder] No result for PLZ ${normalized}`);
+  console.warn(`[plz-geocoder] No result for PLZ ${normalized}${city ? ` (${city})` : ''}`);
   return null;
 }
 
