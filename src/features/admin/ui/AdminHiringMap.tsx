@@ -207,9 +207,9 @@ export function AdminHiringMap() {
       return showOnboarding; // onboarding
     });
 
-    const offsets = applySpiderOffset(contractors.map(c => ({ lat: c.lat, lng: c.lng })));
+    const offsets = applySpiderOffset(filteredContractors.map(c => ({ lat: c.lat, lng: c.lng })));
 
-    contractors.forEach((c, idx) => {
+    filteredContractors.forEach((c, idx) => {
       const isActive = c.status === 'active';
       const isInaktiv = c.status === 'inaktiv';
       const color = isInaktiv ? 'hsl(0, 0%, 65%)' : isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
