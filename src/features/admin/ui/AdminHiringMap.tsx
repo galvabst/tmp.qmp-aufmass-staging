@@ -162,7 +162,6 @@ export function AdminHiringMap() {
     group.clearLayers();
     if (!showContractors) return;
 
-    contractors.forEach(c => {
     // Apply spider offset to prevent overlapping markers
     const offsets = applySpiderOffset(contractors.map(c => ({ lat: c.lat, lng: c.lng })));
 
