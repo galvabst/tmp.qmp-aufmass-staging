@@ -33,7 +33,7 @@ export interface ThcOrderMapEntry {
   count: number;
 }
 
-export function useAdminHiringMap() {
+export function useAdminHiringMap(selectedMonth?: Date) {
   const [salesReps, setSalesReps] = useState<SalesRepMapEntry[]>([]);
   const [contractors, setContractors] = useState<ContractorMapEntry[]>([]);
   const [thcOrders, setThcOrders] = useState<ThcOrderMapEntry[]>([]);
