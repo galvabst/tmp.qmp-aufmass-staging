@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { User, Mail, Phone, MapPin, LogOut, ChevronRight, Award, Edit2, X, Save, Target, Eye, Gift, Timer, Star, GraduationCap, CheckCircle2, BookOpen, Activity } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, Mail, Phone, MapPin, LogOut, ChevronRight, Award, Edit2, X, Save, Target, Eye, Gift, Timer, Star, GraduationCap, CheckCircle2, BookOpen, Activity, Navigation } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { TechnicianProfile } from '@/types/technician';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,8 @@ import { useAkademieContent } from '@/hooks/useAkademieContent';
 import { useAkademieFortschritt } from '@/hooks/useAkademieFortschritt';
 import { useContractorActivityStats } from '@/features/contractors/hooks/useContractorActivityStats';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Slider } from '@/components/ui/slider';
+import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 
 interface ProfileViewProps {
   profile: TechnicianProfile;
@@ -86,6 +88,41 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
   const { data: completedLektionIds } = useAkademieFortschritt(contractorOnboardingId || null);
   const { data: activityStats } = useContractorActivityStats(contractorOnboardingId);
   const hasActivityData = activityStats && activityStats.some(d => d.checks > 0 || d.avgRating !== null);
+  // Radius state
+  const [wunschRadius, setWunschRadius] = useState<number | null>(null);
+  const [savingRadius, setSavingRadius] = useState(false);
+
+  // Load radius via useEffect
+  useEffect(() => {
+    if (!contractorOnboardingId) return;
+    supabaseTC
+      .from('contractor_onboarding')
+      .select('wunsch_radius_km')
+      .eq('id', contractorOnboardingId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.wunsch_radius_km) setWunschRadius(data.wunsch_radius_km);
+      });
+  }, [contractorOnboardingId]);
+
+  const handleSaveRadius = async (val: number) => {
+    if (!contractorOnboardingId) return;
+    setSavingRadius(true);
+    try {
+      const { error } = await supabaseTC
+        .from('contractor_onboarding')
+        .update({ wunsch_radius_km: val })
+        .eq('id', contractorOnboardingId);
+      if (error) throw error;
+      setWunschRadius(val);
+      toast.success(`Einsatzradius auf ${val} km gesetzt`);
+    } catch {
+      toast.error('Fehler beim Speichern');
+    } finally {
+      setSavingRadius(false);
+    }
+  };
+
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: profile.name,
@@ -499,6 +536,40 @@ export function ProfileView({ profile, profileId, totalSubmittedOrders = 0, bewe
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Einsatzradius */}
+      {contractorOnboardingId && (
+        <section className="p-4 pt-0">
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Einsatzradius</h2>
+          <div className="bg-card rounded-lg shadow-card p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Navigation className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-foreground">Wunschradius</span>
+                  <span className="text-sm font-bold text-foreground">{wunschRadius ?? 60} km</span>
+                </div>
+              </div>
+            </div>
+            <Slider
+              value={[wunschRadius ?? 60]}
+              min={10}
+              max={150}
+              step={5}
+              onValueCommit={(vals) => handleSaveRadius(vals[0])}
+              onValueChange={(vals) => setWunschRadius(vals[0])}
+              disabled={savingRadius}
+              className="mt-1"
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+              <span>10 km</span>
+              <span>150 km</span>
             </div>
           </div>
         </section>

@@ -1,6 +1,6 @@
 import { ArrowLeft, MapPin, Clock, Phone, Mail, FileText, Euro, Navigation, Calendar, ClipboardList, CheckCircle2, AlertCircle, Loader2, Copy, Check, Ruler, Home, Thermometer, Receipt, Search, Banknote } from 'lucide-react';
 import { AuftragChatSection } from '@/features/chat/ui/AuftragChatSection';
-import { useAbrechnungStatus, AbrechnungStatusEnum } from '@/hooks/useAbrechnungStatus';
+import { useAbrechnungStatus, useMarkRechnungGestellt, AbrechnungStatusEnum } from '@/hooks/useAbrechnungStatus';
 import { TechnicianOrder, CheckinPhase, CHECKIN_PHASE_LABELS } from '@/types/technician';
 import { AUFTRAGSTYP_LABELS, OBJECT_ORDER_STATUS_LABELS } from '@/lib/enums';
 import { Badge } from '@/components/ui/badge';
@@ -72,14 +72,16 @@ function CopyBlock({ label, text, copyKey, copiedKey, onCopy }: {
 }
 
 /** Billing progress stepper for approved orders */
-function AbrechnungStepper({ status, approvedAt, rechnungEingegangenAm, geprueftAm, bezahltAm, betrag }: {
+function AbrechnungStepper({ status, approvedAt, rechnungEingegangenAm, geprueftAm, bezahltAm, betrag, auftragId }: {
   status: AbrechnungStatusEnum;
   approvedAt?: string;
   rechnungEingegangenAm: string | null;
   geprueftAm: string | null;
   bezahltAm: string | null;
   betrag: number | null;
+  auftragId?: string;
 }) {
+  const markMutation = useMarkRechnungGestellt();
   const steps: { key: AbrechnungStatusEnum | 'abgenommen'; label: string; icon: React.ReactNode; date: string | null | undefined }[] = [
     { key: 'abgenommen', label: 'Abgenommen', icon: <CheckCircle2 className="w-4 h-4" />, date: approvedAt },
     { key: 'rechnung_eingegangen', label: 'Rechnung', icon: <Receipt className="w-4 h-4" />, date: rechnungEingegangenAm },
@@ -592,6 +594,7 @@ Mit freundlichen Grüßen`;
             geprueftAm={abrechnungData?.geprueftAm ?? null}
             bezahltAm={abrechnungData?.bezahltAm ?? null}
             betrag={abrechnungData?.betrag ?? order.billableAmount ?? null}
+            auftragId={order.auftragId}
           />
         )}
 

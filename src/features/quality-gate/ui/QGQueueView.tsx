@@ -4,22 +4,46 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileCheck, Clock, CheckCircle2, User, MapPin, Video, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { FileCheck, Clock, CheckCircle2, User, MapPin, Video, Link as LinkIcon, Loader2, Receipt, Search, Banknote, ArrowRight } from 'lucide-react';
 import { ListSkeleton } from '@/components/ListSkeleton';
 import { useAdminQGQueue, useAdminQGPraxistests, useApprovePraxistest } from '../hooks/useAdminQGQueue';
+import { useAdminAbrechnungen, useUpdateAbrechnungStatus } from '@/hooks/useAdminAbrechnung';
 import { AUFTRAGSTYP_LABELS } from '@/lib/enums';
+import { ABRECHNUNG_STATUS_LABELS, AbrechnungStatusEnum } from '@/hooks/useAbrechnungStatus';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+const NEXT_STATUS: Partial<Record<AbrechnungStatusEnum, AbrechnungStatusEnum>> = {
+  rechnung_eingegangen: 'in_pruefung',
+  in_pruefung: 'bezahlt',
+};
+
+const STATUS_ICON: Record<AbrechnungStatusEnum, React.ReactNode> = {
+  offen: <Clock className="w-3.5 h-3.5" />,
+  rechnung_eingegangen: <Receipt className="w-3.5 h-3.5" />,
+  in_pruefung: <Search className="w-3.5 h-3.5" />,
+  bezahlt: <Banknote className="w-3.5 h-3.5" />,
+};
+
+const STATUS_BADGE_VARIANT: Record<AbrechnungStatusEnum, 'secondary' | 'default' | 'destructive' | 'outline'> = {
+  offen: 'secondary',
+  rechnung_eingegangen: 'outline',
+  in_pruefung: 'default',
+  bezahlt: 'default',
+};
+
 export function QGQueueView() {
   const { data: items, isLoading } = useAdminQGQueue();
   const { data: praxistests, isLoading: praxisLoading } = useAdminQGPraxistests();
+  const { data: abrechnungen, isLoading: abrLoading } = useAdminAbrechnungen();
   const approveMutation = useApprovePraxistest();
+  const updateAbrStatus = useUpdateAbrechnungStatus();
   
   const pendingCount = useMemo(() => items?.filter(i => !i.hasBewertung).length ?? 0, [items]);
   const praxisCount = praxistests?.length ?? 0;
+  const abrPendingCount = useMemo(() => abrechnungen?.filter(a => a.status !== 'offen' && a.status !== 'bezahlt').length ?? 0, [abrechnungen]);
 
   const handleApprove = async (onboardingId: string, name: string) => {
     try {
@@ -30,15 +54,29 @@ export function QGQueueView() {
     }
   };
 
+  const handleAdvanceStatus = async (auftragId: string, currentStatus: AbrechnungStatusEnum) => {
+    const next = NEXT_STATUS[currentStatus];
+    if (!next) return;
+    try {
+      await updateAbrStatus.mutateAsync({ auftragId, newStatus: next });
+      toast.success(`Status auf "${ABRECHNUNG_STATUS_LABELS[next]}" gesetzt`);
+    } catch {
+      toast.error('Fehler beim Status-Update');
+    }
+  };
+
   return (
     <AdminLayout title="Quality Gate" subtitle={isLoading ? undefined : `${pendingCount} zur Prüfung`} count={isLoading ? undefined : (items?.length ?? 0) + praxisCount}>
       <Tabs defaultValue="auftraege" className="w-full">
         <TabsList className="w-full mb-4">
-          <TabsTrigger value="auftraege" className="flex-1">
-            Aufträge {pendingCount > 0 && <Badge variant="secondary" className="ml-1.5 text-[10px]">{pendingCount}</Badge>}
+          <TabsTrigger value="auftraege" className="flex-1 text-xs">
+            Aufträge {pendingCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px]">{pendingCount}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="praxistests" className="flex-1">
-            Praxistests {praxisCount > 0 && <Badge variant="destructive" className="ml-1.5 text-[10px]">{praxisCount}</Badge>}
+          <TabsTrigger value="praxistests" className="flex-1 text-xs">
+            Praxistests {praxisCount > 0 && <Badge variant="destructive" className="ml-1 text-[10px]">{praxisCount}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="abrechnung" className="flex-1 text-xs">
+            Abrechnung {abrPendingCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px]">{abrPendingCount}</Badge>}
           </TabsTrigger>
         </TabsList>
 
@@ -150,6 +188,69 @@ export function QGQueueView() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Abrechnung Tab */}
+        <TabsContent value="abrechnung">
+          {abrLoading ? <ListSkeleton count={4} showAvatar showBadge /> : (
+            <div className="space-y-3">
+              {!abrechnungen?.length ? (
+                <div className="text-center py-8 text-muted-foreground">Keine abgenommenen Aufträge</div>
+              ) : abrechnungen.filter(a => a.status !== 'offen').length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">Keine offenen Rechnungen</div>
+              ) : abrechnungen.filter(a => a.status !== 'offen').map((item) => {
+                const next = NEXT_STATUS[item.status];
+                return (
+                  <Card key={item.auftragId} className="shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-sm text-foreground">{item.customerName}</p>
+                          <p className="text-[11px] text-muted-foreground">{item.technikerName}</p>
+                        </div>
+                        <Badge variant={STATUS_BADGE_VARIANT[item.status]} className="text-[10px] gap-1">
+                          {STATUS_ICON[item.status]}
+                          {ABRECHNUNG_STATUS_LABELS[item.status]}
+                        </Badge>
+                      </div>
+
+                      {item.betrag != null && (
+                        <p className="text-sm font-bold text-foreground mb-2">{item.betrag.toFixed(0)} €</p>
+                      )}
+
+                      {item.rechnungEingegangenAm && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Rechnung: {format(parseISO(item.rechnungEingegangenAm), 'd. MMM yyyy', { locale: de })}
+                        </p>
+                      )}
+
+                      {next && (
+                        <Button
+                          size="sm"
+                          className="w-full mt-3 gap-1.5"
+                          onClick={() => handleAdvanceStatus(item.auftragId, item.status)}
+                          disabled={updateAbrStatus.isPending}
+                        >
+                          {updateAbrStatus.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <ArrowRight className="w-4 h-4" />
+                          )}
+                          → {ABRECHNUNG_STATUS_LABELS[next]}
+                        </Button>
+                      )}
+
+                      {item.status === 'bezahlt' && (
+                        <div className="mt-2 text-center text-green-600 text-xs font-medium">
+                          ✓ Bezahlt {item.bezahltAm && `am ${format(parseISO(item.bezahltAm), 'd. MMM yyyy', { locale: de })}`}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
