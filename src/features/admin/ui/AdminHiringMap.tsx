@@ -215,7 +215,7 @@ export function AdminHiringMap() {
               ${isActive ? '✅ Aktiv' : '🔶 Onboarding'} · ${c.wunschRadiusKm} km
             </div>
             <div style="font-size:12px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
-              🔥 ${thcCount} THC${thcCount !== 1 ? 's' : ''} im Umkreis
+              🔥 ${thcCount} THC${thcCount !== 1 ? 's' : ''} diesen Monat im Umkreis
             </div>
           </div>
         `;
@@ -246,7 +246,7 @@ export function AdminHiringMap() {
           <div style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:120px;">
             <div style="font-weight:700;font-size:14px;color:#111;">📍 ${order.plz} ${order.ort}</div>
             <div style="font-size:13px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
-              ${order.count} Thermocheck${order.count > 1 ? 's' : ''}
+              ${order.count} Thermocheck${order.count > 1 ? 's' : ''} diesen Monat
             </div>
           </div>
         `)
@@ -316,7 +316,7 @@ export function AdminHiringMap() {
                 onClick={() => setShowThcOrders(!showThcOrders)}
               >
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(280, 70%, 50%)' }} />
-                Thermochecks ({totalThc})
+                Thermochecks diesen Monat ({totalThc})
               </Button>
             </div>
 
