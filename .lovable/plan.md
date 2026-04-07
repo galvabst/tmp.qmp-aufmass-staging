@@ -1,16 +1,24 @@
 
 
-# Einsatzradius nach oben verschieben
+# Florian Striebe: scanner-lizenz auf paid setzen
 
-## Änderung
-Den Einsatzradius-Block (Zeilen 544-576) von seiner aktuellen Position (unterhalb der Akademie-Sektion) direkt nach dem Quartals-Kontingent-Block (nach Zeile 315) verschieben.
+## Aktion
+Ein einzelnes UPDATE auf `thermocheck.contractor_bestellungen`:
 
-## Technisch
+```sql
+UPDATE thermocheck.contractor_bestellungen
+SET stripe_payment_status = 'paid',
+    paid_at = now()
+WHERE id = '9a500253-73d0-4596-91d1-58f04dc382e8'
+  AND produkt_key = 'scanner-lizenz'
+  AND stripe_payment_status = 'pending';
+```
 
-**Datei: `src/components/ProfileView.tsx`**
+## Umsetzung
+- Supabase Insert-Tool verwenden (Daten-Update, keine Schema-Änderung)
+- Danach per SELECT verifizieren, dass der Status korrekt gesetzt wurde
 
-1. Den gesamten `{/* Einsatzradius */}`-Block (Zeilen 544-576) ausschneiden
-2. Einfügen direkt nach `</section>` des Quartals-Kontingent-Blocks (nach Zeile 315, vor der Boni-Übersicht)
-
-Die Reihenfolge wird dann: Stats → Kontingent → **Einsatzradius** → Boni → Pünktlichkeit → Aktivität → Akademie → Kontaktdaten
+## Auswirkung
+- Florians Onboarding-Ansicht zeigt die Scanner-Lizenz sofort als bezahlt
+- Admin-Dashboard zeigt keine fehlende Lizenz mehr an
 
