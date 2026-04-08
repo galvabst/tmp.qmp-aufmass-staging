@@ -9928,6 +9928,7 @@ export type Database = {
         Args: { final_signing_date: string }
         Returns: string
       }
+      can_access_all_leads: { Args: never; Returns: boolean }
       can_access_audio_object: {
         Args: { object_name: string }
         Returns: boolean
