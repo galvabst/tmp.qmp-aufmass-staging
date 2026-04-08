@@ -8337,6 +8337,42 @@ export type Database = {
           },
         ]
       }
+      user_dashboard_layouts: {
+        Row: {
+          dashboard: string
+          layout: Json
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          dashboard: string
+          layout: Json
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          dashboard?: string
+          layout?: Json
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_dashboard_layouts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_dashboard_layouts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_verantwortlichkeiten: {
         Row: {
           created_at: string | null
@@ -12892,6 +12928,7 @@ export type Database = {
         | "TASK"
         | "UNKNOWN"
         | "ONLINE_MEETING"
+        | "PRIVATE"
       arbeitspaket_status:
         | "offen"
         | "in_bearbeitung"
@@ -13516,6 +13553,7 @@ export const Constants = {
         "TASK",
         "UNKNOWN",
         "ONLINE_MEETING",
+        "PRIVATE",
       ],
       arbeitspaket_status: [
         "offen",

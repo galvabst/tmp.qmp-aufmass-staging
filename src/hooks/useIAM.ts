@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 
 type SystemRole = 'superadmin' | 'admin' | 'manager' | 'user';
 
@@ -8,12 +9,12 @@ type SystemRole = 'superadmin' | 'admin' | 'manager' | 'user';
  * Lädt die System-Rollen des aktuellen Users aus iam.user_system_roles
  */
 export function useIAM() {
-  const { data: systemRoles, isLoading, error } = useQuery({
-    queryKey: ['iam', 'system-roles'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+  const { user, isLoading: isSessionLoading } = useSupabaseSession();
 
+  const { data: systemRoles, isLoading, error } = useQuery({
+    queryKey: ['iam', 'system-roles', user?.id ?? 'anonymous'],
+    enabled: !isSessionLoading && !!user,
+    queryFn: async () => {
       // Lade echte Rollen aus IAM-Schema via RPC
       const { data, error } = await supabase.rpc('get_user_iam_roles');
       
@@ -29,7 +30,7 @@ export function useIAM() {
 
   return {
     systemRoles: systemRoles || [],
-    loading: isLoading,
+    loading: isSessionLoading || isLoading,
     error
   };
 }
