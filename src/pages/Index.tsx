@@ -38,6 +38,7 @@ const Index = () => {
   const queryClient = useQueryClient();
   
   const { session, isLoading: isSessionLoading } = useSupabaseSession();
+  const accessToken = session?.access_token ?? null;
   
   // Grace period: track when session was first established to avoid flash of error screen
   const [sessionEstablishedAt, setSessionEstablishedAt] = useState<number | null>(null);
@@ -71,7 +72,7 @@ const Index = () => {
     onboardingRecord,
     isFetched: isDbFetched,
     refetch: refetchOnboardingStatus,
-  } = useContractorOnboardingStatus(session?.user?.id);
+  } = useContractorOnboardingStatus(session?.user?.id, accessToken);
   
   const isAdmin = useIsAdmin();
 
