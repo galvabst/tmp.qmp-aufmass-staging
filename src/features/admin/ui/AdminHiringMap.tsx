@@ -549,6 +549,25 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           </CardContent>
         </CollapsibleContent>
       </Card>
+
+      <AlertDialog open={!!pendingAction} onOpenChange={(open) => { if (!open && !isMutating) setPendingAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{dialogConfig?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{dialogConfig?.desc}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMutating}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmAction(); }}
+              disabled={isMutating}
+              className={dialogConfig?.destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+            >
+              {isMutating ? 'Bitte warten…' : dialogConfig?.confirmText}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Collapsible>
   );
 }
