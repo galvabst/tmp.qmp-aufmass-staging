@@ -151,8 +151,9 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
       const cityMap = new Map<string, string>();
 
       (salesQuery.data ?? []).forEach(s => {
-        if (s.plz_hauptstandort && (!s.hauptstandort_lat || !s.hauptstandort_lng)) {
-          plzList.push(s.plz_hauptstandort);
+        const plz = (s.plz_hauptstandort || '').trim();
+        if (plz.length >= 4 && (!s.hauptstandort_lat || !s.hauptstandort_lng)) {
+          plzList.push(plz);
         }
       });
 
