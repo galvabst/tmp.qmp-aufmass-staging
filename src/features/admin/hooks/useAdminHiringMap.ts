@@ -228,7 +228,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
         const coord = coords.get(c.plz);
         if (!coord) return;
         ctrs.push({
-          id: c.profileId, name: c.name, plz: c.plz, ort: c.ort || coord.city || '',
+          id: c.profileId, onboardingId: c.onboardingId, name: c.name, plz: c.plz, ort: c.ort || coord.city || '',
           lat: coord.lat, lng: coord.lng, status: c.status, wunschRadiusKm: c.wunschRadiusKm, avatarUrl: c.avatarUrl,
         });
       });
