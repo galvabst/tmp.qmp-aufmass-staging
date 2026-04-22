@@ -66,7 +66,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     queryFn: async () => {
       const { data, error } = await (supabaseTC
         .from('contractor_onboarding' as any)
-        .select('profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km')
+        .select('id, profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km')
         .not('onboarding_status', 'in', '("deaktiviert","invited","gefeuert")') as any);
       if (error) throw error;
       
@@ -83,6 +83,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
       return (data ?? []).map((d: any) => {
         const profile = profileMap.get(d.profile_id);
         return {
+          onboardingId: d.id,
           profileId: d.profile_id,
           plz: d.anschrift_plz || '',
           ort: d.anschrift_ort || '',
