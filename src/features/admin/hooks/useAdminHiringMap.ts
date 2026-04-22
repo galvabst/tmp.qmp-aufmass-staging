@@ -16,7 +16,10 @@ export interface SalesRepMapEntry {
 }
 
 export interface ContractorMapEntry {
+  /** profile_id (used to navigate to contractor detail view) */
   id: string;
+  /** contractor_onboarding row id (used for status mutations) */
+  onboardingId: string;
   name: string;
   plz: string;
   ort: string;
