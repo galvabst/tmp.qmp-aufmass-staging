@@ -141,14 +141,6 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
   // Use refs so popup event handlers always see latest props (popups outlive renders)
   const onSelectContractorRef = useRef(onSelectContractor);
   useEffect(() => { onSelectContractorRef.current = onSelectContractor; }, [onSelectContractor]);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const layersRef = useRef<{
-    salesGroup: L.LayerGroup;
-    contractorGroup: L.LayerGroup;
-    thcGroup: L.LayerGroup;
-    heatLayer: L.Layer | null;
-  } | null>(null);
   
   const [isOpen, setIsOpen] = useState(true);
   const [showSales, setShowSales] = useState(true);
