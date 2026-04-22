@@ -249,11 +249,32 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     doGeocode();
   }, [salesQuery.data, contractorQuery.data, thcQuery.data]);
 
+  // Mutation: pause / fire / reactivate a contractor directly from the map
+  const queryClient = useQueryClient();
+  const setContractorOnboardingStatus = useCallback(
+    async (onboardingId: string, action: ContractorMapAction): Promise<void> => {
+      const newStatus =
+        action === 'pause' ? 'inaktiv' : action === 'fire' ? 'gefeuert' : 'in_progress';
+      const { error } = await (supabaseTC
+        .from('contractor_onboarding' as any)
+        .update({ onboarding_status: newStatus } as any)
+        .eq('id', onboardingId) as any);
+      if (error) throw error;
+      // Refresh map + contractor list
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] }),
+      ]);
+    },
+    [queryClient]
+  );
+
   return {
     salesReps,
     contractors,
     thcOrders,
     isLoading: salesQuery.isLoading || contractorQuery.isLoading || thcQuery.isLoading,
     isGeocoding,
+    setContractorOnboardingStatus,
   };
 }
