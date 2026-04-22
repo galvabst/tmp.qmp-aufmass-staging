@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './dialog';
-import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 
 interface ImageLightboxProps {
   src: string;
@@ -14,10 +13,8 @@ export function ImageLightbox({ src, alt, open, onOpenChange, label }: ImageLigh
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl p-2 bg-black/95 border-none">
-        <VisuallyHidden.Root>
-          <DialogTitle>{alt}</DialogTitle>
-          <DialogDescription>Detailansicht des Bildes</DialogDescription>
-        </VisuallyHidden.Root>
+        <DialogTitle className="sr-only">{alt}</DialogTitle>
+        <DialogDescription className="sr-only">Detailansicht des Bildes</DialogDescription>
         <div className="flex flex-col items-center">
           <img 
             src={src} 
