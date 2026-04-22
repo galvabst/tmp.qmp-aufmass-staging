@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
-import { geocodePlzBatch, PlzCoordinate } from '@/features/pool/utils/plz-geocoder';
+import { geocodePlzBatch, geocodeCity, PlzCoordinate } from '@/features/pool/utils/plz-geocoder';
 import { useEffect, useState, useRef } from 'react';
 
 export interface SalesRepMapEntry {
