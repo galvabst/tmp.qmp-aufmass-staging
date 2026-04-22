@@ -595,6 +595,12 @@ export type Database = {
           bankgebuehren_prozent: number | null
           bauende_datum: string | null
           baustart_datum: string | null
+          baustellen_hausnummer: string | null
+          baustellen_land: Database["public"]["Enums"]["dach_land_enum"] | null
+          baustellen_notiz: string | null
+          baustellen_ort: string | null
+          baustellen_plz: string | null
+          baustellen_strasse: string | null
           baustellenstatus:
             | Database["public"]["Enums"]["baustellenstatus"]
             | null
@@ -675,6 +681,12 @@ export type Database = {
           bankgebuehren_prozent?: number | null
           bauende_datum?: string | null
           baustart_datum?: string | null
+          baustellen_hausnummer?: string | null
+          baustellen_land?: Database["public"]["Enums"]["dach_land_enum"] | null
+          baustellen_notiz?: string | null
+          baustellen_ort?: string | null
+          baustellen_plz?: string | null
+          baustellen_strasse?: string | null
           baustellenstatus?:
             | Database["public"]["Enums"]["baustellenstatus"]
             | null
@@ -755,6 +767,12 @@ export type Database = {
           bankgebuehren_prozent?: number | null
           bauende_datum?: string | null
           baustart_datum?: string | null
+          baustellen_hausnummer?: string | null
+          baustellen_land?: Database["public"]["Enums"]["dach_land_enum"] | null
+          baustellen_notiz?: string | null
+          baustellen_ort?: string | null
+          baustellen_plz?: string | null
+          baustellen_strasse?: string | null
           baustellenstatus?:
             | Database["public"]["Enums"]["baustellenstatus"]
             | null
@@ -856,6 +874,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "auftraege"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auftraege_kombiauftrag_partner_id_fkey"
+            columns: ["kombiauftrag_partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
           },
           {
             foreignKeyName: "auftraege_kunde_id_fkey"
@@ -979,6 +1004,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "auftrag_anhaenge_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
+          },
+          {
             foreignKeyName: "auftrag_anhaenge_hochgeladen_von_fkey"
             columns: ["hochgeladen_von"]
             isOneToOne: false
@@ -1056,6 +1088,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "auftrag_arbeitspakete_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
+          },
+          {
             foreignKeyName: "auftrag_arbeitspakete_verantwortlichkeit_id_fkey"
             columns: ["verantwortlichkeit_id"]
             isOneToOne: false
@@ -1116,6 +1155,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "auftraege"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auftrag_bauzeitraum_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
           },
           {
             foreignKeyName: "auftrag_bauzeitraum_erstellt_von_fkey"
@@ -1233,6 +1279,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "auftrag_bestellungen_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
+          },
+          {
             foreignKeyName: "auftrag_bestellungen_erstellt_von_fkey"
             columns: ["erstellt_von"]
             isOneToOne: false
@@ -1316,6 +1369,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "auftraege"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auftrag_wiedervorlagen_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
           },
           {
             foreignKeyName: "auftrag_wiedervorlagen_erledigt_durch_arbeitspaket_id_fkey"
@@ -1770,6 +1830,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "auftraege"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cross_selling_aktivitaeten_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
           },
           {
             foreignKeyName: "cross_selling_aktivitaeten_autargy_kunde_id_fkey"
@@ -3470,6 +3537,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "auftraege"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_deal_calculations_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
           },
           {
             foreignKeyName: "lead_deal_calculations_lead_id_fkey"
@@ -6613,6 +6687,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_provisions_auftraege_auftrag"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
+          },
+          {
             foreignKeyName: "fk_provisions_auftraege_kalkulation"
             columns: ["kalkulation_id"]
             isOneToOne: false
@@ -6831,12 +6912,296 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_ag_compute_api_usage: {
+        Row: {
+          cost_eur: number
+          cost_usd: number
+          created_at: string
+          duration_ms: number | null
+          id: string
+          input_tokens: number
+          model: string
+          output_tokens: number
+          phase: string
+          vergleich_id: string | null
+        }
+        Insert: {
+          cost_eur?: number
+          cost_usd?: number
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          input_tokens?: number
+          model: string
+          output_tokens?: number
+          phase: string
+          vergleich_id?: string | null
+        }
+        Update: {
+          cost_eur?: number
+          cost_usd?: number
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          input_tokens?: number
+          model?: string
+          output_tokens?: number
+          phase?: string
+          vergleich_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_compute_api_usage_vergleich_id_fkey"
+            columns: ["vergleich_id"]
+            isOneToOne: false
+            referencedRelation: "sales_ag_vergleiche"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_ag_compute_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          performed_by: string
+          vergleich_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string
+          vergleich_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string
+          vergleich_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_compute_audit_log_vergleich_id_fkey"
+            columns: ["vergleich_id"]
+            isOneToOne: false
+            referencedRelation: "sales_ag_vergleiche"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_ag_compute_customer_enrichment: {
+        Row: {
+          bivalence_point_celsius: number | null
+          building_year: number | null
+          created_at: string
+          current_heating_type: string | null
+          customer_lead_id: string | null
+          heated_area_m2: number | null
+          id: string
+          norm_heating_load_kw: number | null
+          notes: string | null
+          persons_in_household: number | null
+          property_type: string | null
+          updated_at: string
+          vergleich_id: string | null
+        }
+        Insert: {
+          bivalence_point_celsius?: number | null
+          building_year?: number | null
+          created_at?: string
+          current_heating_type?: string | null
+          customer_lead_id?: string | null
+          heated_area_m2?: number | null
+          id?: string
+          norm_heating_load_kw?: number | null
+          notes?: string | null
+          persons_in_household?: number | null
+          property_type?: string | null
+          updated_at?: string
+          vergleich_id?: string | null
+        }
+        Update: {
+          bivalence_point_celsius?: number | null
+          building_year?: number | null
+          created_at?: string
+          current_heating_type?: string | null
+          customer_lead_id?: string | null
+          heated_area_m2?: number | null
+          id?: string
+          norm_heating_load_kw?: number | null
+          notes?: string | null
+          persons_in_household?: number | null
+          property_type?: string | null
+          updated_at?: string
+          vergleich_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_compute_customer_enrichment_vergleich_id_fkey"
+            columns: ["vergleich_id"]
+            isOneToOne: true
+            referencedRelation: "sales_ag_vergleiche"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_ag_compute_template: {
+        Row: {
+          brandstiftung_tip: string | null
+          category: string
+          created_at: string
+          galvanek_default: string | null
+          id: string
+          item_description: string | null
+          item_key: string
+          item_label: string
+          sales_tip: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          brandstiftung_tip?: string | null
+          category: string
+          created_at?: string
+          galvanek_default?: string | null
+          id?: string
+          item_description?: string | null
+          item_key: string
+          item_label: string
+          sales_tip?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          brandstiftung_tip?: string | null
+          category?: string
+          created_at?: string
+          galvanek_default?: string | null
+          id?: string
+          item_description?: string | null
+          item_key?: string
+          item_label?: string
+          sales_tip?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_ag_vergleich_chat_messages: {
+        Row: {
+          applied: boolean
+          clarification_round: number
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          proposed_value: Json | null
+          related_field: string | null
+          role: string
+          user_response_value: Json | null
+          vergleich_id: string
+        }
+        Insert: {
+          applied?: boolean
+          clarification_round?: number
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          proposed_value?: Json | null
+          related_field?: string | null
+          role: string
+          user_response_value?: Json | null
+          vergleich_id: string
+        }
+        Update: {
+          applied?: boolean
+          clarification_round?: number
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          proposed_value?: Json | null
+          related_field?: string | null
+          role?: string
+          user_response_value?: Json | null
+          vergleich_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_vergleich_chat_messages_vergleich_id_fkey"
+            columns: ["vergleich_id"]
+            isOneToOne: false
+            referencedRelation: "sales_ag_vergleiche"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_ag_vergleich_clarification_state: {
+        Row: {
+          created_at: string
+          current_round: number
+          expires_at: string
+          last_ai_message_id: string | null
+          max_rounds: number
+          open_questions: Json
+          updated_at: string
+          user_provided_values: Json
+          vergleich_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_round?: number
+          expires_at?: string
+          last_ai_message_id?: string | null
+          max_rounds?: number
+          open_questions?: Json
+          updated_at?: string
+          user_provided_values?: Json
+          vergleich_id: string
+        }
+        Update: {
+          created_at?: string
+          current_round?: number
+          expires_at?: string
+          last_ai_message_id?: string | null
+          max_rounds?: number
+          open_questions?: Json
+          updated_at?: string
+          user_provided_values?: Json
+          vergleich_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_vergleich_clarification_state_last_ai_message_id_fkey"
+            columns: ["last_ai_message_id"]
+            isOneToOne: false
+            referencedRelation: "sales_ag_vergleich_chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleich_clarification_state_vergleich_id_fkey"
+            columns: ["vergleich_id"]
+            isOneToOne: true
+            referencedRelation: "sales_ag_vergleiche"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_ag_vergleiche: {
         Row: {
           api_cost_eur: number | null
+          chat_history: Json | null
           comparison_items: Json | null
           competitor_manufacturer: string | null
           competitor_name: string | null
+          competitor_offer_data: Json | null
+          competitor_offer_file: string | null
           competitor_offer_path: string | null
           competitor_price_eur: number | null
           created_at: string
@@ -6844,25 +7209,41 @@ export type Database = {
           customer_name: string | null
           customer_street: string | null
           customer_zip_city: string | null
+          extracted_data_path: string | null
           findings_text: string | null
           id: string
           lead_id: string
+          legal_findings: Json | null
+          manager_feedback: string | null
+          own_offer_data: Json | null
+          own_offer_file: string | null
           own_offer_path: string | null
           own_price_eur: number | null
+          pdf_exported_at: string | null
+          pdf_file_path: string | null
           price_analysis: string | null
           price_difference_eur: number | null
+          quality_notes: string | null
           quality_score: number | null
           railway_comparison_id: string | null
+          sales_person_name: string | null
+          sales_person_phone: string | null
+          sources: Json | null
           status: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
           status_message: string | null
+          thermocheck_data: Json | null
+          thermocheck_file: string | null
           thermocheck_path: string | null
           updated_at: string
         }
         Insert: {
           api_cost_eur?: number | null
+          chat_history?: Json | null
           comparison_items?: Json | null
           competitor_manufacturer?: string | null
           competitor_name?: string | null
+          competitor_offer_data?: Json | null
+          competitor_offer_file?: string | null
           competitor_offer_path?: string | null
           competitor_price_eur?: number | null
           created_at?: string
@@ -6870,25 +7251,41 @@ export type Database = {
           customer_name?: string | null
           customer_street?: string | null
           customer_zip_city?: string | null
+          extracted_data_path?: string | null
           findings_text?: string | null
           id?: string
           lead_id: string
+          legal_findings?: Json | null
+          manager_feedback?: string | null
+          own_offer_data?: Json | null
+          own_offer_file?: string | null
           own_offer_path?: string | null
           own_price_eur?: number | null
+          pdf_exported_at?: string | null
+          pdf_file_path?: string | null
           price_analysis?: string | null
           price_difference_eur?: number | null
+          quality_notes?: string | null
           quality_score?: number | null
           railway_comparison_id?: string | null
+          sales_person_name?: string | null
+          sales_person_phone?: string | null
+          sources?: Json | null
           status?: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
           status_message?: string | null
+          thermocheck_data?: Json | null
+          thermocheck_file?: string | null
           thermocheck_path?: string | null
           updated_at?: string
         }
         Update: {
           api_cost_eur?: number | null
+          chat_history?: Json | null
           comparison_items?: Json | null
           competitor_manufacturer?: string | null
           competitor_name?: string | null
+          competitor_offer_data?: Json | null
+          competitor_offer_file?: string | null
           competitor_offer_path?: string | null
           competitor_price_eur?: number | null
           created_at?: string
@@ -6896,17 +7293,30 @@ export type Database = {
           customer_name?: string | null
           customer_street?: string | null
           customer_zip_city?: string | null
+          extracted_data_path?: string | null
           findings_text?: string | null
           id?: string
           lead_id?: string
+          legal_findings?: Json | null
+          manager_feedback?: string | null
+          own_offer_data?: Json | null
+          own_offer_file?: string | null
           own_offer_path?: string | null
           own_price_eur?: number | null
+          pdf_exported_at?: string | null
+          pdf_file_path?: string | null
           price_analysis?: string | null
           price_difference_eur?: number | null
+          quality_notes?: string | null
           quality_score?: number | null
           railway_comparison_id?: string | null
+          sales_person_name?: string | null
+          sales_person_phone?: string | null
+          sources?: Json | null
           status?: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
           status_message?: string | null
+          thermocheck_data?: Json | null
+          thermocheck_file?: string | null
           thermocheck_path?: string | null
           updated_at?: string
         }
@@ -7021,6 +7431,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sales_auftrag_dokumente_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
+          },
+          {
             foreignKeyName: "sales_auftrag_dokumente_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -7097,6 +7514,165 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sales_policy_cases_cache: {
+        Row: {
+          case_references: Json | null
+          confidence: string
+          created_at: string
+          expires_at: string
+          finding: string
+          has_documented_case: boolean
+          id: string
+          last_used_at: string
+          lookup_count: number
+          raw_response: string | null
+          recommended_phrasing: string | null
+          source_urls: Json | null
+          topic: string
+          topic_key: string
+          updated_at: string
+          uwg_risk_level: string
+          verified_at: string
+        }
+        Insert: {
+          case_references?: Json | null
+          confidence?: string
+          created_at?: string
+          expires_at?: string
+          finding: string
+          has_documented_case?: boolean
+          id?: string
+          last_used_at?: string
+          lookup_count?: number
+          raw_response?: string | null
+          recommended_phrasing?: string | null
+          source_urls?: Json | null
+          topic: string
+          topic_key: string
+          updated_at?: string
+          uwg_risk_level?: string
+          verified_at?: string
+        }
+        Update: {
+          case_references?: Json | null
+          confidence?: string
+          created_at?: string
+          expires_at?: string
+          finding?: string
+          has_documented_case?: boolean
+          id?: string
+          last_used_at?: string
+          lookup_count?: number
+          raw_response?: string | null
+          recommended_phrasing?: string | null
+          source_urls?: Json | null
+          topic?: string
+          topic_key?: string
+          updated_at?: string
+          uwg_risk_level?: string
+          verified_at?: string
+        }
+        Relationships: []
+      }
+      sales_wp_specs_cache: {
+        Row: {
+          bivalence_mode: string | null
+          confidence: string
+          cop_a7_w35: number | null
+          created_at: string
+          expires_at: string
+          heating_power_a_minus15_kw: number | null
+          heating_power_a_minus7_kw: number | null
+          heating_power_a10_kw: number | null
+          heating_power_a2_kw: number | null
+          heating_power_a7_kw: number | null
+          id: string
+          integrated_heating_rod_kw: number | null
+          last_used_at: string
+          lookup_count: number
+          manufacturer: string
+          max_cascade_units: number | null
+          max_heating_power_kw: number | null
+          max_supply_temp_celsius: number | null
+          model: string
+          model_key: string
+          raw_response: string | null
+          refrigerant: string | null
+          scop: number | null
+          sound_power_db_a: number | null
+          source: string
+          source_urls: Json | null
+          supports_cascade: boolean | null
+          type_code: string | null
+          updated_at: string
+          verified_at: string
+        }
+        Insert: {
+          bivalence_mode?: string | null
+          confidence?: string
+          cop_a7_w35?: number | null
+          created_at?: string
+          expires_at?: string
+          heating_power_a_minus15_kw?: number | null
+          heating_power_a_minus7_kw?: number | null
+          heating_power_a10_kw?: number | null
+          heating_power_a2_kw?: number | null
+          heating_power_a7_kw?: number | null
+          id?: string
+          integrated_heating_rod_kw?: number | null
+          last_used_at?: string
+          lookup_count?: number
+          manufacturer: string
+          max_cascade_units?: number | null
+          max_heating_power_kw?: number | null
+          max_supply_temp_celsius?: number | null
+          model: string
+          model_key: string
+          raw_response?: string | null
+          refrigerant?: string | null
+          scop?: number | null
+          sound_power_db_a?: number | null
+          source?: string
+          source_urls?: Json | null
+          supports_cascade?: boolean | null
+          type_code?: string | null
+          updated_at?: string
+          verified_at?: string
+        }
+        Update: {
+          bivalence_mode?: string | null
+          confidence?: string
+          cop_a7_w35?: number | null
+          created_at?: string
+          expires_at?: string
+          heating_power_a_minus15_kw?: number | null
+          heating_power_a_minus7_kw?: number | null
+          heating_power_a10_kw?: number | null
+          heating_power_a2_kw?: number | null
+          heating_power_a7_kw?: number | null
+          id?: string
+          integrated_heating_rod_kw?: number | null
+          last_used_at?: string
+          lookup_count?: number
+          manufacturer?: string
+          max_cascade_units?: number | null
+          max_heating_power_kw?: number | null
+          max_supply_temp_celsius?: number | null
+          model?: string
+          model_key?: string
+          raw_response?: string | null
+          refrigerant?: string | null
+          scop?: number | null
+          sound_power_db_a?: number | null
+          source?: string
+          source_urls?: Json | null
+          supports_cascade?: boolean | null
+          type_code?: string | null
+          updated_at?: string
+          verified_at?: string
+        }
+        Relationships: []
       }
       shop_produkte: {
         Row: {
@@ -7259,6 +7835,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      storage_upload_audit: {
+        Row: {
+          attempt: number
+          bucket: string
+          context: string
+          correlation_id: string | null
+          created_at: string
+          error_kind: string | null
+          error_message: string | null
+          file_size: number | null
+          file_type: string | null
+          id: string
+          online: boolean | null
+          outcome: string
+          path: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attempt: number
+          bucket: string
+          context: string
+          correlation_id?: string | null
+          created_at?: string
+          error_kind?: string | null
+          error_message?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          online?: boolean | null
+          outcome: string
+          path: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attempt?: number
+          bucket?: string
+          context?: string
+          correlation_id?: string | null
+          created_at?: string
+          error_kind?: string | null
+          error_message?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          online?: boolean | null
+          outcome?: string
+          path?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       subunternehmer: {
         Row: {
@@ -7601,6 +8231,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "auftraege"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_verfuegbarkeit_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
           },
           {
             foreignKeyName: "team_verfuegbarkeit_created_by_fkey"
@@ -8333,6 +8970,71 @@ export type Database = {
             columns: ["termin_id"]
             isOneToOne: false
             referencedRelation: "termine"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      upload_audit_log: {
+        Row: {
+          attempt: number
+          bucket: string
+          context: string
+          correlation_id: string | null
+          created_at: string
+          error_kind: string | null
+          error_message: string | null
+          file_size: number | null
+          file_type: string | null
+          id: string
+          mitarbeiter_id: string | null
+          online: boolean | null
+          outcome: string
+          path: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          attempt?: number
+          bucket: string
+          context: string
+          correlation_id?: string | null
+          created_at?: string
+          error_kind?: string | null
+          error_message?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          mitarbeiter_id?: string | null
+          online?: boolean | null
+          outcome: string
+          path: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          attempt?: number
+          bucket?: string
+          context?: string
+          correlation_id?: string | null
+          created_at?: string
+          error_kind?: string | null
+          error_message?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          mitarbeiter_id?: string | null
+          online?: boolean | null
+          outcome?: string
+          path?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_audit_log_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
         ]
@@ -9411,6 +10113,20 @@ export type Database = {
         }
         Relationships: []
       }
+      v_auftrag_baustelle: {
+        Row: {
+          auftrag_id: string | null
+          hausnummer: string | null
+          is_explicit_baustelle: boolean | null
+          land: Database["public"]["Enums"]["dach_land_enum"] | null
+          notiz: string | null
+          ort: string | null
+          plz: string | null
+          quelle: string | null
+          strasse: string | null
+        }
+        Relationships: []
+      }
       v_field_sales_thc_audit: {
         Row: {
           flag_cross_month: boolean | null
@@ -9436,6 +10152,274 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_subscription_events: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          created_by_name: string | null
+          event_type:
+            | "subscription.created"
+            | "subscription.status_changed"
+            | "vertrag_signiert"
+            | "vertrag_widerrufen"
+            | "vertrag_pdf_regeneriert"
+            | "mandat_link_gesetzt"
+            | "mandat_aktiviert"
+            | "mandat_widerrufen"
+            | "invoice.status_changed"
+            | "qonto_mandat_angefordert"
+            | "zahlung_eingegangen"
+            | null
+          id: string | null
+          payload: Json | null
+          subscription_id: string | null
+        }
+        Relationships: []
+      }
+      v_subscription_invoices: {
+        Row: {
+          betrag_brutto: number | null
+          betrag_netto: number | null
+          billing_period_id: string | null
+          created_at: string | null
+          created_by: string | null
+          empfaenger_name: string | null
+          empfaenger_ort: string | null
+          empfaenger_plz: string | null
+          empfaenger_strasse: string | null
+          faelligkeitsdatum: string | null
+          finalisiert_am: string | null
+          finalisiert_von: string | null
+          id: string | null
+          leistungszeitraum_bis: string | null
+          leistungszeitraum_von: string | null
+          mwst_betrag: number | null
+          mwst_satz: number | null
+          pdf_storage_path: string | null
+          rechnungsdatum: string | null
+          rechnungsjahr: number | null
+          rechnungsnummer: string | null
+          status:
+            | "entwurf"
+            | "finalisiert"
+            | "bezahlt"
+            | "teilbezahlt"
+            | "ueberfaellig"
+            | "storniert"
+            | null
+          storniert_durch_invoice_id: string | null
+          storniert_invoice_id: string | null
+          subscription_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          betrag_brutto?: number | null
+          betrag_netto?: number | null
+          billing_period_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          empfaenger_name?: string | null
+          empfaenger_ort?: string | null
+          empfaenger_plz?: string | null
+          empfaenger_strasse?: string | null
+          faelligkeitsdatum?: string | null
+          finalisiert_am?: string | null
+          finalisiert_von?: string | null
+          id?: string | null
+          leistungszeitraum_bis?: string | null
+          leistungszeitraum_von?: string | null
+          mwst_betrag?: number | null
+          mwst_satz?: number | null
+          pdf_storage_path?: string | null
+          rechnungsdatum?: string | null
+          rechnungsjahr?: number | null
+          rechnungsnummer?: string | null
+          status?:
+            | "entwurf"
+            | "finalisiert"
+            | "bezahlt"
+            | "teilbezahlt"
+            | "ueberfaellig"
+            | "storniert"
+            | null
+          storniert_durch_invoice_id?: string | null
+          storniert_invoice_id?: string | null
+          subscription_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          betrag_brutto?: number | null
+          betrag_netto?: number | null
+          billing_period_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          empfaenger_name?: string | null
+          empfaenger_ort?: string | null
+          empfaenger_plz?: string | null
+          empfaenger_strasse?: string | null
+          faelligkeitsdatum?: string | null
+          finalisiert_am?: string | null
+          finalisiert_von?: string | null
+          id?: string | null
+          leistungszeitraum_bis?: string | null
+          leistungszeitraum_von?: string | null
+          mwst_betrag?: number | null
+          mwst_satz?: number | null
+          pdf_storage_path?: string | null
+          rechnungsdatum?: string | null
+          rechnungsjahr?: number | null
+          rechnungsnummer?: string | null
+          status?:
+            | "entwurf"
+            | "finalisiert"
+            | "bezahlt"
+            | "teilbezahlt"
+            | "ueberfaellig"
+            | "storniert"
+            | null
+          storniert_durch_invoice_id?: string | null
+          storniert_invoice_id?: string | null
+          subscription_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      v_subscription_payments: {
+        Row: {
+          betrag: number | null
+          created_at: string | null
+          created_by: string | null
+          eingangsdatum: string | null
+          id: string | null
+          invoice_id: string | null
+          notiz: string | null
+          qonto_transaction_id: string | null
+          quelle: "sepa_qonto" | "ueberweisung" | "manuell_erfasst" | null
+          referenz: string | null
+          subscription_id: string | null
+        }
+        Relationships: []
+      }
+      v_subscription_products: {
+        Row: {
+          aktiv: boolean | null
+          beschreibung: string | null
+          bezeichnung: string | null
+          created_at: string | null
+          default_billing_interval:
+            | "jaehrlich"
+            | "halbjaehrlich"
+            | "monatlich"
+            | null
+          default_jahrespreis_netto: number | null
+          default_mwst_satz: number | null
+          id: string | null
+          key: string | null
+          mindestlaufzeit_monate: number | null
+          sort_order: number | null
+          sparte: "waermepumpe" | "photovoltaik" | "sonstige" | null
+          updated_at: string | null
+          widerrufsfrist_tage: number | null
+        }
+        Insert: {
+          aktiv?: boolean | null
+          beschreibung?: string | null
+          bezeichnung?: string | null
+          created_at?: string | null
+          default_billing_interval?:
+            | "jaehrlich"
+            | "halbjaehrlich"
+            | "monatlich"
+            | null
+          default_jahrespreis_netto?: number | null
+          default_mwst_satz?: number | null
+          id?: string | null
+          key?: string | null
+          mindestlaufzeit_monate?: number | null
+          sort_order?: number | null
+          sparte?: "waermepumpe" | "photovoltaik" | "sonstige" | null
+          updated_at?: string | null
+          widerrufsfrist_tage?: number | null
+        }
+        Update: {
+          aktiv?: boolean | null
+          beschreibung?: string | null
+          bezeichnung?: string | null
+          created_at?: string | null
+          default_billing_interval?:
+            | "jaehrlich"
+            | "halbjaehrlich"
+            | "monatlich"
+            | null
+          default_jahrespreis_netto?: number | null
+          default_mwst_satz?: number | null
+          id?: string | null
+          key?: string | null
+          mindestlaufzeit_monate?: number | null
+          sort_order?: number | null
+          sparte?: "waermepumpe" | "photovoltaik" | "sonstige" | null
+          updated_at?: string | null
+          widerrufsfrist_tage?: number | null
+        }
+        Relationships: []
+      }
+      v_subscription_sepa_mandates: {
+        Row: {
+          abgelaufen_am: string | null
+          autorisiert_am: string | null
+          autorisierungs_link_versendet_am: string | null
+          bank_name: string | null
+          created_at: string | null
+          iban_last4: string | null
+          id: string | null
+          kontoinhaber: string | null
+          mandatsreferenz: string | null
+          payment_method_id: string | null
+          qonto_mandate_id: string | null
+          status: "pending" | "active" | "revoked" | "expired" | null
+          subscription_id: string | null
+          updated_at: string | null
+          widerrufen_am: string | null
+        }
+        Relationships: []
+      }
+      v_subscriptions_list: {
+        Row: {
+          abrechnungsintervall: string | null
+          created_at: string | null
+          created_by: string | null
+          draft_current_step: number | null
+          gekuendigt_am: string | null
+          gekuendigt_zum: string | null
+          id: string | null
+          installierter_auftrag_id: string | null
+          is_draft: boolean | null
+          jahrespreis_brutto: number | null
+          jahrespreis_netto: number | null
+          kunde_firmenname: string | null
+          kunde_id: string | null
+          kunde_id_join: string | null
+          kunde_name: string | null
+          kunde_ort: string | null
+          mandat_status: string | null
+          mindestlaufzeit_bis: string | null
+          mwst_satz: number | null
+          naechste_kuendigung_moeglich_zum: string | null
+          produkt_bezeichnung: string | null
+          produkt_id: string | null
+          produkt_key: string | null
+          produkt_sparte: string | null
+          saldo_offen: number | null
+          status: string | null
+          unterzeichnet_am: string | null
+          updated_at: string | null
+          verkaeufer_name: string | null
+          vertragsbeginn: string | null
+          vertragsnummer: string | null
+          widerrufsfrist_endet_am: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
@@ -9995,6 +10979,7 @@ export type Database = {
         Args: { _app_code: string; _module_code: string; _user_id: string }
         Returns: boolean
       }
+      check_orbit_subscription_health: { Args: never; Returns: Json }
       check_user_has_academy_access: {
         Args: { _user_id: string }
         Returns: boolean
@@ -10013,6 +10998,7 @@ export type Database = {
       }
       check_user_is_admin: { Args: { _user_id: string }; Returns: boolean }
       check_user_is_superadmin: { Args: { _user_id: string }; Returns: boolean }
+      check_visit_type_triggers_health: { Args: never; Returns: Json }
       checkin_thermocheck_auftrag: {
         Args: { p_auftrag_id: string; p_phase: string }
         Returns: Json
@@ -10021,8 +11007,17 @@ export type Database = {
         Args: { p_auftrag_id: string; p_phase: string }
         Returns: Json
       }
+      cleanup_cron_job_log: { Args: never; Returns: Json }
+      cleanup_duplicate_thc_arbeitspakete: {
+        Args: { p_auftrag_id: string }
+        Returns: number
+      }
       cleanup_old_audio_files: { Args: never; Returns: undefined }
       cleanup_orphan_transcripts: { Args: never; Returns: number }
+      close_stale_thc_arbeitspakete: {
+        Args: { p_auftrag_id: string; p_current_status: string }
+        Returns: number
+      }
       complete_app_onboarding: {
         Args: { _app_code: string }
         Returns: undefined
@@ -10215,31 +11210,19 @@ export type Database = {
         Args: { p_entity_id: string; p_inhalt: string; p_notiz_typ?: string }
         Returns: string
       }
-      create_thc_angebotstermin:
-        | {
-            Args: {
-              p_description?: string
-              p_end_datetime?: string
-              p_location?: string
-              p_meeting_location?: string
-              p_start_datetime?: string
-              p_thermocheck_auftrag_id: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_created_at?: string
-              p_description?: string
-              p_eingestellt_von?: string
-              p_end_datetime?: string
-              p_location?: string
-              p_meeting_location?: string
-              p_start_datetime?: string
-              p_thermocheck_auftrag_id: string
-            }
-            Returns: undefined
-          }
+      create_thc_angebotstermin: {
+        Args: {
+          p_created_at?: string
+          p_description?: string
+          p_eingestellt_von?: string
+          p_end_datetime?: string
+          p_location?: string
+          p_meeting_location?: string
+          p_start_datetime?: string
+          p_thermocheck_auftrag_id: string
+        }
+        Returns: undefined
+      }
       create_thermocheck_idee: {
         Args: {
           p_beschreibung?: string
@@ -10314,6 +11297,7 @@ export type Database = {
         Args: { p_auftrag_id: string; p_substatus: string }
         Returns: string
       }
+      ensure_module_sdr_profiles: { Args: never; Returns: number }
       ensure_sdr_profile: { Args: { _user_id: string }; Returns: undefined }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       erstelle_bewertungs_bonus: {
@@ -10331,6 +11315,10 @@ export type Database = {
           expired_user_id: string
           had_other_access: boolean
         }[]
+      }
+      finalize_thc_arbeitspaket_historical: {
+        Args: { p_abgeschlossen_am?: string; p_arbeitspaket_id: string }
+        Returns: undefined
       }
       find_matching_bestellung: { Args: { p_lead_id: string }; Returns: string }
       find_potential_duplicates: {
@@ -10461,6 +11449,21 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_accessible_leads_page: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_geo_filter?: string
+          p_page?: number
+          p_page_size?: number
+          p_pipeline?: string
+          p_search_term?: string
+          p_seller_id?: string
+          p_source_id?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       get_active_bestellungen: {
         Args: never
         Returns: {
@@ -10882,16 +11885,27 @@ export type Database = {
           thc_count: number
         }[]
       }
-      get_lead_pipeline_stats: {
-        Args: { p_mitarbeiter_id?: string }
-        Returns: {
-          cnt: number
-          gewonnen_final_count: number
-          status_field: string
-          status_value: string
-          total_leads: number
-        }[]
-      }
+      get_lead_pipeline_stats:
+        | {
+            Args: { p_mitarbeiter_id?: string }
+            Returns: {
+              cnt: number
+              gewonnen_final_count: number
+              status_field: string
+              status_value: string
+              total_leads: number
+            }[]
+          }
+        | {
+            Args: { p_mitarbeiter_id?: string; p_seller_id?: string }
+            Returns: {
+              cnt: number
+              gewonnen_final_count: number
+              status_field: string
+              status_value: string
+              total_leads: number
+            }[]
+          }
       get_lead_stats_aggregated: {
         Args: { p_mitarbeiter_id?: string }
         Returns: {
@@ -11273,6 +12287,31 @@ export type Database = {
         Args: { p_auftrag_id: string }
         Returns: Json
       }
+      get_trainer_leaderboard: {
+        Args: never
+        Returns: {
+          display_name: string
+          last_activity: string
+          profile_id: string
+          score_average: number
+          session_count: number
+          techniques_passed: number
+          total_duration_mins: number
+          total_techniques: number
+        }[]
+      }
+      get_trainer_users: {
+        Args: never
+        Returns: {
+          email: string
+          id: string
+          invited_at: string
+          last_active_at: string
+          lifecycle_status: string
+          name: string
+          session_count: number
+        }[]
+      }
       get_user_accessible_apps: {
         Args: { _user_id?: string }
         Returns: {
@@ -11297,7 +12336,9 @@ export type Database = {
           user_app_role_id: string
         }[]
       }
-      get_user_app_role: { Args: { _app_code: string }; Returns: string }
+      get_user_app_role:
+        | { Args: never; Returns: string }
+        | { Args: { _app_code: string }; Returns: string }
       get_user_app_role_details: {
         Args: { _app_id: string; _user_id: string }
         Returns: Json
@@ -11352,6 +12393,26 @@ export type Database = {
           name: string
         }[]
       }
+      get_wartungen_eligible_kunden: {
+        Args: {
+          _limit?: number
+          _mitarbeiter_id: string
+          _scope: string
+          _search?: string
+        }
+        Returns: {
+          ansprechpartner: string
+          email: string
+          firmenname: string
+          id: string
+          rechnungsadresse_hausnummer: string
+          rechnungsadresse_ort: string
+          rechnungsadresse_plz: string
+          rechnungsadresse_strasse: string
+          telefon: string
+          wp_auftrag_count: number
+        }[]
+      }
       get_won_leads_public: {
         Args: {
           p_limit?: number
@@ -11401,6 +12462,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_subscription_innendienst_access: { Args: never; Returns: boolean }
       hat_verantwortlichkeit: {
         Args: { p_verantwortlichkeit_id: string }
         Returns: boolean
@@ -11445,6 +12507,17 @@ export type Database = {
           p_zeit_von?: string
         }
         Returns: undefined
+      }
+      insert_thc_migration_run: {
+        Args: {
+          p_auftrag_id: string
+          p_error_message?: string
+          p_error_phase?: string
+          p_fields_written?: string[]
+          p_payload_hash?: string
+          p_status?: string
+        }
+        Returns: string
       }
       instantiate_thc_ag_termin_wp: {
         Args: { p_thermocheck_auftrag_id: string }
@@ -11492,6 +12565,41 @@ export type Database = {
           p_old_value?: string
         }
         Returns: undefined
+      }
+      log_orbit_subscription_health: { Args: never; Returns: undefined }
+      log_storage_upload_attempt: {
+        Args: {
+          p_attempt: number
+          p_bucket: string
+          p_context: string
+          p_correlation_id: string
+          p_error_kind: string
+          p_error_message: string
+          p_file_size: number
+          p_file_type: string
+          p_online: boolean
+          p_outcome: string
+          p_path: string
+          p_user_agent: string
+        }
+        Returns: undefined
+      }
+      log_upload_attempt: {
+        Args: {
+          p_attempt: number
+          p_bucket: string
+          p_context: string
+          p_correlation_id: string
+          p_error_kind: string
+          p_error_message: string
+          p_file_size: number
+          p_file_type: string
+          p_online: boolean
+          p_outcome: string
+          p_path: string
+          p_user_agent: string
+        }
+        Returns: string
       }
       longtransactionsenabled: { Args: never; Returns: boolean }
       manually_assign_leads_batch:
@@ -11775,6 +12883,10 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      recompute_visit_types: {
+        Args: { p_lookback_minutes?: number }
+        Returns: Json
+      }
       refresh_city_clusters: { Args: never; Returns: undefined }
       refund_token: {
         Args: { p_log_id: string; p_reason: string }
@@ -12544,6 +13656,120 @@ export type Database = {
         Args: { p_thermocheck_auftrag_id: string }
         Returns: string
       }
+      subscription_activate_mandate: {
+        Args: { p_mandate_id: string }
+        Returns: Json
+      }
+      subscription_apply_qonto_mandate_event: {
+        Args: {
+          p_event_id: string
+          p_event_type: string
+          p_payload: Json
+          p_qonto_mandate_id: string
+        }
+        Returns: Json
+      }
+      subscription_draft_delete: {
+        Args: { p_draft_id: string }
+        Returns: undefined
+      }
+      subscription_draft_get_active: {
+        Args: never
+        Returns: unknown[]
+        SetofOptions: {
+          from: "*"
+          to: "subscription_drafts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      subscription_draft_get_by_id: {
+        Args: { p_draft_id: string }
+        Returns: unknown[]
+        SetofOptions: {
+          from: "*"
+          to: "subscription_drafts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      subscription_draft_save: {
+        Args: {
+          p_auftrag_id: string
+          p_current_step: number
+          p_draft_id: string
+          p_iban_last4: string
+          p_iban_owner_name: string
+          p_kunde_id: string
+          p_payload: Json
+          p_payload_schema_version: number
+        }
+        Returns: string
+      }
+      subscription_get_balance: {
+        Args: { _subscription_id: string }
+        Returns: {
+          invoice_count: number
+          rechnungssumme_brutto: number
+          saldo_offen: number
+          zahlungssumme: number
+        }[]
+      }
+      subscription_get_pdf_render_context: {
+        Args: { p_subscription_id: string }
+        Returns: Json
+      }
+      subscription_kpi_overview: {
+        Args: never
+        Returns: {
+          aktive_vertraege: number
+          arr_netto: number
+          kuendigung_unter_60_tage: number
+          offene_forderungen: number
+        }[]
+      }
+      subscription_log_pdf_regenerated: {
+        Args: {
+          p_dateiname: string
+          p_size_bytes: number
+          p_storage_path: string
+          p_subscription_id: string
+        }
+        Returns: Json
+      }
+      subscription_mark_signed: {
+        Args: {
+          p_anlagen_modell?: string
+          p_anlagen_seriennummer?: string
+          p_dateiname: string
+          p_size_bytes: number
+          p_storage_path: string
+          p_subscription_id: string
+          p_unterzeichnet_am: string
+          p_vertragsbeginn?: string
+        }
+        Returns: Json
+      }
+      subscription_set_mandate_link: {
+        Args: {
+          p_mandat_link: string
+          p_mandate_id: string
+          p_recipient_email?: string
+        }
+        Returns: Json
+      }
+      subscription_widerruf: {
+        Args: {
+          p_grund?: string
+          p_subscription_id: string
+          p_widerrufen_am: string
+        }
+        Returns: Json
+      }
+      subscriptions_create_with_mandate: {
+        Args: { p_client_request_id?: string; payload: Json }
+        Returns: Json
+      }
       suggest_appointment_slots_v2: {
         Args: {
           p_days_ahead?: number
@@ -12671,107 +13897,70 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_thermocheck_auftrag_admin:
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_angebot_beschreibung?: string
-              p_angebot_datei_url?: string
-              p_auftrag_id: string
-              p_auswertung_erstellt_am?: string
-              p_buchung_bestaetigt_am?: string
-              p_created_at?: string
-              p_eingereicht_am?: string
-              p_fussbodenheizung?: boolean
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_nettoangebotssumme?: number
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_wc1_durchgefuehrt_von?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_angebot_beschreibung?: string
-              p_angebot_datei_url?: string
-              p_auftrag_id: string
-              p_auswertung_erstellt_am?: string
-              p_buchung_bestaetigt_am?: string
-              p_created_at?: string
-              p_eingereicht_am?: string
-              p_fussbodenheizung?: boolean
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_nettoangebotssumme?: number
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_final?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_wc1_durchgefuehrt_von?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zahlungsart?: string
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_abgerechnet?: boolean
-              p_angebot_beschreibung?: string
-              p_angebot_datei_url?: string
-              p_auftrag_id: string
-              p_auftragstyp?: string
-              p_auswertung_erstellt_am?: string
-              p_buchung_bestaetigt_am?: string
-              p_created_at?: string
-              p_eingereicht_am?: string
-              p_fussbodenheizung?: boolean
-              p_info_vertrieb_pv_aufmass?: string
-              p_info_vertrieb_sonstiges?: string
-              p_info_vertrieb_thc_aufmass?: string
-              p_nachbearbeitung_checkin_at?: string
-              p_nachbearbeitung_checkout_at?: string
-              p_nettoangebotssumme?: number
-              p_notizen?: string
-              p_pipeline_status?: string
-              p_quadratmeter?: number
-              p_rechnungsdatum?: string
-              p_rechnungsnummer?: string
-              p_signier_datum_thc?: string
-              p_storno_datum?: string
-              p_updated_at?: string
-              p_vereinbarter_preis?: number
-              p_vor_ort_checkin_at?: string
-              p_vor_ort_checkout_at?: string
-              p_vortag_bestaetigt_am?: string
-              p_wc1_durchgefuehrt_am?: string
-              p_wc1_durchgefuehrt_von?: string
-              p_widerrufsbelehrung_url?: string
-              p_wohneinheiten?: number
-              p_zugewiesener_techniker_id?: string
-            }
-            Returns: undefined
-          }
+      update_thc_migration_run: {
+        Args: {
+          p_error_message?: string
+          p_error_phase?: string
+          p_fields_written?: string[]
+          p_run_id: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      update_thermocheck_auftrag_admin: {
+        Args: {
+          p_abgerechnet?: boolean
+          p_ag_meeting_ort?: string
+          p_ag_termin_eingestellt_von?: string
+          p_angebot_beschreibung?: string
+          p_angebot_datei_url?: string
+          p_angebot_erstellt_von?: string
+          p_auftrag_id: string
+          p_auftragstyp?: string
+          p_auswertung_erstellt_am?: string
+          p_auswertung_erstellt_von?: string
+          p_auswertung_pdf_url?: string
+          p_buchung_bestaetigt_am?: string
+          p_created_at?: string
+          p_eingereicht_am?: string
+          p_fussbodenheizung?: boolean
+          p_info_vertrieb_pv_aufmass?: string
+          p_info_vertrieb_sonstiges?: string
+          p_info_vertrieb_thc_aufmass?: string
+          p_kommentar_verloren?: string
+          p_nachbearbeitung_checkin_at?: string
+          p_nachbearbeitung_checkout_at?: string
+          p_nettoangebotssumme?: number
+          p_notizen?: string
+          p_pipeline_status?: string
+          p_quadratmeter?: number
+          p_rechnung_pdf_url?: string
+          p_rechnungsdatum?: string
+          p_rechnungsnummer?: string
+          p_signier_datum_final?: string
+          p_signier_datum_thc?: string
+          p_storno_datum?: string
+          p_sub_rechnung_beglichen_am?: string
+          p_sub_rechnungsnummer?: string
+          p_unterschriebenes_angebot_url?: string
+          p_updated_at?: string
+          p_vereinberter_preis?: number
+          p_verlustgrund?: string
+          p_vor_ort_checkin_at?: string
+          p_vor_ort_checkout_at?: string
+          p_vortag_bestaetigt_am?: string
+          p_vot_daten_url?: string
+          p_wc1_durchgefuehrt_am?: string
+          p_wc1_durchgefuehrt_von?: string
+          p_widerrufsbelehrung_url?: string
+          p_wohneinheiten?: number
+          p_zahlung_erhalten_am?: string
+          p_zahlungsart?: string
+          p_zahlungsnachweis_url?: string
+          p_zugewiesener_techniker_id?: string
+        }
+        Returns: undefined
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
@@ -13029,6 +14218,7 @@ export type Database = {
         | "wagner"
         | "gc_gruppe"
         | "sonstige"
+      dach_land_enum: "DE" | "AT" | "CH"
       email_status_enum:
         | "Keine Einladung"
         | "Einladung versendet"
@@ -13218,6 +14408,11 @@ export type Database = {
         | "review"
         | "approved"
         | "failed"
+        | "needs_clarification"
+        | "expired_clarification"
+        | "parsing"
+        | "researching"
+        | "rejected"
       sales_auftrag_dokument_status_enum:
         | "uploaded"
         | "processing"
@@ -13661,6 +14856,7 @@ export const Constants = {
         "gc_gruppe",
         "sonstige",
       ],
+      dach_land_enum: ["DE", "AT", "CH"],
       email_status_enum: [
         "Keine Einladung",
         "Einladung versendet",
@@ -13869,6 +15065,11 @@ export const Constants = {
         "review",
         "approved",
         "failed",
+        "needs_clarification",
+        "expired_clarification",
+        "parsing",
+        "researching",
+        "rejected",
       ],
       sales_auftrag_dokument_status_enum: [
         "uploaded",
