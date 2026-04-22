@@ -1,8 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { geocodePlzBatch, geocodeCity, PlzCoordinate } from '@/features/pool/utils/plz-geocoder';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+
+export type ContractorMapAction = 'pause' | 'fire' | 'reactivate';
 
 export interface SalesRepMapEntry {
   id: string;
