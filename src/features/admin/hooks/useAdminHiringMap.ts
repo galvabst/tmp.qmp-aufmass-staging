@@ -151,8 +151,9 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
       const cityMap = new Map<string, string>();
 
       (salesQuery.data ?? []).forEach(s => {
-        if (s.plz_hauptstandort && (!s.hauptstandort_lat || !s.hauptstandort_lng)) {
-          plzList.push(s.plz_hauptstandort);
+        const plz = (s.plz_hauptstandort || '').trim();
+        if (plz.length >= 4 && (!s.hauptstandort_lat || !s.hauptstandort_lng)) {
+          plzList.push(plz);
         }
       });
 
@@ -175,17 +176,24 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
 
       // Build sales reps
       const reps: SalesRepMapEntry[] = [];
+      const skippedReps: string[] = [];
       (salesQuery.data ?? []).forEach(s => {
         let lat = s.hauptstandort_lat;
         let lng = s.hauptstandort_lng;
-        if ((!lat || !lng) && s.plz_hauptstandort) {
-          const c = coords.get(s.plz_hauptstandort);
+        const plz = (s.plz_hauptstandort || '').trim();
+        if ((!lat || !lng) && plz.length >= 4) {
+          const c = coords.get(plz);
           if (c) { lat = c.lat; lng = c.lng; }
         }
         if (lat && lng) {
-          reps.push({ id: s.id, name: s.name || 'Unbekannt', plz: s.plz_hauptstandort || '', lat, lng, radiusKm: 60 });
+          reps.push({ id: s.id, name: s.name || 'Unbekannt', plz, lat, lng, radiusKm: 60 });
+        } else {
+          skippedReps.push(`${s.name || s.id} (PLZ: ${plz || '—'})`);
         }
       });
+      if (skippedReps.length > 0) {
+        console.warn('[HiringMap] Vertriebler ohne Koordinaten (nicht auf Map sichtbar):', skippedReps);
+      }
       setSalesReps(reps);
 
       // Build contractors
