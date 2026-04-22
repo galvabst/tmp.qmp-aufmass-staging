@@ -1,59 +1,58 @@
 
 
-# Quick-Aktionen für Techniker direkt aus der Hiring-Map
+# Bug-Fix: DB-Trigger überschreibt Status zurück auf `in_progress`
 
-## Ziel
+## Was wirklich passiert
 
-Du sollst Techniker-Pins auf der Hiring-Map direkt anklicken und von dort aus pausieren, endgültig deaktivieren oder zum Detailprofil springen können — ohne erst in den "Auftragnehmer"-Tab wechseln zu müssen.
+1. Du klickst "Endgültig deaktivieren" → Frontend macht `UPDATE contractor_onboarding SET onboarding_status='gefeuert' WHERE id=…`.
+2. Der **BEFORE-UPDATE-Trigger `trg_sync_onboarding_status`** feuert **vor** dem Schreiben.
+3. Die Trigger-Funktion `sync_onboarding_status()` lässt nur `'blocked'` und `'deaktiviert'` durch (early return). `'inaktiv'` und `'gefeuert'` fehlen in der Whitelist.
+4. Der Trigger berechnet den Status neu aus `completed_steps` (4 Schritte → `'in_progress'`) und überschreibt deinen Wert.
+5. Ergebnis in der DB: `onboarding_status='in_progress'` statt `'gefeuert'`. Achim bleibt überall sichtbar.
 
-## Was sich ändert
+Ich habe das eben in der DB direkt geprüft: Achim Mönning (`fd6c2e4d-…`) hat **`is_trainer: false`** und **`onboarding_status: 'in_progress'`** mit `aktualisiert_am` exakt zur Klick-Zeit. Der UPDATE ist durchgelaufen, der Trigger hat ihn revidiert.
 
-### 1. Pin-Popup eines Technikers bekommt Aktions-Buttons
+## Die Lösung
 
-Statt nur Name + Status anzuzeigen, hat das Popup künftig:
+### 1. DB-Migration: Trigger-Whitelist erweitern
 
-```text
-┌──────────────────────────────┐
-│ Max Mustermann               │
-│ 📍 12345 Berlin              │
-│ ✅ Aktiv · 60 km             │
-│ 🔥 8 THCs im Umkreis         │
-├──────────────────────────────┤
-│ [Profil öffnen]              │
-│ [⏸ Pausieren] [🚫 Feuern]   │
-└──────────────────────────────┘
+Funktion `thermocheck.sync_onboarding_status` anpassen, sodass auch `'inaktiv'` und `'gefeuert'` (und konsistent `'ready'`, falls manuell gesetzt) **nicht** überschrieben werden:
+
+```sql
+IF NEW.onboarding_status IN ('blocked', 'deaktiviert', 'inaktiv', 'gefeuert') THEN
+  RETURN NEW;
+END IF;
 ```
 
-- **Profil öffnen** → springt in den Tab "Auftragnehmer" und öffnet die Detailseite des Technikers (nutzt den vorhandenen `onSelectContractor`-Mechanismus aus dem Dashboard).
-- **Pausieren** → setzt `onboarding_status = 'inaktiv'` (der Techniker bleibt grau/gestrichelt sichtbar als "pausiert").
-- **Endgültig deaktivieren** → setzt `onboarding_status = 'gefeuert'` (Techniker verschwindet komplett von der Map und allen aktiven Listen).
-- Bei bereits pausierten Technikern erscheint stattdessen ein **Reaktivieren**-Button, der den Status auf `in_progress` zurücksetzt.
+Damit respektiert der Trigger künftig manuelle Admin-Statuswechsel und rechnet nur, wenn der Techniker im normalen Onboarding-Flow ist.
 
-### 2. Bestätigungsdialog vor jeder Aktion
+### 2. Reaktivieren-Pfad bleibt funktionsfähig
 
-Sicherheitsdialog (analog zur Contractor-Liste) verhindert versehentliches Klicken — vor allem für die destruktive "Endgültig deaktivieren"-Aktion. Toast bestätigt das Ergebnis.
+"Reaktivieren" setzt den Status zurück auf `'in_progress'` — der Trigger läuft dann durch und berechnet den korrekten Stand aus `completed_steps` neu. Das ist genau richtig.
 
-### 3. Sichtbarkeit auf der Map
+### 3. Frontend: UPDATE-Result prüfen
 
-- `'gefeuert'` → bereits jetzt aus der Map gefiltert, bleibt so. Wer endgültig deaktiviert wird, verschwindet sofort.
-- `'inaktiv'` → bleibt **grau/gestrichelt sichtbar** wie bisher (deine bevorzugte Sichtbarkeit).
-- Die KPI-Zeile oben über der Map ("X Aktive · Y Onboarding") bleibt unverändert.
+Zusätzlich in `ContractorListView.tsx` und `useAdminHiringMap.ts`: `.select('id, onboarding_status')` ans UPDATE hängen und das zurückgegebene `onboarding_status` mit dem gewünschten vergleichen. Wenn die DB einen anderen Wert zurückliefert (z. B. weil ein anderer Trigger reingrätscht), zeigen wir Toast "Status konnte nicht gesetzt werden" statt fälschlich Erfolg.
 
-### 4. Cache-Invalidierung
+### 4. Map-Filter konsistent halten
 
-Nach jeder Status-Änderung werden die Hiring-Map-Daten und die Contractor-Liste automatisch neu geladen — der Techniker verschwindet/ändert sich sofort, ohne Reload.
+`useAdminHiringMap` filtert bereits `('deaktiviert','invited','gefeuert')` raus — das passt. Nach dem Fix verschwindet ein gefeuerter Techniker beim nächsten Refetch sofort.
+
+## Was sich nicht ändert
+
+- Kein Trainer-Override-Bug (mein vorheriger Verdacht war falsch — `is_trainer` ist hier `false`, dieser Code-Pfad greift gar nicht).
+- Keine RLS-Änderung nötig (UPDATE läuft offensichtlich durch, sonst hätte sich `aktualisiert_am` nicht geändert).
+- Keine Schema-Änderung am Enum.
 
 ## Technische Details
 
-- **`useAdminHiringMap.ts`**:
-  - `ContractorMapEntry` bekommt zusätzlich `onboardingId` (Row-ID aus `contractor_onboarding`, nötig für UPDATE).
-  - Query-Select wird um `id` erweitert.
-- **`AdminHiringMap.tsx`**:
-  - Neue optionale Prop `onSelectContractor?: (profileId: string) => void`.
-  - Marker-Popup nutzt jetzt `L.popup` mit React-rendered Content (oder bindet HTML-Buttons mit `popupopen`-Event-Handler analog zu `PoolMap.tsx`).
-  - Lokaler State für Bestätigungsdialog (`AlertDialog` von shadcn).
-  - Mutation per `supabaseTC.from('contractor_onboarding').update({ onboarding_status }).eq('id', onboardingId)` + `queryClient.invalidateQueries` für `admin-hiring-map-contractors` und `admin-contractor-list`.
-- **`AdminDashboardView.tsx`**: Reicht die existierende `onSelectContractor`-Prop einfach an `<AdminHiringMap onSelectContractor={onSelectContractor} />` weiter.
+- **Migration**: `CREATE OR REPLACE FUNCTION thermocheck.sync_onboarding_status()` mit erweiterter Whitelist-Zeile.
+- **`src/features/contractors/ui/ContractorListView.tsx`** `handleStatusChange`: `.select()` an UPDATE, Result-Check + spezifischer Fehler-Toast, `refetchQueries` statt nur `invalidateQueries` (wegen `staleTime: 30_000`).
+- **`src/features/admin/hooks/useAdminHiringMap.ts`** `setContractorOnboardingStatus`: gleiche Result-Check-Logik.
 
-Keine DB-Migration nötig — die Status-Werte `inaktiv`, `gefeuert`, `in_progress` sind bereits Bestandteil des Onboarding-Status-Enums und werden von der Contractor-Liste schon genauso verwendet.
+## Erwartetes Ergebnis
+
+- "Endgültig deaktivieren" auf Achim → DB-Status sofort `'gefeuert'`, Achim verschwindet aus Aktiv-Liste und Map.
+- "Pausieren" → DB-Status `'inaktiv'`, Achim wandert in den Inaktiv-Tab und wird auf der Map grau.
+- Bestehende Techniker im Onboarding-Flow bleiben unberührt (Trigger berechnet weiter korrekt).
 
