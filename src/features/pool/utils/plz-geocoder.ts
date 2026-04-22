@@ -197,6 +197,54 @@ export async function geocodePlz(plz: string, _city?: string): Promise<PlzCoordi
 }
 
 /**
+ * Geocode by city name only (fallback when no PLZ is available).
+ * Uses localStorage cache keyed by `city:<normalized-name>`.
+ */
+const CITY_CACHE_PREFIX = "city-geo-";
+
+function getCityCached(city: string): PlzCoordinate | null {
+  try {
+    const raw = localStorage.getItem(CITY_CACHE_PREFIX + city.toLowerCase());
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PlzCoordinate;
+    if (!isValidDeCoord(parsed.lat, parsed.lng)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function setCityCache(city: string, coord: PlzCoordinate): void {
+  try {
+    localStorage.setItem(CITY_CACHE_PREFIX + city.toLowerCase(), JSON.stringify(coord));
+  } catch {
+    // ignore
+  }
+}
+
+export async function geocodeCity(city: string): Promise<PlzCoordinate | null> {
+  const normalized = normalizeCity(city);
+  if (!normalized) return null;
+
+  const cached = getCityCached(normalized);
+  if (cached) return cached;
+
+  const result = await fetchFromNominatimQuery(`${normalized}, Deutschland`, "");
+  if (result) {
+    const entry: PlzCoordinate = {
+      plz: result.plz || "",
+      lat: result.lat,
+      lng: result.lng,
+      city: result.city || normalized,
+    };
+    setCityCache(normalized, entry);
+    return entry;
+  }
+  console.warn(`[plz-geocoder] No result for city "${normalized}"`);
+  return null;
+}
+
+/**
  * Batch-geocode a list of PLZ strings – with L1 (localStorage) + L2 (Supabase DB) cache.
  */
 export async function geocodePlzBatch(

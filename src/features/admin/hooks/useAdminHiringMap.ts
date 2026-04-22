@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
-import { geocodePlzBatch, PlzCoordinate } from '@/features/pool/utils/plz-geocoder';
+import { geocodePlzBatch, geocodeCity, PlzCoordinate } from '@/features/pool/utils/plz-geocoder';
 import { useEffect, useState, useRef } from 'react';
 
 export interface SalesRepMapEntry {
@@ -46,7 +46,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('mitarbeiter')
-        .select('id, name, plz_hauptstandort, hauptstandort_lat, hauptstandort_lng')
+        .select('id, name, ort, plz_hauptstandort, hauptstandort_lat, hauptstandort_lng')
         .eq('status', 'Aktiv')
         .eq('taetigkeit', 'field_sales');
       if (error) throw error;
@@ -171,6 +171,20 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
 
       const coords = await geocodePlzBatch(plzList, cityMap);
 
+      // Fallback: Vertriebler ohne PLZ aber mit Ort → per Stadt-Geocoding nachladen
+      const repsNeedingCityFallback = (salesQuery.data ?? []).filter(s => {
+        const plz = (s.plz_hauptstandort || '').trim();
+        const hasCoords = !!s.hauptstandort_lat && !!s.hauptstandort_lng;
+        return !hasCoords && plz.length < 4 && (s.ort || '').trim().length > 0;
+      });
+      const cityCoords = new Map<string, PlzCoordinate>();
+      for (const s of repsNeedingCityFallback) {
+        const ort = (s.ort || '').trim();
+        if (cityCoords.has(ort.toLowerCase())) continue;
+        const c = await geocodeCity(ort);
+        if (c) cityCoords.set(ort.toLowerCase(), c);
+      }
+
       // Abort if a newer geocode run has started
       if (geocodeAbortRef.current !== runId) return;
 
@@ -181,14 +195,19 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
         let lat = s.hauptstandort_lat;
         let lng = s.hauptstandort_lng;
         const plz = (s.plz_hauptstandort || '').trim();
+        const ort = (s.ort || '').trim();
         if ((!lat || !lng) && plz.length >= 4) {
           const c = coords.get(plz);
           if (c) { lat = c.lat; lng = c.lng; }
         }
+        if ((!lat || !lng) && ort) {
+          const c = cityCoords.get(ort.toLowerCase());
+          if (c) { lat = c.lat; lng = c.lng; }
+        }
         if (lat && lng) {
-          reps.push({ id: s.id, name: s.name || 'Unbekannt', plz, lat, lng, radiusKm: 60 });
+          reps.push({ id: s.id, name: s.name || 'Unbekannt', plz: plz || ort, lat, lng, radiusKm: 60 });
         } else {
-          skippedReps.push(`${s.name || s.id} (PLZ: ${plz || '—'})`);
+          skippedReps.push(`${s.name || s.id} (PLZ: ${plz || '—'}, Ort: ${ort || '—'})`);
         }
       });
       if (skippedReps.length > 0) {
