@@ -46,7 +46,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('mitarbeiter')
-        .select('id, name, plz_hauptstandort, hauptstandort_lat, hauptstandort_lng')
+        .select('id, name, ort, plz_hauptstandort, hauptstandort_lat, hauptstandort_lng')
         .eq('status', 'Aktiv')
         .eq('taetigkeit', 'field_sales');
       if (error) throw error;
