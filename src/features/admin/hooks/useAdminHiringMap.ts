@@ -1,8 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { geocodePlzBatch, geocodeCity, PlzCoordinate } from '@/features/pool/utils/plz-geocoder';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+
+export type ContractorMapAction = 'pause' | 'fire' | 'reactivate';
 
 export interface SalesRepMapEntry {
   id: string;
@@ -14,7 +16,10 @@ export interface SalesRepMapEntry {
 }
 
 export interface ContractorMapEntry {
+  /** profile_id (used to navigate to contractor detail view) */
   id: string;
+  /** contractor_onboarding row id (used for status mutations) */
+  onboardingId: string;
   name: string;
   plz: string;
   ort: string;
@@ -61,7 +66,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     queryFn: async () => {
       const { data, error } = await (supabaseTC
         .from('contractor_onboarding' as any)
-        .select('profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km')
+        .select('id, profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km')
         .not('onboarding_status', 'in', '("deaktiviert","invited","gefeuert")') as any);
       if (error) throw error;
       
@@ -78,6 +83,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
       return (data ?? []).map((d: any) => {
         const profile = profileMap.get(d.profile_id);
         return {
+          onboardingId: d.id,
           profileId: d.profile_id,
           plz: d.anschrift_plz || '',
           ort: d.anschrift_ort || '',
@@ -222,7 +228,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
         const coord = coords.get(c.plz);
         if (!coord) return;
         ctrs.push({
-          id: c.profileId, name: c.name, plz: c.plz, ort: c.ort || coord.city || '',
+          id: c.profileId, onboardingId: c.onboardingId, name: c.name, plz: c.plz, ort: c.ort || coord.city || '',
           lat: coord.lat, lng: coord.lng, status: c.status, wunschRadiusKm: c.wunschRadiusKm, avatarUrl: c.avatarUrl,
         });
       });
@@ -243,11 +249,32 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     doGeocode();
   }, [salesQuery.data, contractorQuery.data, thcQuery.data]);
 
+  // Mutation: pause / fire / reactivate a contractor directly from the map
+  const queryClient = useQueryClient();
+  const setContractorOnboardingStatus = useCallback(
+    async (onboardingId: string, action: ContractorMapAction): Promise<void> => {
+      const newStatus =
+        action === 'pause' ? 'inaktiv' : action === 'fire' ? 'gefeuert' : 'in_progress';
+      const { error } = await (supabaseTC
+        .from('contractor_onboarding' as any)
+        .update({ onboarding_status: newStatus } as any)
+        .eq('id', onboardingId) as any);
+      if (error) throw error;
+      // Refresh map + contractor list
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] }),
+      ]);
+    },
+    [queryClient]
+  );
+
   return {
     salesReps,
     contractors,
     thcOrders,
     isLoading: salesQuery.isLoading || contractorQuery.isLoading || thcQuery.isLoading,
     isGeocoding,
+    setContractorOnboardingStatus,
   };
 }

@@ -362,7 +362,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
       </Dialog>
 
       {/* Hiring-Map */}
-      <AdminHiringMap />
+      <AdminHiringMap onSelectContractor={onSelectContractor} />
 
       {/* Performance-Übersicht */}
       <Card className="mb-6">

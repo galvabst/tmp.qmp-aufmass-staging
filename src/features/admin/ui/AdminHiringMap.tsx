@@ -4,8 +4,25 @@ import 'leaflet.heat';
 import { Loader2, Map as MapIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useAdminHiringMap, SalesRepMapEntry, ContractorMapEntry, ThcOrderMapEntry } from '../hooks/useAdminHiringMap';
+import { useAdminHiringMap, SalesRepMapEntry, ContractorMapEntry, ThcOrderMapEntry, ContractorMapAction } from '../hooks/useAdminHiringMap';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
+
+interface AdminHiringMapProps {
+  /** Optional callback to open the contractor detail view in a parent tab */
+  onSelectContractor?: (profileId: string) => void;
+}
+
+interface PendingAction {
+  contractorId: string;
+  onboardingId: string;
+  contractorName: string;
+  action: ContractorMapAction;
+}
 
 /** Haversine distance in km */
 function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -98,7 +115,7 @@ function generateMonthOptions(count: number): { date: Date | null; label: string
   return months;
 }
 
-export function AdminHiringMap() {
+export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {}) {
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(() => {
     const d = new Date();
     d.setDate(1);
@@ -106,7 +123,9 @@ export function AdminHiringMap() {
     return d;
   });
 
-  const { salesReps, contractors, thcOrders, isLoading, isGeocoding } = useAdminHiringMap(selectedMonth);
+  const { salesReps, contractors, thcOrders, isLoading, isGeocoding, setContractorOnboardingStatus } =
+    useAdminHiringMap(selectedMonth);
+  const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<{
@@ -115,6 +134,13 @@ export function AdminHiringMap() {
     thcGroup: L.LayerGroup;
     heatLayer: L.Layer | null;
   } | null>(null);
+
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
+
+  // Use refs so popup event handlers always see latest props (popups outlive renders)
+  const onSelectContractorRef = useRef(onSelectContractor);
+  useEffect(() => { onSelectContractorRef.current = onSelectContractor; }, [onSelectContractor]);
   
   const [isOpen, setIsOpen] = useState(true);
   const [showSales, setShowSales] = useState(true);
@@ -235,8 +261,12 @@ export function AdminHiringMap() {
           const d = getDistanceKm(c.lat, c.lng, o.lat, o.lng);
           if (d <= c.wunschRadiusKm) thcCount += o.count;
         });
+        const actionsHtml = isInaktiv
+          ? `<button data-action="reactivate" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(142,71%,45%);background:hsl(142,71%,45%);color:white;border-radius:6px;cursor:pointer;">▶ Reaktivieren</button>`
+          : `<button data-action="pause" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(45,93%,47%);background:hsl(45,93%,47%);color:white;border-radius:6px;cursor:pointer;">⏸ Pausieren</button>
+             <button data-action="fire" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(0,84%,55%);background:hsl(0,84%,55%);color:white;border-radius:6px;cursor:pointer;">🚫 Feuern</button>`;
         return `
-          <div style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:140px;">
+          <div class="hiring-map-popup" data-onboarding-id="${c.onboardingId}" data-profile-id="${c.id}" data-contractor-name="${c.name.replace(/"/g, '&quot;')}" style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:200px;">
             <div style="font-weight:700;font-size:14px;color:#111;">${c.name}</div>
             <div style="font-size:12px;color:#666;margin-top:2px;">📍 ${c.plz} ${c.ort}</div>
             <div style="font-size:12px;color:${color};font-weight:600;margin-top:2px;">
@@ -245,8 +275,41 @@ export function AdminHiringMap() {
             <div style="font-size:12px;color:hsl(280,70%,50%);font-weight:600;margin-top:4px;">
               🔥 ${thcCount} THC${thcCount !== 1 ? 's' : ''} im Umkreis
             </div>
+            <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;flex-direction:column;gap:6px;">
+              <button data-action="open-profile" style="padding:6px 10px;font-size:12px;font-weight:600;border:1px solid #d1d5db;background:white;color:#111;border-radius:6px;cursor:pointer;">👤 Profil öffnen</button>
+              <div style="display:flex;gap:6px;">${actionsHtml}</div>
+            </div>
           </div>
         `;
+      });
+      marker.on('popupopen', () => {
+        const popupEl = marker.getPopup()?.getElement();
+        if (!popupEl) return;
+        const root = popupEl.querySelector('.hiring-map-popup') as HTMLElement | null;
+        if (!root) return;
+        const onboardingId = root.dataset.onboardingId || '';
+        const profileId = root.dataset.profileId || '';
+        const contractorName = root.dataset.contractorName || '';
+        root.querySelectorAll('button[data-action]').forEach(btn => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const action = (btn as HTMLElement).dataset.action;
+            if (action === 'open-profile') {
+              marker.closePopup();
+              onSelectContractorRef.current?.(profileId);
+              return;
+            }
+            if (action === 'pause' || action === 'fire' || action === 'reactivate') {
+              marker.closePopup();
+              setPendingAction({
+                contractorId: profileId,
+                onboardingId,
+                contractorName,
+                action: action as ContractorMapAction,
+              });
+            }
+          });
+        });
       });
       marker.addTo(group);
     });
@@ -328,6 +391,54 @@ export function AdminHiringMap() {
   const selectedMonthLabel = selectedMonth
     ? selectedMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
     : 'Gesamt';
+
+  const handleConfirmAction = async () => {
+    if (!pendingAction) return;
+    setIsMutating(true);
+    try {
+      await setContractorOnboardingStatus(pendingAction.onboardingId, pendingAction.action);
+      const verbPast =
+        pendingAction.action === 'pause' ? 'pausiert'
+        : pendingAction.action === 'fire' ? 'endgültig deaktiviert'
+        : 'reaktiviert';
+      toast({
+        title: `Techniker ${verbPast}`,
+        description: `${pendingAction.contractorName} wurde erfolgreich ${verbPast}.`,
+      });
+      setPendingAction(null);
+    } catch (err: any) {
+      toast({
+        title: 'Aktion fehlgeschlagen',
+        description: err?.message || 'Bitte erneut versuchen.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const dialogConfig = pendingAction
+    ? pendingAction.action === 'pause'
+      ? {
+          title: 'Techniker pausieren?',
+          desc: `${pendingAction.contractorName} wird auf "Inaktiv" gesetzt und erhält keine neuen Aufträge mehr. Auf der Map bleibt er grau sichtbar. Du kannst ihn jederzeit wieder reaktivieren.`,
+          confirmText: 'Pausieren',
+          destructive: false,
+        }
+      : pendingAction.action === 'fire'
+      ? {
+          title: 'Techniker endgültig deaktivieren?',
+          desc: `${pendingAction.contractorName} wird gefeuert und verschwindet komplett aus der Map sowie aus allen aktiven Listen. Diese Aktion kann nur durch einen Admin manuell rückgängig gemacht werden.`,
+          confirmText: 'Endgültig deaktivieren',
+          destructive: true,
+        }
+      : {
+          title: 'Techniker reaktivieren?',
+          desc: `${pendingAction.contractorName} wird wieder auf "In Bearbeitung" gesetzt und kann den Onboarding-Prozess fortsetzen.`,
+          confirmText: 'Reaktivieren',
+          destructive: false,
+        }
+    : null;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -438,6 +549,25 @@ export function AdminHiringMap() {
           </CardContent>
         </CollapsibleContent>
       </Card>
+
+      <AlertDialog open={!!pendingAction} onOpenChange={(open) => { if (!open && !isMutating) setPendingAction(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{dialogConfig?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{dialogConfig?.desc}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMutating}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmAction(); }}
+              disabled={isMutating}
+              className={dialogConfig?.destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+            >
+              {isMutating ? 'Bitte warten…' : dialogConfig?.confirmText}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Collapsible>
   );
 }
