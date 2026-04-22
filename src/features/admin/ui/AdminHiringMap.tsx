@@ -282,34 +282,42 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           </div>
         `;
       });
+      const handlePopupClick = (ev: Event) => {
+        const target = ev.target as HTMLElement;
+        const btn = target.closest('button[data-action]') as HTMLElement | null;
+        if (!btn) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        const action = btn.dataset.action;
+        const popupEl = marker.getPopup()?.getElement();
+        const root = popupEl?.querySelector('.hiring-map-popup') as HTMLElement | null;
+        const onboardingId = root?.dataset.onboardingId || '';
+        const profileId = root?.dataset.profileId || '';
+        const contractorName = root?.dataset.contractorName || '';
+        console.log('[HiringMap] Popup-Action:', action, { onboardingId, profileId, contractorName });
+        if (action === 'open-profile') {
+          marker.closePopup();
+          onSelectContractorRef.current?.(profileId);
+          return;
+        }
+        if (action === 'pause' || action === 'fire' || action === 'reactivate') {
+          marker.closePopup();
+          setPendingAction({
+            contractorId: profileId,
+            onboardingId,
+            contractorName,
+            action: action as ContractorMapAction,
+          });
+        }
+      };
       marker.on('popupopen', () => {
         const popupEl = marker.getPopup()?.getElement();
         if (!popupEl) return;
-        const root = popupEl.querySelector('.hiring-map-popup') as HTMLElement | null;
-        if (!root) return;
-        const onboardingId = root.dataset.onboardingId || '';
-        const profileId = root.dataset.profileId || '';
-        const contractorName = root.dataset.contractorName || '';
-        root.querySelectorAll('button[data-action]').forEach(btn => {
-          btn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            const action = (btn as HTMLElement).dataset.action;
-            if (action === 'open-profile') {
-              marker.closePopup();
-              onSelectContractorRef.current?.(profileId);
-              return;
-            }
-            if (action === 'pause' || action === 'fire' || action === 'reactivate') {
-              marker.closePopup();
-              setPendingAction({
-                contractorId: profileId,
-                onboardingId,
-                contractorName,
-                action: action as ContractorMapAction,
-              });
-            }
-          });
-        });
+        // Disable Leaflet's click propagation interception for our buttons
+        L.DomEvent.disableClickPropagation(popupEl);
+        // Single delegated listener on popup container — survives DOM rebuilds
+        popupEl.removeEventListener('click', handlePopupClick);
+        popupEl.addEventListener('click', handlePopupClick);
       });
       marker.addTo(group);
     });
@@ -441,6 +449,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     : null;
 
   return (
+    <>
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card className="mb-6">
         <CollapsibleTrigger asChild>
@@ -549,25 +558,26 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           </CardContent>
         </CollapsibleContent>
       </Card>
-
-      <AlertDialog open={!!pendingAction} onOpenChange={(open) => { if (!open && !isMutating) setPendingAction(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{dialogConfig?.title}</AlertDialogTitle>
-            <AlertDialogDescription>{dialogConfig?.desc}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMutating}>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleConfirmAction(); }}
-              disabled={isMutating}
-              className={dialogConfig?.destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
-            >
-              {isMutating ? 'Bitte warten…' : dialogConfig?.confirmText}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Collapsible>
+
+    <AlertDialog open={!!pendingAction} onOpenChange={(open) => { if (!open && !isMutating) setPendingAction(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{dialogConfig?.title}</AlertDialogTitle>
+          <AlertDialogDescription>{dialogConfig?.desc}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isMutating}>Abbrechen</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); handleConfirmAction(); }}
+            disabled={isMutating}
+            className={dialogConfig?.destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+          >
+            {isMutating ? 'Bitte warten…' : dialogConfig?.confirmText}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
