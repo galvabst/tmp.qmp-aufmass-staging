@@ -4548,6 +4548,39 @@ export type Database = {
           },
         ]
       }
+      leads_sync_queue: {
+        Row: {
+          created_at: string
+          data: Json
+          error_msg: string | null
+          event_type: string
+          id: number
+          lead_id: string
+          retry_count: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          error_msg?: string | null
+          event_type: string
+          id?: number
+          lead_id: string
+          retry_count?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          error_msg?: string | null
+          event_type?: string
+          id?: number
+          lead_id?: string
+          retry_count?: number
+          status?: string
+        }
+        Relationships: []
+      }
       leistungen: {
         Row: {
           basispreis: number
