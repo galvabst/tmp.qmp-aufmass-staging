@@ -392,6 +392,54 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     ? selectedMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
     : 'Gesamt';
 
+  const handleConfirmAction = async () => {
+    if (!pendingAction) return;
+    setIsMutating(true);
+    try {
+      await setContractorOnboardingStatus(pendingAction.onboardingId, pendingAction.action);
+      const verbPast =
+        pendingAction.action === 'pause' ? 'pausiert'
+        : pendingAction.action === 'fire' ? 'endgültig deaktiviert'
+        : 'reaktiviert';
+      toast({
+        title: `Techniker ${verbPast}`,
+        description: `${pendingAction.contractorName} wurde erfolgreich ${verbPast}.`,
+      });
+      setPendingAction(null);
+    } catch (err: any) {
+      toast({
+        title: 'Aktion fehlgeschlagen',
+        description: err?.message || 'Bitte erneut versuchen.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const dialogConfig = pendingAction
+    ? pendingAction.action === 'pause'
+      ? {
+          title: 'Techniker pausieren?',
+          desc: `${pendingAction.contractorName} wird auf "Inaktiv" gesetzt und erhält keine neuen Aufträge mehr. Auf der Map bleibt er grau sichtbar. Du kannst ihn jederzeit wieder reaktivieren.`,
+          confirmText: 'Pausieren',
+          destructive: false,
+        }
+      : pendingAction.action === 'fire'
+      ? {
+          title: 'Techniker endgültig deaktivieren?',
+          desc: `${pendingAction.contractorName} wird gefeuert und verschwindet komplett aus der Map sowie aus allen aktiven Listen. Diese Aktion kann nur durch einen Admin manuell rückgängig gemacht werden.`,
+          confirmText: 'Endgültig deaktivieren',
+          destructive: true,
+        }
+      : {
+          title: 'Techniker reaktivieren?',
+          desc: `${pendingAction.contractorName} wird wieder auf "In Bearbeitung" gesetzt und kann den Onboarding-Prozess fortsetzen.`,
+          confirmText: 'Reaktivieren',
+          destructive: false,
+        }
+    : null;
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card className="mb-6">
