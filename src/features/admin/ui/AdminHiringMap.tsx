@@ -115,7 +115,7 @@ function generateMonthOptions(count: number): { date: Date | null; label: string
   return months;
 }
 
-export function AdminHiringMap() {
+export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {}) {
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(() => {
     const d = new Date();
     d.setDate(1);
@@ -123,7 +123,24 @@ export function AdminHiringMap() {
     return d;
   });
 
-  const { salesReps, contractors, thcOrders, isLoading, isGeocoding } = useAdminHiringMap(selectedMonth);
+  const { salesReps, contractors, thcOrders, isLoading, isGeocoding, setContractorOnboardingStatus } =
+    useAdminHiringMap(selectedMonth);
+  const { toast } = useToast();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const layersRef = useRef<{
+    salesGroup: L.LayerGroup;
+    contractorGroup: L.LayerGroup;
+    thcGroup: L.LayerGroup;
+    heatLayer: L.Layer | null;
+  } | null>(null);
+
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
+
+  // Use refs so popup event handlers always see latest props (popups outlive renders)
+  const onSelectContractorRef = useRef(onSelectContractor);
+  useEffect(() => { onSelectContractorRef.current = onSelectContractor; }, [onSelectContractor]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<{
