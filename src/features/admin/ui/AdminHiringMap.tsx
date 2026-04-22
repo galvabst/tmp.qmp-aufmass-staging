@@ -449,6 +449,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     : null;
 
   return (
+    <>
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card className="mb-6">
         <CollapsibleTrigger asChild>
