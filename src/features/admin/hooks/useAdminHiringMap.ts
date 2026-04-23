@@ -272,6 +272,23 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     [queryClient]
   );
 
+  // Mutation: promote / demote a contractor as trainer
+  const setContractorTrainerStatus = useCallback(
+    async (onboardingId: string, isTrainer: boolean): Promise<void> => {
+      const { error } = await (supabaseTC
+        .from('contractor_onboarding' as any)
+        .update({ is_trainer: isTrainer } as any)
+        .eq('id', onboardingId) as any);
+      if (error) throw error;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['is-trainer'] }),
+      ]);
+    },
+    [queryClient]
+  );
+
   return {
     salesReps,
     contractors,
@@ -279,5 +296,6 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     isLoading: salesQuery.isLoading || contractorQuery.isLoading || thcQuery.isLoading,
     isGeocoding,
     setContractorOnboardingStatus,
+    setContractorTrainerStatus,
   };
 }
