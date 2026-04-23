@@ -515,15 +515,77 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           <CardContent className="pt-0">
             {/* Toggle buttons */}
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <Button
-                variant={showSales ? 'default' : 'outline'}
-                size="sm"
-                className="h-7 text-xs gap-1.5"
-                onClick={() => setShowSales(!showSales)}
-              >
-                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(210, 80%, 50%)' }} />
-                Vertriebler
-              </Button>
+              <div className="inline-flex items-center rounded-md overflow-hidden border border-input">
+                <Button
+                  variant={showSales ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 rounded-none border-0"
+                  onClick={() => setShowSales(!showSales)}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(210, 80%, 50%)' }} />
+                  Vertriebler
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={showSales ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 px-1.5 rounded-none border-0 border-l border-l-background/30 relative"
+                      title="Einzelne Vertriebler ausblenden"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                      {hiddenSalesIds.size > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[9px] leading-none rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                          {hiddenSalesIds.size}
+                        </span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-0" align="start">
+                    <div className="p-3 border-b border-border flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold">Vertriebler ausblenden</span>
+                      </div>
+                      {hiddenSalesIds.size > 0 && (
+                        <button
+                          onClick={() => setHiddenSalesIds(new Set())}
+                          className="text-[11px] text-primary hover:underline"
+                        >
+                          Alle anzeigen
+                        </button>
+                      )}
+                    </div>
+                    <ScrollArea className="max-h-72">
+                      <div className="p-1">
+                        {sortedSalesReps.length === 0 && (
+                          <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                            Keine Vertriebler geladen.
+                          </div>
+                        )}
+                        {sortedSalesReps.map(rep => {
+                          const hidden = hiddenSalesIds.has(rep.id);
+                          return (
+                            <label
+                              key={rep.id}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={!hidden}
+                                onCheckedChange={() => toggleSalesRepHidden(rep.id)}
+                              />
+                              <span className={`text-xs flex-1 truncate ${hidden ? 'text-muted-foreground line-through' : ''}`}>
+                                {rep.name}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">{rep.plz}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <Button
                 variant={showActive ? 'default' : 'outline'}
                 size="sm"
