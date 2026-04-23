@@ -464,6 +464,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
 
   const activeCount = contractors.filter(c => c.status === 'active').length;
   const onboardingCount = contractors.filter(c => c.status === 'onboarding').length;
+  const trainerCount = contractors.filter(c => c.isTrainer).length;
   const totalThc = thcOrders.reduce((s, o) => s + o.count, 0);
 
   const selectedMonthLabel = selectedMonth
@@ -474,15 +475,24 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     if (!pendingAction) return;
     setIsMutating(true);
     try {
-      await setContractorOnboardingStatus(pendingAction.onboardingId, pendingAction.action);
-      const verbPast =
-        pendingAction.action === 'pause' ? 'pausiert'
-        : pendingAction.action === 'fire' ? 'endgültig deaktiviert'
-        : 'reaktiviert';
-      toast({
-        title: `Techniker ${verbPast}`,
-        description: `${pendingAction.contractorName} wurde erfolgreich ${verbPast}.`,
-      });
+      if (pendingAction.action === 'promote-trainer' || pendingAction.action === 'demote-trainer') {
+        const promote = pendingAction.action === 'promote-trainer';
+        await setContractorTrainerStatus(pendingAction.onboardingId, promote);
+        toast({
+          title: promote ? 'Zum Trainer befördert' : 'Trainer-Status entfernt',
+          description: `${pendingAction.contractorName} ${promote ? 'ist jetzt Trainer.' : 'ist kein Trainer mehr.'}`,
+        });
+      } else {
+        await setContractorOnboardingStatus(pendingAction.onboardingId, pendingAction.action);
+        const verbPast =
+          pendingAction.action === 'pause' ? 'pausiert'
+          : pendingAction.action === 'fire' ? 'endgültig deaktiviert'
+          : 'reaktiviert';
+        toast({
+          title: `Techniker ${verbPast}`,
+          description: `${pendingAction.contractorName} wurde erfolgreich ${verbPast}.`,
+        });
+      }
       setPendingAction(null);
     } catch (err: any) {
       toast({
@@ -509,6 +519,20 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           desc: `${pendingAction.contractorName} wird gefeuert und verschwindet komplett aus der Map sowie aus allen aktiven Listen. Diese Aktion kann nur durch einen Admin manuell rückgängig gemacht werden.`,
           confirmText: 'Endgültig deaktivieren',
           destructive: true,
+        }
+      : pendingAction.action === 'promote-trainer'
+      ? {
+          title: 'Zum Trainer befördern?',
+          desc: `${pendingAction.contractorName} wird als Trainer markiert. Trainer können Coachings & Mitfahrten anbieten, sehen den Trainer-Bereich, überspringen die Akademie-Pflicht und sind im Forum als „Trainer" gekennzeichnet.`,
+          confirmText: 'Befördern',
+          destructive: false,
+        }
+      : pendingAction.action === 'demote-trainer'
+      ? {
+          title: 'Trainer-Status entfernen?',
+          desc: `${pendingAction.contractorName} verliert den Trainer-Status. Bestehende Mitfahrten/Coaching-Slots bleiben erhalten, neue können nicht mehr angeboten werden.`,
+          confirmText: 'Entfernen',
+          destructive: false,
         }
       : {
           title: 'Techniker reaktivieren?',
