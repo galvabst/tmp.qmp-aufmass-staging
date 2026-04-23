@@ -10210,6 +10210,9 @@ export type Database = {
             | "dialog_geoeffnet"
             | "vertrag_aktiviert_versucht"
             | "drawer_geoeffnet"
+            | "viessmann_registriert"
+            | "viessmann_gekuendigt"
+            | "viessmann_abbuchungen_gestoppt"
             | null
           id: string | null
           payload: Json | null
@@ -10424,6 +10427,25 @@ export type Database = {
         }
         Relationships: []
       }
+      v_subscriptions_kuendigung_risiko: {
+        Row: {
+          endkunde_gekuendigt_zum: string | null
+          mindestlaufzeit_bis: string | null
+          naechste_kuendigung_moeglich_zum: string | null
+          risiko_status: string | null
+          status: string | null
+          subscription_id: string | null
+          tage_bis_viessmann_frist: number | null
+          vertragsnummer: string | null
+          viessmann_gekuendigt_am: string | null
+          viessmann_gekuendigt_zum: string | null
+          viessmann_kuendigung_nachweis_document_id: string | null
+          viessmann_kuendigungsfrist_letzter_tag: string | null
+          viessmann_kuendigungsfrist_wochen: number | null
+          viessmann_letzte_abbuchung_bestaetigt_am: string | null
+        }
+        Relationships: []
+      }
       v_subscriptions_list: {
         Row: {
           abrechnungsintervall: string | null
@@ -10438,6 +10460,7 @@ export type Database = {
           is_draft: boolean | null
           jahrespreis_brutto: number | null
           jahrespreis_netto: number | null
+          kuendigungsfrist_status: string | null
           kunde_firmenname: string | null
           kunde_id: string | null
           kunde_id_join: string | null
@@ -10460,6 +10483,13 @@ export type Database = {
           vertragsnummer: string | null
           viessmann_auftragsnummer: string | null
           viessmann_gebucht_am: string | null
+          viessmann_gekuendigt_am: string | null
+          viessmann_gekuendigt_zum: string | null
+          viessmann_kuendigung_nachweis_document_id: string | null
+          viessmann_kuendigungsfrist_wochen: number | null
+          viessmann_letzte_abbuchung_bestaetigt_am: string | null
+          viessmann_registriert_am: string | null
+          viessmann_registrierung_pflicht_bis: string | null
           widerrufsfrist_endet_am: string | null
         }
         Relationships: []
@@ -12943,6 +12973,10 @@ export type Database = {
         Args: { p_arbeitspaket_id: string }
         Returns: Json
       }
+      repair_thc_orphaned_pipeline_state: {
+        Args: { p_auftrag_id: string }
+        Returns: Json
+      }
       request_thermocheck_angebotsaenderung: {
         Args: { p_follow_up_datum: string; p_lead_id: string; p_notiz: string }
         Returns: undefined
@@ -13720,6 +13754,10 @@ export type Database = {
         }
         Returns: Json
       }
+      subscription_confirm_viessmann_zahlung_gestoppt: {
+        Args: { p_bestaetigt_am: string; p_subscription_id: string }
+        Returns: Json
+      }
       subscription_draft_delete: {
         Args: { p_draft_id: string }
         Returns: undefined
@@ -13779,6 +13817,10 @@ export type Database = {
           offene_forderungen: number
         }[]
       }
+      subscription_kuendigung_pruefen: {
+        Args: { p_endkunden_kuendigung_zum: string; p_subscription_id: string }
+        Returns: Json
+      }
       subscription_log_audit_event: {
         Args: {
           p_event_type:
@@ -13800,6 +13842,9 @@ export type Database = {
             | "dialog_geoeffnet"
             | "vertrag_aktiviert_versucht"
             | "drawer_geoeffnet"
+            | "viessmann_registriert"
+            | "viessmann_gekuendigt"
+            | "viessmann_abbuchungen_gestoppt"
           p_payload?: Json
           p_subscription_id: string
         }
@@ -13835,6 +13880,26 @@ export type Database = {
           p_subscription_id: string
           p_viessmann_auftragsnummer: string
           p_viessmann_gebucht_am: string
+        }
+        Returns: Json
+      }
+      subscription_record_viessmann_kuendigung: {
+        Args: {
+          p_dateiname: string
+          p_gekuendigt_am: string
+          p_gekuendigt_zum: string
+          p_size_bytes: number
+          p_storage_path: string
+          p_subscription_id: string
+        }
+        Returns: Json
+      }
+      subscription_record_viessmann_registrierung: {
+        Args: {
+          p_ibn_datum_gesetzt: boolean
+          p_rechnung_hochgeladen: boolean
+          p_standort_eingetragen: boolean
+          p_subscription_id: string
         }
         Returns: Json
       }
