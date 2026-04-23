@@ -158,6 +158,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
   const [isOpen, setIsOpen] = useState(true);
   const [showSales, setShowSales] = useState(true);
   const [showActive, setShowActive] = useState(true);
+  const [showInaktiv, setShowInaktiv] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showTrainers, setShowTrainers] = useState(true);
   const [showThcOrders, setShowThcOrders] = useState(false); // Default off — heatmap is primary
