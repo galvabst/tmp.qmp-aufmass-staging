@@ -158,6 +158,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
   const [isOpen, setIsOpen] = useState(true);
   const [showSales, setShowSales] = useState(true);
   const [showActive, setShowActive] = useState(true);
+  const [showInaktiv, setShowInaktiv] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showTrainers, setShowTrainers] = useState(true);
   const [showThcOrders, setShowThcOrders] = useState(false); // Default off — heatmap is primary
@@ -278,13 +279,13 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     const group = layersRef.current?.contractorGroup;
     if (!group) return;
     group.clearLayers();
-    if (!showActive && !showOnboarding && !showTrainers) return;
+    if (!showActive && !showInaktiv && !showOnboarding && !showTrainers) return;
 
     const filteredContractors = contractors.filter(c => {
       // Trainers always visible if showTrainers is on, regardless of status
       if (c.isTrainer && showTrainers) return true;
       if (c.status === 'active') return showActive;
-      if (c.status === 'inaktiv') return showActive; // inaktive follow active toggle
+      if (c.status === 'inaktiv') return showInaktiv;
       return showOnboarding; // onboarding
     });
 
@@ -391,7 +392,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
       });
       marker.addTo(group);
     });
-  }, [contractors, showActive, showOnboarding, showTrainers, thcOrders]);
+  }, [contractors, showActive, showInaktiv, showOnboarding, showTrainers, thcOrders]);
 
   // Place THC order markers (detail dots) — off by default
   useEffect(() => {
@@ -463,6 +464,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
   }, [thcOrders, showHeatmap]);
 
   const activeCount = contractors.filter(c => c.status === 'active').length;
+  const inaktivCount = contractors.filter(c => c.status === 'inaktiv').length;
   const onboardingCount = contractors.filter(c => c.status === 'onboarding').length;
   const trainerCount = contractors.filter(c => c.isTrainer).length;
   const totalThc = thcOrders.reduce((s, o) => s + o.count, 0);
@@ -553,7 +555,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
                 <MapIcon className="w-4 h-4 text-primary" />
                 <CardTitle className="text-sm font-semibold">Hiring-Map</CardTitle>
                 <span className="text-xs text-muted-foreground">
-                  {visibleSalesReps.length}{hiddenSalesIds.size > 0 ? `/${salesReps.length}` : ''} Vertriebler · {activeCount} Aktive · {onboardingCount} Onboarding · {trainerCount} Trainer · {totalThc} THCs
+                  {visibleSalesReps.length}{hiddenSalesIds.size > 0 ? `/${salesReps.length}` : ''} Vertriebler · {activeCount} Aktive · {inaktivCount} Inaktiv · {onboardingCount} Onboarding · {trainerCount} Trainer · {totalThc} THCs
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">{isOpen ? '▼' : '▶'}</span>
@@ -643,6 +645,16 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
               >
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(142, 71%, 45%)' }} />
                 Aktive
+              </Button>
+              <Button
+                variant={showInaktiv ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setShowInaktiv(!showInaktiv)}
+                title="Pausierte/Inaktive Techniker anzeigen"
+              >
+                <span className="w-2.5 h-2.5 rounded-full inline-block border border-muted-foreground/40" style={{ background: 'hsl(0, 0%, 65%)' }} />
+                ⏸ Inaktiv
               </Button>
               <Button
                 variant={showOnboarding ? 'default' : 'outline'}
