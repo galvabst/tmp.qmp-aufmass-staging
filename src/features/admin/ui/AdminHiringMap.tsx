@@ -392,7 +392,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
       });
       marker.addTo(group);
     });
-  }, [contractors, showActive, showOnboarding, showTrainers, thcOrders]);
+  }, [contractors, showActive, showInaktiv, showOnboarding, showTrainers, thcOrders]);
 
   // Place THC order markers (detail dots) — off by default
   useEffect(() => {
