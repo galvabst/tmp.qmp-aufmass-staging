@@ -71,6 +71,19 @@ Deno.serve(async (req) => {
     }
     const targetEmail = targetData.user.email;
 
+    // Audit-Log ZUERST schreiben (via SECURITY DEFINER RPC).
+    // So ist die Aktion auf jeden Fall protokolliert, selbst wenn die
+    // Token-Generierung danach fehlschlägt.
+    const { data: logId, error: logErr } = await adminClient.rpc('log_impersonation', {
+      _admin_user_id: adminUserId,
+      _target_user_id: targetUserId,
+      _reason: reason ?? null,
+    });
+    if (logErr) {
+      console.error('audit log insert error', logErr);
+      return json({ error: `Audit log failed: ${logErr.message}` }, 500);
+    }
+
     // Magic-Link generieren
     const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
       type: 'magiclink',
@@ -81,25 +94,20 @@ Deno.serve(async (req) => {
       return json({ error: 'Failed to generate link' }, 500);
     }
 
-    // Token einlösen → access/refresh
-    const { data: verifyData, error: verifyErr } = await adminClient.auth.verifyOtp({
+    // Token einlösen → access/refresh.
+    // Dafür einen frischen anon-Client verwenden, damit die Session des
+    // Service-Role-Clients nicht überschrieben wird.
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const verifyClient = createClient(supabaseUrl, anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
+    const { data: verifyData, error: verifyErr } = await verifyClient.auth.verifyOtp({
       type: 'magiclink',
       token_hash: linkData.properties.hashed_token,
     });
     if (verifyErr || !verifyData.session) {
       console.error('verifyOtp error', verifyErr);
       return json({ error: 'Failed to create session' }, 500);
-    }
-
-    // Audit-Log via SECURITY DEFINER RPC (iam-Schema ist nicht über PostgREST exposed)
-    const { data: logId, error: logErr } = await adminClient.rpc('log_impersonation', {
-      _admin_user_id: adminUserId,
-      _target_user_id: targetUserId,
-      _reason: reason ?? null,
-    });
-    if (logErr) {
-      console.error('audit log insert error', logErr);
-      // nicht blockierend
     }
 
     return json({
