@@ -23,8 +23,12 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Service-Role-Client für alle privilegierten Operationen
-    const adminClient = createClient(supabaseUrl, serviceKey);
+    // Service-Role-Client für alle privilegierten Operationen.
+    // WICHTIG: autoRefreshToken/persistSession/detectSessionInUrl ausschalten,
+    // damit verifyOtp nicht die globale Session des Clients überschreibt.
+    const adminClient = createClient(supabaseUrl, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
 
     // Aufrufer per JWT identifizieren
     const token = authHeader.replace('Bearer ', '');
