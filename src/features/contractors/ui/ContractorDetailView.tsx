@@ -500,3 +500,84 @@ function EinweisungFreigabeToggle({ contractorId, initial }: { contractorId: str
     </div>
   );
 }
+
+function TrainerToggleButton({
+  onboardingId,
+  contractorName,
+  initial,
+}: {
+  onboardingId: string;
+  contractorName: string;
+  initial: boolean;
+}) {
+  const [isTrainer, setIsTrainer] = useState(initial);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      const next = !isTrainer;
+      const { error } = await (supabaseTC
+        .from('contractor_onboarding' as any)
+        .update({ is_trainer: next } as any)
+        .eq('id', onboardingId) as any);
+      if (error) throw error;
+      setIsTrainer(next);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] }),
+        queryClient.invalidateQueries({ queryKey: ['is-trainer'] }),
+      ]);
+      toast.success(next ? `${contractorName} ist jetzt Trainer` : 'Trainer-Status entfernt');
+      setConfirmOpen(false);
+    } catch (err: any) {
+      console.error('[TrainerToggle]', err);
+      toast.error(err.message || 'Fehler beim Speichern');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setConfirmOpen(true)}
+        title={isTrainer ? 'Trainer-Status entfernen' : 'Zum Trainer befördern'}
+        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+          isTrainer
+            ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400'
+            : 'bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <Star className={`w-3.5 h-3.5 ${isTrainer ? 'fill-current' : ''}`} />
+        <span className="hidden sm:inline">{isTrainer ? 'Trainer' : 'Befördern'}</span>
+      </button>
+
+      <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!loading) setConfirmOpen(o); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isTrainer ? 'Trainer-Status entfernen?' : 'Zum Trainer befördern?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isTrainer
+                ? `${contractorName} verliert den Trainer-Status. Bestehende Mitfahrten/Coaching-Slots bleiben erhalten, neue können nicht mehr angeboten werden.`
+                : `${contractorName} wird als Trainer markiert. Trainer können Coachings & Mitfahrten anbieten, sehen den Trainer-Bereich, überspringen die Akademie-Pflicht und sind im Forum als „Trainer" gekennzeichnet.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirm(); }}
+              disabled={loading}
+            >
+              {loading ? 'Bitte warten…' : isTrainer ? 'Entfernen' : 'Befördern'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
