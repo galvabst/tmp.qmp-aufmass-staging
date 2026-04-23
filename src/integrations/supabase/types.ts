@@ -10359,9 +10359,15 @@ export type Database = {
           default_mwst_satz: number | null
           id: string | null
           key: string | null
+          listenpreis_default_eur: number | null
           mindestlaufzeit_monate: number | null
+          provision_individuell_min_eur: number | null
+          provision_standard_min_eur: number | null
           sort_order: number | null
           sparte: "waermepumpe" | "photovoltaik" | "sonstige" | null
+          ueberverkauf_schwelle_eur: number | null
+          ueberverkauf_split_festangestellt: number | null
+          ueberverkauf_split_handelsvertreter: number | null
           updated_at: string | null
           widerrufsfrist_tage: number | null
         }
@@ -10379,9 +10385,15 @@ export type Database = {
           default_mwst_satz?: number | null
           id?: string | null
           key?: string | null
+          listenpreis_default_eur?: number | null
           mindestlaufzeit_monate?: number | null
+          provision_individuell_min_eur?: number | null
+          provision_standard_min_eur?: number | null
           sort_order?: number | null
           sparte?: "waermepumpe" | "photovoltaik" | "sonstige" | null
+          ueberverkauf_schwelle_eur?: number | null
+          ueberverkauf_split_festangestellt?: number | null
+          ueberverkauf_split_handelsvertreter?: number | null
           updated_at?: string | null
           widerrufsfrist_tage?: number | null
         }
@@ -10399,9 +10411,15 @@ export type Database = {
           default_mwst_satz?: number | null
           id?: string | null
           key?: string | null
+          listenpreis_default_eur?: number | null
           mindestlaufzeit_monate?: number | null
+          provision_individuell_min_eur?: number | null
+          provision_standard_min_eur?: number | null
           sort_order?: number | null
           sparte?: "waermepumpe" | "photovoltaik" | "sonstige" | null
+          ueberverkauf_schwelle_eur?: number | null
+          ueberverkauf_split_festangestellt?: number | null
+          ueberverkauf_split_handelsvertreter?: number | null
           updated_at?: string | null
           widerrufsfrist_tage?: number | null
         }
@@ -10443,6 +10461,23 @@ export type Database = {
           viessmann_kuendigungsfrist_letzter_tag: string | null
           viessmann_kuendigungsfrist_wochen: number | null
           viessmann_letzte_abbuchung_bestaetigt_am: string | null
+        }
+        Relationships: []
+      }
+      v_subscriptions_lifecycle: {
+        Row: {
+          phase: string | null
+          status: string | null
+          sub_phase: string | null
+          subscription_id: string | null
+        }
+        Relationships: []
+      }
+      v_subscriptions_lifecycle_counts: {
+        Row: {
+          anzahl: number | null
+          phase: string | null
+          sub_phase: string | null
         }
         Relationships: []
       }
@@ -14041,15 +14076,26 @@ export type Database = {
         Args: { p_auftrag_id: string; p_status: string }
         Returns: undefined
       }
-      update_thc_fortschritt: {
-        Args: {
-          p_abgeschlossen?: boolean
-          p_datei_url?: string
-          p_fortschritt_id: string
-          p_wert?: string
-        }
-        Returns: undefined
-      }
+      update_thc_fortschritt:
+        | {
+            Args: {
+              p_abgeschlossen?: boolean
+              p_datei_url?: string
+              p_fortschritt_id: string
+              p_wert?: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_abgeschlossen?: boolean
+              p_datei_url?: string
+              p_dateien_urls?: Json
+              p_fortschritt_id: string
+              p_wert?: string
+            }
+            Returns: undefined
+          }
       update_thc_migration_run: {
         Args: {
           p_error_message?: string
@@ -14611,6 +14657,7 @@ export type Database = {
         | "datetime"
         | "elektrik_calendar"
         | "url_or_file"
+        | "multi_file_upload"
       storno_status_enum:
         | "Zu Stornieren"
         | "Stornierung beantragt"
@@ -15272,6 +15319,7 @@ export const Constants = {
         "datetime",
         "elektrik_calendar",
         "url_or_file",
+        "multi_file_upload",
       ],
       storno_status_enum: [
         "Zu Stornieren",
