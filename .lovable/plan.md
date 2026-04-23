@@ -1,75 +1,90 @@
 
 
-## Lead-Conversion-Bonus: Anzeige sofort, Freigabe erst mit Anzahlung
+## „Impersonate"-Button für Superadmins (Login als Techniker)
 
-### Was du willst
+### Was du bekommst
 
-Der Lead-Conversion-Bonus (50 €) soll dem Techniker **sofort sichtbar** sein, sobald sein Thermocheck-Auftrag zu einem echten Kundenauftrag konvertiert wird (Lead → Kunde). Die **Freigabe zur Auszahlung** erfolgt aber erst, **wenn die Kundenanzahlung eingegangen ist**.
+In der Admin-Konsole (Techniker-Liste und Techniker-Detailansicht) erscheint für **Superadmins** ein neuer Button **„Als dieser Techniker einloggen"**. Ein Klick → du bist sofort in der App in der Sicht dieses Technikers, siehst genau das, was er sieht (Aufträge, Boni, Onboarding-Stand, Praxistest etc.). Oben in der App erscheint ein **persistentes rotes Banner**:
 
-Das bedeutet zwei Phasen, die im UI klar unterschieden werden müssen:
+> 🔴 Eingeloggt als **Max Mustermann** (Impersonation aktiv) — [Zurück zu Admin]
 
-1. **„In Aussicht"** — Lead ist konvertiert, Auftrag passt zum THC-Gebäude → Bonus existiert mit Status `ausstehend`. Der Techniker sieht ihn („50 € sind dir versprochen"), kann ihn aber noch nicht abrechnen.
-2. **„Freigegeben"** — Anzahlung des Kunden ist eingegangen → Bonus wechselt auf `freigegeben` und wandert in die nächste Auszahlung.
+Ein Klick auf „Zurück zu Admin" → du bist wieder dein eigener Superadmin-Account. Kein Passwort-Tanz, keine zweiten Browser, keine Inkognito-Fenster mehr.
 
-### Aktueller Stand (zur Erinnerung)
+### So funktioniert es technisch (sicher!)
 
-- DB-Trigger `trg_lead_conversion_bonus` auf `public.auftraege` legt den Bonus-Datensatz in `thermocheck.contractor_boni` mit Status `ausstehend` automatisch an, sobald ein Lead in einen Auftrag konvertiert wird.
-- Der Status `freigegeben` existiert im Enum, wird aber heute nicht automatisch durch ein Anzahlungs-Event gesetzt.
-- Im UI (`ReviewView` → Boni-Card) zeigt die Liste pro Bonus nur „Offen" (grau) oder „Abgerechnet" (grün). Die Trennung „in Aussicht" vs. „freigegeben" fehlt komplett.
-- Die Summary-Card zeigt aktuell nur die **freigegebenen** Boni in € — der Techniker sieht also seine "in Aussicht"-Beträge gar nicht.
+Wir können **nicht** einfach das Passwort des Users umgehen — Supabase erlaubt das nicht client-seitig. Stattdessen nutzen wir das offizielle Pattern: eine **Edge Function generiert per Service-Role-Key ein Magic-Link / Session-Token** für den Ziel-User, und wir signen den Browser direkt damit ein. Das ist die einzige saubere Methode und wird genau so von Tools wie Linear, Stripe, Vercel etc. genutzt.
 
-### Plan
-
-**1. Bonus-Erstellungs-Logik schärfen (DB)**
-- Trigger `trg_lead_conversion_bonus` so anpassen, dass er **nur feuert**, wenn der konvertierte Auftrag tatsächlich zum THC-Gebäude des Technikers passt (Match über `lead_id` ↔ `thermocheck_auftraege.lead_id`, aktuell schon vorausgesetzt — ich verifiziere und härte die WHERE-Bedingung).
-- Status weiterhin `ausstehend` setzen.
-
-**2. Anzahlungs-Event → automatische Freigabe (DB)**
-- Neuer Trigger auf der Tabelle/Spalte, in der die Kundenanzahlung erfasst wird (typisch: `public.auftraege.anzahlung_eingegangen_am` oder ein dedizierter Status-Übergang). Sobald die Anzahlung eingegangen ist:
-  - Setze für den passenden `contractor_boni`-Datensatz (`bonus_typ = 'lead_conversion'`, gleicher Auftrag) `status = 'freigegeben'` und `freigegeben_am = now()`.
-- Ich prüfe vorher das genaue Anzahlungs-Feld/-Event in `public.auftraege` und passe den Trigger entsprechend an.
-
-**3. UI-Differenzierung im „In Prüfung"-Tab (`ReviewView.tsx` + `BoniDetailSection`)**
-
-Summary-Card „Boni" wird zweizeilig:
-```
-Boni
-[freigegeben €]  · in Aussicht: [ausstehend €]
-[count] Boni
+```text
+[Superadmin im Admin-UI]
+        │
+        │ Klick „Als X einloggen"
+        ▼
+[Edge Function: admin-impersonate]
+   - prüft: Aufrufer ist superadmin (via JWT + iam-Tabelle)
+   - logt Audit-Eintrag (wer, wen, wann, warum)
+   - generiert magic-link Token für Ziel-User
+   - speichert Original-Refresh-Token verschlüsselt zurück
+        │
+        ▼
+[Frontend]
+   - sichert die aktuelle (Admin-) Session in sessionStorage
+   - setzt neue Session mit dem Token vom Edge
+   - zeigt rotes Impersonation-Banner
+   - bei „Zurück": stellt Admin-Session wieder her
 ```
 
-In der aufgeklappten Liste pro Bonus:
-- Status-Badge differenziert farbcodiert:
-  - `ausstehend` (Lead-Conversion ohne Anzahlung) → gelber Badge **„In Aussicht – wartet auf Anzahlung"**
-  - `ausstehend` (Bewertungs-Bonus) → gelber Badge **„In Prüfung"**
-  - `freigegeben` → blauer Badge **„Freigegeben – nächste Auszahlung"**
-  - `ausgezahlt` / `abgerechnet_am` gesetzt → grüner Badge **„Ausgezahlt"**
-  - `abgelehnt` → roter Badge **„Abgelehnt"**
-- Pro Lead-Conversion-Eintrag eine Mini-Erklärzeile:
-  „50 € werden freigegeben sobald die Kundenanzahlung eingeht."
+### Schritte im Detail
 
-Empty-State der Boni-Card:
-- Statt nur „Noch keine Boni" eine kurze Erklärbox mit den 3 Bonus-Quellen + jeweiligem Auslöser, damit Techniker das System verstehen.
+**1. Audit-Log-Tabelle (DB-Migration)**
+Neue Tabelle `iam.impersonation_log` mit: `admin_user_id`, `target_user_id`, `started_at`, `ended_at`, `reason` (optional). RLS: nur Superadmins dürfen lesen, Schreiben passiert via SECURITY DEFINER Edge-Function. Damit ist nachvollziehbar wer wann auf wen geschaltet hat — wichtig für DSGVO und interne Compliance.
 
-**4. Hook-Aggregation erweitern (`useContractorBoni.ts`)**
-- `useBoniSummary` zusätzlich aufschlüsseln in:
-  - `inAussicht` (alle `lead_conversion` mit Status `ausstehend`)
-  - `inPruefung` (alle Bewertungs-Boni mit Status `ausstehend`)
-  - `freigegeben`
-  - `ausgezahlt`
-- Damit Summary-Card und ggf. spätere Stellen sauber unterscheiden können.
+**2. Edge Function `admin-impersonate`**
+- Eingang: `{ targetUserId: uuid, reason?: string }`
+- Validiert das JWT des Aufrufers
+- Prüft via Service-Role: `iam.user_system_roles` → muss `superadmin` enthalten (nur Superadmin, NICHT admin/manager — bewusst restriktiv)
+- Schreibt Audit-Eintrag
+- Erzeugt via `supabase.auth.admin.generateLink({ type: 'magiclink', email: targetEmail })` einen einmaligen Token
+- Gibt `{ access_token, refresh_token }` für den Ziel-User zurück (über `verifyOtp` extrahiert), **niemals direkt das Passwort**
 
-**5. Nicht im Scope dieses Tickets** (eigener Plan, falls gewünscht):
-- Die fehlende UI zum **Beantragen** von Google-/Trustpilot-Bewertungs-Boni (Hook existiert, aber kein UI). Sag Bescheid wenn das mit rein soll.
+**3. Frontend-Hook `useImpersonation`**
+- `startImpersonation(targetUserId, reason)`: ruft Edge Function, sichert aktuelle Session in `sessionStorage` unter `__admin_session_backup`, setzt neue Session mit `supabase.auth.setSession(...)`, redirect auf `/`
+- `stopImpersonation()`: liest Backup, setzt zurück, redirect auf `/admin`
+- `useImpersonationState()`: Boolean ob aktuell impersoniert wird + Original-Admin-Email für Banner-Anzeige
+
+**4. UI-Komponenten**
+- `ImpersonationBanner.tsx` — global in `App.tsx` eingehängt, sticky oben, rote Hintergrundfarbe (destructive token), zeigt Ziel-Username + Original-Admin-Email + „Zurück"-Button
+- Button **„Als Techniker einloggen"** (Icon: `UserCog` von lucide) in:
+  - `ContractorListView` Karten (kleines Icon rechts neben „Status")
+  - `ContractorDetailView` Header
+- Sichtbar nur wenn `useHasRole('superadmin') === true`
+- Optional: Dialog mit Pflicht-Eingabefeld „Grund" (z. B. „Support-Ticket #123") — landet im Audit-Log
+
+**5. Sicherheits-Garantien**
+- Nur **superadmin** darf impersonieren (admin/manager sehen den Button gar nicht erst und Edge Function lehnt sie ab)
+- Magic-Link-Token läuft nach kurzer Zeit ab (Supabase default, nicht verlängerbar)
+- Jede Impersonation wird geloggt — der Audit-Log ist später für ein Admin-Sub-Page sichtbar
+- Banner ist **nicht ausblendbar** und nutzt z-index der höchsten Ebene, damit du nie versehentlich vergisst, dass du fremd unterwegs bist
+- Bei Schreib-Aktionen passiert nichts Besonderes — du agierst als der Techniker, also wird auch alles dem Techniker zugerechnet (das ist gewollt für Tests; durch das Audit-Log ist es trotzdem rückverfolgbar)
+
+### Was es NICHT ist
+
+- Kein „Vorschau-Modus" mit gefakten Daten — du bist wirklich der User. Das ist genau, was du willst, aber: schreib nicht versehentlich Mist in echte Auftragsfelder.
+- Keine Passwort-Anzeige oder -Änderung. Wir umgehen Passwörter, brechen sie nicht.
+- Funktioniert nicht für Aufrufer ohne `superadmin` — auch normale Admins können sich nicht einloggen, nur du.
 
 ### Technisch betroffen
 
-- **DB-Migration**: Trigger-Anpassung `trg_lead_conversion_bonus` (Härtung), neuer Trigger/Funktion `freigabe_bonus_bei_anzahlung` auf `public.auftraege`.
-- **Frontend**:
-  - `src/hooks/useContractorBoni.ts` — `useBoniSummary` erweitern, Status-Helper für UI-Mapping
-  - `src/components/ReviewView.tsx` — Summary-Card zweiwertig, `BoniDetailSection` mit differenzierten Status-Badges + Erklärzeile, neuer Empty-State
+- **DB-Migration**: `iam.impersonation_log` Tabelle + RLS + Audit-Funktion
+- **Neue Edge Function**: `supabase/functions/admin-impersonate/index.ts`
+- **Frontend neu**:
+  - `src/hooks/useImpersonation.ts`
+  - `src/components/ImpersonationBanner.tsx`
+- **Frontend angepasst**:
+  - `src/App.tsx` — Banner global einbinden
+  - `src/features/contractors/ui/ContractorListView.tsx` — Button pro Karte
+  - `src/features/contractors/ui/ContractorDetailView.tsx` — Button im Header
 
-### Offene Annahme zur Klärung beim Implementieren
+### Was ich brauche bevor's losgeht
 
-Ich muss in `public.auftraege` prüfen, **wie genau** die Anzahlung erfasst wird (Spaltenname, ob Boolean-Flag oder Datum oder Statusübergang). Davon hängt der Trigger-Code ab. Falls es noch kein eindeutiges Anzahlungs-Feld gibt, melde ich mich vor der Migration zurück mit einem konkreten Vorschlag, statt blind eine Spalte anzunehmen.
+Eine kurze Bestätigung dass der Button **nur** für `superadmin` (nicht für `admin` / `manager`) erscheinen soll — das ist mein default, aber sag Bescheid falls du das anders willst.
 
