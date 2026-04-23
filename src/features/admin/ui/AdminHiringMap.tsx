@@ -88,18 +88,26 @@ function createMarkerIcon(color: string, label?: string) {
   });
 }
 
-function createAvatarIcon(avatarUrl: string, borderColor: string) {
+function createAvatarIcon(avatarUrl: string, borderColor: string, isTrainer: boolean = false) {
+  const trainerBadge = isTrainer
+    ? `<div style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:hsl(45,93%,55%);border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:9px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,0.4);">★</div>`
+    : '';
+  const ringStyle = isTrainer
+    ? `border: 4px solid hsl(280,70%,55%); box-shadow: 0 0 0 2px white, 0 2px 8px rgba(0,0,0,0.4);`
+    : `border: 3px solid ${borderColor}; box-shadow: 0 2px 8px rgba(0,0,0,0.35);`;
   return L.divIcon({
     className: '',
-    html: `<div style="
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: 3px solid ${borderColor};
-      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-      overflow: hidden;
-      background: #e5e7eb;
-    "><img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='👤'" /></div>`,
+    html: `<div style="position:relative;width:36px;height:36px;">
+      <div style="
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        ${ringStyle}
+        overflow: hidden;
+        background: #e5e7eb;
+      "><img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='👤'" /></div>
+      ${trainerBadge}
+    </div>`,
     iconSize: [36, 36],
     iconAnchor: [18, 18],
     popupAnchor: [0, -22],
