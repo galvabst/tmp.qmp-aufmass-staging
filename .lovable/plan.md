@@ -1,56 +1,75 @@
 
 
-## Wie Boni aktuell im "In Prüfung"-Tab angezeigt werden
+## Lead-Conversion-Bonus: Anzeige sofort, Freigabe erst mit Anzahlung
 
-### Wo
-Im Tab **"In Prüfung"** (`ReviewView.tsx`) gibt es oben die dritte Summary-Card **"Boni"** (Geschenk-Icon). Klick darauf klappt eine **monatlich gruppierte Liste** auf (`BoniDetailSection`) mit:
-- Lead-Name + Bonus-Typ ("Lead-Conversion", "Google-Bewertung", "Trustpilot-Bewertung")
-- Betrag in € pro Bonus
-- Status pro Zeile: **„Offen"** (grau) oder **„Abgerechnet"** (grün, sobald `abgerechnet_am` gesetzt ist)
-- Pro Monatsblock: Summe + „offen"-Badge wenn noch nicht ausgezahlt
+### Was du willst
 
-Datenquelle: RPC `get_my_contractor_boni` → Tabelle `thermocheck.contractor_boni`. Aggregat in `useBoniSummary` (ausstehend / freigegeben / ausgezahlt).
+Der Lead-Conversion-Bonus (50 €) soll dem Techniker **sofort sichtbar** sein, sobald sein Thermocheck-Auftrag zu einem echten Kundenauftrag konvertiert wird (Lead → Kunde). Die **Freigabe zur Auszahlung** erfolgt aber erst, **wenn die Kundenanzahlung eingegangen ist**.
 
-### Wann ein Bonus erscheint
+Das bedeutet zwei Phasen, die im UI klar unterschieden werden müssen:
 
-| Bonus-Typ | Auslöser | Sichtbarkeit |
-|---|---|---|
-| **Lead-Conversion (50 €)** | DB-Trigger `trg_lead_conversion_bonus` auf `public.auftraege` — sobald der Lead in einen Auftrag konvertiert wird | **Automatisch** — erscheint sofort mit Status `ausstehend`, dann `freigegeben` → `ausgezahlt` |
-| **Google-Bewertung (10 €)** | RPC `erstelle_bewertungs_bonus` (Techniker reicht Screenshot ein) | **Nur wenn der Techniker manuell beantragt** |
-| **Trustpilot-Bewertung (10 €)** | dito | **Nur wenn der Techniker manuell beantragt** |
-| **Beide Bewertungen kombiniert (25 €)** | Backend rechnet Bonus auf 25 € hoch, sobald beide vorhanden | automatisch nach zweitem Antrag |
+1. **„In Aussicht"** — Lead ist konvertiert, Auftrag passt zum THC-Gebäude → Bonus existiert mit Status `ausstehend`. Der Techniker sieht ihn („50 € sind dir versprochen"), kann ihn aber noch nicht abrechnen.
+2. **„Freigegeben"** — Anzahlung des Kunden ist eingegangen → Bonus wechselt auf `freigegeben` und wandert in die nächste Auszahlung.
 
-### Das Problem
+### Aktueller Stand (zur Erinnerung)
 
-Der **Bewertungs-Bonus-Antrag hat KEINE UI**. Der Hook `useErstelleBewertungsBonus` existiert in `useContractorBoni.ts`, wird aber **nirgends im Code aufgerufen**. Heißt: Techniker können in der App aktuell nur Lead-Conversion-Boni sehen (weil die per Trigger automatisch entstehen), aber **keinen Bewertungs-Bonus selbst beantragen**.
+- DB-Trigger `trg_lead_conversion_bonus` auf `public.auftraege` legt den Bonus-Datensatz in `thermocheck.contractor_boni` mit Status `ausstehend` automatisch an, sobald ein Lead in einen Auftrag konvertiert wird.
+- Der Status `freigegeben` existiert im Enum, wird aber heute nicht automatisch durch ein Anzahlungs-Event gesetzt.
+- Im UI (`ReviewView` → Boni-Card) zeigt die Liste pro Bonus nur „Offen" (grau) oder „Abgerechnet" (grün). Die Trennung „in Aussicht" vs. „freigegeben" fehlt komplett.
+- Die Summary-Card zeigt aktuell nur die **freigegebenen** Boni in € — der Techniker sieht also seine "in Aussicht"-Beträge gar nicht.
 
-Außerdem fehlt im UI komplett:
-- Hinweis **wann** ein Bewertungs-Bonus überhaupt möglich ist (typischerweise nach `approved`-Status eines Auftrags)
-- Upload-UI für den Screenshot-Nachweis
-- Info, dass aus 2× 10 € automatisch 25 € werden
+### Plan
 
-### Vorschlag zur Behebung
+**1. Bonus-Erstellungs-Logik schärfen (DB)**
+- Trigger `trg_lead_conversion_bonus` so anpassen, dass er **nur feuert**, wenn der konvertierte Auftrag tatsächlich zum THC-Gebäude des Technikers passt (Match über `lead_id` ↔ `thermocheck_auftraege.lead_id`, aktuell schon vorausgesetzt — ich verifiziere und härte die WHERE-Bedingung).
+- Status weiterhin `ausstehend` setzen.
 
-1. **Pro abgenommenem Auftrag** in `ReviewView` (Sektion „Abgenommen") eine Aktion **„Bewertungs-Bonus beantragen"** anbieten — sichtbar nur wenn `status === 'approved'` UND noch kein Bewertungsbonus für diesen Auftrag existiert.
+**2. Anzahlungs-Event → automatische Freigabe (DB)**
+- Neuer Trigger auf der Tabelle/Spalte, in der die Kundenanzahlung erfasst wird (typisch: `public.auftraege.anzahlung_eingegangen_am` oder ein dedizierter Status-Übergang). Sobald die Anzahlung eingegangen ist:
+  - Setze für den passenden `contractor_boni`-Datensatz (`bonus_typ = 'lead_conversion'`, gleicher Auftrag) `status = 'freigegeben'` und `freigegeben_am = now()`.
+- Ich prüfe vorher das genaue Anzahlungs-Feld/-Event in `public.auftraege` und passe den Trigger entsprechend an.
 
-2. **Modal mit zwei Karten** (Google / Trustpilot):
-   - Screenshot-Upload (`PhotoUploadField`-Pattern, JPEG/PNG/WebP)
-   - Hochladen in Bucket `contractor-bonus-nachweise` (Pfad `bonus/{auftragId}/{typ}-{timestamp}.jpg`)
-   - Aufruf `useErstelleBewertungsBonus({ auftragId, bonusTyp, nachweisPath })`
-   - Hinweisbox: „Beide Plattformen = 25 € statt 10 €"
+**3. UI-Differenzierung im „In Prüfung"-Tab (`ReviewView.tsx` + `BoniDetailSection`)**
 
-3. **Boni-Section erweitern** — pro Bonus zusätzlich anzeigen:
-   - Status-Badge differenziert: `ausstehend` (gelb „in Prüfung"), `freigegeben` (blau „freigegeben für nächste Auszahlung"), `ausgezahlt` (grün), `abgelehnt` (rot)
-   - Auszahlungsmonat-Vorschau („Auszahlung mit Mai-Abrechnung")
-   - Bei `ausstehend` einen kleinen Tooltip „Wird vom Innendienst geprüft (Screenshot)"
+Summary-Card „Boni" wird zweizeilig:
+```
+Boni
+[freigegeben €]  · in Aussicht: [ausstehend €]
+[count] Boni
+```
 
-4. **Empty-State** der Boni-Card aufwerten:
-   - „Noch keine Boni" → Liste der **möglichen** Boni mit Beträgen + 1-Satz-Erklärung wann sie entstehen, damit der Techniker das System versteht.
+In der aufgeklappten Liste pro Bonus:
+- Status-Badge differenziert farbcodiert:
+  - `ausstehend` (Lead-Conversion ohne Anzahlung) → gelber Badge **„In Aussicht – wartet auf Anzahlung"**
+  - `ausstehend` (Bewertungs-Bonus) → gelber Badge **„In Prüfung"**
+  - `freigegeben` → blauer Badge **„Freigegeben – nächste Auszahlung"**
+  - `ausgezahlt` / `abgerechnet_am` gesetzt → grüner Badge **„Ausgezahlt"**
+  - `abgelehnt` → roter Badge **„Abgelehnt"**
+- Pro Lead-Conversion-Eintrag eine Mini-Erklärzeile:
+  „50 € werden freigegeben sobald die Kundenanzahlung eingeht."
+
+Empty-State der Boni-Card:
+- Statt nur „Noch keine Boni" eine kurze Erklärbox mit den 3 Bonus-Quellen + jeweiligem Auslöser, damit Techniker das System verstehen.
+
+**4. Hook-Aggregation erweitern (`useContractorBoni.ts`)**
+- `useBoniSummary` zusätzlich aufschlüsseln in:
+  - `inAussicht` (alle `lead_conversion` mit Status `ausstehend`)
+  - `inPruefung` (alle Bewertungs-Boni mit Status `ausstehend`)
+  - `freigegeben`
+  - `ausgezahlt`
+- Damit Summary-Card und ggf. spätere Stellen sauber unterscheiden können.
+
+**5. Nicht im Scope dieses Tickets** (eigener Plan, falls gewünscht):
+- Die fehlende UI zum **Beantragen** von Google-/Trustpilot-Bewertungs-Boni (Hook existiert, aber kein UI). Sag Bescheid wenn das mit rein soll.
 
 ### Technisch betroffen
 
-- `src/components/ReviewView.tsx` — Bewertungs-Beantragen-Button in Approved-Liste, Status-Differenzierung in `BoniDetailSection`
-- **Neu**: `src/components/BewertungsBonusModal.tsx` — Upload + Submit
-- `src/hooks/useContractorBoni.ts` — keine Änderung nötig
-- Storage-Bucket `contractor-bonus-nachweise` muss existieren (prüfen, ggf. Migration mit RLS: Techniker darf nur in eigenen Pfad uploaden)
+- **DB-Migration**: Trigger-Anpassung `trg_lead_conversion_bonus` (Härtung), neuer Trigger/Funktion `freigabe_bonus_bei_anzahlung` auf `public.auftraege`.
+- **Frontend**:
+  - `src/hooks/useContractorBoni.ts` — `useBoniSummary` erweitern, Status-Helper für UI-Mapping
+  - `src/components/ReviewView.tsx` — Summary-Card zweiwertig, `BoniDetailSection` mit differenzierten Status-Badges + Erklärzeile, neuer Empty-State
+
+### Offene Annahme zur Klärung beim Implementieren
+
+Ich muss in `public.auftraege` prüfen, **wie genau** die Anzahlung erfasst wird (Spaltenname, ob Boolean-Flag oder Datum oder Statusübergang). Davon hängt der Trigger-Code ab. Falls es noch kein eindeutiges Anzahlungs-Feld gibt, melde ich mich vor der Migration zurück mit einem konkreten Vorschlag, statt blind eine Spalte anzunehmen.
 
