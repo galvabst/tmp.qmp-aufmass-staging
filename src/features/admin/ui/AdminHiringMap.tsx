@@ -279,13 +279,13 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     const group = layersRef.current?.contractorGroup;
     if (!group) return;
     group.clearLayers();
-    if (!showActive && !showOnboarding && !showTrainers) return;
+    if (!showActive && !showInaktiv && !showOnboarding && !showTrainers) return;
 
     const filteredContractors = contractors.filter(c => {
       // Trainers always visible if showTrainers is on, regardless of status
       if (c.isTrainer && showTrainers) return true;
       if (c.status === 'active') return showActive;
-      if (c.status === 'inaktiv') return showActive; // inaktive follow active toggle
+      if (c.status === 'inaktiv') return showInaktiv;
       return showOnboarding; // onboarding
     });
 
