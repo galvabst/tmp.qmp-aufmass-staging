@@ -278,9 +278,11 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     const group = layersRef.current?.contractorGroup;
     if (!group) return;
     group.clearLayers();
-    if (!showActive && !showOnboarding) return;
+    if (!showActive && !showOnboarding && !showTrainers) return;
 
     const filteredContractors = contractors.filter(c => {
+      // Trainers always visible if showTrainers is on, regardless of status
+      if (c.isTrainer && showTrainers) return true;
       if (c.status === 'active') return showActive;
       if (c.status === 'inaktiv') return showActive; // inaktive follow active toggle
       return showOnboarding; // onboarding
@@ -291,22 +293,23 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     filteredContractors.forEach((c, idx) => {
       const isActive = c.status === 'active';
       const isInaktiv = c.status === 'inaktiv';
-      const color = isInaktiv ? 'hsl(0, 0%, 65%)' : isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
+      const baseColor = isInaktiv ? 'hsl(0, 0%, 65%)' : isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
+      const color = c.isTrainer ? 'hsl(280, 70%, 55%)' : baseColor;
       const pos = offsets[idx];
 
       L.circle([c.lat, c.lng], {
         radius: c.wunschRadiusKm * 1000,
         color,
         fillColor: color,
-        fillOpacity: isInaktiv ? 0.03 : 0.06,
-        weight: 1.5,
+        fillOpacity: isInaktiv ? 0.03 : c.isTrainer ? 0.08 : 0.06,
+        weight: c.isTrainer ? 2 : 1.5,
         dashArray: isInaktiv ? '6 4' : undefined,
         opacity: isInaktiv ? 0.4 : 1,
       }).addTo(group);
 
       const icon = c.avatarUrl
-        ? createAvatarIcon(c.avatarUrl, color)
-        : createMarkerIcon(color, isActive ? '✓' : isInaktiv ? '⏸' : '⏳');
+        ? createAvatarIcon(c.avatarUrl, color, c.isTrainer)
+        : createMarkerIcon(color, c.isTrainer ? '★' : isActive ? '✓' : isInaktiv ? '⏸' : '⏳');
 
       const marker = L.marker([pos.lat, pos.lng], { icon });
       marker.bindPopup(() => {
@@ -315,13 +318,19 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           const d = getDistanceKm(c.lat, c.lng, o.lat, o.lng);
           if (d <= c.wunschRadiusKm) thcCount += o.count;
         });
+        const trainerToggleHtml = c.isTrainer
+          ? `<button data-action="demote-trainer" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(280,70%,55%);background:white;color:hsl(280,70%,40%);border-radius:6px;cursor:pointer;">★ Trainer-Status entfernen</button>`
+          : `<button data-action="promote-trainer" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(280,70%,55%);background:hsl(280,70%,55%);color:white;border-radius:6px;cursor:pointer;">★ Zum Trainer befördern</button>`;
         const actionsHtml = isInaktiv
           ? `<button data-action="reactivate" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(142,71%,45%);background:hsl(142,71%,45%);color:white;border-radius:6px;cursor:pointer;">▶ Reaktivieren</button>`
           : `<button data-action="pause" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(45,93%,47%);background:hsl(45,93%,47%);color:white;border-radius:6px;cursor:pointer;">⏸ Pausieren</button>
              <button data-action="fire" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(0,84%,55%);background:hsl(0,84%,55%);color:white;border-radius:6px;cursor:pointer;">🚫 Feuern</button>`;
+        const trainerBadgeHtml = c.isTrainer
+          ? `<div style="display:inline-block;margin-left:6px;padding:1px 6px;background:hsl(280,70%,55%);color:white;font-size:10px;font-weight:700;border-radius:8px;vertical-align:middle;">★ TRAINER</div>`
+          : '';
         return `
-          <div class="hiring-map-popup" data-onboarding-id="${c.onboardingId}" data-profile-id="${c.id}" data-contractor-name="${c.name.replace(/"/g, '&quot;')}" style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:200px;">
-            <div style="font-weight:700;font-size:14px;color:#111;">${c.name}</div>
+          <div class="hiring-map-popup" data-onboarding-id="${c.onboardingId}" data-profile-id="${c.id}" data-contractor-name="${c.name.replace(/"/g, '&quot;')}" style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:220px;">
+            <div style="font-weight:700;font-size:14px;color:#111;">${c.name}${trainerBadgeHtml}</div>
             <div style="font-size:12px;color:#666;margin-top:2px;">📍 ${c.plz} ${c.ort}</div>
             <div style="font-size:12px;color:${color};font-weight:600;margin-top:2px;">
               ${isInaktiv ? '⏸️ Inaktiv' : isActive ? '✅ Aktiv' : '🔶 Onboarding'} · ${c.wunschRadiusKm} km
@@ -331,6 +340,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
             </div>
             <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;flex-direction:column;gap:6px;">
               <button data-action="open-profile" style="padding:6px 10px;font-size:12px;font-weight:600;border:1px solid #d1d5db;background:white;color:#111;border-radius:6px;cursor:pointer;">👤 Profil öffnen</button>
+              <div style="display:flex;gap:6px;">${trainerToggleHtml}</div>
               <div style="display:flex;gap:6px;">${actionsHtml}</div>
             </div>
           </div>
@@ -354,13 +364,19 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           onSelectContractorRef.current?.(profileId);
           return;
         }
-        if (action === 'pause' || action === 'fire' || action === 'reactivate') {
+        if (
+          action === 'pause' ||
+          action === 'fire' ||
+          action === 'reactivate' ||
+          action === 'promote-trainer' ||
+          action === 'demote-trainer'
+        ) {
           marker.closePopup();
           setPendingAction({
             contractorId: profileId,
             onboardingId,
             contractorName,
-            action: action as ContractorMapAction,
+            action: action as ContractorMapAction | 'promote-trainer' | 'demote-trainer',
           });
         }
       };
@@ -375,7 +391,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
       });
       marker.addTo(group);
     });
-  }, [contractors, showActive, showOnboarding, thcOrders]);
+  }, [contractors, showActive, showOnboarding, showTrainers, thcOrders]);
 
   // Place THC order markers (detail dots) — off by default
   useEffect(() => {
