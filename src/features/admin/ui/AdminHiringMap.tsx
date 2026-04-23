@@ -464,6 +464,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
   }, [thcOrders, showHeatmap]);
 
   const activeCount = contractors.filter(c => c.status === 'active').length;
+  const inaktivCount = contractors.filter(c => c.status === 'inaktiv').length;
   const onboardingCount = contractors.filter(c => c.status === 'onboarding').length;
   const trainerCount = contractors.filter(c => c.isTrainer).length;
   const totalThc = thcOrders.reduce((s, o) => s + o.count, 0);
