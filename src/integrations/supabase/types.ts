@@ -12643,6 +12643,7 @@ export type Database = {
         Returns: boolean
       }
       is_sales_training_admin: { Args: never; Returns: boolean }
+      is_superadmin: { Args: { _user_id: string }; Returns: boolean }
       is_verkaeufer_available: {
         Args: { p_datum: string; p_mitarbeiter_id: string; p_zeit?: string }
         Returns: boolean
@@ -12664,6 +12665,14 @@ export type Database = {
           email: string
           user_id: string
         }[]
+      }
+      log_impersonation: {
+        Args: {
+          _admin_user_id: string
+          _reason: string
+          _target_user_id: string
+        }
+        Returns: string
       }
       log_migration_activity_admin: {
         Args: {

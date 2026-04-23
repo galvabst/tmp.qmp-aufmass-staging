@@ -35,18 +35,15 @@ Deno.serve(async (req) => {
     }
     const adminUserId = userData.user.id;
 
-    // Superadmin-Check
-    const { data: roles, error: rolesError } = await adminClient
-      .schema('iam')
-      .from('user_system_roles')
-      .select('role')
-      .eq('user_id', adminUserId);
+    // Superadmin-Check via SECURITY DEFINER RPC (iam-Schema ist nicht über PostgREST exposed)
+    const { data: isSuperadmin, error: rolesError } = await adminClient.rpc('is_superadmin', {
+      _user_id: adminUserId,
+    });
 
     if (rolesError) {
       console.error('roles fetch error', rolesError);
       return json({ error: 'Role check failed' }, 500);
     }
-    const isSuperadmin = (roles ?? []).some((r: { role: string }) => r.role === 'superadmin');
     if (!isSuperadmin) {
       return json({ error: 'Forbidden – superadmin only' }, 403);
     }
@@ -90,27 +87,22 @@ Deno.serve(async (req) => {
       return json({ error: 'Failed to create session' }, 500);
     }
 
-    // Audit-Log schreiben
-    const { data: logRow, error: logErr } = await adminClient
-      .schema('iam')
-      .from('impersonation_log')
-      .insert({
-        admin_user_id: adminUserId,
-        target_user_id: targetUserId,
-        reason: reason ?? null,
-      })
-      .select('id')
-      .single();
+    // Audit-Log via SECURITY DEFINER RPC (iam-Schema ist nicht über PostgREST exposed)
+    const { data: logId, error: logErr } = await adminClient.rpc('log_impersonation', {
+      _admin_user_id: adminUserId,
+      _target_user_id: targetUserId,
+      _reason: reason ?? null,
+    });
     if (logErr) {
       console.error('audit log insert error', logErr);
-      // nicht blockierend, aber sichtbar machen
+      // nicht blockierend
     }
 
     return json({
       access_token: verifyData.session.access_token,
       refresh_token: verifyData.session.refresh_token,
       target_email: targetEmail,
-      log_id: logRow?.id ?? null,
+      log_id: (logId as string | null) ?? null,
     });
   } catch (e) {
     console.error('admin-impersonate fatal', e);
