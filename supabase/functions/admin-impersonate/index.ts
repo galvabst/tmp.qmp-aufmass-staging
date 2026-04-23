@@ -87,27 +87,22 @@ Deno.serve(async (req) => {
       return json({ error: 'Failed to create session' }, 500);
     }
 
-    // Audit-Log schreiben
-    const { data: logRow, error: logErr } = await adminClient
-      .schema('iam')
-      .from('impersonation_log')
-      .insert({
-        admin_user_id: adminUserId,
-        target_user_id: targetUserId,
-        reason: reason ?? null,
-      })
-      .select('id')
-      .single();
+    // Audit-Log via SECURITY DEFINER RPC (iam-Schema ist nicht über PostgREST exposed)
+    const { data: logId, error: logErr } = await adminClient.rpc('log_impersonation', {
+      _admin_user_id: adminUserId,
+      _target_user_id: targetUserId,
+      _reason: reason ?? null,
+    });
     if (logErr) {
       console.error('audit log insert error', logErr);
-      // nicht blockierend, aber sichtbar machen
+      // nicht blockierend
     }
 
     return json({
       access_token: verifyData.session.access_token,
       refresh_token: verifyData.session.refresh_token,
       target_email: targetEmail,
-      log_id: logRow?.id ?? null,
+      log_id: (logId as string | null) ?? null,
     });
   } catch (e) {
     console.error('admin-impersonate fatal', e);
