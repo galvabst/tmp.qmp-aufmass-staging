@@ -241,7 +241,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     group.clearLayers();
     if (!showSales) return;
 
-    salesReps.forEach(rep => {
+    visibleSalesReps.forEach(rep => {
       L.circle([rep.lat, rep.lng], {
         radius: rep.radiusKm * 1000,
         color: 'hsl(210, 80%, 55%)',
@@ -262,7 +262,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
       `);
       marker.addTo(group);
     });
-  }, [salesReps, showSales]);
+  }, [visibleSalesReps, showSales]);
 
   // Place contractor markers
   useEffect(() => {
