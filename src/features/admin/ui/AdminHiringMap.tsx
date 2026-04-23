@@ -26,7 +26,7 @@ interface PendingAction {
   contractorId: string;
   onboardingId: string;
   contractorName: string;
-  action: ContractorMapAction;
+  action: ContractorMapAction | 'promote-trainer' | 'demote-trainer';
 }
 
 /** Haversine distance in km */
@@ -88,18 +88,26 @@ function createMarkerIcon(color: string, label?: string) {
   });
 }
 
-function createAvatarIcon(avatarUrl: string, borderColor: string) {
+function createAvatarIcon(avatarUrl: string, borderColor: string, isTrainer: boolean = false) {
+  const trainerBadge = isTrainer
+    ? `<div style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:hsl(45,93%,55%);border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:9px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,0.4);">★</div>`
+    : '';
+  const ringStyle = isTrainer
+    ? `border: 4px solid hsl(280,70%,55%); box-shadow: 0 0 0 2px white, 0 2px 8px rgba(0,0,0,0.4);`
+    : `border: 3px solid ${borderColor}; box-shadow: 0 2px 8px rgba(0,0,0,0.35);`;
   return L.divIcon({
     className: '',
-    html: `<div style="
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: 3px solid ${borderColor};
-      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-      overflow: hidden;
-      background: #e5e7eb;
-    "><img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='👤'" /></div>`,
+    html: `<div style="position:relative;width:36px;height:36px;">
+      <div style="
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        ${ringStyle}
+        overflow: hidden;
+        background: #e5e7eb;
+      "><img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='👤'" /></div>
+      ${trainerBadge}
+    </div>`,
     iconSize: [36, 36],
     iconAnchor: [18, 18],
     popupAnchor: [0, -22],
@@ -128,7 +136,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     return d;
   });
 
-  const { salesReps, contractors, thcOrders, isLoading, isGeocoding, setContractorOnboardingStatus } =
+  const { salesReps, contractors, thcOrders, isLoading, isGeocoding, setContractorOnboardingStatus, setContractorTrainerStatus } =
     useAdminHiringMap(selectedMonth);
   const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -151,6 +159,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
   const [showSales, setShowSales] = useState(true);
   const [showActive, setShowActive] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showTrainers, setShowTrainers] = useState(true);
   const [showThcOrders, setShowThcOrders] = useState(false); // Default off — heatmap is primary
   const [showHeatmap, setShowHeatmap] = useState(true);
 
@@ -269,9 +278,11 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     const group = layersRef.current?.contractorGroup;
     if (!group) return;
     group.clearLayers();
-    if (!showActive && !showOnboarding) return;
+    if (!showActive && !showOnboarding && !showTrainers) return;
 
     const filteredContractors = contractors.filter(c => {
+      // Trainers always visible if showTrainers is on, regardless of status
+      if (c.isTrainer && showTrainers) return true;
       if (c.status === 'active') return showActive;
       if (c.status === 'inaktiv') return showActive; // inaktive follow active toggle
       return showOnboarding; // onboarding
@@ -282,22 +293,23 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     filteredContractors.forEach((c, idx) => {
       const isActive = c.status === 'active';
       const isInaktiv = c.status === 'inaktiv';
-      const color = isInaktiv ? 'hsl(0, 0%, 65%)' : isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
+      const baseColor = isInaktiv ? 'hsl(0, 0%, 65%)' : isActive ? 'hsl(142, 71%, 45%)' : 'hsl(25, 95%, 53%)';
+      const color = c.isTrainer ? 'hsl(280, 70%, 55%)' : baseColor;
       const pos = offsets[idx];
 
       L.circle([c.lat, c.lng], {
         radius: c.wunschRadiusKm * 1000,
         color,
         fillColor: color,
-        fillOpacity: isInaktiv ? 0.03 : 0.06,
-        weight: 1.5,
+        fillOpacity: isInaktiv ? 0.03 : c.isTrainer ? 0.08 : 0.06,
+        weight: c.isTrainer ? 2 : 1.5,
         dashArray: isInaktiv ? '6 4' : undefined,
         opacity: isInaktiv ? 0.4 : 1,
       }).addTo(group);
 
       const icon = c.avatarUrl
-        ? createAvatarIcon(c.avatarUrl, color)
-        : createMarkerIcon(color, isActive ? '✓' : isInaktiv ? '⏸' : '⏳');
+        ? createAvatarIcon(c.avatarUrl, color, c.isTrainer)
+        : createMarkerIcon(color, c.isTrainer ? '★' : isActive ? '✓' : isInaktiv ? '⏸' : '⏳');
 
       const marker = L.marker([pos.lat, pos.lng], { icon });
       marker.bindPopup(() => {
@@ -306,13 +318,19 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           const d = getDistanceKm(c.lat, c.lng, o.lat, o.lng);
           if (d <= c.wunschRadiusKm) thcCount += o.count;
         });
+        const trainerToggleHtml = c.isTrainer
+          ? `<button data-action="demote-trainer" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(280,70%,55%);background:white;color:hsl(280,70%,40%);border-radius:6px;cursor:pointer;">★ Trainer-Status entfernen</button>`
+          : `<button data-action="promote-trainer" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(280,70%,55%);background:hsl(280,70%,55%);color:white;border-radius:6px;cursor:pointer;">★ Zum Trainer befördern</button>`;
         const actionsHtml = isInaktiv
           ? `<button data-action="reactivate" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(142,71%,45%);background:hsl(142,71%,45%);color:white;border-radius:6px;cursor:pointer;">▶ Reaktivieren</button>`
           : `<button data-action="pause" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(45,93%,47%);background:hsl(45,93%,47%);color:white;border-radius:6px;cursor:pointer;">⏸ Pausieren</button>
              <button data-action="fire" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(0,84%,55%);background:hsl(0,84%,55%);color:white;border-radius:6px;cursor:pointer;">🚫 Feuern</button>`;
+        const trainerBadgeHtml = c.isTrainer
+          ? `<div style="display:inline-block;margin-left:6px;padding:1px 6px;background:hsl(280,70%,55%);color:white;font-size:10px;font-weight:700;border-radius:8px;vertical-align:middle;">★ TRAINER</div>`
+          : '';
         return `
-          <div class="hiring-map-popup" data-onboarding-id="${c.onboardingId}" data-profile-id="${c.id}" data-contractor-name="${c.name.replace(/"/g, '&quot;')}" style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:200px;">
-            <div style="font-weight:700;font-size:14px;color:#111;">${c.name}</div>
+          <div class="hiring-map-popup" data-onboarding-id="${c.onboardingId}" data-profile-id="${c.id}" data-contractor-name="${c.name.replace(/"/g, '&quot;')}" style="font-family:ui-sans-serif,system-ui,sans-serif;min-width:220px;">
+            <div style="font-weight:700;font-size:14px;color:#111;">${c.name}${trainerBadgeHtml}</div>
             <div style="font-size:12px;color:#666;margin-top:2px;">📍 ${c.plz} ${c.ort}</div>
             <div style="font-size:12px;color:${color};font-weight:600;margin-top:2px;">
               ${isInaktiv ? '⏸️ Inaktiv' : isActive ? '✅ Aktiv' : '🔶 Onboarding'} · ${c.wunschRadiusKm} km
@@ -322,6 +340,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
             </div>
             <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;flex-direction:column;gap:6px;">
               <button data-action="open-profile" style="padding:6px 10px;font-size:12px;font-weight:600;border:1px solid #d1d5db;background:white;color:#111;border-radius:6px;cursor:pointer;">👤 Profil öffnen</button>
+              <div style="display:flex;gap:6px;">${trainerToggleHtml}</div>
               <div style="display:flex;gap:6px;">${actionsHtml}</div>
             </div>
           </div>
@@ -345,13 +364,19 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           onSelectContractorRef.current?.(profileId);
           return;
         }
-        if (action === 'pause' || action === 'fire' || action === 'reactivate') {
+        if (
+          action === 'pause' ||
+          action === 'fire' ||
+          action === 'reactivate' ||
+          action === 'promote-trainer' ||
+          action === 'demote-trainer'
+        ) {
           marker.closePopup();
           setPendingAction({
             contractorId: profileId,
             onboardingId,
             contractorName,
-            action: action as ContractorMapAction,
+            action: action as ContractorMapAction | 'promote-trainer' | 'demote-trainer',
           });
         }
       };
@@ -366,7 +391,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
       });
       marker.addTo(group);
     });
-  }, [contractors, showActive, showOnboarding, thcOrders]);
+  }, [contractors, showActive, showOnboarding, showTrainers, thcOrders]);
 
   // Place THC order markers (detail dots) — off by default
   useEffect(() => {
@@ -439,6 +464,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
 
   const activeCount = contractors.filter(c => c.status === 'active').length;
   const onboardingCount = contractors.filter(c => c.status === 'onboarding').length;
+  const trainerCount = contractors.filter(c => c.isTrainer).length;
   const totalThc = thcOrders.reduce((s, o) => s + o.count, 0);
 
   const selectedMonthLabel = selectedMonth
@@ -449,15 +475,24 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     if (!pendingAction) return;
     setIsMutating(true);
     try {
-      await setContractorOnboardingStatus(pendingAction.onboardingId, pendingAction.action);
-      const verbPast =
-        pendingAction.action === 'pause' ? 'pausiert'
-        : pendingAction.action === 'fire' ? 'endgültig deaktiviert'
-        : 'reaktiviert';
-      toast({
-        title: `Techniker ${verbPast}`,
-        description: `${pendingAction.contractorName} wurde erfolgreich ${verbPast}.`,
-      });
+      if (pendingAction.action === 'promote-trainer' || pendingAction.action === 'demote-trainer') {
+        const promote = pendingAction.action === 'promote-trainer';
+        await setContractorTrainerStatus(pendingAction.onboardingId, promote);
+        toast({
+          title: promote ? 'Zum Trainer befördert' : 'Trainer-Status entfernt',
+          description: `${pendingAction.contractorName} ${promote ? 'ist jetzt Trainer.' : 'ist kein Trainer mehr.'}`,
+        });
+      } else {
+        await setContractorOnboardingStatus(pendingAction.onboardingId, pendingAction.action);
+        const verbPast =
+          pendingAction.action === 'pause' ? 'pausiert'
+          : pendingAction.action === 'fire' ? 'endgültig deaktiviert'
+          : 'reaktiviert';
+        toast({
+          title: `Techniker ${verbPast}`,
+          description: `${pendingAction.contractorName} wurde erfolgreich ${verbPast}.`,
+        });
+      }
       setPendingAction(null);
     } catch (err: any) {
       toast({
@@ -485,6 +520,20 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           confirmText: 'Endgültig deaktivieren',
           destructive: true,
         }
+      : pendingAction.action === 'promote-trainer'
+      ? {
+          title: 'Zum Trainer befördern?',
+          desc: `${pendingAction.contractorName} wird als Trainer markiert. Trainer können Coachings & Mitfahrten anbieten, sehen den Trainer-Bereich, überspringen die Akademie-Pflicht und sind im Forum als „Trainer" gekennzeichnet.`,
+          confirmText: 'Befördern',
+          destructive: false,
+        }
+      : pendingAction.action === 'demote-trainer'
+      ? {
+          title: 'Trainer-Status entfernen?',
+          desc: `${pendingAction.contractorName} verliert den Trainer-Status. Bestehende Mitfahrten/Coaching-Slots bleiben erhalten, neue können nicht mehr angeboten werden.`,
+          confirmText: 'Entfernen',
+          destructive: false,
+        }
       : {
           title: 'Techniker reaktivieren?',
           desc: `${pendingAction.contractorName} wird wieder auf "In Bearbeitung" gesetzt und kann den Onboarding-Prozess fortsetzen.`,
@@ -504,7 +553,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
                 <MapIcon className="w-4 h-4 text-primary" />
                 <CardTitle className="text-sm font-semibold">Hiring-Map</CardTitle>
                 <span className="text-xs text-muted-foreground">
-                  {visibleSalesReps.length}{hiddenSalesIds.size > 0 ? `/${salesReps.length}` : ''} Vertriebler · {activeCount} Aktive · {onboardingCount} Onboarding · {totalThc} THCs
+                  {visibleSalesReps.length}{hiddenSalesIds.size > 0 ? `/${salesReps.length}` : ''} Vertriebler · {activeCount} Aktive · {onboardingCount} Onboarding · {trainerCount} Trainer · {totalThc} THCs
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">{isOpen ? '▼' : '▶'}</span>
@@ -603,6 +652,16 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
               >
                 <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(25, 95%, 53%)' }} />
                 Onboarding
+              </Button>
+              <Button
+                variant={showTrainers ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setShowTrainers(!showTrainers)}
+                title="Trainer hervorheben (lila Rahmen mit Stern)"
+              >
+                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(280, 70%, 55%)' }} />
+                ★ Trainer
               </Button>
               <Button
                 variant={showThcOrders ? 'default' : 'outline'}

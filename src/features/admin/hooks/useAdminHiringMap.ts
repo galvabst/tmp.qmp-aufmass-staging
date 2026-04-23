@@ -28,6 +28,7 @@ export interface ContractorMapEntry {
   status: 'active' | 'onboarding' | 'inaktiv';
   wunschRadiusKm: number;
   avatarUrl: string | null;
+  isTrainer: boolean;
 }
 
 export interface ThcOrderMapEntry {
@@ -66,7 +67,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     queryFn: async () => {
       const { data, error } = await (supabaseTC
         .from('contractor_onboarding' as any)
-        .select('id, profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km')
+        .select('id, profile_id, anschrift_plz, anschrift_ort, onboarding_status, wunsch_radius_km, is_trainer')
         .not('onboarding_status', 'in', '("deaktiviert","invited","gefeuert")') as any);
       if (error) throw error;
       
@@ -91,6 +92,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
           status: d.onboarding_status === 'ready' ? 'active' : d.onboarding_status === 'inaktiv' ? 'inaktiv' : 'onboarding',
           wunschRadiusKm: d.wunsch_radius_km ?? 60,
           avatarUrl: profile?.avatar_url || null,
+          isTrainer: d.is_trainer === true,
         };
       });
     },
@@ -230,6 +232,7 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
         ctrs.push({
           id: c.profileId, onboardingId: c.onboardingId, name: c.name, plz: c.plz, ort: c.ort || coord.city || '',
           lat: coord.lat, lng: coord.lng, status: c.status, wunschRadiusKm: c.wunschRadiusKm, avatarUrl: c.avatarUrl,
+          isTrainer: c.isTrainer === true,
         });
       });
       setContractors(ctrs);
@@ -269,6 +272,23 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     [queryClient]
   );
 
+  // Mutation: promote / demote a contractor as trainer
+  const setContractorTrainerStatus = useCallback(
+    async (onboardingId: string, isTrainer: boolean): Promise<void> => {
+      const { error } = await (supabaseTC
+        .from('contractor_onboarding' as any)
+        .update({ is_trainer: isTrainer } as any)
+        .eq('id', onboardingId) as any);
+      if (error) throw error;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['is-trainer'] }),
+      ]);
+    },
+    [queryClient]
+  );
+
   return {
     salesReps,
     contractors,
@@ -276,5 +296,6 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
     isLoading: salesQuery.isLoading || contractorQuery.isLoading || thcQuery.isLoading,
     isGeocoding,
     setContractorOnboardingStatus,
+    setContractorTrainerStatus,
   };
 }

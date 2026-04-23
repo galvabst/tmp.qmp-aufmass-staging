@@ -1,4 +1,4 @@
-import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award, Activity, UserCog } from 'lucide-react';
+import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award, Activity, UserCog, Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -19,11 +19,16 @@ import { de } from 'date-fns/locale';
 import { useContractorActivityStats } from '../hooks/useContractorActivityStats';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useState } from 'react';
-import { useHasRole } from '@/hooks/useIAM';
+import { useHasRole, useIsAdmin } from '@/hooks/useIAM';
 import { useImpersonation } from '@/hooks/useImpersonation';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Props {
   contractor: AdminContractor;
@@ -58,6 +63,7 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
   const { data: activityStats } = useContractorActivityStats(c.id);
   const hasActivity = activityStats && activityStats.some(p => p.checks > 0 || p.einweisungen > 0 || p.avgRating !== null);
   const isSuperadmin = useHasRole('superadmin');
+  const isAdmin = useIsAdmin();
   const { startImpersonation } = useImpersonation();
   const [impersonating, setImpersonating] = useState(false);
 
@@ -87,6 +93,13 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <h1 className="text-base font-semibold text-foreground flex-1 truncate">{displayName}</h1>
+          {isAdmin && (
+            <TrainerToggleButton
+              onboardingId={c.id}
+              contractorName={displayName}
+              initial={c.isTrainer}
+            />
+          )}
           {isSuperadmin && (
             <button
               onClick={handleImpersonate}
@@ -485,5 +498,86 @@ function EinweisungFreigabeToggle({ contractorId, initial }: { contractorId: str
       <span className={`text-xs ${value ? 'text-foreground' : 'text-muted-foreground'}`}>Einweisung freigegeben</span>
       <Switch checked={value} onCheckedChange={handleToggle} disabled={loading} />
     </div>
+  );
+}
+
+function TrainerToggleButton({
+  onboardingId,
+  contractorName,
+  initial,
+}: {
+  onboardingId: string;
+  contractorName: string;
+  initial: boolean;
+}) {
+  const [isTrainer, setIsTrainer] = useState(initial);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      const next = !isTrainer;
+      const { error } = await (supabaseTC
+        .from('contractor_onboarding' as any)
+        .update({ is_trainer: next } as any)
+        .eq('id', onboardingId) as any);
+      if (error) throw error;
+      setIsTrainer(next);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] }),
+        queryClient.invalidateQueries({ queryKey: ['is-trainer'] }),
+      ]);
+      toast.success(next ? `${contractorName} ist jetzt Trainer` : 'Trainer-Status entfernt');
+      setConfirmOpen(false);
+    } catch (err: any) {
+      console.error('[TrainerToggle]', err);
+      toast.error(err.message || 'Fehler beim Speichern');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setConfirmOpen(true)}
+        title={isTrainer ? 'Trainer-Status entfernen' : 'Zum Trainer befördern'}
+        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+          isTrainer
+            ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400'
+            : 'bg-muted hover:bg-muted/70 text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <Star className={`w-3.5 h-3.5 ${isTrainer ? 'fill-current' : ''}`} />
+        <span className="hidden sm:inline">{isTrainer ? 'Trainer' : 'Befördern'}</span>
+      </button>
+
+      <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!loading) setConfirmOpen(o); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isTrainer ? 'Trainer-Status entfernen?' : 'Zum Trainer befördern?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isTrainer
+                ? `${contractorName} verliert den Trainer-Status. Bestehende Mitfahrten/Coaching-Slots bleiben erhalten, neue können nicht mehr angeboten werden.`
+                : `${contractorName} wird als Trainer markiert. Trainer können Coachings & Mitfahrten anbieten, sehen den Trainer-Bereich, überspringen die Akademie-Pflicht und sind im Forum als „Trainer" gekennzeichnet.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirm(); }}
+              disabled={loading}
+            >
+              {loading ? 'Bitte warten…' : isTrainer ? 'Entfernen' : 'Befördern'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
