@@ -553,7 +553,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
                 <MapIcon className="w-4 h-4 text-primary" />
                 <CardTitle className="text-sm font-semibold">Hiring-Map</CardTitle>
                 <span className="text-xs text-muted-foreground">
-                  {visibleSalesReps.length}{hiddenSalesIds.size > 0 ? `/${salesReps.length}` : ''} Vertriebler · {activeCount} Aktive · {onboardingCount} Onboarding · {totalThc} THCs
+                  {visibleSalesReps.length}{hiddenSalesIds.size > 0 ? `/${salesReps.length}` : ''} Vertriebler · {activeCount} Aktive · {onboardingCount} Onboarding · {trainerCount} Trainer · {totalThc} THCs
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">{isOpen ? '▼' : '▶'}</span>
