@@ -21,22 +21,19 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Aufrufer identifizieren
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    // Service-Role-Client für alle privilegierten Operationen
+    const adminClient = createClient(supabaseUrl, serviceKey);
+
+    // Aufrufer per JWT identifizieren
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
+    if (userErr || !userData?.user) {
+      console.error('getUser error', userErr);
       return json({ error: 'Unauthorized' }, 401);
     }
-    const adminUserId = claimsData.claims.sub as string;
-
-    // Service-Role-Client für Privileg-Check + admin.* Methoden
-    const adminClient = createClient(supabaseUrl, serviceKey);
+    const adminUserId = userData.user.id;
 
     // Superadmin-Check
     const { data: roles, error: rolesError } = await adminClient
