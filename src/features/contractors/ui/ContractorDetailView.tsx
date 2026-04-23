@@ -63,6 +63,7 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
   const { data: activityStats } = useContractorActivityStats(c.id);
   const hasActivity = activityStats && activityStats.some(p => p.checks > 0 || p.einweisungen > 0 || p.avgRating !== null);
   const isSuperadmin = useHasRole('superadmin');
+  const isAdmin = useIsAdmin();
   const { startImpersonation } = useImpersonation();
   const [impersonating, setImpersonating] = useState(false);
 
@@ -92,6 +93,13 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <h1 className="text-base font-semibold text-foreground flex-1 truncate">{displayName}</h1>
+          {isAdmin && (
+            <TrainerToggleButton
+              onboardingId={c.id}
+              contractorName={displayName}
+              initial={c.isTrainer}
+            />
+          )}
           {isSuperadmin && (
             <button
               onClick={handleImpersonate}
