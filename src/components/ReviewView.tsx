@@ -95,9 +95,13 @@ export function ReviewView({ orders, onOrderClick, angebotstermine }: ReviewView
         <SummaryCard
           icon={<Gift className="w-4 h-4 text-primary" />}
           label="Boni"
-          amount={`${boniSummary.freigegeben.toFixed(0)} €`}
+          amount={`${boniSummary.gesamt.toFixed(0)} €`}
           amountClass="text-primary"
-          sub={`${boniSummary.count} Boni`}
+          sub={
+            boniSummary.ausstehend > 0
+              ? `${boniSummary.count} Boni · ${boniSummary.ausstehend.toFixed(0)} € offen`
+              : `${boniSummary.count} Boni`
+          }
           active={activeSection === 'boni'}
           onClick={() => toggle('boni')}
         />
