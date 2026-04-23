@@ -35,18 +35,15 @@ Deno.serve(async (req) => {
     }
     const adminUserId = userData.user.id;
 
-    // Superadmin-Check
-    const { data: roles, error: rolesError } = await adminClient
-      .schema('iam')
-      .from('user_system_roles')
-      .select('role')
-      .eq('user_id', adminUserId);
+    // Superadmin-Check via SECURITY DEFINER RPC (iam-Schema ist nicht über PostgREST exposed)
+    const { data: isSuperadmin, error: rolesError } = await adminClient.rpc('is_superadmin', {
+      _user_id: adminUserId,
+    });
 
     if (rolesError) {
       console.error('roles fetch error', rolesError);
       return json({ error: 'Role check failed' }, 500);
     }
-    const isSuperadmin = (roles ?? []).some((r: { role: string }) => r.role === 'superadmin');
     if (!isSuperadmin) {
       return json({ error: 'Forbidden – superadmin only' }, 403);
     }
