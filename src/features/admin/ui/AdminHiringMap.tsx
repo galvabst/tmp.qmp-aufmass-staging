@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet.heat';
-import { Loader2, Map as MapIcon } from 'lucide-react';
+import { Loader2, Map as MapIcon, EyeOff, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAdminHiringMap, SalesRepMapEntry, ContractorMapEntry, ThcOrderMapEntry, ContractorMapAction } from '../hooks/useAdminHiringMap';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+
+const HIDDEN_SALES_LS_KEY = 'admin-hiring-map:hidden-sales-rep-ids';
 
 interface AdminHiringMapProps {
   /** Optional callback to open the contractor detail view in a parent tab */
@@ -149,6 +154,46 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
   const [showThcOrders, setShowThcOrders] = useState(false); // Default off — heatmap is primary
   const [showHeatmap, setShowHeatmap] = useState(true);
 
+  // Per-Vertriebler ausblenden (persistiert in localStorage)
+  const [hiddenSalesIds, setHiddenSalesIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = window.localStorage.getItem(HIDDEN_SALES_LS_KEY);
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(HIDDEN_SALES_LS_KEY, JSON.stringify(Array.from(hiddenSalesIds)));
+    } catch {
+      /* ignore */
+    }
+  }, [hiddenSalesIds]);
+
+  const toggleSalesRepHidden = (id: string) => {
+    setHiddenSalesIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const visibleSalesReps = useMemo(
+    () => salesReps.filter(r => !hiddenSalesIds.has(r.id)),
+    [salesReps, hiddenSalesIds]
+  );
+
+  const sortedSalesReps = useMemo(
+    () => [...salesReps].sort((a, b) => a.name.localeCompare(b.name, 'de')),
+    [salesReps]
+  );
+
   const monthOptions = useMemo(() => generateMonthOptions(6), []);
 
   // Init map
@@ -196,7 +241,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     group.clearLayers();
     if (!showSales) return;
 
-    salesReps.forEach(rep => {
+    visibleSalesReps.forEach(rep => {
       L.circle([rep.lat, rep.lng], {
         radius: rep.radiusKm * 1000,
         color: 'hsl(210, 80%, 55%)',
@@ -217,7 +262,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
       `);
       marker.addTo(group);
     });
-  }, [salesReps, showSales]);
+  }, [visibleSalesReps, showSales]);
 
   // Place contractor markers
   useEffect(() => {
@@ -459,7 +504,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
                 <MapIcon className="w-4 h-4 text-primary" />
                 <CardTitle className="text-sm font-semibold">Hiring-Map</CardTitle>
                 <span className="text-xs text-muted-foreground">
-                  {salesReps.length} Vertriebler · {activeCount} Aktive · {onboardingCount} Onboarding · {totalThc} THCs
+                  {visibleSalesReps.length}{hiddenSalesIds.size > 0 ? `/${salesReps.length}` : ''} Vertriebler · {activeCount} Aktive · {onboardingCount} Onboarding · {totalThc} THCs
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">{isOpen ? '▼' : '▶'}</span>
@@ -470,15 +515,77 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           <CardContent className="pt-0">
             {/* Toggle buttons */}
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <Button
-                variant={showSales ? 'default' : 'outline'}
-                size="sm"
-                className="h-7 text-xs gap-1.5"
-                onClick={() => setShowSales(!showSales)}
-              >
-                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(210, 80%, 50%)' }} />
-                Vertriebler
-              </Button>
+              <div className="inline-flex items-center rounded-md overflow-hidden border border-input">
+                <Button
+                  variant={showSales ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 rounded-none border-0"
+                  onClick={() => setShowSales(!showSales)}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(210, 80%, 50%)' }} />
+                  Vertriebler
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={showSales ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 px-1.5 rounded-none border-0 border-l border-l-background/30 relative"
+                      title="Einzelne Vertriebler ausblenden"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                      {hiddenSalesIds.size > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[9px] leading-none rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                          {hiddenSalesIds.size}
+                        </span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-0" align="start">
+                    <div className="p-3 border-b border-border flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold">Vertriebler ausblenden</span>
+                      </div>
+                      {hiddenSalesIds.size > 0 && (
+                        <button
+                          onClick={() => setHiddenSalesIds(new Set())}
+                          className="text-[11px] text-primary hover:underline"
+                        >
+                          Alle anzeigen
+                        </button>
+                      )}
+                    </div>
+                    <ScrollArea className="max-h-72">
+                      <div className="p-1">
+                        {sortedSalesReps.length === 0 && (
+                          <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                            Keine Vertriebler geladen.
+                          </div>
+                        )}
+                        {sortedSalesReps.map(rep => {
+                          const hidden = hiddenSalesIds.has(rep.id);
+                          return (
+                            <label
+                              key={rep.id}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={!hidden}
+                                onCheckedChange={() => toggleSalesRepHidden(rep.id)}
+                              />
+                              <span className={`text-xs flex-1 truncate ${hidden ? 'text-muted-foreground line-through' : ''}`}>
+                                {rep.name}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">{rep.plz}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <Button
                 variant={showActive ? 'default' : 'outline'}
                 size="sm"
