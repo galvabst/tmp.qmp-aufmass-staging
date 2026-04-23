@@ -1,58 +1,56 @@
 
 
-# Bug-Fix: DB-Trigger überschreibt Status zurück auf `in_progress`
+## Wie Boni aktuell im "In Prüfung"-Tab angezeigt werden
 
-## Was wirklich passiert
+### Wo
+Im Tab **"In Prüfung"** (`ReviewView.tsx`) gibt es oben die dritte Summary-Card **"Boni"** (Geschenk-Icon). Klick darauf klappt eine **monatlich gruppierte Liste** auf (`BoniDetailSection`) mit:
+- Lead-Name + Bonus-Typ ("Lead-Conversion", "Google-Bewertung", "Trustpilot-Bewertung")
+- Betrag in € pro Bonus
+- Status pro Zeile: **„Offen"** (grau) oder **„Abgerechnet"** (grün, sobald `abgerechnet_am` gesetzt ist)
+- Pro Monatsblock: Summe + „offen"-Badge wenn noch nicht ausgezahlt
 
-1. Du klickst "Endgültig deaktivieren" → Frontend macht `UPDATE contractor_onboarding SET onboarding_status='gefeuert' WHERE id=…`.
-2. Der **BEFORE-UPDATE-Trigger `trg_sync_onboarding_status`** feuert **vor** dem Schreiben.
-3. Die Trigger-Funktion `sync_onboarding_status()` lässt nur `'blocked'` und `'deaktiviert'` durch (early return). `'inaktiv'` und `'gefeuert'` fehlen in der Whitelist.
-4. Der Trigger berechnet den Status neu aus `completed_steps` (4 Schritte → `'in_progress'`) und überschreibt deinen Wert.
-5. Ergebnis in der DB: `onboarding_status='in_progress'` statt `'gefeuert'`. Achim bleibt überall sichtbar.
+Datenquelle: RPC `get_my_contractor_boni` → Tabelle `thermocheck.contractor_boni`. Aggregat in `useBoniSummary` (ausstehend / freigegeben / ausgezahlt).
 
-Ich habe das eben in der DB direkt geprüft: Achim Mönning (`fd6c2e4d-…`) hat **`is_trainer: false`** und **`onboarding_status: 'in_progress'`** mit `aktualisiert_am` exakt zur Klick-Zeit. Der UPDATE ist durchgelaufen, der Trigger hat ihn revidiert.
+### Wann ein Bonus erscheint
 
-## Die Lösung
+| Bonus-Typ | Auslöser | Sichtbarkeit |
+|---|---|---|
+| **Lead-Conversion (50 €)** | DB-Trigger `trg_lead_conversion_bonus` auf `public.auftraege` — sobald der Lead in einen Auftrag konvertiert wird | **Automatisch** — erscheint sofort mit Status `ausstehend`, dann `freigegeben` → `ausgezahlt` |
+| **Google-Bewertung (10 €)** | RPC `erstelle_bewertungs_bonus` (Techniker reicht Screenshot ein) | **Nur wenn der Techniker manuell beantragt** |
+| **Trustpilot-Bewertung (10 €)** | dito | **Nur wenn der Techniker manuell beantragt** |
+| **Beide Bewertungen kombiniert (25 €)** | Backend rechnet Bonus auf 25 € hoch, sobald beide vorhanden | automatisch nach zweitem Antrag |
 
-### 1. DB-Migration: Trigger-Whitelist erweitern
+### Das Problem
 
-Funktion `thermocheck.sync_onboarding_status` anpassen, sodass auch `'inaktiv'` und `'gefeuert'` (und konsistent `'ready'`, falls manuell gesetzt) **nicht** überschrieben werden:
+Der **Bewertungs-Bonus-Antrag hat KEINE UI**. Der Hook `useErstelleBewertungsBonus` existiert in `useContractorBoni.ts`, wird aber **nirgends im Code aufgerufen**. Heißt: Techniker können in der App aktuell nur Lead-Conversion-Boni sehen (weil die per Trigger automatisch entstehen), aber **keinen Bewertungs-Bonus selbst beantragen**.
 
-```sql
-IF NEW.onboarding_status IN ('blocked', 'deaktiviert', 'inaktiv', 'gefeuert') THEN
-  RETURN NEW;
-END IF;
-```
+Außerdem fehlt im UI komplett:
+- Hinweis **wann** ein Bewertungs-Bonus überhaupt möglich ist (typischerweise nach `approved`-Status eines Auftrags)
+- Upload-UI für den Screenshot-Nachweis
+- Info, dass aus 2× 10 € automatisch 25 € werden
 
-Damit respektiert der Trigger künftig manuelle Admin-Statuswechsel und rechnet nur, wenn der Techniker im normalen Onboarding-Flow ist.
+### Vorschlag zur Behebung
 
-### 2. Reaktivieren-Pfad bleibt funktionsfähig
+1. **Pro abgenommenem Auftrag** in `ReviewView` (Sektion „Abgenommen") eine Aktion **„Bewertungs-Bonus beantragen"** anbieten — sichtbar nur wenn `status === 'approved'` UND noch kein Bewertungsbonus für diesen Auftrag existiert.
 
-"Reaktivieren" setzt den Status zurück auf `'in_progress'` — der Trigger läuft dann durch und berechnet den korrekten Stand aus `completed_steps` neu. Das ist genau richtig.
+2. **Modal mit zwei Karten** (Google / Trustpilot):
+   - Screenshot-Upload (`PhotoUploadField`-Pattern, JPEG/PNG/WebP)
+   - Hochladen in Bucket `contractor-bonus-nachweise` (Pfad `bonus/{auftragId}/{typ}-{timestamp}.jpg`)
+   - Aufruf `useErstelleBewertungsBonus({ auftragId, bonusTyp, nachweisPath })`
+   - Hinweisbox: „Beide Plattformen = 25 € statt 10 €"
 
-### 3. Frontend: UPDATE-Result prüfen
+3. **Boni-Section erweitern** — pro Bonus zusätzlich anzeigen:
+   - Status-Badge differenziert: `ausstehend` (gelb „in Prüfung"), `freigegeben` (blau „freigegeben für nächste Auszahlung"), `ausgezahlt` (grün), `abgelehnt` (rot)
+   - Auszahlungsmonat-Vorschau („Auszahlung mit Mai-Abrechnung")
+   - Bei `ausstehend` einen kleinen Tooltip „Wird vom Innendienst geprüft (Screenshot)"
 
-Zusätzlich in `ContractorListView.tsx` und `useAdminHiringMap.ts`: `.select('id, onboarding_status')` ans UPDATE hängen und das zurückgegebene `onboarding_status` mit dem gewünschten vergleichen. Wenn die DB einen anderen Wert zurückliefert (z. B. weil ein anderer Trigger reingrätscht), zeigen wir Toast "Status konnte nicht gesetzt werden" statt fälschlich Erfolg.
+4. **Empty-State** der Boni-Card aufwerten:
+   - „Noch keine Boni" → Liste der **möglichen** Boni mit Beträgen + 1-Satz-Erklärung wann sie entstehen, damit der Techniker das System versteht.
 
-### 4. Map-Filter konsistent halten
+### Technisch betroffen
 
-`useAdminHiringMap` filtert bereits `('deaktiviert','invited','gefeuert')` raus — das passt. Nach dem Fix verschwindet ein gefeuerter Techniker beim nächsten Refetch sofort.
-
-## Was sich nicht ändert
-
-- Kein Trainer-Override-Bug (mein vorheriger Verdacht war falsch — `is_trainer` ist hier `false`, dieser Code-Pfad greift gar nicht).
-- Keine RLS-Änderung nötig (UPDATE läuft offensichtlich durch, sonst hätte sich `aktualisiert_am` nicht geändert).
-- Keine Schema-Änderung am Enum.
-
-## Technische Details
-
-- **Migration**: `CREATE OR REPLACE FUNCTION thermocheck.sync_onboarding_status()` mit erweiterter Whitelist-Zeile.
-- **`src/features/contractors/ui/ContractorListView.tsx`** `handleStatusChange`: `.select()` an UPDATE, Result-Check + spezifischer Fehler-Toast, `refetchQueries` statt nur `invalidateQueries` (wegen `staleTime: 30_000`).
-- **`src/features/admin/hooks/useAdminHiringMap.ts`** `setContractorOnboardingStatus`: gleiche Result-Check-Logik.
-
-## Erwartetes Ergebnis
-
-- "Endgültig deaktivieren" auf Achim → DB-Status sofort `'gefeuert'`, Achim verschwindet aus Aktiv-Liste und Map.
-- "Pausieren" → DB-Status `'inaktiv'`, Achim wandert in den Inaktiv-Tab und wird auf der Map grau.
-- Bestehende Techniker im Onboarding-Flow bleiben unberührt (Trigger berechnet weiter korrekt).
+- `src/components/ReviewView.tsx` — Bewertungs-Beantragen-Button in Approved-Liste, Status-Differenzierung in `BoniDetailSection`
+- **Neu**: `src/components/BewertungsBonusModal.tsx` — Upload + Submit
+- `src/hooks/useContractorBoni.ts` — keine Änderung nötig
+- Storage-Bucket `contractor-bonus-nachweise` muss existieren (prüfen, ggf. Migration mit RLS: Techniker darf nur in eigenen Pfad uploaden)
 
