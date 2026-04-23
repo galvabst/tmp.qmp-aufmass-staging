@@ -1,4 +1,4 @@
-import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award, Activity, UserCog } from 'lucide-react';
+import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award, Activity, UserCog, Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -19,11 +19,16 @@ import { de } from 'date-fns/locale';
 import { useContractorActivityStats } from '../hooks/useContractorActivityStats';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useState } from 'react';
-import { useHasRole } from '@/hooks/useIAM';
+import { useHasRole, useIsAdmin } from '@/hooks/useIAM';
 import { useImpersonation } from '@/hooks/useImpersonation';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Props {
   contractor: AdminContractor;
