@@ -10203,6 +10203,13 @@ export type Database = {
             | "invoice.status_changed"
             | "qonto_mandat_angefordert"
             | "zahlung_eingegangen"
+            | "vertrag_aktiviert"
+            | "viessmann_gebucht"
+            | "pdf_vorlage_heruntergeladen"
+            | "pdf_signiert_heruntergeladen"
+            | "dialog_geoeffnet"
+            | "vertrag_aktiviert_versucht"
+            | "drawer_geoeffnet"
             | null
           id: string | null
           payload: Json | null
@@ -10420,6 +10427,7 @@ export type Database = {
       v_subscriptions_list: {
         Row: {
           abrechnungsintervall: string | null
+          aktiviert_am: string | null
           created_at: string | null
           created_by: string | null
           draft_current_step: number | null
@@ -10450,6 +10458,8 @@ export type Database = {
           verkaeufer_name: string | null
           vertragsbeginn: string | null
           vertragsnummer: string | null
+          viessmann_auftragsnummer: string | null
+          viessmann_gebucht_am: string | null
           widerrufsfrist_endet_am: string | null
         }
         Relationships: []
@@ -11265,6 +11275,10 @@ export type Database = {
           p_titel: string
         }
         Returns: string
+      }
+      cron_activate_subscriptions_after_widerrufsfrist: {
+        Args: never
+        Returns: Json
       }
       decline_thermocheck_reschedule: {
         Args: { p_auftrag_id: string }
@@ -13689,6 +13703,10 @@ export type Database = {
         Args: { p_thermocheck_auftrag_id: string }
         Returns: string
       }
+      subscription_activate_after_widerrufsfrist: {
+        Args: { p_subscription_id: string }
+        Returns: Json
+      }
       subscription_activate_mandate: {
         Args: { p_mandate_id: string }
         Returns: Json
@@ -13761,6 +13779,32 @@ export type Database = {
           offene_forderungen: number
         }[]
       }
+      subscription_log_audit_event: {
+        Args: {
+          p_event_type:
+            | "subscription.created"
+            | "subscription.status_changed"
+            | "vertrag_signiert"
+            | "vertrag_widerrufen"
+            | "vertrag_pdf_regeneriert"
+            | "mandat_link_gesetzt"
+            | "mandat_aktiviert"
+            | "mandat_widerrufen"
+            | "invoice.status_changed"
+            | "qonto_mandat_angefordert"
+            | "zahlung_eingegangen"
+            | "vertrag_aktiviert"
+            | "viessmann_gebucht"
+            | "pdf_vorlage_heruntergeladen"
+            | "pdf_signiert_heruntergeladen"
+            | "dialog_geoeffnet"
+            | "vertrag_aktiviert_versucht"
+            | "drawer_geoeffnet"
+          p_payload?: Json
+          p_subscription_id: string
+        }
+        Returns: string
+      }
       subscription_log_pdf_regenerated: {
         Args: {
           p_dateiname: string
@@ -13780,6 +13824,17 @@ export type Database = {
           p_subscription_id: string
           p_unterzeichnet_am: string
           p_vertragsbeginn?: string
+        }
+        Returns: Json
+      }
+      subscription_record_viessmann_booking: {
+        Args: {
+          p_dateiname?: string
+          p_size_bytes?: number
+          p_storage_path?: string
+          p_subscription_id: string
+          p_viessmann_auftragsnummer: string
+          p_viessmann_gebucht_am: string
         }
         Returns: Json
       }
