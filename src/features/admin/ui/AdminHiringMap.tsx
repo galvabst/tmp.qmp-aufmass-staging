@@ -654,6 +654,16 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
                 Onboarding
               </Button>
               <Button
+                variant={showTrainers ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setShowTrainers(!showTrainers)}
+                title="Trainer hervorheben (lila Rahmen mit Stern)"
+              >
+                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(280, 70%, 55%)' }} />
+                ★ Trainer
+              </Button>
+              <Button
                 variant={showThcOrders ? 'default' : 'outline'}
                 size="sm"
                 className="h-7 text-xs gap-1.5"
