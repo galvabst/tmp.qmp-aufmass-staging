@@ -647,6 +647,16 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
                 Aktive
               </Button>
               <Button
+                variant={showInaktiv ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setShowInaktiv(!showInaktiv)}
+                title="Pausierte/Inaktive Techniker anzeigen"
+              >
+                <span className="w-2.5 h-2.5 rounded-full inline-block border border-muted-foreground/40" style={{ background: 'hsl(0, 0%, 65%)' }} />
+                ⏸ Inaktiv
+              </Button>
+              <Button
                 variant={showOnboarding ? 'default' : 'outline'}
                 size="sm"
                 className="h-7 text-xs gap-1.5"
