@@ -4,12 +4,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Award, GraduationCap, ShoppingBag, Users, UserCheck, Clock, UserX, AlertTriangle, Car, LucideIcon, MoreVertical, Pause, Ban, RotateCcw } from 'lucide-react';
+import { Award, GraduationCap, ShoppingBag, Users, UserCheck, Clock, UserX, AlertTriangle, Car, LucideIcon, MoreVertical, Pause, Ban, RotateCcw, UserCog } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useHasRole } from '@/hooks/useIAM';
+import { useImpersonation } from '@/hooks/useImpersonation';
 import { ListSkeleton } from '@/components/ListSkeleton';
 import { PipelineCards, PipelineStat } from '@/components/PipelineCards';
 import { FilterRow } from '@/components/FilterRow';
@@ -307,6 +309,27 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
   const initials = `${c.vorname?.[0] ?? ''}${c.nachname?.[0] ?? ''}`.toUpperCase() || '??';
   const stepsProgress = Math.round((c.completedSteps.length / 7) * 100);
   const isInaktiv = c.onboardingStatus === 'inaktiv';
+  const isSuperadmin = useHasRole('superadmin');
+  const { startImpersonation } = useImpersonation();
+  const [impersonating, setImpersonating] = useState(false);
+
+  const handleImpersonate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!c.profileId) {
+      toast.error('Kein verknüpftes Profil — Login als dieser Techniker nicht möglich.');
+      return;
+    }
+    const reason = window.prompt(`Als ${displayName} einloggen.\n\nGrund (z. B. Support-Ticket #) — wird im Audit-Log gespeichert:`, '');
+    if (reason === null) return; // Abbruch
+    setImpersonating(true);
+    try {
+      await startImpersonation({ targetUserId: c.profileId, targetLabel: displayName, reason: reason || undefined });
+    } catch (err) {
+      console.error(err);
+      toast.error('Login fehlgeschlagen: ' + (err as Error).message);
+      setImpersonating(false);
+    }
+  };
 
   return (
     <Card className={`shadow-sm cursor-pointer hover:shadow-md transition-shadow ${isInaktiv ? 'opacity-60' : ''}`} onClick={onClick}>
@@ -327,6 +350,16 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
                 <Badge variant={getStatusBadgeVariant(c.onboardingStatus)} className="text-[10px]">
                   {ONBOARDING_STATUS_LABELS[c.onboardingStatus]}
                 </Badge>
+                {isSuperadmin && (
+                  <button
+                    onClick={handleImpersonate}
+                    disabled={impersonating}
+                    title="Als dieser Techniker einloggen"
+                    className="p-1 rounded hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                  >
+                    <UserCog className="w-3.5 h-3.5 text-destructive" />
+                  </button>
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                     <button className="p-1 rounded hover:bg-muted transition-colors">

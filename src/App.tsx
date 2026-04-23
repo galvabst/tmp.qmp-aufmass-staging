@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import { lazy, Suspense } from "react";
 const AufmassFormPage = lazy(() => import("@/features/aufmass/ui/AufmassFormPage"));
 import { ProtectedAdminRoute } from "@/components/auth/ProtectedAdminRoute";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <ImpersonationBanner />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

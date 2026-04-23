@@ -1,4 +1,4 @@
-import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award, Activity } from 'lucide-react';
+import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award, Activity, UserCog } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -22,6 +22,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { useHasRole } from '@/hooks/useIAM';
+import { useImpersonation } from '@/hooks/useImpersonation';
 
 interface Props {
   contractor: AdminContractor;
@@ -55,6 +57,26 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
 
   const { data: activityStats } = useContractorActivityStats(c.id);
   const hasActivity = activityStats && activityStats.some(p => p.checks > 0 || p.einweisungen > 0 || p.avgRating !== null);
+  const isSuperadmin = useHasRole('superadmin');
+  const { startImpersonation } = useImpersonation();
+  const [impersonating, setImpersonating] = useState(false);
+
+  const handleImpersonate = async () => {
+    if (!c.profileId) {
+      toast.error('Kein verknüpftes Profil — Login als dieser Techniker nicht möglich.');
+      return;
+    }
+    const reason = window.prompt(`Als ${displayName} einloggen.\n\nGrund (z. B. Support-Ticket #) — wird im Audit-Log gespeichert:`, '');
+    if (reason === null) return;
+    setImpersonating(true);
+    try {
+      await startImpersonation({ targetUserId: c.profileId, targetLabel: displayName, reason: reason || undefined });
+    } catch (err) {
+      console.error(err);
+      toast.error('Login fehlgeschlagen: ' + (err as Error).message);
+      setImpersonating(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -65,6 +87,17 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <h1 className="text-base font-semibold text-foreground flex-1 truncate">{displayName}</h1>
+          {isSuperadmin && (
+            <button
+              onClick={handleImpersonate}
+              disabled={impersonating}
+              title="Als dieser Techniker einloggen"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              <UserCog className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Einloggen als</span>
+            </button>
+          )}
           <Badge variant={getStatusBadgeVariant(c.onboardingStatus)}>
             {ONBOARDING_STATUS_LABELS[c.onboardingStatus] ?? c.onboardingStatus}
           </Badge>
