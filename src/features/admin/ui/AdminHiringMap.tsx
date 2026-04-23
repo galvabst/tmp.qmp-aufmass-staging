@@ -26,7 +26,7 @@ interface PendingAction {
   contractorId: string;
   onboardingId: string;
   contractorName: string;
-  action: ContractorMapAction;
+  action: ContractorMapAction | 'promote-trainer' | 'demote-trainer';
 }
 
 /** Haversine distance in km */
@@ -136,7 +136,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     return d;
   });
 
-  const { salesReps, contractors, thcOrders, isLoading, isGeocoding, setContractorOnboardingStatus } =
+  const { salesReps, contractors, thcOrders, isLoading, isGeocoding, setContractorOnboardingStatus, setContractorTrainerStatus } =
     useAdminHiringMap(selectedMonth);
   const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -159,6 +159,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
   const [showSales, setShowSales] = useState(true);
   const [showActive, setShowActive] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showTrainers, setShowTrainers] = useState(true);
   const [showThcOrders, setShowThcOrders] = useState(false); // Default off — heatmap is primary
   const [showHeatmap, setShowHeatmap] = useState(true);
 
