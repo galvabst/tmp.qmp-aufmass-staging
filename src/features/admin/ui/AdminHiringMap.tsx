@@ -154,6 +154,46 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
   const [showThcOrders, setShowThcOrders] = useState(false); // Default off — heatmap is primary
   const [showHeatmap, setShowHeatmap] = useState(true);
 
+  // Per-Vertriebler ausblenden (persistiert in localStorage)
+  const [hiddenSalesIds, setHiddenSalesIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = window.localStorage.getItem(HIDDEN_SALES_LS_KEY);
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(HIDDEN_SALES_LS_KEY, JSON.stringify(Array.from(hiddenSalesIds)));
+    } catch {
+      /* ignore */
+    }
+  }, [hiddenSalesIds]);
+
+  const toggleSalesRepHidden = (id: string) => {
+    setHiddenSalesIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const visibleSalesReps = useMemo(
+    () => salesReps.filter(r => !hiddenSalesIds.has(r.id)),
+    [salesReps, hiddenSalesIds]
+  );
+
+  const sortedSalesReps = useMemo(
+    () => [...salesReps].sort((a, b) => a.name.localeCompare(b.name, 'de')),
+    [salesReps]
+  );
+
   const monthOptions = useMemo(() => generateMonthOptions(6), []);
 
   // Init map
