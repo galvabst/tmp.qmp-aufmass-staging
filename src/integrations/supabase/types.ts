@@ -5959,6 +5959,42 @@ export type Database = {
           },
         ]
       }
+      pipeline_guard_audit: {
+        Row: {
+          attempted_projektart: string | null
+          attempted_status: string | null
+          entity_id: string | null
+          id: string
+          lead_id: string | null
+          occurred_at: string
+          operation: string
+          scope: string
+          user_id: string | null
+        }
+        Insert: {
+          attempted_projektart?: string | null
+          attempted_status?: string | null
+          entity_id?: string | null
+          id?: string
+          lead_id?: string | null
+          occurred_at?: string
+          operation: string
+          scope: string
+          user_id?: string | null
+        }
+        Update: {
+          attempted_projektart?: string | null
+          attempted_status?: string | null
+          entity_id?: string | null
+          id?: string
+          lead_id?: string | null
+          occurred_at?: string
+          operation?: string
+          scope?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       produkt_bedingungen: {
         Row: {
           bedingungstyp: string
@@ -11331,6 +11367,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      create_thc_kontaktversuch: {
+        Args: { p_entity_id: string; p_kommentar?: string }
+        Returns: string
+      }
       create_thermocheck_idee: {
         Args: {
           p_beschreibung?: string
@@ -12642,6 +12682,10 @@ export type Database = {
         Args: { p_month: number; p_year: number }
         Returns: boolean
       }
+      is_projektart_allowed_for_status: {
+        Args: { p_projektart: string; p_status: string }
+        Returns: boolean
+      }
       is_sales_training_admin: { Args: never; Returns: boolean }
       is_superadmin: { Args: { _user_id: string }; Returns: boolean }
       is_verkaeufer_available: {
@@ -12688,6 +12732,17 @@ export type Database = {
         Returns: undefined
       }
       log_orbit_subscription_health: { Args: never; Returns: undefined }
+      log_pipeline_guard_block: {
+        Args: {
+          p_attempted_projektart: string
+          p_attempted_status: string
+          p_entity_id: string
+          p_lead_id: string
+          p_operation: string
+          p_scope: string
+        }
+        Returns: undefined
+      }
       log_storage_upload_attempt: {
         Args: {
           p_attempt: number
@@ -14152,7 +14207,7 @@ export type Database = {
           p_sub_rechnungsnummer?: string
           p_unterschriebenes_angebot_url?: string
           p_updated_at?: string
-          p_vereinberter_preis?: number
+          p_vereinbarter_preis?: number
           p_verlustgrund?: string
           p_vor_ort_checkin_at?: string
           p_vor_ort_checkout_at?: string
