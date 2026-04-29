@@ -653,6 +653,9 @@ export type Database = {
           schlussrechnung_gestellt_datum: string | null
           status: Database["public"]["Enums"]["auftrag_status"]
           storno_datum: string | null
+          storno_widerruf_pending: boolean
+          storno_widerruf_pending_reason: string | null
+          storno_widerruf_pending_since: string | null
           subunternehmer_id: string | null
           updated_at: string
           verkaufsmonat: string | null
@@ -739,6 +742,9 @@ export type Database = {
           schlussrechnung_gestellt_datum?: string | null
           status?: Database["public"]["Enums"]["auftrag_status"]
           storno_datum?: string | null
+          storno_widerruf_pending?: boolean
+          storno_widerruf_pending_reason?: string | null
+          storno_widerruf_pending_since?: string | null
           subunternehmer_id?: string | null
           updated_at?: string
           verkaufsmonat?: string | null
@@ -825,6 +831,9 @@ export type Database = {
           schlussrechnung_gestellt_datum?: string | null
           status?: Database["public"]["Enums"]["auftrag_status"]
           storno_datum?: string | null
+          storno_widerruf_pending?: boolean
+          storno_widerruf_pending_reason?: string | null
+          storno_widerruf_pending_since?: string | null
           subunternehmer_id?: string | null
           updated_at?: string
           verkaufsmonat?: string | null
@@ -4357,6 +4366,9 @@ export type Database = {
             | Database["public"]["Enums"]["lead_verlustgrund_enum"]
             | null
           widerruf_datum: string | null
+          widerruf_dokument_pending: boolean
+          widerruf_dokument_pending_reason: string | null
+          widerruf_dokument_pending_since: string | null
         }
         Insert: {
           abschluss_datum?: string | null
@@ -4426,6 +4438,9 @@ export type Database = {
             | Database["public"]["Enums"]["lead_verlustgrund_enum"]
             | null
           widerruf_datum?: string | null
+          widerruf_dokument_pending?: boolean
+          widerruf_dokument_pending_reason?: string | null
+          widerruf_dokument_pending_since?: string | null
         }
         Update: {
           abschluss_datum?: string | null
@@ -4495,6 +4510,9 @@ export type Database = {
             | Database["public"]["Enums"]["lead_verlustgrund_enum"]
             | null
           widerruf_datum?: string | null
+          widerruf_dokument_pending?: boolean
+          widerruf_dokument_pending_reason?: string | null
+          widerruf_dokument_pending_since?: string | null
         }
         Relationships: [
           {

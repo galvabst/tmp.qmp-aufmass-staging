@@ -1,41 +1,44 @@
-
-
 ## Problem
 
-Till hat in der DB **1 Bonus** (50 € Lead-Conversion, Status `ausstehend`) — das wird unten in der ausgeklappten Boni-Liste auch korrekt gezählt (`1 Boni`). Aber die Summary-Card oben zeigt **0 €**, weil sie nur `boniSummary.freigegeben` anzeigt — also nur Boni mit Status `freigegeben` oder `ausgezahlt`. Boni im Status `ausstehend` werden im Betrag ignoriert, obwohl sie in der Anzahl mitgezählt werden.
+Alexandra (and any technician) cannot accept a reschedule proposal. The RPC `public.accept_thermocheck_reschedule` returns:
 
-Verifiziert via DB-Query:
 ```
-bonus_typ        | betrag | status
-lead_conversion  | 50     | ausstehend
+column "pipeline_status" is of type thermocheck.thermocheck_auftrags_pipeline_status 
+but expression is of type text
 ```
 
-`useBoniSummary` (in `src/hooks/useContractorBoni.ts`) berechnet drei separate Werte (`ausstehend`, `freigegeben`, `ausgezahlt`) — die Card zeigt aber nur `freigegeben` an. Inkonsistent zur Anzahl `1 Boni` und zur Detail-Liste, die alle Boni inkl. „Offen" listet.
+Confirmed via network log: `POST /rest/v1/rpc/accept_thermocheck_reschedule` → 400.
 
-## Lösung
+## Root Cause
 
-In `src/components/ReviewView.tsx` (Zeile 98) den angezeigten Betrag der Boni-Summary-Card auf **die Gesamtsumme aller Boni** umstellen, also `boniSummary.gesamt` statt `boniSummary.freigegeben`. Das ist konsistent mit:
-- der Auftrags-Cards „Ausstehend" und „Abgenommen", die ebenfalls den **Gesamtwert pro Status-Topf** zeigen
-- der ausgeklappten Detail-Ansicht, die alle Boni mit „Offen"/„Abgerechnet"-Markierung listet
-- der Anzahl-Subline `${count} Boni`
+In `supabase/migrations/20260225104016_*.sql` the function `thermocheck.accept_thermocheck_reschedule`:
 
-Damit die Information „wie viel ist davon noch offen" nicht verloren geht: in der Sub-Zeile statt `${count} Boni` schreiben:
-- wenn `ausstehend > 0`: `${count} Boni · ${ausstehend} € offen`
-- sonst: `${count} Boni`
+1. Declares `v_pipeline_status text` and `v_termin_status text` (lines 17-18) but reads from enum columns (`pipeline_status`, `terminvorschlaege.status`) without casting.
+2. Updates `pipeline_status = 'wc1_durchfuehren'` and `status = 'angenommen' / 'abgelehnt'` with bare text literals — PostgreSQL refuses these assignments because the columns are native ENUMs (per project DB standards).
 
-## Technische Änderung
+This is the same pattern that works correctly in `accept_pool_order` because that function uses proper enum casts.
 
-**Datei:** `src/components/ReviewView.tsx`, Zeilen 95–103
+## Fix
 
-- `amount` der Boni-`SummaryCard`: `boniSummary.gesamt.toFixed(0) + ' €'`
-- `sub`: dynamisch je nach `boniSummary.ausstehend`
+Create a new migration that replaces `thermocheck.accept_thermocheck_reschedule` with corrected enum handling:
 
-Keine DB-Migration, keine Änderung am Hook, keine Edge-Function-Änderung nötig.
+- Change local variable types from `text` to the actual enum types (`thermocheck.thermocheck_auftrags_pipeline_status`, and the terminvorschlag status enum), OR cast reads with `::text` and writes with `::enum_type`.
+- Cast literals on every UPDATE:
+  - `pipeline_status = 'wc1_durchfuehren'::thermocheck.thermocheck_auftrags_pipeline_status`
+  - `status = 'angenommen'::<enum>` and `status = 'abgelehnt'::<enum>` on the terminvorschlaege updates
+  - Comparison: `v_pipeline_status <> 'termin_abwarten'` keep working by using text variables fed by `pipeline_status::text`.
+- Keep the public wrapper unchanged.
 
-## Validierung
+## Verification After Migration
 
-1. Als Till einloggen → Boni-Card zeigt **50 €** und Subtext **„1 Boni · 50 € offen"**
-2. Card aufklappen → Lead-Conversion-Bonus mit Label „Offen" sichtbar (unverändert)
-3. Als Techniker ohne Boni einloggen → **0 €**, **„0 Boni"**, Klick zeigt Empty State (unverändert)
-4. Console + Network: keine neuen Fehler
+1. Re-run Alexandra's "Termin annehmen" action — RPC should return `{success: true}`.
+2. Confirm in DB:
+   - The chosen `terminvorschlaege` row → `status = 'angenommen'`, `angenommen_von`, `angenommen_am` set.
+   - Sibling proposals → `status = 'abgelehnt'`.
+   - The `thermocheck_auftraege` row → `pipeline_status = 'wc1_durchfuehren'`.
+3. Spot-check that `useMyAssignedOrders` now returns the order in the active list.
 
+## Out of Scope
+
+- Alexandra's poloshirt payment (already fixed in previous step).
+- No frontend changes required — the bug is purely in the SQL function.
