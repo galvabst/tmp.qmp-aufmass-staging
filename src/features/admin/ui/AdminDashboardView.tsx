@@ -7,6 +7,7 @@ import { useAdminDashboardStats } from '@/features/admin/hooks/useAdminDashboard
 import { useAdminAggregatedStats } from '@/features/admin/hooks/useAdminAggregatedStats';
 import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprints, CreditCard, MonitorSmartphone, ScanLine, GraduationCap, Car, FileCheck, UserX, Star, TrendingUp, Clock, Activity } from 'lucide-react';
 import { AdminHiringMap } from './AdminHiringMap';
+import { StripeReconcileButton } from './StripeReconcileButton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -299,7 +300,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
   const isLoading = cLoading || sLoading || pLoading;
 
   return (
-    <AdminLayout title="Dashboard" subtitle="Betriebsübersicht">
+    <AdminLayout title="Dashboard" subtitle="Betriebsübersicht" actionButton={<StripeReconcileButton />}>
       {/* KPI Row */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <KpiCard icon={<ClipboardList className="w-4 h-4" />} label="Aufträge gesamt" value={stats?.gesamtAuftraege ?? '–'} />
