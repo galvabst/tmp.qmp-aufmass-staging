@@ -4574,6 +4574,7 @@ export type Database = {
           event_type: string
           id: number
           lead_id: string
+          processed_at: string | null
           retry_count: number
           status: string
         }
@@ -4584,6 +4585,7 @@ export type Database = {
           event_type: string
           id?: number
           lead_id: string
+          processed_at?: string | null
           retry_count?: number
           status?: string
         }
@@ -4594,6 +4596,7 @@ export type Database = {
           event_type?: string
           id?: number
           lead_id?: string
+          processed_at?: string | null
           retry_count?: number
           status?: string
         }
@@ -6999,6 +7002,88 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_ag_api_usage: {
+        Row: {
+          cost_eur: number
+          cost_usd: number
+          created_at: string
+          duration_ms: number | null
+          id: string
+          input_tokens: number
+          model: string
+          output_tokens: number
+          phase: string
+          vergleich_id: string | null
+        }
+        Insert: {
+          cost_eur?: number
+          cost_usd?: number
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          input_tokens?: number
+          model: string
+          output_tokens?: number
+          phase: string
+          vergleich_id?: string | null
+        }
+        Update: {
+          cost_eur?: number
+          cost_usd?: number
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          input_tokens?: number
+          model?: string
+          output_tokens?: number
+          phase?: string
+          vergleich_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_api_usage_vergleich_id_fkey"
+            columns: ["vergleich_id"]
+            isOneToOne: false
+            referencedRelation: "sales_ag_vergleich"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_ag_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          performed_by: string
+          vergleich_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string
+          vergleich_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          performed_by?: string
+          vergleich_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_audit_log_vergleich_id_fkey"
+            columns: ["vergleich_id"]
+            isOneToOne: false
+            referencedRelation: "sales_ag_vergleich"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_ag_compute_api_usage: {
         Row: {
           cost_eur: number
@@ -7178,6 +7263,245 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      sales_ag_customer_enrichment: {
+        Row: {
+          bivalence_point_celsius: number | null
+          building_year: number | null
+          created_at: string
+          current_heating_type: string | null
+          customer_lead_id: string | null
+          heated_area_m2: number | null
+          id: string
+          norm_heating_load_kw: number | null
+          notes: string | null
+          persons_in_household: number | null
+          property_type: string | null
+          updated_at: string
+          vergleich_id: string | null
+        }
+        Insert: {
+          bivalence_point_celsius?: number | null
+          building_year?: number | null
+          created_at?: string
+          current_heating_type?: string | null
+          customer_lead_id?: string | null
+          heated_area_m2?: number | null
+          id?: string
+          norm_heating_load_kw?: number | null
+          notes?: string | null
+          persons_in_household?: number | null
+          property_type?: string | null
+          updated_at?: string
+          vergleich_id?: string | null
+        }
+        Update: {
+          bivalence_point_celsius?: number | null
+          building_year?: number | null
+          created_at?: string
+          current_heating_type?: string | null
+          customer_lead_id?: string | null
+          heated_area_m2?: number | null
+          id?: string
+          norm_heating_load_kw?: number | null
+          notes?: string | null
+          persons_in_household?: number | null
+          property_type?: string | null
+          updated_at?: string
+          vergleich_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_customer_enrichment_vergleich_id_fkey"
+            columns: ["vergleich_id"]
+            isOneToOne: true
+            referencedRelation: "sales_ag_vergleich"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_ag_vergleich: {
+        Row: {
+          api_cost_eur: number | null
+          chat_history: Json | null
+          comparison_items: Json | null
+          competitor_dossier: Json | null
+          competitor_manufacturer: string | null
+          competitor_name: string | null
+          competitor_offer_data: Json | null
+          competitor_offer_file: string | null
+          competitor_offer_path: string | null
+          competitor_price_eur: number | null
+          created_at: string
+          created_by: string
+          critic_report: Json | null
+          critic_verdict: string | null
+          customer_name: string | null
+          customer_street: string | null
+          customer_zip_city: string | null
+          extracted_data_path: string | null
+          findings_text: string | null
+          heating_system: string | null
+          id: string
+          lead_id: string
+          legal_findings: Json | null
+          manager_feedback: string | null
+          own_offer_data: Json | null
+          own_offer_file: string | null
+          own_offer_path: string | null
+          own_price_eur: number | null
+          pdf_exported_at: string | null
+          pdf_file_path: string | null
+          physics_context: Json | null
+          price_analysis: string | null
+          price_difference_eur: number | null
+          quality_notes: string | null
+          quality_score: number | null
+          railway_comparison_id: string | null
+          sales_person_name: string | null
+          sales_person_phone: string | null
+          sources: Json | null
+          status: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
+          status_message: string | null
+          strategy_name: string | null
+          thermocheck_data: Json | null
+          thermocheck_file: string | null
+          thermocheck_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_cost_eur?: number | null
+          chat_history?: Json | null
+          comparison_items?: Json | null
+          competitor_dossier?: Json | null
+          competitor_manufacturer?: string | null
+          competitor_name?: string | null
+          competitor_offer_data?: Json | null
+          competitor_offer_file?: string | null
+          competitor_offer_path?: string | null
+          competitor_price_eur?: number | null
+          created_at?: string
+          created_by: string
+          critic_report?: Json | null
+          critic_verdict?: string | null
+          customer_name?: string | null
+          customer_street?: string | null
+          customer_zip_city?: string | null
+          extracted_data_path?: string | null
+          findings_text?: string | null
+          heating_system?: string | null
+          id?: string
+          lead_id: string
+          legal_findings?: Json | null
+          manager_feedback?: string | null
+          own_offer_data?: Json | null
+          own_offer_file?: string | null
+          own_offer_path?: string | null
+          own_price_eur?: number | null
+          pdf_exported_at?: string | null
+          pdf_file_path?: string | null
+          physics_context?: Json | null
+          price_analysis?: string | null
+          price_difference_eur?: number | null
+          quality_notes?: string | null
+          quality_score?: number | null
+          railway_comparison_id?: string | null
+          sales_person_name?: string | null
+          sales_person_phone?: string | null
+          sources?: Json | null
+          status?: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
+          status_message?: string | null
+          strategy_name?: string | null
+          thermocheck_data?: Json | null
+          thermocheck_file?: string | null
+          thermocheck_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_cost_eur?: number | null
+          chat_history?: Json | null
+          comparison_items?: Json | null
+          competitor_dossier?: Json | null
+          competitor_manufacturer?: string | null
+          competitor_name?: string | null
+          competitor_offer_data?: Json | null
+          competitor_offer_file?: string | null
+          competitor_offer_path?: string | null
+          competitor_price_eur?: number | null
+          created_at?: string
+          created_by?: string
+          critic_report?: Json | null
+          critic_verdict?: string | null
+          customer_name?: string | null
+          customer_street?: string | null
+          customer_zip_city?: string | null
+          extracted_data_path?: string | null
+          findings_text?: string | null
+          heating_system?: string | null
+          id?: string
+          lead_id?: string
+          legal_findings?: Json | null
+          manager_feedback?: string | null
+          own_offer_data?: Json | null
+          own_offer_file?: string | null
+          own_offer_path?: string | null
+          own_price_eur?: number | null
+          pdf_exported_at?: string | null
+          pdf_file_path?: string | null
+          physics_context?: Json | null
+          price_analysis?: string | null
+          price_difference_eur?: number | null
+          quality_notes?: string | null
+          quality_score?: number | null
+          railway_comparison_id?: string | null
+          sales_person_name?: string | null
+          sales_person_phone?: string | null
+          sources?: Json | null
+          status?: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
+          status_message?: string | null
+          strategy_name?: string | null
+          thermocheck_data?: Json | null
+          thermocheck_file?: string | null
+          thermocheck_path?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_ag_vergleich_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleich_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleich_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleich_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleich_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+        ]
       }
       sales_ag_vergleich_chat_messages: {
         Row: {
@@ -7442,6 +7766,118 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      sales_aufstellort_mockups: {
+        Row: {
+          ai_model: string | null
+          approved: boolean
+          approved_at: string | null
+          approved_by: string | null
+          candidate_index: number | null
+          cost_eur: number
+          created_at: string
+          created_by: string
+          generation_prompt: string | null
+          generation_seed: number | null
+          id: string
+          mime_type: string
+          pin_x: number | null
+          pin_y: number | null
+          pruefung_id: string
+          rejected_reason: string | null
+          size_bytes: number | null
+          source_foto_id: string | null
+          storage_path: string
+          vitocal_modell: string | null
+        }
+        Insert: {
+          ai_model?: string | null
+          approved?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          candidate_index?: number | null
+          cost_eur?: number
+          created_at?: string
+          created_by: string
+          generation_prompt?: string | null
+          generation_seed?: number | null
+          id?: string
+          mime_type?: string
+          pin_x?: number | null
+          pin_y?: number | null
+          pruefung_id: string
+          rejected_reason?: string | null
+          size_bytes?: number | null
+          source_foto_id?: string | null
+          storage_path: string
+          vitocal_modell?: string | null
+        }
+        Update: {
+          ai_model?: string | null
+          approved?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          candidate_index?: number | null
+          cost_eur?: number
+          created_at?: string
+          created_by?: string
+          generation_prompt?: string | null
+          generation_seed?: number | null
+          id?: string
+          mime_type?: string
+          pin_x?: number | null
+          pin_y?: number | null
+          pruefung_id?: string
+          rejected_reason?: string | null
+          size_bytes?: number | null
+          source_foto_id?: string | null
+          storage_path?: string
+          vitocal_modell?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_aufstellort_mockups_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_aufstellort_mockups_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_aufstellort_mockups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_aufstellort_mockups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_aufstellort_mockups_pruefung_id_fkey"
+            columns: ["pruefung_id"]
+            isOneToOne: false
+            referencedRelation: "sales_zaehlerschrank_pruefungen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_aufstellort_mockups_source_foto_id_fkey"
+            columns: ["source_foto_id"]
+            isOneToOne: false
+            referencedRelation: "sales_zaehlerschrank_fotos"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -7758,6 +8194,317 @@ export type Database = {
           type_code?: string | null
           updated_at?: string
           verified_at?: string
+        }
+        Relationships: []
+      }
+      sales_zaehlerschrank_chat_messages: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          iteration: number
+          pruefung_id: string
+          role: string
+          step: number
+          tokens_in: number | null
+          tokens_out: number | null
+          tool_args: Json | null
+          tool_name: string | null
+          tool_result: Json | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          iteration: number
+          pruefung_id: string
+          role: string
+          step: number
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tool_args?: Json | null
+          tool_name?: string | null
+          tool_result?: Json | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          iteration?: number
+          pruefung_id?: string
+          role?: string
+          step?: number
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tool_args?: Json | null
+          tool_name?: string | null
+          tool_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_zaehlerschrank_chat_messages_pruefung_id_fkey"
+            columns: ["pruefung_id"]
+            isOneToOne: false
+            referencedRelation: "sales_zaehlerschrank_pruefungen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_zaehlerschrank_fotos: {
+        Row: {
+          ai_request_reason: string | null
+          ai_requested_view: string | null
+          analysis_result: Json | null
+          id: string
+          is_ai_requested: boolean
+          mime_type: string
+          original_filename: string | null
+          pruefung_id: string
+          size_bytes: number
+          step: number
+          storage_path: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          ai_request_reason?: string | null
+          ai_requested_view?: string | null
+          analysis_result?: Json | null
+          id?: string
+          is_ai_requested?: boolean
+          mime_type: string
+          original_filename?: string | null
+          pruefung_id: string
+          size_bytes: number
+          step: number
+          storage_path: string
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          ai_request_reason?: string | null
+          ai_requested_view?: string | null
+          analysis_result?: Json | null
+          id?: string
+          is_ai_requested?: boolean
+          mime_type?: string
+          original_filename?: string | null
+          pruefung_id?: string
+          size_bytes?: number
+          step?: number
+          storage_path?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_zaehlerschrank_fotos_pruefung_id_fkey"
+            columns: ["pruefung_id"]
+            isOneToOne: false
+            referencedRelation: "sales_zaehlerschrank_pruefungen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_zaehlerschrank_fotos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_zaehlerschrank_fotos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_zaehlerschrank_norm_cache: {
+        Row: {
+          created_at: string
+          last_verified_at: string | null
+          norm_id: string
+          source: string | null
+          summary: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          last_verified_at?: string | null
+          norm_id: string
+          source?: string | null
+          summary: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          last_verified_at?: string | null
+          norm_id?: string
+          source?: string | null
+          summary?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_zaehlerschrank_pruefungen: {
+        Row: {
+          ai_model: string | null
+          analyzing_started_at: string | null
+          completed_at: string | null
+          confidence: number | null
+          created_at: string
+          created_by: string
+          current_step: number
+          empfehlung:
+            | Database["public"]["Enums"]["sales_zaehlerschrank_empfehlung"]
+            | null
+          error_code: string | null
+          error_detail: string | null
+          findings: Json | null
+          id: string
+          last_modified_by: string | null
+          lead_id: string
+          pruefung_typ: string
+          request_reason: string | null
+          requested_photos: Json | null
+          status: Database["public"]["Enums"]["sales_zaehlerschrank_status"]
+          status_message: string | null
+          total_cost_eur: number
+          total_tokens_in: number
+          total_tokens_out: number
+          updated_at: string
+        }
+        Insert: {
+          ai_model?: string | null
+          analyzing_started_at?: string | null
+          completed_at?: string | null
+          confidence?: number | null
+          created_at?: string
+          created_by: string
+          current_step?: number
+          empfehlung?:
+            | Database["public"]["Enums"]["sales_zaehlerschrank_empfehlung"]
+            | null
+          error_code?: string | null
+          error_detail?: string | null
+          findings?: Json | null
+          id?: string
+          last_modified_by?: string | null
+          lead_id: string
+          pruefung_typ?: string
+          request_reason?: string | null
+          requested_photos?: Json | null
+          status?: Database["public"]["Enums"]["sales_zaehlerschrank_status"]
+          status_message?: string | null
+          total_cost_eur?: number
+          total_tokens_in?: number
+          total_tokens_out?: number
+          updated_at?: string
+        }
+        Update: {
+          ai_model?: string | null
+          analyzing_started_at?: string | null
+          completed_at?: string | null
+          confidence?: number | null
+          created_at?: string
+          created_by?: string
+          current_step?: number
+          empfehlung?:
+            | Database["public"]["Enums"]["sales_zaehlerschrank_empfehlung"]
+            | null
+          error_code?: string | null
+          error_detail?: string | null
+          findings?: Json | null
+          id?: string
+          last_modified_by?: string | null
+          lead_id?: string
+          pruefung_typ?: string
+          request_reason?: string | null
+          requested_photos?: Json | null
+          status?: Database["public"]["Enums"]["sales_zaehlerschrank_status"]
+          status_message?: string | null
+          total_cost_eur?: number
+          total_tokens_in?: number
+          total_tokens_out?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_zaehlerschrank_pruefungen_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_zaehlerschrank_pruefungen_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_zaehlerschrank_pruefungen_last_modified_by_fkey"
+            columns: ["last_modified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_zaehlerschrank_pruefungen_last_modified_by_fkey"
+            columns: ["last_modified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_zaehlerschrank_pruefungen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_zaehlerschrank_pruefungen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_zaehlerschrank_pruefungen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      sales_zs_rate_limit: {
+        Row: {
+          call_count: number
+          hour_bucket: string
+          last_updated: string
+          user_id: string
+        }
+        Insert: {
+          call_count?: number
+          hour_bucket: string
+          last_updated?: string
+          user_id: string
+        }
+        Update: {
+          call_count?: number
+          hour_bucket?: string
+          last_updated?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -9059,6 +9806,13 @@ export type Database = {
             referencedRelation: "termine"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "transcripts_termin_id_fkey"
+            columns: ["termin_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_pending_backfill"
+            referencedColumns: ["termin_id"]
+          },
         ]
       }
       upload_audit_log: {
@@ -10214,6 +10968,67 @@ export type Database = {
         }
         Relationships: []
       }
+      v_field_sales_pending_backfill: {
+        Row: {
+          appointment_type:
+            | Database["public"]["Enums"]["appointment_type_enum"]
+            | null
+          calendar_source: string | null
+          description: string | null
+          end_datetime: string | null
+          lead_id: string | null
+          lead_nachname: string | null
+          lead_ort: string | null
+          lead_plz: string | null
+          lead_projektart: Database["public"]["Enums"]["projektart_enum"] | null
+          lead_status: Database["public"]["Enums"]["lead_status_enum"] | null
+          lead_strasse: string | null
+          lead_vorname: string | null
+          meeting_location:
+            | Database["public"]["Enums"]["meeting_location_enum"]
+            | null
+          mitarbeiter_id: string | null
+          needs_lead: boolean | null
+          needs_place_type: boolean | null
+          start_datetime: string | null
+          termin_id: string | null
+          termin_status:
+            | Database["public"]["Enums"]["termin_status_enum"]
+            | null
+          title: string | null
+          visit_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "termine_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "termine_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "termine_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "termine_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_field_sales_thc_audit: {
         Row: {
           flag_cross_month: boolean | null
@@ -11175,6 +11990,7 @@ export type Database = {
         Returns: number
       }
       cleanup_old_audio_files: { Args: never; Returns: undefined }
+      cleanup_old_leads_sync_queue: { Args: never; Returns: undefined }
       cleanup_orphan_transcripts: { Args: never; Returns: number }
       close_stale_thc_arbeitspakete: {
         Args: { p_auftrag_id: string; p_current_status: string }
@@ -11266,6 +12082,13 @@ export type Database = {
           p_produkt_id: string
         }
         Returns: string
+      }
+      count_pending_backfill_per_mitarbeiter: {
+        Args: never
+        Returns: {
+          mitarbeiter_id: string
+          pending_count: number
+        }[]
       }
       count_superadmins: { Args: never; Returns: number }
       create_contractor:
@@ -12706,6 +13529,7 @@ export type Database = {
       }
       is_sales_training_admin: { Args: never; Returns: boolean }
       is_superadmin: { Args: { _user_id: string }; Returns: boolean }
+      is_user_admin: { Args: { p_user_id: string }; Returns: boolean }
       is_verkaeufer_available: {
         Args: { p_datum: string; p_mitarbeiter_id: string; p_zeit?: string }
         Returns: boolean
@@ -12726,6 +13550,16 @@ export type Database = {
           display_name: string
           email: string
           user_id: string
+        }[]
+      }
+      list_impersonatable_users: {
+        Args: never
+        Returns: {
+          email: string
+          nachname: string
+          profile_id: string
+          role: string
+          vorname: string
         }[]
       }
       log_impersonation: {
@@ -13128,6 +13962,12 @@ export type Database = {
         }
         Returns: string
       }
+      sales_zs_check_rate_limit: {
+        Args: { p_limit_per_hour?: number; p_user_id: string }
+        Returns: boolean
+      }
+      sales_zs_lookup_norm: { Args: { p_norm_id: string }; Returns: Json }
+      sales_zs_recover_stale_analyzing: { Args: never; Returns: number }
       save_dev_todo: {
         Args: { p_content: string; p_todo_id?: string; p_user_id: string }
         Returns: string
@@ -14134,6 +14974,16 @@ export type Database = {
             }
             Returns: undefined
           }
+      update_field_sales_termin: {
+        Args: {
+          p_description_append?: string
+          p_lead_id?: string
+          p_meeting_location?: string
+          p_termin_id: string
+          p_termin_status: string
+        }
+        Returns: string
+      }
       update_kpi_nachweis_validation: {
         Args: { p_ai_result: Json; p_nachweis_id: string; p_status: string }
         Returns: undefined
@@ -14715,6 +15565,19 @@ export type Database = {
         | "vision_angebot"
         | "vision_unterschrift"
         | "vision_aggregiert"
+      sales_zaehlerschrank_empfehlung:
+        | "keine_anpassung"
+        | "teilanpassung"
+        | "grossanpassung"
+        | "sanierung"
+      sales_zaehlerschrank_status:
+        | "draft"
+        | "photo_uploaded"
+        | "analyzing"
+        | "waiting_for_photos"
+        | "completed"
+        | "failed"
+        | "cancelled"
       schritt_typ:
         | "checkbox"
         | "input"
@@ -15376,6 +16239,21 @@ export const Constants = {
         "vision_angebot",
         "vision_unterschrift",
         "vision_aggregiert",
+      ],
+      sales_zaehlerschrank_empfehlung: [
+        "keine_anpassung",
+        "teilanpassung",
+        "grossanpassung",
+        "sanierung",
+      ],
+      sales_zaehlerschrank_status: [
+        "draft",
+        "photo_uploaded",
+        "analyzing",
+        "waiting_for_photos",
+        "completed",
+        "failed",
+        "cancelled",
       ],
       schritt_typ: [
         "checkbox",
