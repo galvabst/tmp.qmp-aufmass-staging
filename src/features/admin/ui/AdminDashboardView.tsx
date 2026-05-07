@@ -300,7 +300,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
   const isLoading = cLoading || sLoading || pLoading;
 
   return (
-    <AdminLayout title="Dashboard" subtitle="Betriebsübersicht">
+    <AdminLayout title="Dashboard" subtitle="Betriebsübersicht" actionButton={<StripeReconcileButton />}>
       {/* KPI Row */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <KpiCard icon={<ClipboardList className="w-4 h-4" />} label="Aufträge gesamt" value={stats?.gesamtAuftraege ?? '–'} />
