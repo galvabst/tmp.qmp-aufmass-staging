@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     const { data: pendingOrders, error: fetchErr } = await supabase
       .schema("thermocheck")
       .from("contractor_bestellungen")
-      .select("id, stripe_session_id, stripe_subscription_id, created_at, produkt_key")
+      .select("id, stripe_session_id, stripe_subscription_id, stripe_customer_id, created_at, produkt_key, betrag_brutto")
       .eq("stripe_payment_status", "pending")
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false })
