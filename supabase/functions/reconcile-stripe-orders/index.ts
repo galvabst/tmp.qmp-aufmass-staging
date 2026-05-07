@@ -12,8 +12,10 @@ interface PendingOrder {
   id: string;
   stripe_session_id: string | null;
   stripe_subscription_id: string | null;
+  stripe_customer_id: string | null;
   created_at: string;
   produkt_key: string;
+  betrag_brutto: number | null;
 }
 
 async function stripeGet(stripeKey: string, path: string): Promise<any> {
