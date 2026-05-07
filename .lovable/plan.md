@@ -1,40 +1,42 @@
-## Was bereits erledigt ist
-`STRIPE_WEBHOOK_SECRET` wurde aktualisiert. Neue Stripe-Webhooks ab jetzt werden wieder verifiziert und verarbeitet — die Hauptursache („No signatures found matching the expected signature") ist behoben.
+## Problem
+Der Admin-Button und der Cron melden „nichts zu tun", obwohl 17 Bestellungen auf `pending` stehen (T-Shirts, Pullover, Polo, Schlappen, Scanner-Lizenz). Grund:
 
-## Ziel
-Damit ein abgelaufenes/rotiertes Webhook-Secret oder ein Stripe-Ausfall **nie wieder** dazu führen kann, dass Bestellungen permanent auf `pending` hängen bleiben, baue ich einen **selbstheilenden Reconciler**, der Bestellungen direkt bei Stripe nachprüft.
+Die Edge Function `reconcile-stripe-orders` **stürzt sofort beim ersten Stripe-Aufruf ab** mit:
+```
+event loop error: Error: Deno.core.runMicrotasks() is not supported in this environment
+```
+Das liegt am Stripe-SDK (`stripe@14.21.0`) — es nutzt Node-Compat-Internas, die in der aktuellen Supabase-Edge-Runtime nicht mehr unterstützt werden. Beim Webhook fällt das nicht auf, weil dort nur `webhooks.constructEventAsync` verwendet wird (rein synchrone Krypto). Sobald aber `stripe.checkout.sessions.retrieve(...)` aufgerufen wird (wie im Reconciler), crasht der Worker — die Function liefert vermutlich noch eine leere/fehlerhafte Antwort, weshalb der Toast nichts zeigt.
 
-## Umsetzung
+## Lösung: Stripe-SDK aus dem Reconciler entfernen
 
-### 1. Neue Edge Function `reconcile-stripe-orders`
-- Lädt alle `contractor_bestellungen` mit `stripe_payment_status = 'pending'` aus den letzten 30 Tagen, die eine `stripe_session_id` haben.
-- Für jede Bestellung: `stripe.checkout.sessions.retrieve(session_id)` aufrufen.
-  - Wenn `payment_status = 'paid'` → Bestellung auf `paid` setzen (mit `paid_at`, `stripe_payment_intent_id`, `stripe_subscription_id`, `stripe_customer_id`).
-  - Wenn Session `expired` und älter als 24h → `failed` setzen.
-- Zusätzlich: für Subscriptions, deren `stripe_subscription_id` bekannt ist, `stripe.subscriptions.retrieve` und `latest_invoice` prüfen → bei `paid` ebenfalls aktualisieren.
-- Identische Update-Logik wie der Webhook (gleiche Felder, gleiche Audit-Log-Einträge mit `actor_name = 'reconciler'`).
-- Liefert JSON-Report: `{ checked, updated_to_paid, updated_to_failed, errors }`.
+Ich schreibe `supabase/functions/reconcile-stripe-orders/index.ts` so um, dass er **kein Stripe-SDK mehr lädt**, sondern direkt die Stripe-REST-API per `fetch` anspricht. Das ist robust, hat keine Node-Compat-Abhängigkeiten und kann in der Edge-Runtime nicht mehr brechen.
 
-### 2. Automatischer 15-Minuten-Cron
-- `pg_cron` + `pg_net` Extensions sicherstellen.
-- Cron-Job per `INSERT` (nicht Migration, da projekt­spezifische URL+Anon-Key) registriert die Function alle 15 Min.
+### Konkret
+1. Stripe-Import entfernen.
+2. Kleine Helper-Funktion `stripeGet(path)`:
+   ```ts
+   const r = await fetch(`https://api.stripe.com/v1/${path}`, {
+     headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+   });
+   if (!r.ok) throw new Error(`stripe ${path} → ${r.status} ${await r.text()}`);
+   return r.json();
+   ```
+3. Pro Bestellung:
+   - `stripeGet('checkout/sessions/' + session_id + '?expand[]=subscription&expand[]=subscription.latest_invoice')`
+   - Wenn `payment_status === 'paid'` → DB auf `paid` updaten (gleiche Felder + Audit-Log wie bisher).
+   - Wenn `subscription.latest_invoice.status === 'paid'` (Sammel-Sub) → ebenfalls `paid`.
+   - Wenn Session `status === 'expired'` und älter als 24h → `failed`.
+4. Die DB-Update-Logik und der Audit-Log-Eintrag bleiben unverändert.
+5. Bessere Fehlerausgabe: Pro Bestellung wird der HTTP-Statuscode + Stripe-Fehlertext im JSON-Report mitgeliefert, damit der Admin-Toast aussagekräftig ist.
+6. Logs werden mit `[reconciler-v2]` markiert, damit man im Dashboard sofort sieht, dass die neue Version läuft.
 
-### 3. Manueller Admin-Button
-- Im Admin-Bereich (`AdminDashboardView` oder Management-Hub) ein kleiner Button **„Stripe-Bestellungen abgleichen"**.
-- Ruft `reconcile-stripe-orders` per `supabase.functions.invoke` auf, zeigt das Ergebnis als Toast.
-- Sichtbar nur für `is_innendienst()`.
+### Validierung
+- Nach Deploy einmal manuell den Admin-Button drücken bzw. per `curl_edge_functions` triggern.
+- Erwartetes Ergebnis: Die 3 frischen Bestellungen vom 06./07. Mai werden auf `paid` gesetzt; ältere expired Sessions auf `failed`.
+- Der Edge-Function-Log zeigt **keinen** `runMicrotasks`-Crash mehr.
+- DB-Check: `SELECT count(*) FROM contractor_bestellungen WHERE stripe_payment_status='pending' AND created_at > now() - interval '7 days'` → 0.
 
-### 4. Einmaliger Initial-Run
-- Direkt nach Deployment einmal manuell triggern, damit die 3 aktuell hängenden Bestellungen (T-Shirt/Poloshirt) nachgezogen werden.
-
-## Technische Details
-- Function-Name: `supabase/functions/reconcile-stripe-orders/index.ts`
-- `verify_jwt = false` in `config.toml` (wird vom Cron ohne User-Kontext aufgerufen). Schutz: Function prüft einen internen Header `x-reconcile-token` (Secret) bei automatischen Aufrufen, oder Service-Role-Key bei Admin-UI-Aufrufen.
-- Verwendet `STRIPE_SECRET_KEY` und `SUPABASE_SERVICE_ROLE_KEY` (beide bereits vorhanden).
-- Idempotent: Nur Bestellungen mit `stripe_payment_status = 'pending'` werden angefasst — Mehrfach-Runs sind ungefährlich.
-- Audit-Log-Eintrag pro Update mit `action_type = 'reconciled_paid'` / `'reconciled_failed'`.
-
-## Ergebnis
-- Webhook bleibt der primäre Pfad (sofort, latenzarm).
-- Reconciler ist das Sicherheitsnetz: spätestens nach 15 Min landet jede tatsächlich bezahlte Bestellung auf `paid`, auch wenn Webhooks komplett ausfallen.
-- Admin kann jederzeit manuell triggern, falls etwas dringend ist.
+### Was ich NICHT anfasse
+- Den `stripe-webhook` selbst — der funktioniert, weil das neue Webhook-Secret jetzt korrekt ist und keine SDK-Calls passieren, die crashen.
+- Den 15-Min-Cron — der ruft denselben Endpoint auf und wird ab Deploy automatisch funktionieren.
+- Die Frontend-Komponenten — der Button bleibt wie er ist.
