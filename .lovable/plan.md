@@ -1,42 +1,34 @@
-## Problem
-Der Admin-Button und der Cron melden „nichts zu tun", obwohl 17 Bestellungen auf `pending` stehen (T-Shirts, Pullover, Polo, Schlappen, Scanner-Lizenz). Grund:
+## Ziel
+Stripe-Bestellungen dürfen nie mehr falsch auf `pending`/`failed` stehen, wenn in Wirklichkeit bezahlt wurde. Drei Schutzschichten + einmalige Backlog-Korrektur.
 
-Die Edge Function `reconcile-stripe-orders` **stürzt sofort beim ersten Stripe-Aufruf ab** mit:
-```
-event loop error: Error: Deno.core.runMicrotasks() is not supported in this environment
-```
-Das liegt am Stripe-SDK (`stripe@14.21.0`) — es nutzt Node-Compat-Internas, die in der aktuellen Supabase-Edge-Runtime nicht mehr unterstützt werden. Beim Webhook fällt das nicht auf, weil dort nur `webhooks.constructEventAsync` verwendet wird (rein synchrone Krypto). Sobald aber `stripe.checkout.sessions.retrieve(...)` aufgerufen wird (wie im Reconciler), crasht der Worker — die Function liefert vermutlich noch eine leere/fehlerhafte Antwort, weshalb der Toast nichts zeigt.
+## 1. Backlog jetzt aufräumen (einmalig)
+- Reconciler-Funktion mit neuem Modus `?backfill=90d` aufrufen, der **alle** Bestellungen der letzten 90 Tage mit `stripe_payment_status IN ('pending','failed')` prüft — nicht nur die, die noch im Cron-Window sind.
+- Für jede prüfen:
+  1. Checkout Session retrieven (falls vorhanden)
+  2. Wenn Session unpaid: Customer-PaymentIntents (succeeded, gleicher Betrag, ±24h Toleranz) suchen
+  3. Match → DB auf `paid` setzen + `stripe_payment_intent_id` + `paid_at` + Audit-Log
+- Speziell die 6 inkonsistenten Bestellungen vom 17.02. (Customer `cus_TzlsdQHJluoc3V`, ~420 €, alle `paid_at` gesetzt aber `status=failed`) werden so geprüft und korrigiert.
 
-## Lösung: Stripe-SDK aus dem Reconciler entfernen
+## 2. Reconciler robuster (Edge Function)
+Aktuell prüft `reconcile-stripe-orders` nur Bestellungen aus einem engen Zeitfenster. Änderungen:
+- Default-Window auf 7 Tage erhöhen (statt aktuell wenige Stunden)
+- Customer-PI-Fallback (gestern eingebaut) bleibt
+- **Neu**: Inkonsistenz-Check — wenn `paid_at IS NOT NULL` aber `status <> 'paid'`, immer mit Stripe abgleichen
+- Logging pro Bestellung (warum gematched / warum nicht), damit du im Edge-Function-Log nachvollziehen kannst, was passiert ist
 
-Ich schreibe `supabase/functions/reconcile-stripe-orders/index.ts` so um, dass er **kein Stripe-SDK mehr lädt**, sondern direkt die Stripe-REST-API per `fetch` anspricht. Das ist robust, hat keine Node-Compat-Abhängigkeiten und kann in der Edge-Runtime nicht mehr brechen.
+## 3. Dauerhafte DB-Integrität (Migration)
+Trigger `trg_bestellung_status_consistency` BEFORE INSERT/UPDATE auf `thermocheck.contractor_bestellungen`:
+- Wenn `stripe_payment_intent_id IS NOT NULL` → `stripe_payment_status` darf nicht `failed` sein, wird automatisch auf `paid` korrigiert
+- Wenn `paid_at IS NOT NULL` → status darf nicht `failed`/`pending` sein, wird auf `paid` korrigiert
+- Korrekturen werden in `audit_log` protokolliert (Reason: `auto_corrected_by_trigger`)
 
-### Konkret
-1. Stripe-Import entfernen.
-2. Kleine Helper-Funktion `stripeGet(path)`:
-   ```ts
-   const r = await fetch(`https://api.stripe.com/v1/${path}`, {
-     headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
-   });
-   if (!r.ok) throw new Error(`stripe ${path} → ${r.status} ${await r.text()}`);
-   return r.json();
-   ```
-3. Pro Bestellung:
-   - `stripeGet('checkout/sessions/' + session_id + '?expand[]=subscription&expand[]=subscription.latest_invoice')`
-   - Wenn `payment_status === 'paid'` → DB auf `paid` updaten (gleiche Felder + Audit-Log wie bisher).
-   - Wenn `subscription.latest_invoice.status === 'paid'` (Sammel-Sub) → ebenfalls `paid`.
-   - Wenn Session `status === 'expired'` und älter als 24h → `failed`.
-4. Die DB-Update-Logik und der Audit-Log-Eintrag bleiben unverändert.
-5. Bessere Fehlerausgabe: Pro Bestellung wird der HTTP-Statuscode + Stripe-Fehlertext im JSON-Report mitgeliefert, damit der Admin-Toast aussagekräftig ist.
-6. Logs werden mit `[reconciler-v2]` markiert, damit man im Dashboard sofort sieht, dass die neue Version läuft.
+So kann ein fehlerhafter Webhook oder manuelles SQL die Daten nie wieder in einen widersprüchlichen Zustand bringen.
 
-### Validierung
-- Nach Deploy einmal manuell den Admin-Button drücken bzw. per `curl_edge_functions` triggern.
-- Erwartetes Ergebnis: Die 3 frischen Bestellungen vom 06./07. Mai werden auf `paid` gesetzt; ältere expired Sessions auf `failed`.
-- Der Edge-Function-Log zeigt **keinen** `runMicrotasks`-Crash mehr.
-- DB-Check: `SELECT count(*) FROM contractor_bestellungen WHERE stripe_payment_status='pending' AND created_at > now() - interval '7 days'` → 0.
+## 4. Admin-Sichtbarkeit
+Im Admin-Dashboard (Zahlungen-Übersicht): kleiner Badge **„Inkonsistent"** für Bestellungen mit `paid_at IS NOT NULL AND status <> 'paid'` + Button „Jetzt mit Stripe abgleichen", der die Reconciler-Funktion gezielt für eine ID auslöst.
 
-### Was ich NICHT anfasse
-- Den `stripe-webhook` selbst — der funktioniert, weil das neue Webhook-Secret jetzt korrekt ist und keine SDK-Calls passieren, die crashen.
-- Den 15-Min-Cron — der ruft denselben Endpoint auf und wird ab Deploy automatisch funktionieren.
-- Die Frontend-Komponenten — der Button bleibt wie er ist.
+## Technische Details
+- Migration: Trigger-Funktion + Trigger auf `thermocheck.contractor_bestellungen`
+- Edge Function `reconcile-stripe-orders`: neuer `mode`-Parameter (`recent` | `backfill` | `single`)
+- Frontend: Komponente unter `src/components/admin/payments/` (Inkonsistenz-Badge + Refresh-Button)
+- Audit-Log-Einträge mit Reason-Codes: `customer_pi_amount_match`, `auto_corrected_by_trigger`, `manual_admin_recheck`
