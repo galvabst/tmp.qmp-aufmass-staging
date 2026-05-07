@@ -130,6 +130,33 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Fallback: Session ist offen/unpaid, aber Kunde hat evtl. über separate Session/PI bezahlt.
+        // Suche nach succeeded PaymentIntent desselben Customers mit gleichem Betrag (in Cent), erstellt nach der Order.
+        let matchedReason: string | null = null;
+        if (!isPaid && !isExpired) {
+          const cust = customerId || order.stripe_customer_id;
+          const expectedAmount = order.betrag_brutto != null ? Math.round(Number(order.betrag_brutto) * 100) : null;
+          if (cust && expectedAmount) {
+            const orderTs = Math.floor(new Date(order.created_at).getTime() / 1000) - 300; // 5 min Toleranz
+            const pis = await stripeGet(
+              stripeKey,
+              `payment_intents?customer=${cust}&limit=20&created[gte]=${orderTs}`,
+            );
+            const list: any[] = Array.isArray(pis.data) ? pis.data : [];
+            const match = list.find(
+              (pi) => pi.status === "succeeded" && pi.amount === expectedAmount,
+            );
+            if (match) {
+              isPaid = true;
+              paymentIntentId = match.id;
+              customerId = cust;
+              matchedReason = "customer_pi_amount_match";
+              console.log(
+                `[reconciler-v2] ${order.id} matched via customer PI ${match.id} (${expectedAmount} cent)`,
+              );
+            }
+          }
+        }
         if (isPaid) {
           const { error: updErr } = await supabase
             .schema("thermocheck")
