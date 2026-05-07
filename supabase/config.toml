@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.admin-impersonate]
 verify_jwt = false
+
+[functions.reconcile-stripe-orders]
+verify_jwt = false
