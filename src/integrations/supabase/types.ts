@@ -5910,6 +5910,58 @@ export type Database = {
           },
         ]
       }
+      orbit_backfill_sessions: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          meta: Json
+          mitarbeiter_id: string
+          priority: string | null
+          termin_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          meta?: Json
+          mitarbeiter_id: string
+          priority?: string | null
+          termin_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          meta?: Json
+          mitarbeiter_id?: string
+          priority?: string | null
+          termin_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orbit_backfill_sessions_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orbit_backfill_sessions_termin_id_fkey"
+            columns: ["termin_id"]
+            isOneToOne: false
+            referencedRelation: "termine"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orbit_backfill_sessions_termin_id_fkey"
+            columns: ["termin_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_pending_backfill"
+            referencedColumns: ["termin_id"]
+          },
+        ]
+      }
       pdf_dokumente: {
         Row: {
           bereich: Database["public"]["Enums"]["pdf_bereich_enum"]
@@ -10990,6 +11042,7 @@ export type Database = {
           mitarbeiter_id: string | null
           needs_lead: boolean | null
           needs_place_type: boolean | null
+          priority: string | null
           start_datetime: string | null
           termin_id: string | null
           termin_status:
@@ -12949,6 +13002,7 @@ export type Database = {
           rechnung_status: string
         }[]
       }
+      get_my_backfill_status: { Args: never; Returns: Json }
       get_my_contractor_boni: { Args: never; Returns: Json }
       get_my_contractor_onboarding: {
         Args: never
@@ -13561,6 +13615,15 @@ export type Database = {
           role: string
           vorname: string
         }[]
+      }
+      log_backfill_event: {
+        Args: {
+          p_event_type: string
+          p_meta?: Json
+          p_priority?: string
+          p_termin_id?: string
+        }
+        Returns: string
       }
       log_impersonation: {
         Args: {
