@@ -11606,7 +11606,9 @@ export type Database = {
         Returns: {
           backlog_count: number
           last_completed_at: string
+          mitarbeiter_email: string
           mitarbeiter_id: string
+          mitarbeiter_name: string
           oldest_pending_at: string
           recent_count: number
           today_count: number
