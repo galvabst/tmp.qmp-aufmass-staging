@@ -1,17 +1,25 @@
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export function StripeReconcileButton() {
   const [loading, setLoading] = useState(false);
 
-  const handleReconcile = async () => {
+  const runReconcile = async (mode: 'recent' | 'backfill', days = 90) => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('reconcile-stripe-orders', {
-        body: { trigger: 'admin_manual' },
+        body: mode === 'backfill'
+          ? { mode: 'backfill', days, trigger: 'admin_manual' }
+          : { trigger: 'admin_manual' },
       });
 
       if (error) {
@@ -40,15 +48,29 @@ export function StripeReconcileButton() {
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={handleReconcile}
-      disabled={loading}
-      title="Stripe-Bestellungen abgleichen"
-      className="text-muted-foreground hover:text-primary"
-    >
-      <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={loading}
+          title="Stripe-Bestellungen abgleichen"
+          className="text-muted-foreground hover:text-primary"
+        >
+          <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuItem onClick={() => runReconcile('recent')}>
+          Schnell-Abgleich (letzte 7 Tage)
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => runReconcile('backfill', 90)}>
+          Tiefer Abgleich (letzte 90 Tage)
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => runReconcile('backfill', 365)}>
+          Voll-Backfill (letzte 365 Tage)
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
