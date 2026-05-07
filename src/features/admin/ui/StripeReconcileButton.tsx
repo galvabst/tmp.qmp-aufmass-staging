@@ -48,15 +48,29 @@ export function StripeReconcileButton() {
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={handleReconcile}
-      disabled={loading}
-      title="Stripe-Bestellungen abgleichen"
-      className="text-muted-foreground hover:text-primary"
-    >
-      <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={loading}
+          title="Stripe-Bestellungen abgleichen"
+          className="text-muted-foreground hover:text-primary"
+        >
+          <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuItem onClick={() => runReconcile('recent')}>
+          Schnell-Abgleich (letzte 7 Tage)
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => runReconcile('backfill', 90)}>
+          Tiefer Abgleich (letzte 90 Tage)
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => runReconcile('backfill', 365)}>
+          Voll-Backfill (letzte 365 Tage)
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
