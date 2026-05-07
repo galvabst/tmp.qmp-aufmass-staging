@@ -11601,6 +11601,18 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: undefined
       }
+      admin_backfill_overview: {
+        Args: never
+        Returns: {
+          backlog_count: number
+          last_completed_at: string
+          mitarbeiter_id: string
+          oldest_pending_at: string
+          recent_count: number
+          today_count: number
+          total_count: number
+        }[]
+      }
       admin_check_user_dependencies: {
         Args: { _target_user_id: string }
         Returns: Json
