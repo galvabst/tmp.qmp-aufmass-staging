@@ -216,8 +216,11 @@ Deno.serve(async (req) => {
               `payment_intents?customer=${cust}&limit=50&created[gte]=${orderTs}`,
             );
             const list: any[] = Array.isArray(pis.data) ? pis.data : [];
+            // Tax-tolerant: erlaube exakten Match ODER bis zu +30% (für automatic_tax / VAT / Shipping).
+            const minAmount = expectedAmount;
+            const maxAmount = Math.round(expectedAmount * 1.3) + 50; // +30% + 50ct Puffer
             const match = list.find(
-              (pi) => pi.status === "succeeded" && pi.amount === expectedAmount,
+              (pi) => pi.status === "succeeded" && pi.amount >= minAmount && pi.amount <= maxAmount,
             );
             if (match) {
               isPaid = true;
