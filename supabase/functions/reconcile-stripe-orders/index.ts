@@ -279,7 +279,7 @@ Deno.serve(async (req) => {
         } else if (isExpired) {
           const ageMs = Date.now() - new Date(order.created_at).getTime();
           if (ageMs > 24 * 60 * 60 * 1000) {
-            const { error: updErr } = await supabase
+            const { data: updRows, error: updErr } = await supabase
               .schema("thermocheck")
               .from("contractor_bestellungen")
               .update({
@@ -287,13 +287,14 @@ Deno.serve(async (req) => {
                 webhook_received_at: new Date().toISOString(),
               })
               .eq("id", order.id)
-              .eq("stripe_payment_status", "pending");
+              .eq("stripe_payment_status", "pending")
+              .select("id");
 
             if (updErr) {
               errors.push({ order_id: order.id, error: updErr.message });
-            } else {
+            } else if (updRows && updRows.length > 0) {
               updatedToFailed++;
-              console.log(`[reconciler-v3] ${order.id} → failed (expired)`);
+              console.log(`[reconciler-v4] ${order.id} → failed (expired)`);
               await supabase
                 .schema("thermocheck")
                 .from("contractor_audit_log")
