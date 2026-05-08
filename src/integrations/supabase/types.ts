@@ -8131,6 +8131,113 @@ export type Database = {
           },
         ]
       }
+      sales_heizungscheck_assessments: {
+        Row: {
+          ai_model: string | null
+          assessment_data: Json | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          current_question_key: string | null
+          error_code: string | null
+          error_detail: string | null
+          id: string
+          lead_id: string
+          status: Database["public"]["Enums"]["heizungscheck_status_enum"]
+          total_cost_eur: number
+          total_tokens_in: number
+          total_tokens_out: number
+          updated_at: string
+        }
+        Insert: {
+          ai_model?: string | null
+          assessment_data?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          current_question_key?: string | null
+          error_code?: string | null
+          error_detail?: string | null
+          id?: string
+          lead_id: string
+          status?: Database["public"]["Enums"]["heizungscheck_status_enum"]
+          total_cost_eur?: number
+          total_tokens_in?: number
+          total_tokens_out?: number
+          updated_at?: string
+        }
+        Update: {
+          ai_model?: string | null
+          assessment_data?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          current_question_key?: string | null
+          error_code?: string | null
+          error_detail?: string | null
+          id?: string
+          lead_id?: string
+          status?: Database["public"]["Enums"]["heizungscheck_status_enum"]
+          total_cost_eur?: number
+          total_tokens_in?: number
+          total_tokens_out?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_heizungscheck_messages: {
+        Row: {
+          assessment_id: string
+          content: string | null
+          created_at: string
+          id: string
+          photo_storage_path: string | null
+          role: Database["public"]["Enums"]["heizungscheck_message_role_enum"]
+          structured_answer: Json | null
+          tokens_in: number | null
+          tokens_out: number | null
+          tool_args: Json | null
+          tool_name: string | null
+          tool_result: Json | null
+        }
+        Insert: {
+          assessment_id: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          photo_storage_path?: string | null
+          role: Database["public"]["Enums"]["heizungscheck_message_role_enum"]
+          structured_answer?: Json | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tool_args?: Json | null
+          tool_name?: string | null
+          tool_result?: Json | null
+        }
+        Update: {
+          assessment_id?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          photo_storage_path?: string | null
+          role?: Database["public"]["Enums"]["heizungscheck_message_role_enum"]
+          structured_answer?: Json | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tool_args?: Json | null
+          tool_name?: string | null
+          tool_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_heizungscheck_messages_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "sales_heizungscheck_assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_policy_cases_cache: {
         Row: {
           case_references: Json | null
@@ -13574,6 +13681,15 @@ export type Database = {
         Args: { _priority: string }
         Returns: undefined
       }
+      increment_heizungscheck_cost: {
+        Args: {
+          p_assessment_id: string
+          p_cost_eur: number
+          p_tokens_in: number
+          p_tokens_out: number
+        }
+        Returns: undefined
+      }
       insert_field_sales_termin: {
         Args: {
           p_appointment_type: string
@@ -15491,6 +15607,12 @@ export type Database = {
         | "Gewonnen"
         | "VOT-Rechnung erstellen"
         | "Zahlung erhalten"
+      heizungscheck_message_role_enum: "system" | "user" | "assistant" | "tool"
+      heizungscheck_status_enum:
+        | "draft"
+        | "in_progress"
+        | "completed"
+        | "failed"
       hunter_tasks_status: "offen" | "erledigt"
       immobilien_status_enum:
         | "Akquise"
@@ -16144,6 +16266,13 @@ export const Constants = {
         "Gewonnen",
         "VOT-Rechnung erstellen",
         "Zahlung erhalten",
+      ],
+      heizungscheck_message_role_enum: ["system", "user", "assistant", "tool"],
+      heizungscheck_status_enum: [
+        "draft",
+        "in_progress",
+        "completed",
+        "failed",
       ],
       hunter_tasks_status: ["offen", "erledigt"],
       immobilien_status_enum: [
