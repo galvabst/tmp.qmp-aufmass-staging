@@ -7443,6 +7443,7 @@ export type Database = {
           own_offer_file: string | null
           own_offer_path: string | null
           own_price_eur: number | null
+          pains: Json | null
           pdf_exported_at: string | null
           pdf_file_path: string | null
           physics_context: Json | null
@@ -7491,6 +7492,7 @@ export type Database = {
           own_offer_file?: string | null
           own_offer_path?: string | null
           own_price_eur?: number | null
+          pains?: Json | null
           pdf_exported_at?: string | null
           pdf_file_path?: string | null
           physics_context?: Json | null
@@ -7539,6 +7541,7 @@ export type Database = {
           own_offer_file?: string | null
           own_offer_path?: string | null
           own_price_eur?: number | null
+          pains?: Json | null
           pdf_exported_at?: string | null
           pdf_file_path?: string | null
           physics_context?: Json | null
