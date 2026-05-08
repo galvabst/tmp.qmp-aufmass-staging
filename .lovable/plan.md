@@ -1,34 +1,39 @@
-## Ziel
-Stripe-Bestellungen dürfen nie mehr falsch auf `pending`/`failed` stehen, wenn in Wirklichkeit bezahlt wurde. Drei Schutzschichten + einmalige Backlog-Korrektur.
+## Befund
 
-## 1. Backlog jetzt aufräumen (einmalig)
-- Reconciler-Funktion mit neuem Modus `?backfill=90d` aufrufen, der **alle** Bestellungen der letzten 90 Tage mit `stripe_payment_status IN ('pending','failed')` prüft — nicht nur die, die noch im Cron-Window sind.
-- Für jede prüfen:
-  1. Checkout Session retrieven (falls vorhanden)
-  2. Wenn Session unpaid: Customer-PaymentIntents (succeeded, gleicher Betrag, ±24h Toleranz) suchen
-  3. Match → DB auf `paid` setzen + `stripe_payment_intent_id` + `paid_at` + Audit-Log
-- Speziell die 6 inkonsistenten Bestellungen vom 17.02. (Customer `cus_TzlsdQHJluoc3V`, ~420 €, alle `paid_at` gesetzt aber `status=failed`) werden so geprüft und korrigiert.
+Die Ausweiskarte ist nicht „einfach wieder pending“, sondern der aktuelle Abgleich kann diese Zahlung nicht zuverlässig zuordnen:
 
-## 2. Reconciler robuster (Edge Function)
-Aktuell prüft `reconcile-stripe-orders` nur Bestellungen aus einem engen Zeitfenster. Änderungen:
-- Default-Window auf 7 Tage erhöhen (statt aktuell wenige Stunden)
-- Customer-PI-Fallback (gestern eingebaut) bleibt
-- **Neu**: Inkonsistenz-Check — wenn `paid_at IS NOT NULL` aber `status <> 'paid'`, immer mit Stripe abgleichen
-- Logging pro Bestellung (warum gematched / warum nicht), damit du im Edge-Function-Log nachvollziehen kannst, was passiert ist
+- Supabase-Bestellung: `ausweiskarte`, Martin Eigl, Status `pending`, Betrag `21,99 €`, Session `cs_live_a1ZOWS1y...`
+- Dein Screenshot/Stripe zeigt für dieselbe Zahlung offenbar `26,17 €` und einen Payment Intent `pi_3TUXti...`
+- Der Reconciler sucht aktuell beim Fallback nach einem succeeded PaymentIntent mit exakt dem DB-Bruttobetrag (`21,99 €`). Wenn Stripe wegen `automatic_tax` tatsächlich `26,17 €` berechnet, matcht er nicht.
+- Zusätzlich sehe ich im Stripe-Webhook aktuell Signaturfehler. Dadurch ist der Webhook als erste Schutzschicht gerade nicht verlässlich, der Reconciler muss es also auffangen.
 
-## 3. Dauerhafte DB-Integrität (Migration)
-Trigger `trg_bestellung_status_consistency` BEFORE INSERT/UPDATE auf `thermocheck.contractor_bestellungen`:
-- Wenn `stripe_payment_intent_id IS NOT NULL` → `stripe_payment_status` darf nicht `failed` sein, wird automatisch auf `paid` korrigiert
-- Wenn `paid_at IS NOT NULL` → status darf nicht `failed`/`pending` sein, wird auf `paid` korrigiert
-- Korrekturen werden in `audit_log` protokolliert (Reason: `auto_corrected_by_trigger`)
+## Plan
 
-So kann ein fehlerhafter Webhook oder manuelles SQL die Daten nie wieder in einen widersprüchlichen Zustand bringen.
+1. **Reconciler robuster machen**
+   - Beim Checkout-Session-Abruf `payment_intent` expanden.
+   - Wenn die Session selbst einen `payment_intent` enthält, diesen direkt abrufen und bei `succeeded` auf `paid` setzen — unabhängig vom DB-Betrag.
+   - Erst wenn keine Session-PI vorhanden ist, den Customer-PI-Fallback nutzen.
 
-## 4. Admin-Sichtbarkeit
-Im Admin-Dashboard (Zahlungen-Übersicht): kleiner Badge **„Inkonsistent"** für Bestellungen mit `paid_at IS NOT NULL AND status <> 'paid'` + Button „Jetzt mit Stripe abgleichen", der die Reconciler-Funktion gezielt für eine ID auslöst.
+2. **Betragslogik tax-sicher machen**
+   - Beim Customer-PI-Fallback nicht nur exakt `betrag_brutto` matchen.
+   - Zusätzlich erlauben: Stripe-Betrag entspricht Checkout-Session-Total oder Amount Details aus Stripe, damit `automatic_tax` keine legitime Zahlung blockiert.
+   - Audit-Reason sauber unterscheiden, z. B. `session_payment_intent_verified` vs. `customer_pi_amount_match`.
+
+3. **Pending/Failed-Schleife stoppen**
+   - Beim Reconciler `failed` nur protokollieren, wenn der Status wirklich von `pending` auf `failed` geändert wurde.
+   - Damit entstehen nicht alle 15 Minuten doppelte `reconciled_failed` Audit-Logs für dieselbe bereits fehlgeschlagene Bestellung.
+
+4. **Akute Ausweiskarte gezielt neu abgleichen**
+   - Nach der Änderung die einzelne Bestellung `40f85cbd-97bd-4d97-98e1-85229c360993` über den `single`-Modus prüfen.
+   - Erwartung: Wenn Stripe die Zahlung wirklich als bezahlt bestätigt, wird sie auf `paid` gesetzt und `stripe_payment_intent_id` gespeichert.
+
+5. **Webhook-Konfiguration separat sichtbar machen**
+   - Ich prüfe danach nochmal die `stripe-webhook` Logs.
+   - Wenn weiterhin Signaturfehler kommen, ist sehr wahrscheinlich der falsche `STRIPE_WEBHOOK_SECRET` gesetzt oder Stripe sendet an einen anderen Endpoint/Secret. Dann ist das kein Codeproblem, sondern eine Stripe-Dashboard-Konfiguration, die korrigiert werden muss.
 
 ## Technische Details
-- Migration: Trigger-Funktion + Trigger auf `thermocheck.contractor_bestellungen`
-- Edge Function `reconcile-stripe-orders`: neuer `mode`-Parameter (`recent` | `backfill` | `single`)
-- Frontend: Komponente unter `src/components/admin/payments/` (Inkonsistenz-Badge + Refresh-Button)
-- Audit-Log-Einträge mit Reason-Codes: `customer_pi_amount_match`, `auto_corrected_by_trigger`, `manual_admin_recheck`
+
+Betroffene Datei:
+- `supabase/functions/reconcile-stripe-orders/index.ts`
+
+Kein Schemawechsel nötig. Keine Tabellenänderung nötig.
