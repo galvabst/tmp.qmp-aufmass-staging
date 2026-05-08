@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const RECONCILER_VERSION = "2026-05-07-v3-backfill";
+const RECONCILER_VERSION = "2026-05-08-v4-tax-tolerant";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
