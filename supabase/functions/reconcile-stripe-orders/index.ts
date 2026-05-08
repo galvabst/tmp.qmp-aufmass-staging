@@ -140,11 +140,19 @@ Deno.serve(async (req) => {
         if (!isPaid && order.stripe_session_id) {
           const session = await stripeGet(
             stripeKey,
-            `checkout/sessions/${order.stripe_session_id}?expand[]=subscription&expand[]=subscription.latest_invoice`,
+            `checkout/sessions/${order.stripe_session_id}?expand[]=subscription&expand[]=subscription.latest_invoice&expand[]=payment_intent`,
           );
 
-          paymentIntentId =
-            paymentIntentId ?? (typeof session.payment_intent === "string" ? session.payment_intent : null);
+          const sessPi = session.payment_intent;
+          if (sessPi && typeof sessPi === "object") {
+            paymentIntentId = paymentIntentId ?? sessPi.id;
+            if (sessPi.status === "succeeded") {
+              isPaid = true;
+              matchedReason = matchedReason || "session_payment_intent_succeeded";
+            }
+          } else if (typeof sessPi === "string") {
+            paymentIntentId = paymentIntentId ?? sessPi;
+          }
           customerId = customerId ?? (typeof session.customer === "string" ? session.customer : null);
 
           const sub = session.subscription;
@@ -162,11 +170,24 @@ Deno.serve(async (req) => {
             subscriptionId = sub;
           }
 
-          if (session.payment_status === "paid") {
+          if (!isPaid && session.payment_status === "paid") {
             isPaid = true;
             matchedReason = matchedReason || "session_paid";
-          } else if (session.status === "expired") {
+          } else if (!isPaid && session.status === "expired") {
             isExpired = true;
+          }
+
+          if (!isPaid && !isExpired && paymentIntentId) {
+            try {
+              const pi = await stripeGet(stripeKey, `payment_intents/${paymentIntentId}`);
+              if (pi.status === "succeeded") {
+                isPaid = true;
+                matchedReason = matchedReason || "session_pi_lookup_succeeded";
+                customerId = customerId || (typeof pi.customer === "string" ? pi.customer : null);
+              }
+            } catch (e) {
+              console.warn(`[reconciler-v4] session PI lookup failed for ${order.id}:`, e);
+            }
           }
         } else if (!isPaid && order.stripe_subscription_id) {
           const sub = await stripeGet(
