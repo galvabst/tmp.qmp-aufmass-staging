@@ -5910,6 +5910,47 @@ export type Database = {
           },
         ]
       }
+      orbit_backfill_progress: {
+        Row: {
+          completed_count: number
+          created_at: string
+          id: string
+          mitarbeiter_id: string
+          priority: string
+          required_count: number
+          session_date: string
+          updated_at: string
+        }
+        Insert: {
+          completed_count?: number
+          created_at?: string
+          id?: string
+          mitarbeiter_id: string
+          priority: string
+          required_count: number
+          session_date?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_count?: number
+          created_at?: string
+          id?: string
+          mitarbeiter_id?: string
+          priority?: string
+          required_count?: number
+          session_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orbit_backfill_progress_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orbit_backfill_sessions: {
         Row: {
           created_at: string
@@ -12610,6 +12651,7 @@ export type Database = {
           verfügbare_tokens: number
         }[]
       }
+      get_backfill_session_progress: { Args: never; Returns: Json }
       get_baustellenstatus_values: {
         Args: never
         Returns: {
@@ -13527,6 +13569,10 @@ export type Database = {
       hat_verantwortlichkeit: {
         Args: { p_verantwortlichkeit_id: string }
         Returns: boolean
+      }
+      increment_backfill_progress: {
+        Args: { _priority: string }
+        Returns: undefined
       }
       insert_field_sales_termin: {
         Args: {
