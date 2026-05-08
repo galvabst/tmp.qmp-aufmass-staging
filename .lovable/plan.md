@@ -1,39 +1,17 @@
-## Befund
+## Stripe-Webhook Secret aktualisieren
 
-Die Ausweiskarte ist nicht „einfach wieder pending“, sondern der aktuelle Abgleich kann diese Zahlung nicht zuverlässig zuordnen:
+Du hast das Live-Signing-Secret für den Endpoint `…/functions/v1/stripe-webhook` (Ziel-ID `we_1SxaQXLnjPqrEfxxtC7BZrNX`) geteilt. Damit fixen wir die `Signature verification failed`-Fehler.
 
-- Supabase-Bestellung: `ausweiskarte`, Martin Eigl, Status `pending`, Betrag `21,99 €`, Session `cs_live_a1ZOWS1y...`
-- Dein Screenshot/Stripe zeigt für dieselbe Zahlung offenbar `26,17 €` und einen Payment Intent `pi_3TUXti...`
-- Der Reconciler sucht aktuell beim Fallback nach einem succeeded PaymentIntent mit exakt dem DB-Bruttobetrag (`21,99 €`). Wenn Stripe wegen `automatic_tax` tatsächlich `26,17 €` berechnet, matcht er nicht.
-- Zusätzlich sehe ich im Stripe-Webhook aktuell Signaturfehler. Dadurch ist der Webhook als erste Schutzschicht gerade nicht verlässlich, der Reconciler muss es also auffangen.
+### Schritte
 
-## Plan
+1. **Secret rotieren** — `STRIPE_WEBHOOK_SECRET` über das sichere Secret-Formular auf den neuen Wert setzen (nicht im Chat-Klartext speichern). Bitte rotiere den Wert anschließend auch im Stripe-Dashboard, da er hier sichtbar war.
+2. **Edge Function neu starten** — passiert automatisch beim Secret-Update; `stripe-webhook` zieht den neuen Wert beim nächsten Request.
+3. **Verifizieren** — in Stripe → Webhooks → Endpoint → „Send test webhook" einen `checkout.session.completed` Test schicken und Logs prüfen. Erwartung: kein `Signature verification failed` mehr, stattdessen `[stripe-webhook] vXXX | Event: …`.
+4. **Letzte fehlgeschlagene Events nachreichen** — in Stripe alle „Failed" Events der letzten 24h erneut zustellen („Resend"). Damit werden alle pending-Bestellungen direkt vom Webhook auf `paid` gesetzt — der Reconciler dient nur noch als Backup.
+5. **Sicherheitshinweis** — da das Secret im Chat stand, im Stripe-Dashboard das Signing-Secret „Roll" und danach den neuen Wert nochmal über das Formular eintragen.
 
-1. **Reconciler robuster machen**
-   - Beim Checkout-Session-Abruf `payment_intent` expanden.
-   - Wenn die Session selbst einen `payment_intent` enthält, diesen direkt abrufen und bei `succeeded` auf `paid` setzen — unabhängig vom DB-Betrag.
-   - Erst wenn keine Session-PI vorhanden ist, den Customer-PI-Fallback nutzen.
+### Technische Details
 
-2. **Betragslogik tax-sicher machen**
-   - Beim Customer-PI-Fallback nicht nur exakt `betrag_brutto` matchen.
-   - Zusätzlich erlauben: Stripe-Betrag entspricht Checkout-Session-Total oder Amount Details aus Stripe, damit `automatic_tax` keine legitime Zahlung blockiert.
-   - Audit-Reason sauber unterscheiden, z. B. `session_payment_intent_verified` vs. `customer_pi_amount_match`.
-
-3. **Pending/Failed-Schleife stoppen**
-   - Beim Reconciler `failed` nur protokollieren, wenn der Status wirklich von `pending` auf `failed` geändert wurde.
-   - Damit entstehen nicht alle 15 Minuten doppelte `reconciled_failed` Audit-Logs für dieselbe bereits fehlgeschlagene Bestellung.
-
-4. **Akute Ausweiskarte gezielt neu abgleichen**
-   - Nach der Änderung die einzelne Bestellung `40f85cbd-97bd-4d97-98e1-85229c360993` über den `single`-Modus prüfen.
-   - Erwartung: Wenn Stripe die Zahlung wirklich als bezahlt bestätigt, wird sie auf `paid` gesetzt und `stripe_payment_intent_id` gespeichert.
-
-5. **Webhook-Konfiguration separat sichtbar machen**
-   - Ich prüfe danach nochmal die `stripe-webhook` Logs.
-   - Wenn weiterhin Signaturfehler kommen, ist sehr wahrscheinlich der falsche `STRIPE_WEBHOOK_SECRET` gesetzt oder Stripe sendet an einen anderen Endpoint/Secret. Dann ist das kein Codeproblem, sondern eine Stripe-Dashboard-Konfiguration, die korrigiert werden muss.
-
-## Technische Details
-
-Betroffene Datei:
-- `supabase/functions/reconcile-stripe-orders/index.ts`
-
-Kein Schemawechsel nötig. Keine Tabellenänderung nötig.
+- Secret-Name: `STRIPE_WEBHOOK_SECRET`
+- Verwendet in: `supabase/functions/stripe-webhook/index.ts` via `Deno.env.get("STRIPE_WEBHOOK_SECRET")` in `stripe.webhooks.constructEventAsync(...)`
+- Keine Code-Änderungen nötig — nur Secret-Rotation.
