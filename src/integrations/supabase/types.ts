@@ -12942,6 +12942,38 @@ export type Database = {
       }
       get_einweisungs_auftrag: { Args: { p_auftrag_id: string }; Returns: Json }
       get_enum_values: { Args: { enum_name: string }; Returns: string[] }
+      get_field_sales_dashboard: {
+        Args: { p_jahr: number; p_monat: number }
+        Returns: {
+          ag_brutto: number
+          ag_netto: number
+          ag_netto_summe: number
+          ag_no_show: number
+          ag_no_show_same_day: number
+          ag_offen: number
+          ag_rueckfuehrungen: number
+          ag_stattgefunden: number
+          ag_storno: number
+          ag_termin_gewonnen_netto: number
+          ag_termine_gesamt: number
+          ag_verloren: number
+          mitarbeiter_id: string
+          mitarbeiter_name: string
+          taetigkeit: string
+          thc_brutto: number
+          thc_netto: number
+          thc_no_show: number
+          thc_no_show_same_day: number
+          thc_offen: number
+          thc_rueckfuehrungen: number
+          thc_stattgefunden: number
+          thc_storno: number
+          thc_termin_gewonnen_netto: number
+          thc_termine_gesamt: number
+          thc_verloren_lead: number
+          weekly_termine: Json
+        }[]
+      }
       get_group_permissions: { Args: { _group_id: string }; Returns: Json }
       get_hauptstatus_for_substatus:
         | {
@@ -14181,6 +14213,14 @@ export type Database = {
       reschedule_thermocheck_termin: {
         Args: { p_auftrag_id: string; p_modus: string; p_termine?: Json }
         Returns: undefined
+      }
+      reset_heizungscheck_for_lead: {
+        Args: { p_lead_id: string }
+        Returns: {
+          deleted_assessments: number
+          deleted_messages: number
+          photo_paths: string[]
+        }[]
       }
       resolve_next_active_substatus: {
         Args: {
