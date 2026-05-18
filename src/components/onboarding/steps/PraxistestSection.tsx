@@ -96,6 +96,9 @@ export function PraxistestSection({
     setIsSubmitting(true);
     try {
       await onEinreichen();
+    } catch (err: any) {
+      console.error('[Praxistest] Einreichen fehlgeschlagen:', err);
+      toast.error(err?.message || 'Einreichen fehlgeschlagen. Bitte erneut versuchen.');
     } finally {
       setIsSubmitting(false);
     }
