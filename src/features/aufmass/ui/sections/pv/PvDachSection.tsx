@@ -164,7 +164,6 @@ export function PvDachSection({ pvForm, bilder, votFormularId, leadName, leadId,
 
       {/* Photos */}
       <PhotoUploadField kategorie="pv_dach" existingBilder={filterBilderByKategorie(bilder, 'pv_dach')} {...photoProps} />
-      <PhotoUploadField kategorie="pv_drohne" existingBilder={filterBilderByKategorie(bilder, 'pv_drohne')} {...photoProps} />
       <PhotoUploadField kategorie="pv_sparrenabstand" existingBilder={filterBilderByKategorie(bilder, 'pv_sparrenabstand')} {...photoProps} />
     </div>
   );

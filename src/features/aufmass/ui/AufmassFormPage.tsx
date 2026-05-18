@@ -126,20 +126,25 @@ export default function AufmassFormPage() {
   // Watch hat_pv_anlage for dynamic steps
   const hatPv = form.watch('hat_pv_anlage');
 
-  // Prefill THC form when data loads — keep user's in-progress edits (dirty values)
-  // to prevent already-typed values (e.g. Inbetriebnahme-Datum) from being reset
-  // when react-query refetches the formular after an autosave or window focus.
+  // Prefill — only fill keys that are still empty in the current form state.
+  // setValue() via buttons does NOT set the dirty flag, so a naive spread of
+  // server values would overwrite user's Ja/Nein clicks after a refetch.
+  const mergePrefill = <T extends Record<string, any>>(current: T, server: Record<string, any>): T => {
+    const next: any = { ...current };
+    for (const [k, v] of Object.entries(server)) {
+      if (next[k] === undefined || next[k] === null || next[k] === '') next[k] = v;
+    }
+    return next;
+  };
+
   useEffect(() => {
     if (!formular) return;
-    const f = formular as Record<string, any>;
-    form.reset({ ...form.getValues(), ...f }, { keepDirtyValues: true });
+    form.reset(mergePrefill(form.getValues(), formular as Record<string, any>), { keepDirtyValues: true });
   }, [formular]);
 
-  // Prefill PV form when data loads — same guarantee for PV form
   useEffect(() => {
     if (!pvFormular) return;
-    const f = pvFormular as Record<string, any>;
-    pvForm.reset({ ...pvForm.getValues(), ...f }, { keepDirtyValues: true });
+    pvForm.reset(mergePrefill(pvForm.getValues(), pvFormular as Record<string, any>), { keepDirtyValues: true });
   }, [pvFormular]);
 
   // Prefill techniker data from profile
