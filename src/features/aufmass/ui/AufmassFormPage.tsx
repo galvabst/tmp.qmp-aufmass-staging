@@ -126,18 +126,20 @@ export default function AufmassFormPage() {
   // Watch hat_pv_anlage for dynamic steps
   const hatPv = form.watch('hat_pv_anlage');
 
-  // Prefill THC form when data loads
+  // Prefill THC form when data loads — keep user's in-progress edits (dirty values)
+  // to prevent already-typed values (e.g. Inbetriebnahme-Datum) from being reset
+  // when react-query refetches the formular after an autosave or window focus.
   useEffect(() => {
     if (!formular) return;
     const f = formular as Record<string, any>;
-    form.reset({ ...form.getValues(), ...f });
+    form.reset({ ...form.getValues(), ...f }, { keepDirtyValues: true });
   }, [formular]);
 
-  // Prefill PV form when data loads
+  // Prefill PV form when data loads — same guarantee for PV form
   useEffect(() => {
     if (!pvFormular) return;
     const f = pvFormular as Record<string, any>;
-    pvForm.reset({ ...pvForm.getValues(), ...f });
+    pvForm.reset({ ...pvForm.getValues(), ...f }, { keepDirtyValues: true });
   }, [pvFormular]);
 
   // Prefill techniker data from profile
