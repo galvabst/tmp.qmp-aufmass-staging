@@ -36,13 +36,13 @@ export function PvBlitzschutzSection({ pvForm, bilder, votFormularId, leadName, 
         </div>
       </div>
 
-      {/* Hauszuführung */}
+      {/* Hauszuführung (optional) */}
       <div className="space-y-2">
-        <Label>Hauszuführung *</Label>
+        <Label>Hauszuführung <span className="text-xs text-muted-foreground font-normal">(falls bekannt)</span></Label>
         <div className="flex gap-3">
           {(['keller', 'freileitung'] as const).map((val) => (
             <button key={val} type="button" disabled={disabled}
-              onClick={() => setValue('hauszufuehrung', val)}
+              onClick={() => setValue('hauszufuehrung', watch('hauszufuehrung') === val ? undefined : val)}
               className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
                 watch('hauszufuehrung') === val ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-foreground'
               }`}
