@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactElement, cloneElement, isValidElement } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, Save, Send, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -18,6 +18,9 @@ interface AufmassFormStepperProps {
   isSaving: boolean;
   isSubmitting: boolean;
   isReadOnly: boolean;
+  /** Optional controlled current step. When provided, parent owns the navigation state. */
+  currentStep?: number;
+  onStepChange?: (step: number) => void;
 }
 
 export function AufmassFormStepper({
@@ -30,17 +33,28 @@ export function AufmassFormStepper({
   isSaving,
   isSubmitting,
   isReadOnly,
+  currentStep: controlledStep,
+  onStepChange,
 }: AufmassFormStepperProps) {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [internalStep, setInternalStep] = useState(0);
+  const isControlled = controlledStep != null;
+  const currentStep = isControlled ? controlledStep! : internalStep;
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
   const totalSteps = steps.length;
 
   // Clamp step when steps count changes dynamically
   useEffect(() => {
     if (currentStep >= totalSteps) {
-      setCurrentStep(totalSteps - 1);
+      const clamped = totalSteps - 1;
+      if (isControlled) onStepChange?.(clamped);
+      else setInternalStep(clamped);
     }
-  }, [totalSteps, currentStep]);
+  }, [totalSteps, currentStep, isControlled, onStepChange]);
+
+  // Track visited steps from controlled changes too
+  useEffect(() => {
+    setVisitedSteps(prev => (prev.has(currentStep) ? prev : new Set([...prev, currentStep])));
+  }, [currentStep]);
 
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
@@ -49,7 +63,9 @@ export function AufmassFormStepper({
   const isLastStep = currentStep === totalSteps - 1;
 
   const goTo = (step: number) => {
-    setCurrentStep(step);
+    if (step < 0 || step >= totalSteps) return;
+    if (isControlled) onStepChange?.(step);
+    else setInternalStep(step);
     setVisitedSteps(prev => new Set([...prev, step]));
   };
 
