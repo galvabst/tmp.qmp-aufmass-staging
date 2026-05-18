@@ -398,6 +398,8 @@ export default function AufmassFormPage() {
       isSaving={isSaving}
       isSubmitting={isSaving}
       isReadOnly={isReadOnly}
+      currentStep={currentStep}
+      onStepChange={setCurrentStep}
     >
       {[]}
     </AufmassFormStepper>
