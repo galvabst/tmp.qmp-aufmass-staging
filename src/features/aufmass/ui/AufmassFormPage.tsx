@@ -224,7 +224,7 @@ export default function AufmassFormPage() {
   const pvSharedProps = { pvForm, bilder, votFormularId, leadName, leadId, auftragId: auftragId!, disabled: isReadOnly };
 
   const renderStep = (index: number) => {
-    // Base THC steps (0-13)
+    // Base THC steps (0-12)
     switch (index) {
       case 0: return <TechnikerDatenSection form={form} {...sharedProps} />;
       case 1: return <KundendatenSection form={form} kundenName={kundenName} disabled={isReadOnly} />;
@@ -232,35 +232,34 @@ export default function AufmassFormPage() {
       case 3: return <PhotoOnlySection kategorie="eingang_heizungsraum" {...sharedProps} />;
       case 4: return <HeizungsraumSection form={form} {...sharedProps} />;
       case 5: return <HeizungsartSection form={form} {...sharedProps} />;
-      case 6: return <PhotoOnlySection kategorie="heizungsanlage" {...sharedProps} />;
-      case 7: return <HeizkoerperSection form={form} {...sharedProps} />;
-      case 8: return <ElektrikSection form={form} {...sharedProps} />;
-      case 9: return <AufstellortSection form={form} {...sharedProps} />;
-      case 10: return <SanitaerSection form={form} disabled={isReadOnly} />;
-      case 11: return <ChecklisteSection form={form} {...sharedProps} />;
-      case 12: return <UnbegehbareRaeumeSection form={form} {...sharedProps} />;
-      case 13: return <PvAnlageSection form={form} {...sharedProps} />;
+      case 6: return <HeizkoerperSection form={form} {...sharedProps} />;
+      case 7: return <ElektrikSection form={form} {...sharedProps} />;
+      case 8: return <AufstellortSection form={form} {...sharedProps} />;
+      case 9: return <SanitaerSection form={form} disabled={isReadOnly} />;
+      case 10: return <ChecklisteSection form={form} {...sharedProps} />;
+      case 11: return <UnbegehbareRaeumeSection form={form} {...sharedProps} />;
+      case 12: return <PvAnlageSection form={form} {...sharedProps} />;
       default: break;
     }
 
-    // If PV steps are active (indices 14-21)
+    // If PV steps are active (indices 13-20, Abschluss at 21)
     if (showPvSteps) {
       switch (index) {
-        case 14: return <PvAllgemeinSection pvForm={pvForm} disabled={isReadOnly} />;
-        case 15: return <PvDachSection {...pvSharedProps} />;
-        case 16: return <PvDachziegelSection {...pvSharedProps} />;
-        case 17: return <PvGeruestSection {...pvSharedProps} />;
-        case 18: return <PvDcKabelSection pvForm={pvForm} disabled={isReadOnly} />;
-        case 19: return <PvUnterkonstruktionSection pvForm={pvForm} disabled={isReadOnly} />;
-        case 20: return <PvBlitzschutzSection {...pvSharedProps} />;
-        case 21: return <PvAbschlussSection {...pvSharedProps} />;
-        case 22: return <AbschlussSection form={form} {...sharedProps} />;
+        case 13: return <PvAllgemeinSection pvForm={pvForm} disabled={isReadOnly} />;
+        case 14: return <PvDachSection {...pvSharedProps} />;
+        case 15: return <PvDachziegelSection {...pvSharedProps} />;
+        case 16: return <PvGeruestSection {...pvSharedProps} />;
+        case 17: return <PvDcKabelSection pvForm={pvForm} disabled={isReadOnly} />;
+        case 18: return <PvUnterkonstruktionSection pvForm={pvForm} disabled={isReadOnly} />;
+        case 19: return <PvBlitzschutzSection {...pvSharedProps} />;
+        case 20: return <PvAbschlussSection {...pvSharedProps} />;
+        case 21: return <AbschlussSection form={form} {...sharedProps} />;
         default: return null;
       }
     }
 
-    // Without PV: index 14 = Abschluss
-    if (index === 14) return <AbschlussSection form={form} {...sharedProps} />;
+    // Without PV: index 13 = Abschluss
+    if (index === 13) return <AbschlussSection form={form} {...sharedProps} />;
     return null;
   };
 
