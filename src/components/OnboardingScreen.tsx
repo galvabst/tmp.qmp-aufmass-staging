@@ -652,17 +652,18 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   };
 
   const handleQuizComplete = async (bestanden: boolean) => {
-    if (bestanden) {
+    if (!bestanden) {
+      toast.error('Leider nicht bestanden. Du kannst es erneut versuchen.');
+      return;
+    }
+    try {
+      await saveAkademieTestBestanden();
       setAkademieTestBestanden(true);
       toast.success('Abschlusstest bestanden! 🎉');
-      try {
-        await saveAkademieTestBestanden();
-        console.log('[Onboarding] akademie_test_bestanden saved to DB');
-      } catch (error) {
-        console.warn('[Onboarding] Failed to save akademie_test_bestanden:', error);
-      }
-    } else {
-      toast.error('Leider nicht bestanden. Du kannst es erneut versuchen.');
+      console.log('[Onboarding] akademie_test_bestanden saved to DB');
+    } catch (error: any) {
+      console.error('[Onboarding] Failed to save akademie_test_bestanden:', error);
+      toast.error(error?.message || 'Konnte den Abschlusstest nicht speichern. Bitte erneut versuchen.');
     }
   };
 
@@ -905,20 +906,33 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
               try {
                 const url = await uploadPraxistestVideo(file);
                 setPraxistestVideoUrl(url);
+                toast.success('Drohnen-Video hochgeladen.');
+              } catch (err: any) {
+                console.error('[Onboarding] Praxistest video upload failed:', err);
+                toast.error(err?.message || 'Video-Upload fehlgeschlagen. Bitte erneut versuchen.');
+                throw err;
               } finally {
                 setIsPraxistestUploading(false);
               }
             }}
             onPraxistestEinreichen={async () => {
-              await savePraxistest({
-                scanUrl: state.praxistestScanUrl || '',
-                videoUrl: state.praxistestVideoUrl || '',
-                targetProfileId: isPreview ? selectedPraxistestContractor : undefined,
-              });
-              setPraxistestEingereicht(true);
-              if (isPreview && selectedPraxistestContractor) {
-                const name = previewContractors.find(c => c.profileId === selectedPraxistestContractor)?.name;
-                toast.success(`Praxistest für ${name || 'Techniker'} eingereicht!`);
+              try {
+                await savePraxistest({
+                  scanUrl: state.praxistestScanUrl || '',
+                  videoUrl: state.praxistestVideoUrl || '',
+                  targetProfileId: isPreview ? selectedPraxistestContractor : undefined,
+                });
+                setPraxistestEingereicht(true);
+                if (isPreview && selectedPraxistestContractor) {
+                  const name = previewContractors.find(c => c.profileId === selectedPraxistestContractor)?.name;
+                  toast.success(`Praxistest für ${name || 'Techniker'} eingereicht!`);
+                } else {
+                  toast.success('Praxistest eingereicht — warte auf Trainer-Freigabe.');
+                }
+              } catch (err: any) {
+                console.error('[Onboarding] savePraxistest failed:', err);
+                toast.error(err?.message || 'Einreichen fehlgeschlagen. Bitte erneut versuchen.');
+                throw err;
               }
             }}
             isPraxistestUploading={isPraxistestUploading}
