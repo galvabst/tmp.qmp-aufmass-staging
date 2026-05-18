@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { AufmassDraftData } from '../data/aufmass-schema';
+import { AufmassDraftData, aufmassSubmitSchema } from '../data/aufmass-schema';
 import { PvAufmassDraftData } from '../data/pv-aufmass-schema';
 import { useVotFormular, useUpsertVotFormular } from '../hooks/useVotFormular';
 import { usePvFormular, useUpsertPvFormular } from '../hooks/usePvFormular';
