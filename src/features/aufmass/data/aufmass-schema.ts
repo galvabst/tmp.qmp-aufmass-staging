@@ -1,26 +1,42 @@
 import { z } from 'zod';
 
+const emptyToUndefined = (value: unknown) => {
+  if (value === null || value === '') return undefined;
+  if (typeof value === 'number' && Number.isNaN(value)) return undefined;
+  return value;
+};
+
+const optionalString = z.preprocess(emptyToUndefined, z.string().optional());
+const optionalBoolean = z.preprocess(emptyToUndefined, z.boolean().optional());
+const optionalNonNegativeNumber = z.preprocess(emptyToUndefined, z.number().min(0).optional());
+const optionalNonNegativeInteger = z.preprocess(emptyToUndefined, z.number().int().min(0).optional());
+const optionalPositiveInteger = z.preprocess(emptyToUndefined, z.number().int().positive().optional());
+const requiredNonNegativeNumber = (message = 'Bitte angeben') =>
+  z.preprocess(emptyToUndefined, z.number({ required_error: message, invalid_type_error: message }).min(0, message));
+const requiredNonNegativeInteger = (message = 'Bitte angeben') =>
+  z.preprocess(emptyToUndefined, z.number({ required_error: message, invalid_type_error: message }).int(message).min(0, message));
+
 /** Zod schema for draft saving (all optional) */
 export const aufmassDraftSchema = z.object({
-  techniker_name: z.string().optional(),
-  techniker_telefon: z.string().optional(),
-  thermocheck_datum: z.string().optional(),
-  heizung_inbetriebnahme_datum: z.string().optional(),
-  heizung_funktionstuechtig: z.boolean().optional(),
-  bauantrag_datum: z.string().optional(),
-  fossile_brennstoffe_nach_austausch: z.boolean().optional(),
-  mehr_bilder_heizungsraum: z.boolean().optional(),
-  heizungsraum_verlegen: z.boolean().optional(),
-  anschluss_vorlauf_vorhanden: z.boolean().optional(),
-  anschluss_vorlauf_distanz: z.number().min(0).optional(),
-  anschluss_ruecklauf_vorhanden: z.boolean().optional(),
-  anschluss_ruecklauf_distanz: z.number().min(0).optional(),
-  anschluss_warmwasser_vorhanden: z.boolean().optional(),
-  anschluss_warmwasser_distanz: z.number().min(0).optional(),
-  anschluss_kaltwasser_vorhanden: z.boolean().optional(),
-  anschluss_kaltwasser_distanz: z.number().min(0).optional(),
-  anschluss_zirkulation_vorhanden: z.boolean().optional(),
-  anschluss_zirkulation_distanz: z.number().min(0).optional(),
+  techniker_name: optionalString,
+  techniker_telefon: optionalString,
+  thermocheck_datum: optionalString,
+  heizung_inbetriebnahme_datum: optionalString,
+  heizung_funktionstuechtig: optionalBoolean,
+  bauantrag_datum: optionalString,
+  fossile_brennstoffe_nach_austausch: optionalBoolean,
+  mehr_bilder_heizungsraum: optionalBoolean,
+  heizungsraum_verlegen: optionalBoolean,
+  anschluss_vorlauf_vorhanden: optionalBoolean,
+  anschluss_vorlauf_distanz: optionalNonNegativeNumber,
+  anschluss_ruecklauf_vorhanden: optionalBoolean,
+  anschluss_ruecklauf_distanz: optionalNonNegativeNumber,
+  anschluss_warmwasser_vorhanden: optionalBoolean,
+  anschluss_warmwasser_distanz: optionalNonNegativeNumber,
+  anschluss_kaltwasser_vorhanden: optionalBoolean,
+  anschluss_kaltwasser_distanz: optionalNonNegativeNumber,
+  anschluss_zirkulation_vorhanden: optionalBoolean,
+  anschluss_zirkulation_distanz: optionalNonNegativeNumber,
   heizungsart: z.enum(['gas', 'oel', 'sonstige']).optional(),
   heizungsart_sonstige: z.string().optional(),
   oeltank_liter_gesamt: z.number().int().positive().optional(),
