@@ -72,8 +72,8 @@ export function HeizungsraumSection({ form, bilder, votFormularId, leadName, lea
                 setValue('heizungsraum_verlegen', val);
                 if (!val) {
                   ANSCHLUSS_LEITUNGEN.forEach(({ key }) => {
-                    setValue(`anschluss_${key}_vorhanden` as keyof AufmassDraftData, undefined);
-                    setValue(`anschluss_${key}_distanz` as keyof AufmassDraftData, undefined);
+                    setValue(`anschluss_${key}_vorhanden` as any, undefined);
+                    setValue(`anschluss_${key}_distanz` as any, undefined);
                   });
                 }
               }}
