@@ -18,12 +18,15 @@ export function HeizkoerperSection({ form, bilder, votFormularId, leadName, lead
   const { watch, setValue } = form;
   const typ = watch('heizkoerper_typ');
   const showVerteiler = typ === 'fussbodenheizung' || typ === 'beides';
+  const showHeizkoerperPhotos = typ === 'heizkoerper' || typ === 'beides';
 
   return (
     <div className="space-y-4">
-      <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-        <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">⚠️ Achtung: Alle Heizkörper fotografieren! Keiner darf fehlen!</p>
-      </div>
+      {showHeizkoerperPhotos && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+          <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">⚠️ Achtung: Alle Heizkörper fotografieren! Keiner darf fehlen!</p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label>Heizkörper-Typ *</Label>
@@ -51,13 +54,21 @@ export function HeizkoerperSection({ form, bilder, votFormularId, leadName, lead
         />
       )}
 
-      <PhotoUploadField
-        kategorie="heizkoerper"
-        existingBilder={filterBilderByKategorie(bilder, 'heizkoerper')}
-        votFormularId={votFormularId}
-        leadName={leadName} leadId={leadId} auftragId={auftragId}
-        disabled={disabled}
-      />
+      {showHeizkoerperPhotos && (
+        <PhotoUploadField
+          kategorie="heizkoerper"
+          existingBilder={filterBilderByKategorie(bilder, 'heizkoerper')}
+          votFormularId={votFormularId}
+          leadName={leadName} leadId={leadId} auftragId={auftragId}
+          disabled={disabled}
+        />
+      )}
+
+      {typ === 'fussbodenheizung' && (
+        <p className="text-xs text-muted-foreground">
+          Nur Fußbodenheizung – Heizkörper-Fotos entfallen. Bitte den Heizkreisverteiler fotografieren.
+        </p>
+      )}
     </div>
   );
 }
