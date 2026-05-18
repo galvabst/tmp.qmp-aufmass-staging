@@ -193,6 +193,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "angebote_erstellt_von_fkey"
+            columns: ["erstellt_von"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "angebote_kunde_id_fkey"
             columns: ["kunde_id"]
             isOneToOne: false
@@ -426,6 +433,13 @@ export type Database = {
             columns: ["abgeschlossen_von"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arbeitspaket_fortschritt_abgeschlossen_von_fkey"
+            columns: ["abgeschlossen_von"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
           {
@@ -924,6 +938,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auftraege_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
           {
@@ -2112,6 +2133,13 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fehlzeiten_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
         ]
       }
       finanzierungspartner: {
@@ -2512,6 +2540,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "hv_verfuegbarkeiten_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "hv_verfuegbarkeiten_produkt_id_fkey"
             columns: ["produkt_id"]
             isOneToOne: false
@@ -2843,60 +2878,6 @@ export type Database = {
           },
         ]
       }
-      kpi_schwellwerte: {
-        Row: {
-          beschreibung: string | null
-          created_at: string | null
-          einheit: string | null
-          gelb_bis: number | null
-          gruen_bis: number | null
-          id: string
-          kpi_code: string
-          name: string
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          beschreibung?: string | null
-          created_at?: string | null
-          einheit?: string | null
-          gelb_bis?: number | null
-          gruen_bis?: number | null
-          id?: string
-          kpi_code: string
-          name: string
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          beschreibung?: string | null
-          created_at?: string | null
-          einheit?: string | null
-          gelb_bis?: number | null
-          gruen_bis?: number | null
-          id?: string
-          kpi_code?: string
-          name?: string
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "kpi_schwellwerte_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kpi_schwellwerte_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "profiles_public"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       kunden: {
         Row: {
           aftersales_letzter_kontakt: string | null
@@ -3052,6 +3033,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kunden_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -3641,6 +3629,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_interactions_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_interactions_referenz_nummer_fkey"
             columns: ["referenz_nummer"]
             isOneToOne: false
@@ -3903,10 +3898,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_shares_original_owner_mitarbeiter_id_fkey"
+            columns: ["original_owner_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_shares_shared_with_mitarbeiter_id_fkey"
             columns: ["shared_with_mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_shares_shared_with_mitarbeiter_id_fkey"
+            columns: ["shared_with_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -4144,6 +4153,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_verluste_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -4562,6 +4578,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -5012,6 +5035,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "markenbotschafter_affiliates_betreuer_mitarbeiter_id_fkey"
+            columns: ["betreuer_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "markenbotschafter_affiliates_geworben_von_mb_id_fkey"
             columns: ["geworben_von_mb_id"]
             isOneToOne: false
@@ -5033,10 +5063,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "markenbotschafter_affiliates_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "markenbotschafter_affiliates_original_verkaeufer_id_fkey"
             columns: ["original_verkaeufer_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_affiliates_original_verkaeufer_id_fkey"
+            columns: ["original_verkaeufer_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
           {
@@ -5422,6 +5466,13 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "mitarbeiter_jahresbonus_konfiguration_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
         ]
       }
       mitarbeiter_kosten: {
@@ -5478,45 +5529,11 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      mitarbeiter_monatsziele: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          gueltig_ab: string
-          id: string
-          mitarbeiter_id: string
-          updated_at: string
-          ziel_typ: Database["public"]["Enums"]["mitarbeiter_ziel_typ_enum"]
-          ziel_wert: number
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          gueltig_ab: string
-          id?: string
-          mitarbeiter_id: string
-          updated_at?: string
-          ziel_typ: Database["public"]["Enums"]["mitarbeiter_ziel_typ_enum"]
-          ziel_wert: number
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          gueltig_ab?: string
-          id?: string
-          mitarbeiter_id?: string
-          updated_at?: string
-          ziel_typ?: Database["public"]["Enums"]["mitarbeiter_ziel_typ_enum"]
-          ziel_wert?: number
-        }
-        Relationships: [
           {
-            foreignKeyName: "mitarbeiter_monatsziele_mitarbeiter_id_fkey"
+            foreignKeyName: "mitarbeiter_kosten_mitarbeiter_id_fkey"
             columns: ["mitarbeiter_id"]
             isOneToOne: false
-            referencedRelation: "mitarbeiter"
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -5561,6 +5578,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mitarbeiter_strafabzuege_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -5623,6 +5647,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mitarbeiter_token_guthaben_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
           {
@@ -5692,10 +5723,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "mitarbeiter_werbung_geworbener_mitarbeiter_id_fkey"
+            columns: ["geworbener_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "mitarbeiter_werbung_werbender_mitarbeiter_id_fkey"
             columns: ["werbender_mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mitarbeiter_werbung_werbender_mitarbeiter_id_fkey"
+            columns: ["werbender_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -5949,6 +5994,13 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "orbit_backfill_progress_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
         ]
       }
       orbit_backfill_sessions: {
@@ -5985,6 +6037,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orbit_backfill_sessions_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
           {
@@ -6641,6 +6700,13 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
         ]
       }
       provision_month_locks: {
@@ -6753,6 +6819,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provision_pdfs_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
           {
@@ -7037,6 +7110,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_provisionskalkulation_mitarbeiter"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -7992,10 +8072,15 @@ export type Database = {
           lead_id: string | null
           original_filename: string
           page_count: number | null
+          replace_reason: string | null
+          replaces_id: string | null
           retry_count: number
           status: Database["public"]["Enums"]["sales_auftrag_dokument_status_enum"]
           storage_bucket: string
           storage_path: string
+          superseded_at: string | null
+          superseded_by_id: string | null
+          superseded_by_user: string | null
           updated_at: string
           uploaded_by: string | null
         }
@@ -8013,10 +8098,15 @@ export type Database = {
           lead_id?: string | null
           original_filename: string
           page_count?: number | null
+          replace_reason?: string | null
+          replaces_id?: string | null
           retry_count?: number
           status?: Database["public"]["Enums"]["sales_auftrag_dokument_status_enum"]
           storage_bucket: string
           storage_path: string
+          superseded_at?: string | null
+          superseded_by_id?: string | null
+          superseded_by_user?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -8034,10 +8124,15 @@ export type Database = {
           lead_id?: string | null
           original_filename?: string
           page_count?: number | null
+          replace_reason?: string | null
+          replaces_id?: string | null
           retry_count?: number
           status?: Database["public"]["Enums"]["sales_auftrag_dokument_status_enum"]
           storage_bucket?: string
           storage_path?: string
+          superseded_at?: string | null
+          superseded_by_id?: string | null
+          superseded_by_user?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -8076,6 +8171,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "sales_auftrag_dokumente_replaces_id_fkey"
+            columns: ["replaces_id"]
+            isOneToOne: false
+            referencedRelation: "sales_auftrag_dokumente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_auftrag_dokumente_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: true
+            referencedRelation: "sales_auftrag_dokumente"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "sales_auftrag_dokumente_uploaded_by_fkey"
@@ -9161,6 +9270,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "system_email_logs_empfaenger_mitarbeiter_id_fkey"
+            columns: ["empfaenger_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "system_email_logs_empfaenger_user_id_fkey"
             columns: ["empfaenger_user_id"]
             isOneToOne: false
@@ -9513,6 +9629,13 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "termine_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tmp_academy_alternate_emails: {
@@ -9602,6 +9725,39 @@ export type Database = {
         }
         Relationships: []
       }
+      TMP_JustCall_Campaign_Settings: {
+        Row: {
+          campaign_name: string
+          id: string
+          last_sync_at: string | null
+          last_sync_status: string | null
+          last_sync_summary: Json | null
+          last_updated_at: string
+          last_updated_by: string | null
+          selected_vertriebler_ids: string[]
+        }
+        Insert: {
+          campaign_name?: string
+          id?: string
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          last_sync_summary?: Json | null
+          last_updated_at?: string
+          last_updated_by?: string | null
+          selected_vertriebler_ids?: string[]
+        }
+        Update: {
+          campaign_name?: string
+          id?: string
+          last_sync_at?: string | null
+          last_sync_status?: string | null
+          last_sync_summary?: Json | null
+          last_updated_at?: string
+          last_updated_by?: string | null
+          selected_vertriebler_ids?: string[]
+        }
+        Relationships: []
+      }
       token_consumption_log: {
         Row: {
           consumed_at: string | null
@@ -9658,6 +9814,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_consumption_log_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
           {
@@ -9784,6 +9947,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "token_rechnungen_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "token_rechnungen_produkt_id_fkey"
             columns: ["produkt_id"]
             isOneToOne: false
@@ -9832,6 +10002,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_transaktionen_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
           {
@@ -10003,6 +10180,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transcripts_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "transcripts_termin_id_fkey"
             columns: ["termin_id"]
             isOneToOne: false
@@ -10079,6 +10263,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_audit_log_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -10403,6 +10594,13 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "verkaeufer_abwesenheiten_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
         ]
       }
       verkaeufer_arbeitszeiten: {
@@ -10442,6 +10640,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verkaeufer_arbeitszeiten_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -10492,6 +10697,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verkaeufer_standort_ausnahmen_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -10874,6 +11086,13 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "leads_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
         ]
       }
       geography_columns: {
@@ -11065,6 +11284,13 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "leads_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
         ]
       }
       produkte_katalog_view: {
@@ -11186,6 +11412,7 @@ export type Database = {
           lead_projektart: Database["public"]["Enums"]["projektart_enum"] | null
           lead_status: Database["public"]["Enums"]["lead_status_enum"] | null
           lead_strasse: string | null
+          lead_thc_status: Database["public"]["Enums"]["thc_status_enum"] | null
           lead_vorname: string | null
           meeting_location:
             | Database["public"]["Enums"]["meeting_location_enum"]
@@ -11231,6 +11458,13 @@ export type Database = {
             referencedRelation: "mitarbeiter"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "termine_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_field_sales_thc_audit: {
@@ -11255,6 +11489,13 @@ export type Database = {
             columns: ["mitarbeiter_id"]
             isOneToOne: false
             referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
             referencedColumns: ["id"]
           },
         ]
@@ -11599,6 +11840,24 @@ export type Database = {
           viessmann_registriert_am: string | null
           viessmann_registrierung_pflicht_bis: string | null
           widerrufsfrist_endet_am: string | null
+        }
+        Relationships: []
+      }
+      vw_dialer_eligible_vertriebler: {
+        Row: {
+          email: string | null
+          id: string | null
+          name: string | null
+        }
+        Insert: {
+          email?: string | null
+          id?: string | null
+          name?: string | null
+        }
+        Update: {
+          email?: string | null
+          id?: string | null
+          name?: string | null
         }
         Relationships: []
       }
@@ -12129,39 +12388,6 @@ export type Database = {
         }[]
       }
       check_is_admin: { Args: { _user_id: string }; Returns: boolean }
-      check_kpi_content_fingerprint_duplicate: {
-        Args: {
-          p_exclude_nachweis_id: string
-          p_fingerprint: string
-          p_user_id: string
-        }
-        Returns: {
-          created_at: string
-          fingerprint: string
-          id: string
-          lead_name: string
-        }[]
-      }
-      check_kpi_nachweis_duplicate: {
-        Args: { p_exclude_nachweis_id: string; p_image_hash: string }
-        Returns: {
-          created_at: string
-          id: string
-          user_id: string
-        }[]
-      }
-      check_kpi_nachweis_perceptual_duplicate: {
-        Args: {
-          p_exclude_nachweis_id: string
-          p_perceptual_hash: string
-          p_user_id: string
-        }
-        Returns: {
-          created_at: string
-          id: string
-          lead_name: string
-        }[]
-      }
       check_lead_status_logging_quality: {
         Args: never
         Returns: {
@@ -12942,6 +13168,15 @@ export type Database = {
       }
       get_einweisungs_auftrag: { Args: { p_auftrag_id: string }; Returns: Json }
       get_enum_values: { Args: { enum_name: string }; Returns: string[] }
+      get_field_sales_active_mitarbeiter: {
+        Args: { p_jahr: number; p_monat: number }
+        Returns: {
+          is_active: boolean
+          leads_aktuell: number
+          leads_vormonat: number
+          mitarbeiter_id: string
+        }[]
+      }
       get_field_sales_dashboard: {
         Args: { p_jahr: number; p_monat: number }
         Returns: {
@@ -12990,114 +13225,6 @@ export type Database = {
               error: true
             } & "Could not choose the best candidate function between: public.get_hauptstatus_for_substatus(p_substatus => text), public.get_hauptstatus_for_substatus(p_substatus => baustellenstatus_substatus_enum). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
           }
-      get_kpi_metrik_typen: {
-        Args: { p_domain?: string }
-        Returns: {
-          beschreibung: string
-          code: string
-          domain: string
-          farbe: string
-          icon_name: string
-          id: string
-          ist_aktiv: boolean
-          name: string
-          sort_order: number
-          ziel_einheit: string
-        }[]
-      }
-      get_kpi_nachweis_by_id: {
-        Args: { p_nachweis_id: string }
-        Returns: {
-          ai_validation_result: Json
-          ai_validiert_am: string
-          created_at: string
-          eintrag_datum: string
-          eintrag_jahr: number
-          eintrag_woche: number
-          id: string
-          kunde_id: string
-          lead_id: string
-          metrik_code: string
-          metrik_name: string
-          metrik_typ_id: string
-          nachweis_notizen: string
-          screenshot_url: string
-          termin_datum: string
-          transkript_text: string
-          transkript_url: string
-          user_id: string
-          validierung_status: string
-        }[]
-      }
-      get_kpi_nachweis_version_history: {
-        Args: { p_nachweis_id: string }
-        Returns: {
-          created_at: string
-          id: string
-          is_current: boolean
-          reason: string
-          validierung_status: string
-          version_nr: number
-        }[]
-      }
-      get_kpi_nachweise: {
-        Args: {
-          p_domain: string
-          p_jahr: number
-          p_user_id?: string
-          p_woche: number
-        }
-        Returns: {
-          ai_validation_result: Json
-          ai_validiert_am: string
-          created_at: string
-          eintrag_datum: string
-          eintrag_jahr: number
-          eintrag_woche: number
-          id: string
-          kunde_id: string
-          lead_id: string
-          metrik_code: string
-          metrik_name: string
-          metrik_typ_id: string
-          nachweis_notizen: string
-          screenshot_url: string
-          termin_datum: string
-          transkript_url: string
-          user_id: string
-          validierung_status: string
-        }[]
-      }
-      get_kpi_weekly_history_last_weeks: {
-        Args: { p_domain: string; p_user_id?: string; p_weeks_back?: number }
-        Returns: {
-          anzahl: number
-          jahr: number
-          woche: number
-        }[]
-      }
-      get_kpi_weekly_history_year: {
-        Args: { p_domain: string; p_jahr: number; p_user_id?: string }
-        Returns: {
-          anzahl: number
-          woche: number
-        }[]
-      }
-      get_kpi_wochenfortschritt: {
-        Args: {
-          p_domain: string
-          p_jahr: number
-          p_user_id?: string
-          p_woche: number
-        }
-        Returns: {
-          anzahl_eintraege: number
-          farbe: string
-          icon_name: string
-          metrik_code: string
-          metrik_name: string
-        }[]
-      }
       get_lead_conversion_stats: {
         Args: { p_mitarbeiter_id?: string }
         Returns: {
@@ -13162,14 +13289,6 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: string
       }
-      get_mitarbeiter_ziele: {
-        Args: { p_mitarbeiter_id: string; p_stichtag?: string }
-        Returns: {
-          gueltig_ab: string
-          ziel_typ: string
-          ziel_wert: number
-        }[]
-      }
       get_module_hierarchy: {
         Args: { _app_code: string }
         Returns: {
@@ -13220,20 +13339,6 @@ export type Database = {
           trainer_freigabe_am: string
           trainer_freigabe_von: string
           vertrag_geprueft_intern: boolean
-        }[]
-      }
-      get_my_kpi_eligible_leads: {
-        Args: { p_mitarbeiter_id: string }
-        Returns: {
-          id: string
-          kunde_nachname: string
-          kunde_ort: string
-          kunde_plz: string
-          kunde_telefon: string
-          kunde_vorname: string
-          lead_name: string
-          status: string
-          thc_status: string
         }[]
       }
       get_my_pflicht_videos: {
@@ -13743,19 +13848,6 @@ export type Database = {
         }
         Returns: string
       }
-      insert_kpi_nachweis: {
-        Args: {
-          p_kunde_id?: string
-          p_lead_id?: string
-          p_metrik_typ_id: string
-          p_nachweis_notizen?: string
-          p_screenshot_url?: string
-          p_termin_datum?: string
-          p_transkript_text?: string
-          p_transkript_url?: string
-        }
-        Returns: string
-      }
       insert_migration_terminvorschlag_admin: {
         Args: {
           p_angenommen_am?: string
@@ -14145,6 +14237,10 @@ export type Database = {
             Returns: string
           }
       merge_duplicate_lead_status_entries: { Args: never; Returns: Json }
+      orbit_is_verkaeufer_locked: {
+        Args: { _user_id?: string }
+        Returns: boolean
+      }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
         | { Args: { use_typmod?: boolean }; Returns: string }
@@ -14232,15 +14328,13 @@ export type Database = {
           skipped_count: number
         }[]
       }
-      resubmit_kpi_nachweis: {
+      sales_replace_dokument: {
         Args: {
-          p_lead_id: string
-          p_nachweis_notizen?: string
-          p_original_nachweis_id: string
-          p_screenshot_url?: string
-          p_termin_datum?: string
-          p_transkript_text?: string
-          p_transkript_url?: string
+          p_new_file_hash: string
+          p_new_original_filename: string
+          p_new_storage_path: string
+          p_old_doc_id: string
+          p_replace_reason: string
         }
         Returns: string
       }
@@ -14347,18 +14441,6 @@ export type Database = {
       }
       service_role_set_user_system_role: {
         Args: { _role: string; _target_user_id: string }
-        Returns: undefined
-      }
-      set_kpi_nachweis_content_fingerprint: {
-        Args: { p_fingerprint: string; p_nachweis_id: string }
-        Returns: undefined
-      }
-      set_kpi_nachweis_image_hash: {
-        Args: { p_image_hash: string; p_nachweis_id: string }
-        Returns: undefined
-      }
-      set_kpi_nachweis_perceptual_hash: {
-        Args: { p_nachweis_id: string; p_perceptual_hash: string }
         Returns: undefined
       }
       set_kunde_coordinates: {
@@ -15256,20 +15338,28 @@ export type Database = {
             }
             Returns: undefined
           }
-      update_field_sales_termin: {
-        Args: {
-          p_description_append?: string
-          p_lead_id?: string
-          p_meeting_location?: string
-          p_termin_id: string
-          p_termin_status: string
-        }
-        Returns: string
-      }
-      update_kpi_nachweis_validation: {
-        Args: { p_ai_result: Json; p_nachweis_id: string; p_status: string }
-        Returns: undefined
-      }
+      update_field_sales_termin:
+        | {
+            Args: {
+              p_description_append?: string
+              p_lead_id?: string
+              p_meeting_location?: string
+              p_termin_id: string
+              p_termin_status: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_description_append?: string
+              p_lead_id?: string
+              p_meeting_location?: string
+              p_new_lead_status?: string
+              p_termin_id: string
+              p_termin_status: string
+            }
+            Returns: string
+          }
       update_produkt_recht_dokument: {
         Args: {
           p_aenderungsgrund?: string
