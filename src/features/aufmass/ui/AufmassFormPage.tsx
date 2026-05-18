@@ -170,6 +170,69 @@ export default function AufmassFormPage() {
       : [...BASE_STEPS, ABSCHLUSS_STEP];
   }, [showPvSteps]);
 
+  // Controlled stepper state — needed so handleSubmit can jump to missing fields
+  const [currentStep, setCurrentStep] = useState(0);
+
+  /**
+   * Field → (label, base step index) map.
+   * Step indices reference BASE_STEPS positions. The Abschluss step uses -1 and is
+   * resolved dynamically (showPvSteps ? 21 : 13) so the link stays correct in both
+   * variants of the stepper.
+   */
+  const FIELD_META: Record<string, { label: string; step: number }> = useMemo(() => ({
+    techniker_name: { label: 'Techniker-Name', step: 0 },
+    techniker_telefon: { label: 'Telefonnummer', step: 0 },
+    thermocheck_datum: { label: 'Datum Thermocheck', step: 0 },
+    heizung_inbetriebnahme_datum: { label: 'Inbetriebnahme-Datum Heizung', step: 1 },
+    heizung_funktionstuechtig: { label: 'Heizung funktionstüchtig?', step: 1 },
+    bauantrag_datum: { label: 'Bauantrag-Datum', step: 1 },
+    fossile_brennstoffe_nach_austausch: { label: 'Fossile Brennstoffe nach Austausch?', step: 1 },
+    mehr_bilder_heizungsraum: { label: 'Mehr Bilder Heizungsraum?', step: 4 },
+    heizungsraum_verlegen: { label: 'Heizungsraum verlegen?', step: 4 },
+    anschluss_vorlauf_vorhanden: { label: 'Anschluss Vorlauf', step: 4 },
+    anschluss_vorlauf_distanz: { label: 'Distanz Vorlauf', step: 4 },
+    anschluss_ruecklauf_vorhanden: { label: 'Anschluss Rücklauf', step: 4 },
+    anschluss_ruecklauf_distanz: { label: 'Distanz Rücklauf', step: 4 },
+    anschluss_warmwasser_vorhanden: { label: 'Anschluss Warmwasser', step: 4 },
+    anschluss_warmwasser_distanz: { label: 'Distanz Warmwasser', step: 4 },
+    anschluss_kaltwasser_vorhanden: { label: 'Anschluss Kaltwasser', step: 4 },
+    anschluss_kaltwasser_distanz: { label: 'Distanz Kaltwasser', step: 4 },
+    anschluss_zirkulation_vorhanden: { label: 'Anschluss Zirkulation', step: 4 },
+    anschluss_zirkulation_distanz: { label: 'Distanz Zirkulation', step: 4 },
+    heizungsart: { label: 'Heizungsart', step: 5 },
+    heizungsart_sonstige: { label: 'Heizungsart (sonstige)', step: 5 },
+    oeltank_liter_gesamt: { label: 'Öltank Liter gesamt', step: 5 },
+    oeltank_anzahl: { label: 'Anzahl Öltanks', step: 5 },
+    oeltank_liter_aktuell: { label: 'Aktuelle Liter Öl', step: 5 },
+    oeltank_transport_beschreibung: { label: 'Öltank-Transport beschreiben', step: 5 },
+    heizkoerper_typ: { label: 'Heizkörper-Typ', step: 6 },
+    hat_erdung: { label: 'Erdung vorhanden?', step: 7 },
+    alternative_1_vorhanden: { label: '1. Alternative Aufstellort', step: 8 },
+    alternative_2_vorhanden: { label: '2. Alternative Aufstellort', step: 8 },
+    kunde_aufstellort_bestaetigt: { label: 'Kundenbestätigung Aufstellort', step: 8 },
+    kunde_bestaetigung_vorname: { label: 'Vorname Kundenbestätigung', step: 8 },
+    kunde_bestaetigung_nachname: { label: 'Nachname Kundenbestätigung', step: 8 },
+    distanz_ausseneinheit_kernloch: { label: 'Distanz Außeneinheit → Kernloch', step: 8 },
+    distanz_kernloch_innengeraet: { label: 'Distanz Kernloch → Innengerät', step: 8 },
+    anzahl_durchbrueche_kernloch: { label: 'Anzahl Durchbrüche Kernloch', step: 8 },
+    aufstellort_aenderung: { label: 'Aufstellort-Änderung?', step: 8 },
+    distanz_alter_neuer_aufstellort: { label: 'Distanz alter ↔ neuer Aufstellort', step: 8 },
+    anzahl_duschen: { label: 'Anzahl Duschen', step: 9 },
+    hat_regendusche: { label: 'Regendusche?', step: 9 },
+    anzahl_badewannen: { label: 'Anzahl Badewannen', step: 9 },
+    check_raeume_gescannt: { label: 'Räume gescannt bestätigen', step: 10 },
+    check_anzahl_raeume: { label: 'Anzahl Räume bestätigen', step: 10 },
+    check_aufstellort_besprochen: { label: 'Aufstellort besprochen bestätigen', step: 10 },
+    check_alle_bilder: { label: 'Alle Bilder bestätigen', step: 10 },
+    check_heizkoerper_aufgenommen: { label: 'Heizkörper aufgenommen bestätigen', step: 10 },
+    anzahl_unbegehbare_raeume: { label: 'Anzahl unbegehbare Räume', step: 11 },
+    hat_pv_anlage: { label: 'PV-Anlage vorhanden?', step: 12 },
+    agb_akzeptiert: { label: 'AGB akzeptieren', step: -1 },
+  }), []);
+
+  const resolveStep = (baseStep: number) =>
+    baseStep === -1 ? steps.length - 1 : baseStep;
+
   const handleSaveDraft = async (silent = false) => {
     if (!auftragId || !userId) return;
     const values = form.getValues();
@@ -195,8 +258,54 @@ export default function AufmassFormPage() {
   const handleSubmit = async () => {
     if (!auftragId || !userId) return;
     const values = form.getValues();
-    if (!values.techniker_name || !values.thermocheck_datum || !values.agb_akzeptiert) {
-      toast.error('Bitte alle Pflichtfelder ausfüllen');
+
+    // Full zod validation against submit schema → actionable feedback
+    const result = aufmassSubmitSchema.safeParse(values);
+    if (!result.success) {
+      // Group missing fields by step
+      const missingByStep = new Map<number, { field: string; label: string }[]>();
+      const unknownFields: string[] = [];
+
+      for (const issue of result.error.issues) {
+        const field = String(issue.path[0] ?? '');
+        const meta = FIELD_META[field];
+        if (!meta) {
+          if (field) unknownFields.push(field);
+          continue;
+        }
+        const step = resolveStep(meta.step);
+        const list = missingByStep.get(step) ?? [];
+        if (!list.find(e => e.field === field)) {
+          list.push({ field, label: meta.label });
+        }
+        missingByStep.set(step, list);
+      }
+
+      // Save draft silently so progress isn't lost
+      handleSaveDraft(true).catch(() => {});
+
+      // Jump to first missing step
+      const firstStep = [...missingByStep.keys()].sort((a, b) => a - b)[0];
+      const totalMissing = [...missingByStep.values()].reduce((n, l) => n + l.length, 0) + unknownFields.length;
+
+      // Build a compact summary (max 5 fields shown inline; rest condensed)
+      const allLabels = [...missingByStep.values()].flat().map(f => f.label);
+      const shown = allLabels.slice(0, 5).join(', ');
+      const rest = allLabels.length > 5 ? ` … +${allLabels.length - 5} weitere` : '';
+
+      toast.error(`Es fehlen noch ${totalMissing} Pflichtfeld${totalMissing === 1 ? '' : 'er'}`, {
+        description: shown ? `${shown}${rest}` : undefined,
+        duration: 10000,
+        action: firstStep != null
+          ? {
+              label: `Zu Schritt ${firstStep + 1}`,
+              onClick: () => setCurrentStep(firstStep),
+            }
+          : undefined,
+      });
+
+      // Auto-jump to first missing step for convenience
+      if (firstStep != null) setCurrentStep(firstStep);
       return;
     }
 
@@ -206,7 +315,7 @@ export default function AufmassFormPage() {
       await pvUpsertMutation.mutateAsync({ votFormularId, formData: pvValues, userId, isSubmit: true });
     }
 
-    await upsertMutation.mutateAsync({ thermocheckAuftragId: auftragId, formData: values, userId, isSubmit: true });
+    await upsertMutation.mutateAsync({ thermocheckAuftragId: auftragId, formData: result.data as any, userId, isSubmit: true });
     navigate(-1);
   };
 
