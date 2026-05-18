@@ -906,20 +906,33 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
               try {
                 const url = await uploadPraxistestVideo(file);
                 setPraxistestVideoUrl(url);
+                toast.success('Drohnen-Video hochgeladen.');
+              } catch (err: any) {
+                console.error('[Onboarding] Praxistest video upload failed:', err);
+                toast.error(err?.message || 'Video-Upload fehlgeschlagen. Bitte erneut versuchen.');
+                throw err;
               } finally {
                 setIsPraxistestUploading(false);
               }
             }}
             onPraxistestEinreichen={async () => {
-              await savePraxistest({
-                scanUrl: state.praxistestScanUrl || '',
-                videoUrl: state.praxistestVideoUrl || '',
-                targetProfileId: isPreview ? selectedPraxistestContractor : undefined,
-              });
-              setPraxistestEingereicht(true);
-              if (isPreview && selectedPraxistestContractor) {
-                const name = previewContractors.find(c => c.profileId === selectedPraxistestContractor)?.name;
-                toast.success(`Praxistest für ${name || 'Techniker'} eingereicht!`);
+              try {
+                await savePraxistest({
+                  scanUrl: state.praxistestScanUrl || '',
+                  videoUrl: state.praxistestVideoUrl || '',
+                  targetProfileId: isPreview ? selectedPraxistestContractor : undefined,
+                });
+                setPraxistestEingereicht(true);
+                if (isPreview && selectedPraxistestContractor) {
+                  const name = previewContractors.find(c => c.profileId === selectedPraxistestContractor)?.name;
+                  toast.success(`Praxistest für ${name || 'Techniker'} eingereicht!`);
+                } else {
+                  toast.success('Praxistest eingereicht — warte auf Trainer-Freigabe.');
+                }
+              } catch (err: any) {
+                console.error('[Onboarding] savePraxistest failed:', err);
+                toast.error(err?.message || 'Einreichen fehlgeschlagen. Bitte erneut versuchen.');
+                throw err;
               }
             }}
             isPraxistestUploading={isPraxistestUploading}
