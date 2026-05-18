@@ -652,17 +652,18 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   };
 
   const handleQuizComplete = async (bestanden: boolean) => {
-    if (bestanden) {
+    if (!bestanden) {
+      toast.error('Leider nicht bestanden. Du kannst es erneut versuchen.');
+      return;
+    }
+    try {
+      await saveAkademieTestBestanden();
       setAkademieTestBestanden(true);
       toast.success('Abschlusstest bestanden! 🎉');
-      try {
-        await saveAkademieTestBestanden();
-        console.log('[Onboarding] akademie_test_bestanden saved to DB');
-      } catch (error) {
-        console.warn('[Onboarding] Failed to save akademie_test_bestanden:', error);
-      }
-    } else {
-      toast.error('Leider nicht bestanden. Du kannst es erneut versuchen.');
+      console.log('[Onboarding] akademie_test_bestanden saved to DB');
+    } catch (error: any) {
+      console.error('[Onboarding] Failed to save akademie_test_bestanden:', error);
+      toast.error(error?.message || 'Konnte den Abschlusstest nicht speichern. Bitte erneut versuchen.');
     }
   };
 
