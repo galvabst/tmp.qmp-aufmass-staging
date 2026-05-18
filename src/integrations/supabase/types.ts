@@ -15325,19 +15325,14 @@ export type Database = {
         Returns: undefined
       }
       update_contractor_outro_video_watched: { Args: never; Returns: undefined }
-      update_contractor_praxistest:
-        | {
-            Args: { p_scan_url: string; p_video_url: string }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_scan_url: string
-              p_target_profile_id?: string
-              p_video_url: string
-            }
-            Returns: undefined
-          }
+      update_contractor_praxistest: {
+        Args: {
+          p_scan_url: string
+          p_target_profile_id?: string
+          p_video_url: string
+        }
+        Returns: undefined
+      }
       update_field_sales_termin:
         | {
             Args: {
