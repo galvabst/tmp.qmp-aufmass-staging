@@ -68,7 +68,15 @@ export function HeizungsraumSection({ form, bilder, votFormularId, leadName, lea
         <div className="flex gap-3">
           {[true, false].map((val) => (
             <button key={String(val)} type="button" disabled={disabled}
-              onClick={() => setValue('heizungsraum_verlegen', val)}
+              onClick={() => {
+                setValue('heizungsraum_verlegen', val);
+                if (!val) {
+                  ANSCHLUSS_LEITUNGEN.forEach(({ key }) => {
+                    setValue(`anschluss_${key}_vorhanden` as any, undefined);
+                    setValue(`anschluss_${key}_distanz` as any, undefined);
+                  });
+                }
+              }}
               className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
                 heizungsraumVerlegen === val ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-foreground'
               }`}
