@@ -167,11 +167,17 @@ export function useMyAssignedOrders() {
       }
 
       const auftraegeRaw: AuftragRow[] = await auftraegeRes.json();
-      // Filter out lost/cancelled auftraege — they must not appear in the technician's list.
-      const auftraege = auftraegeRaw.filter(a =>
-        !(a.pipeline_status && TERMINAL_PIPELINE_STATUSES.has(a.pipeline_status))
-        && !a.storno_datum
-      );
+      // Filter out lost/cancelled auftraege ONLY if the Thermocheck never took place
+      // (no vor_ort_checkin_at). Orders where the check-in already happened stay
+      // visible for history/billing — even if they later moved to verloren/storno.
+      const auftraege = auftraegeRaw.filter(a => {
+        const isTerminal =
+          (a.pipeline_status && TERMINAL_PIPELINE_STATUSES.has(a.pipeline_status)) ||
+          !!a.storno_datum;
+        if (!isTerminal) return true;
+        // Terminal but the appointment already took place → keep it
+        return !!a.vor_ort_checkin_at;
+      });
       if (!auftraege.length) return [];
 
 
