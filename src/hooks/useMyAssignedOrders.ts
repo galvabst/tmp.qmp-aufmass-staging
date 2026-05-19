@@ -157,7 +157,7 @@ export function useMyAssignedOrders() {
 
       // Step 2: Fetch auftraege assigned to contractor_onboarding.id
       const auftraegeRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,lead_id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,auftragstyp,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis,quadratmeter,wohneinheiten,fussbodenheizung`,
+        `${SUPABASE_URL}/rest/v1/v_thermocheck_auftraege?zugewiesener_techniker_id=eq.${contractorId}&select=id,lead_id,kunde_vorname,kunde_nachname,kunde_strasse,kunde_hausnummer,kunde_plz,kunde_ort,kunde_telefon,kunde_email,pipeline_status,auftragstyp,storno_datum,buchung_bestaetigt_am,vortag_bestaetigt_am,vor_ort_checkin_at,vor_ort_checkout_at,nachbearbeitung_checkin_at,nachbearbeitung_checkout_at,eingereicht_am,eingereicht_von,vereinbarter_preis,quadratmeter,wohneinheiten,fussbodenheizung`,
         { headers }
       );
 
@@ -166,8 +166,14 @@ export function useMyAssignedOrders() {
         throw new Error("Failed to fetch assigned auftraege");
       }
 
-      const auftraege: AuftragRow[] = await auftraegeRes.json();
+      const auftraegeRaw: AuftragRow[] = await auftraegeRes.json();
+      // Filter out lost/cancelled auftraege — they must not appear in the technician's list.
+      const auftraege = auftraegeRaw.filter(a =>
+        !(a.pipeline_status && TERMINAL_PIPELINE_STATUSES.has(a.pipeline_status))
+        && !a.storno_datum
+      );
       if (!auftraege.length) return [];
+
 
       const auftragIds = auftraege.map(a => a.id);
 
