@@ -647,8 +647,11 @@ export type Database = {
           lead_id: string | null
           marge_prozent: number | null
           mitarbeiter_id: string
+          montage_dauer_tage: number | null
           nacharbeiten_datum: string | null
           nacharbeiten_subunternehmer_id: string | null
+          pauschale_betrag: number | null
+          pauschale_typ: string | null
           projektart: Database["public"]["Enums"]["projektart_enum"] | null
           provisions_status:
             | Database["public"]["Enums"]["provision_status_enum"]
@@ -736,8 +739,11 @@ export type Database = {
           lead_id?: string | null
           marge_prozent?: number | null
           mitarbeiter_id: string
+          montage_dauer_tage?: number | null
           nacharbeiten_datum?: string | null
           nacharbeiten_subunternehmer_id?: string | null
+          pauschale_betrag?: number | null
+          pauschale_typ?: string | null
           projektart?: Database["public"]["Enums"]["projektart_enum"] | null
           provisions_status?:
             | Database["public"]["Enums"]["provision_status_enum"]
@@ -825,8 +831,11 @@ export type Database = {
           lead_id?: string | null
           marge_prozent?: number | null
           mitarbeiter_id?: string
+          montage_dauer_tage?: number | null
           nacharbeiten_datum?: string | null
           nacharbeiten_subunternehmer_id?: string | null
+          pauschale_betrag?: number | null
+          pauschale_typ?: string | null
           projektart?: Database["public"]["Enums"]["projektart_enum"] | null
           provisions_status?:
             | Database["public"]["Enums"]["provision_status_enum"]
@@ -10824,6 +10833,63 @@ export type Database = {
         }
         Relationships: []
       }
+      wp_migration_runs: {
+        Row: {
+          actor_id: string | null
+          auftrag_id: string
+          created_at: string
+          error_message: string | null
+          error_phase: string | null
+          fields_written: string[] | null
+          finished_at: string | null
+          id: string
+          payload_hash: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          actor_id?: string | null
+          auftrag_id: string
+          created_at?: string
+          error_message?: string | null
+          error_phase?: string | null
+          fields_written?: string[] | null
+          finished_at?: string | null
+          id?: string
+          payload_hash?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          actor_id?: string | null
+          auftrag_id?: string
+          created_at?: string
+          error_message?: string | null
+          error_phase?: string | null
+          fields_written?: string[] | null
+          finished_at?: string | null
+          id?: string
+          payload_hash?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_migration_runs_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "auftraege"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_migration_runs_auftrag_id_fkey"
+            columns: ["auftrag_id"]
+            isOneToOne: false
+            referencedRelation: "v_auftrag_baustelle"
+            referencedColumns: ["auftrag_id"]
+          },
+        ]
+      }
       wp_wirtschaftlichkeitsanalysen: {
         Row: {
           aktuelle_heizkosten_monat: number | null
@@ -12312,6 +12378,20 @@ export type Database = {
         Returns: Json
       }
       book_coaching_ride: { Args: { p_auftrag_id: string }; Returns: Json }
+      book_wp_team_historical: {
+        Args: {
+          p_auftrag_id: string
+          p_buchung_typ?: string
+          p_created_at?: string
+          p_created_by?: string
+          p_dauer_tage?: number
+          p_notiz?: string
+          p_start_datum: string
+          p_subunternehmer_id: string
+          p_team_id: string
+        }
+        Returns: number
+      }
       bulk_assign_leads: {
         Args: { p_limit?: number }
         Returns: {
@@ -12436,6 +12516,13 @@ export type Database = {
       cleanup_old_audio_files: { Args: never; Returns: undefined }
       cleanup_old_leads_sync_queue: { Args: never; Returns: undefined }
       cleanup_orphan_transcripts: { Args: never; Returns: number }
+      cleanup_wp_fortschritt_meta_blobs: {
+        Args: never
+        Returns: {
+          audit_inserted: number
+          processed: number
+        }[]
+      }
       close_stale_thc_arbeitspakete: {
         Args: { p_auftrag_id: string; p_current_status: string }
         Returns: number
@@ -12755,6 +12842,15 @@ export type Database = {
       }
       finalize_thc_arbeitspaket_historical: {
         Args: { p_abgeschlossen_am?: string; p_arbeitspaket_id: string }
+        Returns: undefined
+      }
+      finalize_wp_arbeitspaket_historical: {
+        Args: {
+          p_abgeschlossen_am?: string
+          p_arbeitspaket_instance_id: string
+          p_gestartet_am?: string
+          p_status?: string
+        }
         Returns: undefined
       }
       find_matching_bestellung: { Args: { p_lead_id: string }; Returns: string }
@@ -13225,6 +13321,10 @@ export type Database = {
               error: true
             } & "Could not choose the best candidate function between: public.get_hauptstatus_for_substatus(p_substatus => text), public.get_hauptstatus_for_substatus(p_substatus => baustellenstatus_substatus_enum). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
           }
+      get_impersonation_context: {
+        Args: { _target_user_id: string }
+        Returns: Json
+      }
       get_lead_conversion_stats: {
         Args: { p_mitarbeiter_id?: string }
         Returns: {
@@ -13869,6 +13969,28 @@ export type Database = {
         }
         Returns: string
       }
+      insert_wp_anhang_historical: {
+        Args: {
+          p_auftrag_id: string
+          p_datei_url: string
+          p_dateiname: string
+          p_hochgeladen_am?: string
+          p_hochgeladen_von?: string
+          p_kategorie?: string
+        }
+        Returns: string
+      }
+      insert_wp_migration_run: {
+        Args: {
+          p_auftrag_id: string
+          p_error_message?: string
+          p_error_phase?: string
+          p_fields_written?: string[]
+          p_payload_hash?: string
+          p_status?: string
+        }
+        Returns: string
+      }
       instantiate_thc_ag_termin_wp: {
         Args: { p_thermocheck_auftrag_id: string }
         Returns: Json
@@ -13994,6 +14116,20 @@ export type Database = {
           p_user_agent: string
         }
         Returns: string
+      }
+      log_wp_migration_activity_admin: {
+        Args: {
+          p_action_type: string
+          p_auftrag_id: string
+          p_created_at?: string
+          p_description?: string
+          p_field_name?: string
+          p_metadata?: Json
+          p_new_value?: string
+          p_old_value?: string
+          p_user_id?: string
+        }
+        Returns: undefined
       }
       longtransactionsenabled: { Args: never; Returns: boolean }
       manually_assign_leads_batch:
@@ -15459,6 +15595,48 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_wp_auftrag_admin: {
+        Args: {
+          p_anzahl_wohneinheiten?: number
+          p_anzahlung_eingang_datum?: string
+          p_anzahlung_faellig_am?: string
+          p_anzahlung_netto?: number
+          p_auftrag_id: string
+          p_bauende_datum?: string
+          p_baustart_datum?: string
+          p_baustellenstatus?: string
+          p_baustellenstatus_substatus?: string
+          p_bza_id?: string
+          p_elektrik_abgeschlossen?: boolean
+          p_elektrik_datum?: string
+          p_elektrik_subunternehmer_id?: string
+          p_foerderung_beantragt_datum?: string
+          p_gewuenschtes_baustart_datum?: string
+          p_montage_dauer_tage?: number
+          p_nacharbeiten_datum?: string
+          p_nacharbeiten_subunternehmer_id?: string
+          p_pauschale_betrag?: number
+          p_pauschale_typ?: string
+          p_subunternehmer_id?: string
+          p_updated_at?: string
+          p_vormontage_abgeschlossen?: boolean
+          p_vormontage_datum?: string
+          p_vormontage_subunternehmer_id?: string
+          p_wichtige_baustelleninfos?: string
+          p_zahlungsart?: string
+        }
+        Returns: undefined
+      }
+      update_wp_migration_run: {
+        Args: {
+          p_error_message?: string
+          p_error_phase?: string
+          p_fields_written?: string[]
+          p_run_id: string
+          p_status: string
+        }
+        Returns: undefined
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
@@ -15511,45 +15689,101 @@ export type Database = {
             }
             Returns: undefined
           }
-      upsert_thermocheck_vot_formular_admin: {
+      upsert_thermocheck_vot_formular_admin:
+        | {
+            Args: {
+              p_agb_akzeptiert?: boolean
+              p_alternative_1_vorhanden?: boolean
+              p_alternative_2_vorhanden?: boolean
+              p_anzahl_badewannen?: number
+              p_anzahl_duschen?: number
+              p_anzahl_unbegehbare_raeume?: number
+              p_bauantrag_datum?: string
+              p_bemerkungen?: string
+              p_check_alle_bilder?: boolean
+              p_check_anzahl_raeume?: boolean
+              p_check_aufstellort_besprochen?: boolean
+              p_check_heizkoerper_aufgenommen?: boolean
+              p_check_raeume_gescannt?: boolean
+              p_eingereicht_am?: string
+              p_eingereicht_von?: string
+              p_fossile_brennstoffe_nach_austausch?: boolean
+              p_hat_erdung?: boolean
+              p_hat_pv_anlage?: boolean
+              p_hat_regendusche?: boolean
+              p_heizkoerper_typ?: string
+              p_heizung_funktionstuechtig?: boolean
+              p_heizung_inbetriebnahme_datum?: string
+              p_heizungsart?: string
+              p_heizungsart_sonstige?: string
+              p_kunde_aufstellort_bestaetigt?: boolean
+              p_kunde_bestaetigung_nachname?: string
+              p_kunde_bestaetigung_vorname?: string
+              p_mehr_bilder_heizungsraum?: boolean
+              p_oeltank_anzahl?: number
+              p_oeltank_liter_aktuell?: number
+              p_oeltank_liter_gesamt?: number
+              p_oeltank_transport_beschreibung?: string
+              p_status?: string
+              p_techniker_name?: string
+              p_techniker_telefon?: string
+              p_thermocheck_auftrag_id: string
+              p_thermocheck_datum?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_agb_akzeptiert?: boolean
+              p_alternative_1_vorhanden?: boolean
+              p_alternative_2_vorhanden?: boolean
+              p_anzahl_badewannen?: number
+              p_anzahl_duschen?: number
+              p_anzahl_unbegehbare_raeume?: number
+              p_bauantrag_datum?: string
+              p_bemerkungen?: string
+              p_check_alle_bilder?: boolean
+              p_check_anzahl_raeume?: boolean
+              p_check_aufstellort_besprochen?: boolean
+              p_check_heizkoerper_aufgenommen?: boolean
+              p_check_raeume_gescannt?: boolean
+              p_eingereicht_am?: string
+              p_eingereicht_von?: string
+              p_fossile_brennstoffe_nach_austausch?: boolean
+              p_hat_erdung?: boolean
+              p_hat_pv_anlage?: boolean
+              p_hat_regendusche?: boolean
+              p_heizkoerper_typ?: string
+              p_heizung_funktionstuechtig?: boolean
+              p_heizung_inbetriebnahme_datum?: string
+              p_heizungsart?: string
+              p_heizungsart_sonstige?: string
+              p_kunde_aufstellort_bestaetigt?: boolean
+              p_kunde_bestaetigung_nachname?: string
+              p_kunde_bestaetigung_vorname?: string
+              p_mehr_bilder_heizungsraum?: boolean
+              p_oeltank_anzahl?: number
+              p_oeltank_liter_aktuell?: number
+              p_oeltank_liter_gesamt?: number
+              p_oeltank_transport_beschreibung?: string
+              p_status?: string
+              p_techniker_name?: string
+              p_techniker_telefon?: string
+              p_thermocheck_auftrag_id: string
+              p_thermocheck_datum?: string
+            }
+            Returns: string
+          }
+      upsert_wp_arbeitspaket_fortschritt_admin: {
         Args: {
-          p_agb_akzeptiert?: boolean
-          p_alternative_1_vorhanden?: boolean
-          p_alternative_2_vorhanden?: boolean
-          p_anzahl_badewannen?: number
-          p_anzahl_duschen?: number
-          p_anzahl_unbegehbare_raeume?: number
-          p_bauantrag_datum?: string
-          p_bemerkungen?: string
-          p_check_alle_bilder?: boolean
-          p_check_anzahl_raeume?: boolean
-          p_check_aufstellort_besprochen?: boolean
-          p_check_heizkoerper_aufgenommen?: boolean
-          p_check_raeume_gescannt?: boolean
-          p_eingereicht_am?: string
-          p_eingereicht_von?: string
-          p_fossile_brennstoffe_nach_austausch?: boolean
-          p_hat_erdung?: boolean
-          p_hat_pv_anlage?: boolean
-          p_hat_regendusche?: boolean
-          p_heizkoerper_typ?: string
-          p_heizung_funktionstuechtig?: boolean
-          p_heizung_inbetriebnahme_datum?: string
-          p_heizungsart?: string
-          p_heizungsart_sonstige?: string
-          p_kunde_aufstellort_bestaetigt?: boolean
-          p_kunde_bestaetigung_nachname?: string
-          p_kunde_bestaetigung_vorname?: string
-          p_mehr_bilder_heizungsraum?: boolean
-          p_oeltank_anzahl?: number
-          p_oeltank_liter_aktuell?: number
-          p_oeltank_liter_gesamt?: number
-          p_oeltank_transport_beschreibung?: string
-          p_status?: string
-          p_techniker_name?: string
-          p_techniker_telefon?: string
-          p_thermocheck_auftrag_id: string
-          p_thermocheck_datum?: string
+          p_abgeschlossen?: boolean
+          p_abgeschlossen_am?: string
+          p_abgeschlossen_von?: string
+          p_auftrag_arbeitspaket_id: string
+          p_datei_url?: string
+          p_kommentar?: string
+          p_schritt_id: string
+          p_wert?: string
         }
         Returns: string
       }
