@@ -29,6 +29,7 @@ interface AuftragRow {
   pipeline_status: string | null;
   zugewiesener_techniker_id: string | null;
   auftragstyp: string | null;
+  storno_datum: string | null;
   buchung_bestaetigt_am: string | null;
   vortag_bestaetigt_am: string | null;
   vor_ort_checkin_at: string | null;
@@ -42,6 +43,19 @@ interface AuftragRow {
   wohneinheiten: number | null;
   fussbodenheizung: boolean | null;
 }
+
+/**
+ * Pipeline statuses where the order is no longer actionable by the technician.
+ * When an order reaches these states (or gets a storno_datum), it must disappear
+ * from the technician's assigned list — even if zugewiesener_techniker_id is
+ * still populated for historical/billing reasons.
+ */
+const TERMINAL_PIPELINE_STATUSES = new Set([
+  'verloren',
+  'widerruf',
+  'widerruf_ohne_nachweis',
+  'widerruf_nicht_fristgerecht',
+]);
 
 interface BewertungRow {
   thermocheck_auftrag_id: string;
