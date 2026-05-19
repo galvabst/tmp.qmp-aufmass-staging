@@ -674,6 +674,9 @@ export type Database = {
           storno_widerruf_pending_reason: string | null
           storno_widerruf_pending_since: string | null
           subunternehmer_id: string | null
+          temp_beauftragungsmail_elektrik: string | null
+          temp_beauftragungsmail_hauptmontage: string | null
+          temp_beauftragungsmail_vormontage: string | null
           updated_at: string
           verkaufsmonat: string | null
           vormontage_abgeschlossen: boolean
@@ -766,6 +769,9 @@ export type Database = {
           storno_widerruf_pending_reason?: string | null
           storno_widerruf_pending_since?: string | null
           subunternehmer_id?: string | null
+          temp_beauftragungsmail_elektrik?: string | null
+          temp_beauftragungsmail_hauptmontage?: string | null
+          temp_beauftragungsmail_vormontage?: string | null
           updated_at?: string
           verkaufsmonat?: string | null
           vormontage_abgeschlossen?: boolean
@@ -858,6 +864,9 @@ export type Database = {
           storno_widerruf_pending_reason?: string | null
           storno_widerruf_pending_since?: string | null
           subunternehmer_id?: string | null
+          temp_beauftragungsmail_elektrik?: string | null
+          temp_beauftragungsmail_hauptmontage?: string | null
+          temp_beauftragungsmail_vormontage?: string | null
           updated_at?: string
           verkaufsmonat?: string | null
           vormontage_abgeschlossen?: boolean
@@ -7195,6 +7204,7 @@ export type Database = {
           model: string
           output_tokens: number
           phase: string
+          pipeline_version: string
           vergleich_id: string | null
         }
         Insert: {
@@ -7207,6 +7217,7 @@ export type Database = {
           model: string
           output_tokens?: number
           phase: string
+          pipeline_version?: string
           vergleich_id?: string | null
         }
         Update: {
@@ -7219,6 +7230,7 @@ export type Database = {
           model?: string
           output_tokens?: number
           phase?: string
+          pipeline_version?: string
           vergleich_id?: string | null
         }
         Relationships: [
@@ -7505,8 +7517,10 @@ export type Database = {
       sales_ag_vergleich: {
         Row: {
           api_cost_eur: number | null
+          api_cost_eur_v3: number | null
           chat_history: Json | null
           comparison_items: Json | null
+          comparison_items_v3: Json | null
           competitor_dossier: Json | null
           competitor_manufacturer: string | null
           competitor_name: string | null
@@ -7517,12 +7531,16 @@ export type Database = {
           created_at: string
           created_by: string
           critic_report: Json | null
+          critic_report_v3: Json | null
           critic_verdict: string | null
+          critic_verdict_v3: string | null
           customer_name: string | null
           customer_street: string | null
           customer_zip_city: string | null
           extracted_data_path: string | null
+          factmatrix_v3: Json | null
           findings_text: string | null
+          findings_text_v3: string | null
           heating_system: string | null
           id: string
           lead_id: string
@@ -7536,26 +7554,35 @@ export type Database = {
           pdf_exported_at: string | null
           pdf_file_path: string | null
           physics_context: Json | null
+          pipeline_version: string
           price_analysis: string | null
+          price_analysis_v3: string | null
           price_difference_eur: number | null
           quality_notes: string | null
+          quality_notes_v3: string | null
           quality_score: number | null
+          quality_score_v3: number | null
           railway_comparison_id: string | null
           sales_person_name: string | null
           sales_person_phone: string | null
           sources: Json | null
           status: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
           status_message: string | null
+          status_message_v3: string | null
+          status_v3: string | null
           strategy_name: string | null
           thermocheck_data: Json | null
           thermocheck_file: string | null
           thermocheck_path: string | null
           updated_at: string
+          v3_generated_at: string | null
         }
         Insert: {
           api_cost_eur?: number | null
+          api_cost_eur_v3?: number | null
           chat_history?: Json | null
           comparison_items?: Json | null
+          comparison_items_v3?: Json | null
           competitor_dossier?: Json | null
           competitor_manufacturer?: string | null
           competitor_name?: string | null
@@ -7566,12 +7593,16 @@ export type Database = {
           created_at?: string
           created_by: string
           critic_report?: Json | null
+          critic_report_v3?: Json | null
           critic_verdict?: string | null
+          critic_verdict_v3?: string | null
           customer_name?: string | null
           customer_street?: string | null
           customer_zip_city?: string | null
           extracted_data_path?: string | null
+          factmatrix_v3?: Json | null
           findings_text?: string | null
+          findings_text_v3?: string | null
           heating_system?: string | null
           id?: string
           lead_id: string
@@ -7585,26 +7616,35 @@ export type Database = {
           pdf_exported_at?: string | null
           pdf_file_path?: string | null
           physics_context?: Json | null
+          pipeline_version?: string
           price_analysis?: string | null
+          price_analysis_v3?: string | null
           price_difference_eur?: number | null
           quality_notes?: string | null
+          quality_notes_v3?: string | null
           quality_score?: number | null
+          quality_score_v3?: number | null
           railway_comparison_id?: string | null
           sales_person_name?: string | null
           sales_person_phone?: string | null
           sources?: Json | null
           status?: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
           status_message?: string | null
+          status_message_v3?: string | null
+          status_v3?: string | null
           strategy_name?: string | null
           thermocheck_data?: Json | null
           thermocheck_file?: string | null
           thermocheck_path?: string | null
           updated_at?: string
+          v3_generated_at?: string | null
         }
         Update: {
           api_cost_eur?: number | null
+          api_cost_eur_v3?: number | null
           chat_history?: Json | null
           comparison_items?: Json | null
+          comparison_items_v3?: Json | null
           competitor_dossier?: Json | null
           competitor_manufacturer?: string | null
           competitor_name?: string | null
@@ -7615,12 +7655,16 @@ export type Database = {
           created_at?: string
           created_by?: string
           critic_report?: Json | null
+          critic_report_v3?: Json | null
           critic_verdict?: string | null
+          critic_verdict_v3?: string | null
           customer_name?: string | null
           customer_street?: string | null
           customer_zip_city?: string | null
           extracted_data_path?: string | null
+          factmatrix_v3?: Json | null
           findings_text?: string | null
+          findings_text_v3?: string | null
           heating_system?: string | null
           id?: string
           lead_id?: string
@@ -7634,21 +7678,28 @@ export type Database = {
           pdf_exported_at?: string | null
           pdf_file_path?: string | null
           physics_context?: Json | null
+          pipeline_version?: string
           price_analysis?: string | null
+          price_analysis_v3?: string | null
           price_difference_eur?: number | null
           quality_notes?: string | null
+          quality_notes_v3?: string | null
           quality_score?: number | null
+          quality_score_v3?: number | null
           railway_comparison_id?: string | null
           sales_person_name?: string | null
           sales_person_phone?: string | null
           sources?: Json | null
           status?: Database["public"]["Enums"]["sales_ag_vergleich_status_enum"]
           status_message?: string | null
+          status_message_v3?: string | null
+          status_v3?: string | null
           strategy_name?: string | null
           thermocheck_data?: Json | null
           thermocheck_file?: string | null
           thermocheck_path?: string | null
           updated_at?: string
+          v3_generated_at?: string | null
         }
         Relationships: [
           {
@@ -15595,38 +15646,74 @@ export type Database = {
         }
         Returns: undefined
       }
-      update_wp_auftrag_admin: {
-        Args: {
-          p_anzahl_wohneinheiten?: number
-          p_anzahlung_eingang_datum?: string
-          p_anzahlung_faellig_am?: string
-          p_anzahlung_netto?: number
-          p_auftrag_id: string
-          p_bauende_datum?: string
-          p_baustart_datum?: string
-          p_baustellenstatus?: string
-          p_baustellenstatus_substatus?: string
-          p_bza_id?: string
-          p_elektrik_abgeschlossen?: boolean
-          p_elektrik_datum?: string
-          p_elektrik_subunternehmer_id?: string
-          p_foerderung_beantragt_datum?: string
-          p_gewuenschtes_baustart_datum?: string
-          p_montage_dauer_tage?: number
-          p_nacharbeiten_datum?: string
-          p_nacharbeiten_subunternehmer_id?: string
-          p_pauschale_betrag?: number
-          p_pauschale_typ?: string
-          p_subunternehmer_id?: string
-          p_updated_at?: string
-          p_vormontage_abgeschlossen?: boolean
-          p_vormontage_datum?: string
-          p_vormontage_subunternehmer_id?: string
-          p_wichtige_baustelleninfos?: string
-          p_zahlungsart?: string
-        }
-        Returns: undefined
-      }
+      update_wp_auftrag_admin:
+        | {
+            Args: {
+              p_anzahl_wohneinheiten?: number
+              p_anzahlung_eingang_datum?: string
+              p_anzahlung_faellig_am?: string
+              p_anzahlung_netto?: number
+              p_auftrag_id: string
+              p_bauende_datum?: string
+              p_baustart_datum?: string
+              p_baustellenstatus?: string
+              p_baustellenstatus_substatus?: string
+              p_bza_id?: string
+              p_elektrik_abgeschlossen?: boolean
+              p_elektrik_datum?: string
+              p_elektrik_subunternehmer_id?: string
+              p_foerderung_beantragt_datum?: string
+              p_gewuenschtes_baustart_datum?: string
+              p_montage_dauer_tage?: number
+              p_nacharbeiten_datum?: string
+              p_nacharbeiten_subunternehmer_id?: string
+              p_pauschale_betrag?: number
+              p_pauschale_typ?: string
+              p_subunternehmer_id?: string
+              p_updated_at?: string
+              p_vormontage_abgeschlossen?: boolean
+              p_vormontage_datum?: string
+              p_vormontage_subunternehmer_id?: string
+              p_wichtige_baustelleninfos?: string
+              p_zahlungsart?: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_anzahl_wohneinheiten?: number
+              p_anzahlung_eingang_datum?: string
+              p_anzahlung_faellig_am?: string
+              p_anzahlung_netto?: number
+              p_auftrag_id: string
+              p_bauende_datum?: string
+              p_baustart_datum?: string
+              p_baustellenstatus?: string
+              p_baustellenstatus_substatus?: string
+              p_bza_id?: string
+              p_elektrik_abgeschlossen?: boolean
+              p_elektrik_datum?: string
+              p_elektrik_subunternehmer_id?: string
+              p_foerderung_beantragt_datum?: string
+              p_gewuenschtes_baustart_datum?: string
+              p_montage_dauer_tage?: number
+              p_nacharbeiten_datum?: string
+              p_nacharbeiten_subunternehmer_id?: string
+              p_pauschale_betrag?: number
+              p_pauschale_typ?: string
+              p_subunternehmer_id?: string
+              p_temp_beauftragungsmail_elektrik?: string
+              p_temp_beauftragungsmail_hauptmontage?: string
+              p_temp_beauftragungsmail_vormontage?: string
+              p_updated_at?: string
+              p_vormontage_abgeschlossen?: boolean
+              p_vormontage_datum?: string
+              p_vormontage_subunternehmer_id?: string
+              p_wichtige_baustelleninfos?: string
+              p_zahlungsart?: string
+            }
+            Returns: undefined
+          }
       update_wp_migration_run: {
         Args: {
           p_error_message?: string
