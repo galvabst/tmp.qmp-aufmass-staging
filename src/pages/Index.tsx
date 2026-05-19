@@ -32,6 +32,7 @@ import { TechnicalErrorScreen } from '@/components/ui/TechnicalErrorScreen';
 import { ONBOARDING_STEPS } from '@/lib/onboarding-config';
 import { usePflichtVideos } from '@/hooks/usePflichtVideos';
 import { PflichtVideoOverlay } from '@/features/akademie/ui/PflichtVideoOverlay';
+import { TechnikerBenachrichtigungenBanner } from '@/components/TechnikerBenachrichtigungenBanner';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -468,6 +469,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <TechnikerBenachrichtigungenBanner />
       {activeTab === 'pool' && (
         <PoolView 
           orders={orders} 
