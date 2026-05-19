@@ -468,6 +468,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <TechnikerBenachrichtigungenBanner />
       {activeTab === 'pool' && (
         <PoolView 
           orders={orders} 
