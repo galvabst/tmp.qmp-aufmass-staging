@@ -1,101 +1,36 @@
-## Ziel
+## Problem
 
-Admin/Innendienst soll an drei Stellen manuell eingreifen können — **mit exakt der gleichen DB-Wirkung**, als hätte es Trainee/Trainer selbst gemacht. Alle Aktionen laufen über `SECURITY DEFINER` RPCs mit `is_innendienst()`-Check (kein Bypass per Frontend).
+Alexandra Jaap hat in der DB weiterhin `onboarding_status = 'mitfahrt'` – die Statusänderung auf "ausgestiegen" wurde **nicht persistiert**. Das erklärt, warum sie weiterhin in der Karte und in der Liste auftaucht (die Filter exkludieren `ausgestiegen`/`gefeuert` korrekt).
 
----
+Verifiziert:
+- DB: `SELECT onboarding_status FROM contractor_onboarding WHERE profile=Jaap` → `mitfahrt`
+- RPC `set_contractor_austritt` ist korrekt (released Aufträge + setzt Status), `is_innendienst()`-Check vorhanden
+- Liste exkludiert `EHEMALIGE_STATUSES = ['ausgestiegen','gefeuert','deaktiviert']` korrekt
+- Karte exkludiert `ausgestiegen/gefeuert/deaktiviert/invited` korrekt
+- **Karten-Popup bietet aber NUR `Pausieren` (→inaktiv) und `Feuern` (→gefeuert), KEIN `Ausgestiegen`** – inkonsistent mit Liste
 
-## 1. Coaching-Mitfahrt manuell zuweisen
+Wahrscheinliche Ursache: Du hast in der Karte "Feuern" geklickt (es gibt dort kein "Ausgestiegen"); der Klick wurde entweder nicht bestätigt, oder der Toast/Fehler ist untergegangen. Das mutate-Callback `setContractorOnboardingStatus` hat **keinen try/catch + Toast** – Fehler verschwinden lautlos.
 
-**Wo:** Admin → Techniker-Detail → neuer Abschnitt „Coaching-Mitfahrt orchestrieren" (sichtbar wenn `current_step` ≤ coaching ODER noch keine Bewertung).
+## Lösung
 
-**Flow:**
-1. Trainer auswählen (Dropdown aller `is_trainer = true`)
-2. Auftrag dieses Trainers wählen — Liste aller `thermocheck_auftraege` mit `zugewiesener_techniker_id = trainer` **inkl. vergangener Daten** (Nacherfassung), mit Termin-Anzeige + Hinweis ob schon belegt
-3. Bestätigen → RPC `admin_book_coaching_ride(p_trainee_profile_id, p_auftrag_id)`
+### 1) Karte: Aktion "Ausgestiegen" ergänzen + Fehler-Feedback
+- `useAdminHiringMap.ts` Action-Type erweitern: `'pause' | 'fire' | 'exit' | 'reactivate'`
+- `'exit'` ruft **dieselbe RPC** `set_contractor_austritt` mit `p_status='ausgestiegen'` (statt direkter UPDATE), damit zugewiesene Aufträge auch im Karten-Flow zurück in den Pool freigegeben werden – Parität mit der Liste.
+- Auch `pause` und `fire` auf RPC umstellen (heute direkter UPDATE → Aufträge bleiben am Ex-Techniker hängen!).
+- Im Popup-UI (`AdminHiringMap.tsx`) dritten Button "Ausgestiegen" zwischen Pausieren und Feuern hinzufügen, mit Bestätigungsdialog + optionalem Grund-Feld (identisch zur Liste).
+- Mutation in `try/catch` mit `toast.success`/`toast.error` – keine stillen Fehler mehr.
 
-**RPC-Verhalten** (identisch zu `book_coaching_ride`, nur:
-- Auth-Check: `is_innendienst()` statt `auth.uid()`
-- `coaching_gebucht_von` = **Trainee** (nicht Caller)
-- Override-Flag: erlaubt auch wenn Trainee bereits Buchung hat (alte wird gelöscht / Hinweis)
-- Setzt `gebuchter_coaching_termin` + `gebuchter_coach_name` auf Trainee-Onboarding wie das Original.
+### 2) Alexandra reparieren
+Einmalig: über die Liste (Suche "jaap" → 3-Punkte-Menü → Ausgestiegen) oder den neuen Karten-Button erneut markieren. Danach verschwindet sie aus Karte+Liste, ihre 0 offenen Aufträge gehen zurück in den Pool.
 
----
+### 3) Defensive Verifikation
+Nach jeder Statusänderung: `queryClient.invalidateQueries` + Refetch + Toast mit konkreter Anzahl freigegebener Aufträge (gibt die RPC bereits zurück).
 
-## 2. Onboarding-Step manuell setzen
+## Out of scope
+- KPI-Karten ("Onboarding 16") – sind reine Aggregate über bereits gefilterte Liste, werden durch Fix automatisch korrekt.
+- Karten-Heatmap – nutzt dieselbe Query, ebenfalls automatisch korrekt.
 
-**Wo:** Admin → Techniker-Detail → Step-Liste (bereits sichtbar). Neuer Button „Step setzen" pro Step (Admin only).
-
-**RPC:** `admin_set_onboarding_step(p_profile_id, p_target_step)`
-- Validiert Step ∈ ALL_STEPS ∪ {'einsatzbereit'}
-- Setzt `current_step = p_target_step`
-- `completed_steps` = alle Steps **vor** dem Ziel-Step
-- Bei Sprung nach `einsatzbereit`: `onboarding_status = 'ready'`, sonst zurück auf `in_progress`
-- Audit: `aktualisiert_am = now()`
-
----
-
-## 3. Praxistest manuell freigeben/ablehnen
-
-**Wo:** Admin → Techniker-Detail → neue Aktions-Zeile im Praxistest-Block. Auch wenn `praxistest_eingereicht_am IS NULL`.
-
-**RPCs:**
-- `approve_contractor_praxistest` (existiert) → wird wiederverwendet für Freigabe
-- Neu: `admin_reject_praxistest(p_onboarding_id, p_notiz)` → setzt `praxistest_freigabe = false`, `praxistest_scan_url`/`praxistest_video_url` = NULL, Trainee muss neu einreichen. Notiz wird in `interner_kommentar` angehängt.
-
----
-
-## Technik
-
-### DB-Migration (1 Migration, 3 RPCs)
-```sql
--- alle SECURITY DEFINER, search_path = thermocheck, public
--- Auth: IF NOT thermocheck.is_innendienst() THEN raise/return error END IF;
-
-CREATE OR REPLACE FUNCTION thermocheck.admin_book_coaching_ride(
-  p_trainee_profile_id uuid,
-  p_auftrag_id uuid
-) RETURNS jsonb ...
-
-CREATE OR REPLACE FUNCTION thermocheck.admin_set_onboarding_step(
-  p_profile_id uuid,
-  p_target_step text
-) RETURNS jsonb ...
-
-CREATE OR REPLACE FUNCTION thermocheck.admin_reject_praxistest(
-  p_onboarding_id uuid,
-  p_notiz text DEFAULT NULL
-) RETURNS jsonb ...
-
--- + public wrapper für jede RPC (sql, SECURITY DEFINER)
-```
-
-### Frontend
-| Datei | Änderung |
-|---|---|
-| `src/features/contractors/hooks/useAdminContractorActions.ts` (NEU, <200 LOC) | 3 React-Query Mutations + Hook für „verfügbare Trainer-Aufträge" |
-| `src/features/contractors/ui/AdminCoachingAssignment.tsx` (NEU, <200 LOC) | UI-Card mit Trainer-/Auftrag-Picker + Bestätigungs-Dialog |
-| `src/features/contractors/ui/AdminStepOverride.tsx` (NEU, <150 LOC) | Step-Dropdown + Bestätigungs-Dialog |
-| `src/features/contractors/ui/AdminPraxistestActions.tsx` (NEU, <150 LOC) | Freigeben + Ablehnen Buttons mit Notiz |
-| `src/features/contractors/ui/ContractorDetailView.tsx` | 3 neue Sektionen einhängen, hinter `useIsAdmin()`-Gate |
-
-### Sicherheit & Konventionen
-- Alle RPCs prüfen `thermocheck.is_innendienst()` → Verstoß = `jsonb {success:false, message:'Unzureichende Berechtigung'}`
-- `FOR UPDATE` Locks wo State-Übergänge stattfinden
-- Explizites `{ error }`-Handling im Frontend (Memory: Supabase Error Protocol)
-- Bestätigungs-Dialoge mit klarem Warntext (irreversibel / überschreibt Historie)
-- Audit-Spalten: `aktualisiert_am`, bei coaching ride `coaching_gebucht_am = now()`
-
----
-
-## Out of Scope (bewusst)
-- Manuelle Coaching-Bewertung durch Admin (bereits Teil eines vorherigen Tasks)
-- Free-form Datum ohne Auftrag (Nacherfassung läuft über existierende Trainer-Aufträge)
-- Bulk-Operationen über mehrere Techniker
-
----
-
-## Reihenfolge
-1. DB-Migration (3 RPCs + Wrapper) → Approval abwarten
-2. Hook + 3 UI-Komponenten
-3. In `ContractorDetailView` einhängen
-4. Manuelle Verifikation in `/admin` → Techniker auswählen → 3 neue Sektionen testen
+## Dateien
+- `src/features/admin/hooks/useAdminHiringMap.ts` – RPC statt UPDATE, neue Action `exit`, Toast/Error-Handling
+- `src/features/admin/ui/AdminHiringMap.tsx` – Button "Ausgestiegen" + Confirm/Grund-Dialog im Popup
+- Keine DB-Migration nötig (RPC existiert)
