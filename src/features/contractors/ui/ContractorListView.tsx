@@ -26,6 +26,7 @@ import {
   ONBOARDING_STATUS_LABELS,
   ONBOARDING_SUBSTATUS_LABELS,
   STEP_LABELS,
+  EHEMALIGE_STATUSES,
 } from '../hooks/useAdminContractorList';
 
 // Status config for pipeline cards
