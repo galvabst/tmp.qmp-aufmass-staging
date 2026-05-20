@@ -334,6 +334,8 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
               contractorName={displayName}
               praxistestEingereicht={c.praxistestEingereicht}
               praxistestFreigabe={c.praxistestFreigabe}
+              scanFreigegeben={c.scanFreigegeben}
+              videoFreigegeben={c.videoFreigegeben}
             />
           </div>
         )}
