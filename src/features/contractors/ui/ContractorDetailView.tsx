@@ -1,4 +1,7 @@
-import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award, Activity, UserCog, Star } from 'lucide-react';
+import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, ShieldCheck, Check, X, ExternalLink, Calendar, Mail, Phone, MapPin, Award, Activity, UserCog, Star, Settings2 } from 'lucide-react';
+import { AdminCoachingAssignment } from './AdminCoachingAssignment';
+import { AdminStepOverride } from './AdminStepOverride';
+import { AdminPraxistestActions } from './AdminPraxistestActions';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -307,6 +310,31 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Admin-Orchestrierung ── */}
+        {isAdmin && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <Settings2 className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Admin-Orchestrierung</p>
+            </div>
+            <AdminStepOverride
+              profileId={c.profileId}
+              currentStep={c.currentStep}
+              contractorName={displayName}
+            />
+            <AdminCoachingAssignment
+              traineeProfileId={c.profileId}
+              traineeName={displayName}
+            />
+            <AdminPraxistestActions
+              onboardingId={c.id}
+              contractorName={displayName}
+              praxistestEingereicht={c.praxistestEingereicht}
+              praxistestFreigabe={c.praxistestFreigabe}
+            />
           </div>
         )}
 
