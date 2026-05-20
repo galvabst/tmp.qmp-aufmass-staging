@@ -12357,7 +12357,7 @@ export type Database = {
         }[]
       }
       admin_reject_praxistest: {
-        Args: { p_notiz?: string; p_onboarding_id: string }
+        Args: { p_profile_id: string; p_reason?: string }
         Returns: Json
       }
       admin_remove_group_member: {
