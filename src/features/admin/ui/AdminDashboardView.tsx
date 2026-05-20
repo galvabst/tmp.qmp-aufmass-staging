@@ -547,6 +547,89 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
         </CardContent>
       </Card>
 
+      {/* Onboarding-Dauer pro Monat */}
+      <Card className="mb-6">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-sm font-semibold">Onboarding-Dauer (letzte 6 Monate)</CardTitle>
+            {durationStats?.overallAvgTage != null && (
+              <div className="flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-primary/10">
+                <Timer className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-bold text-foreground">⌀ {durationStats.overallAvgTage} Tage</span>
+                <span className="text-[10px] text-muted-foreground">({durationStats.overallCount})</span>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Zeit von Registrierung bis Trainer-Freigabe (einsatzbereit)
+          </p>
+        </CardHeader>
+        <CardContent>
+          {dLoading || !durationStats?.monthly?.length ? (
+            <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">{dLoading ? 'Lädt…' : 'Keine Daten'}</div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-4 mb-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">Ø Onboarding-Dauer / Monat</p>
+                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: 'hsl(var(--primary))' }} />Ø Tage
+                  </span>
+                </div>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={durationStats.monthly.map(p => ({ ...p, avgTage: p.avgTage ?? 0 }))} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} unit=" T" />
+                      <Tooltip
+                        formatter={(v: number, _name: string, item: any) => {
+                          const p = item?.payload;
+                          if (!p || !p.abgeschlossen) return ['–', 'Keine Daten'];
+                          return [`Ø ${v} T · min ${p.minTage} T · max ${p.maxTage} T`, `${p.abgeschlossen} abgeschlossen`];
+                        }}
+                        contentStyle={{ fontSize: 12 }}
+                      />
+                      <ReferenceLine y={7} stroke="hsl(142 71% 45%)" strokeDasharray="3 3" strokeOpacity={0.5} />
+                      <Bar dataKey="avgTage" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                        {durationStats.monthly.map((p, i) => (
+                          <Cell
+                            key={i}
+                            fill={
+                              (p.avgTage ?? 0) === 0
+                                ? 'hsl(var(--muted))'
+                                : (p.avgTage ?? 0) <= 7
+                                  ? 'hsl(142 71% 45%)'
+                                  : (p.avgTage ?? 0) <= 14
+                                    ? 'hsl(45 93% 47%)'
+                                    : 'hsl(0 84% 60%)'
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">Abgeschlossene Onboardings / Monat</p>
+                <div className="h-28">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={durationStats.monthly} margin={{ left: -20, right: 8, top: 4, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number) => [v, 'Einsatzbereit']} contentStyle={{ fontSize: 12 }} />
+                      <Bar dataKey="abgeschlossen" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="mb-6">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">Techniker im Onboarding ({activeTechs.length})</CardTitle>
