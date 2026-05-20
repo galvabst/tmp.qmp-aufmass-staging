@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 // ── Types ──
 
-export type OnboardingStatusEnum = 'angelegt' | 'invited' | 'started' | 'in_progress' | 'blocked' | 'ready' | 'deaktiviert' | 'mitfahrt' | 'inaktiv' | 'gefeuert';
+export type OnboardingStatusEnum = 'angelegt' | 'invited' | 'started' | 'in_progress' | 'blocked' | 'ready' | 'deaktiviert' | 'mitfahrt' | 'inaktiv' | 'ausgestiegen' | 'gefeuert';
 
 export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatusEnum, string> = {
   angelegt: 'Angelegt',
@@ -16,8 +16,12 @@ export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatusEnum, string> = {
   deaktiviert: 'Deaktiviert',
   mitfahrt: 'Mitfahrt',
   inaktiv: 'Inaktiv',
+  ausgestiegen: 'Ausgestiegen',
   gefeuert: 'Gefeuert',
 };
+
+/** Status-Werte, die nicht mehr "aktiv im Onboarding" sind (Ex-Techniker). */
+export const EHEMALIGE_STATUSES: OnboardingStatusEnum[] = ['ausgestiegen', 'gefeuert', 'deaktiviert'];
 
 export type OnboardingSubstatusEnum =
   | 'neu_angelegt' | 'vertrag_versendet' | 'vertrag_geprueft'
@@ -114,6 +118,9 @@ export interface AdminContractor {
   mitfahrtBezahltAm: string | null;
   // Freigaben
   einweisungFreigabe: boolean;
+  // Austritt (für ehemalige Techniker)
+  austrittsDatum: string | null;
+  austrittsGrund: string | null;
 }
 
 // ── Fetcher ──
@@ -123,7 +130,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   const { data: onboardings, error: onbErr } = await (supabaseTC
     .from('contractor_onboarding')
     .select('*')
-    .not('onboarding_status', 'in', '("deaktiviert","gefeuert")') as any);
+    .not('onboarding_status', 'in', '("deaktiviert")') as any);
   if (onbErr) throw onbErr;
   if (!onboardings?.length) return [];
 
@@ -277,6 +284,8 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       mitfahrtTermin: o.mitfahrt_termin ?? null,
       mitfahrtBezahltAm: o.mitfahrt_bezahlt_am ?? null,
       einweisungFreigabe: o.einweisung_freigabe ?? false,
+      austrittsDatum: (o as any).austritts_datum ?? null,
+      austrittsGrund: (o as any).austritts_grund ?? null,
     };
   });
 }

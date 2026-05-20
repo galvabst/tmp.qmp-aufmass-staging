@@ -14639,6 +14639,10 @@ export type Database = {
         Args: { _role: string; _target_user_id: string }
         Returns: undefined
       }
+      set_contractor_austritt: {
+        Args: { p_grund?: string; p_onboarding_id: string; p_status: string }
+        Returns: Json
+      }
       set_kunde_coordinates: {
         Args: {
           p_address_type: string

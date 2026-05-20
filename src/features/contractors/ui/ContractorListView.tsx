@@ -4,9 +4,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Award, GraduationCap, ShoppingBag, Users, UserCheck, Clock, UserX, AlertTriangle, Car, LucideIcon, MoreVertical, Pause, Ban, RotateCcw, UserCog } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Award, GraduationCap, ShoppingBag, Users, UserCheck, Clock, UserX, AlertTriangle, Car, LucideIcon, MoreVertical, Pause, Ban, RotateCcw, UserCog, LogOut } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -23,6 +26,7 @@ import {
   ONBOARDING_STATUS_LABELS,
   ONBOARDING_SUBSTATUS_LABELS,
   STEP_LABELS,
+  EHEMALIGE_STATUSES,
 } from '../hooks/useAdminContractorList';
 
 // Status config for pipeline cards
@@ -36,6 +40,7 @@ const STATUS_ICON_MAP: Record<OnboardingStatusEnum, LucideIcon> = {
   deaktiviert: UserX,
   mitfahrt: Car,
   inaktiv: UserX,
+  ausgestiegen: LogOut,
   gefeuert: UserX,
 };
 
@@ -49,6 +54,7 @@ const STATUS_BG_MAP: Record<OnboardingStatusEnum, string> = {
   deaktiviert: 'bg-gray-50 dark:bg-gray-900/30',
   mitfahrt: 'bg-indigo-50 dark:bg-indigo-950/30',
   inaktiv: 'bg-gray-50 dark:bg-gray-900/30',
+  ausgestiegen: 'bg-gray-50 dark:bg-gray-900/30',
   gefeuert: 'bg-red-50 dark:bg-red-950/30',
 };
 
@@ -61,7 +67,8 @@ function getStatusBadgeVariant(status: OnboardingStatusEnum): 'default' | 'secon
     case 'blocked':
     case 'deaktiviert':
     case 'gefeuert': return 'destructive';
-    case 'inaktiv': return 'outline';
+    case 'inaktiv':
+    case 'ausgestiegen': return 'outline';
     default: return 'outline';
   }
 }
@@ -104,7 +111,8 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showInaktiv, setShowInaktiv] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<AdminContractor | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{ id: string; name: string; action: 'inaktiv' | 'gefeuert' | 'reaktivieren' } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ id: string; name: string; action: 'inaktiv' | 'ausgestiegen' | 'gefeuert' | 'reaktivieren' } | null>(null);
+  const [reasonText, setReasonText] = useState('');
 
   // Auto-select contractor when initialSelectedId is provided
   const autoSelectedRef = useRef(false);
@@ -118,16 +126,24 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     }
   }, [initialSelectedId, contractors]);
 
-  const handleStatusChange = useCallback(async (id: string, newStatus: 'inaktiv' | 'gefeuert' | 'in_progress') => {
-    const { error } = await (supabaseTC
-      .from('contractor_onboarding' as any)
-      .update({ onboarding_status: newStatus })
-      .eq('id', id) as any);
+  const handleStatusChange = useCallback(async (id: string, newStatus: 'inaktiv' | 'ausgestiegen' | 'gefeuert' | 'in_progress', grund: string | null) => {
+    const { data, error } = await (supabase.rpc as any)('set_contractor_austritt', {
+      p_onboarding_id: id,
+      p_status: newStatus,
+      p_grund: grund,
+    });
     if (error) {
-      toast.error('Status konnte nicht geändert werden');
+      console.error('[set_contractor_austritt]', error);
+      toast.error(`Status konnte nicht geändert werden: ${error.message}`);
       return;
     }
-    toast.success(newStatus === 'inaktiv' ? 'Techniker pausiert' : newStatus === 'gefeuert' ? 'Techniker deaktiviert' : 'Techniker reaktiviert');
+    const released = (data?.unassigned_thermochecks ?? 0) + (data?.unassigned_einweisungen ?? 0);
+    const msg =
+      newStatus === 'inaktiv' ? 'Techniker pausiert' :
+      newStatus === 'ausgestiegen' ? 'Techniker als ausgestiegen markiert' :
+      newStatus === 'gefeuert' ? 'Techniker endgültig deaktiviert' :
+      'Techniker reaktiviert';
+    toast.success(released > 0 ? `${msg} · ${released} Aufträge zurück in Pool` : msg);
     queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] });
     queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] });
   }, [queryClient]);
@@ -135,26 +151,30 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   const confirmAction = useCallback(() => {
     if (!confirmDialog) return;
     const newStatus = confirmDialog.action === 'reaktivieren' ? 'in_progress' : confirmDialog.action;
-    handleStatusChange(confirmDialog.id, newStatus as any);
+    const grund = reasonText.trim() || null;
+    handleStatusChange(confirmDialog.id, newStatus as any, grund);
     setConfirmDialog(null);
-  }, [confirmDialog, handleStatusChange]);
+    setReasonText('');
+  }, [confirmDialog, reasonText, handleStatusChange]);
 
   // KPI values
   const kpis = useMemo(() => {
-    if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0, inaktiv: 0 };
+    if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0, inaktiv: 0, ehemalige: 0 };
+    const isEhemalig = (s: OnboardingStatusEnum) => EHEMALIGE_STATUSES.includes(s);
     return {
-      total: contractors.filter(c => c.onboardingStatus !== 'inaktiv').length,
+      total: contractors.filter(c => c.onboardingStatus !== 'inaktiv' && !isEhemalig(c.onboardingStatus)).length,
       ready: contractors.filter(c => c.onboardingStatus === 'ready').length,
       onboarding: contractors.filter(c => ['started', 'in_progress', 'mitfahrt'].includes(c.onboardingStatus)).length,
       trainers: contractors.filter(c => c.isTrainer).length,
       inaktiv: contractors.filter(c => c.onboardingStatus === 'inaktiv').length,
+      ehemalige: contractors.filter(c => isEhemalig(c.onboardingStatus)).length,
     };
   }, [contractors]);
 
   // Pipeline stats
   const pipelineStats: PipelineStat[] = useMemo(() => {
     if (!contractors?.length) return [];
-    const activeContractors = contractors.filter(c => c.onboardingStatus !== 'inaktiv');
+    const activeContractors = contractors.filter(c => c.onboardingStatus !== 'inaktiv' && !EHEMALIGE_STATUSES.includes(c.onboardingStatus));
     const total = activeContractors.length;
     if (total === 0) return [];
     const counts = new Map<OnboardingStatusEnum, number>();
@@ -162,7 +182,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
 
     return Array.from(counts.entries())
       .sort(([a], [b]) => {
-        const order: OnboardingStatusEnum[] = ['angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'ready', 'blocked', 'deaktiviert', 'inaktiv', 'gefeuert'];
+        const order: OnboardingStatusEnum[] = ['angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'ready', 'blocked', 'deaktiviert', 'inaktiv', 'ausgestiegen', 'gefeuert'];
         return order.indexOf(a) - order.indexOf(b);
       })
       .map(([status, count]) => ({
@@ -175,27 +195,33 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       }));
   }, [contractors]);
 
+  const hasSearch = searchQuery.trim().length > 0;
   const filtered = useMemo(() => {
     if (!contractors) return [];
     return contractors.filter(c => {
-      // Inaktiv tab logic
+      const isEhemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
+      // Tab logic
       if (showInaktiv) {
         if (c.onboardingStatus !== 'inaktiv') return false;
       } else {
         if (c.onboardingStatus === 'inaktiv') return false;
+        // Ehemalige nur per Suche zeigen
+        if (isEhemalig && !hasSearch) return false;
         if (statusFilter && c.onboardingStatus !== statusFilter) return false;
       }
-      if (searchQuery) {
+      if (hasSearch) {
         const q = searchQuery.toLowerCase();
         const name = `${c.vorname} ${c.nachname}`.toLowerCase();
         return name.includes(q) || c.email.toLowerCase().includes(q) || c.ort.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [contractors, statusFilter, searchQuery, showInaktiv]);
+  }, [contractors, statusFilter, searchQuery, showInaktiv, hasSearch]);
+
+  const ehemaligeInResults = filtered.filter(c => EHEMALIGE_STATUSES.includes(c.onboardingStatus)).length;
 
   const statusOptions = Object.entries(ONBOARDING_STATUS_LABELS)
-    .filter(([k]) => k !== 'inaktiv' && k !== 'gefeuert')
+    .filter(([k]) => k !== 'inaktiv' && k !== 'gefeuert' && k !== 'ausgestiegen' && k !== 'deaktiviert')
     .map(([value, label]) => ({ value, label }));
 
   if (selectedContractor) {
@@ -249,6 +275,12 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
             onReset={() => { setSearchQuery(''); setStatusFilter(null); }}
           />
 
+          {hasSearch && !showInaktiv && ehemaligeInResults > 0 && (
+            <div className="text-[11px] text-muted-foreground px-3 py-2 rounded-lg bg-muted/50 border border-border">
+              Suche enthält auch {ehemaligeInResults} ehemalige Techniker (ausgestiegen / gefeuert).
+            </div>
+          )}
+
           <div className="space-y-2">
             {filtered.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">Keine Techniker gefunden</div>
@@ -258,7 +290,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
                   key={c.id}
                   contractor={c}
                   onClick={() => setSelectedContractor(c)}
-                  onAction={(action) => setConfirmDialog({ id: c.id, name: [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Techniker', action })}
+                  onAction={(action) => { setReasonText(''); setConfirmDialog({ id: c.id, name: [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Techniker', action }); }}
                 />
               ))
             )}
@@ -267,20 +299,35 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       )}
 
       {/* Confirmation Dialog */}
-      <AlertDialog open={!!confirmDialog} onOpenChange={(open) => !open && setConfirmDialog(null)}>
+      <AlertDialog open={!!confirmDialog} onOpenChange={(open) => { if (!open) { setConfirmDialog(null); setReasonText(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmDialog?.action === 'inaktiv' && '⏸️ Techniker pausieren'}
-              {confirmDialog?.action === 'gefeuert' && '🚫 Techniker deaktivieren'}
+              {confirmDialog?.action === 'ausgestiegen' && '🚪 Techniker als ausgestiegen markieren'}
+              {confirmDialog?.action === 'gefeuert' && '🚫 Techniker endgültig deaktivieren'}
               {confirmDialog?.action === 'reaktivieren' && '🔄 Techniker reaktivieren'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmDialog?.action === 'inaktiv' && `${confirmDialog.name} wird als inaktiv markiert. Er/sie bekommt keine neuen Aufträge, kann aber jederzeit reaktiviert werden.`}
-              {confirmDialog?.action === 'gefeuert' && `${confirmDialog?.name} wird endgültig deaktiviert und verschwindet aus allen Listen und der Hiring-Map. Diese Aktion kann nur manuell rückgängig gemacht werden.`}
+              {confirmDialog?.action === 'ausgestiegen' && `${confirmDialog?.name} wird als freiwillig ausgeschieden markiert. Aktive Aufträge werden zurück in den Pool gegeben. Der Techniker bleibt nur über die Namenssuche auffindbar.`}
+              {confirmDialog?.action === 'gefeuert' && `${confirmDialog?.name} wird endgültig deaktiviert. Aktive Aufträge werden zurück in den Pool gegeben. Der Techniker bleibt nur über die Namenssuche auffindbar.`}
               {confirmDialog?.action === 'reaktivieren' && `${confirmDialog.name} wird reaktiviert und ist wieder für Aufträge verfügbar.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {confirmDialog && confirmDialog.action !== 'reaktivieren' && (
+            <div className="space-y-2 py-1">
+              <Label htmlFor="austritts-grund" className="text-xs">Grund / Notiz (optional)</Label>
+              <Textarea
+                id="austritts-grund"
+                value={reasonText}
+                onChange={(e) => setReasonText(e.target.value)}
+                placeholder="z. B. Hat sich gemeldet, möchte nicht weitermachen…"
+                rows={3}
+                className="text-sm"
+              />
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
             <AlertDialogAction
@@ -288,6 +335,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
               className={confirmDialog?.action === 'gefeuert' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
             >
               {confirmDialog?.action === 'inaktiv' && 'Pausieren'}
+              {confirmDialog?.action === 'ausgestiegen' && 'Als ausgestiegen markieren'}
               {confirmDialog?.action === 'gefeuert' && 'Endgültig deaktivieren'}
               {confirmDialog?.action === 'reaktivieren' && 'Reaktivieren'}
             </AlertDialogAction>
@@ -303,12 +351,14 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
 function ContractorCard({ contractor: c, onClick, onAction }: {
   contractor: AdminContractor;
   onClick: () => void;
-  onAction: (action: 'inaktiv' | 'gefeuert' | 'reaktivieren') => void;
+  onAction: (action: 'inaktiv' | 'ausgestiegen' | 'gefeuert' | 'reaktivieren') => void;
 }) {
   const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Kein Profil';
   const initials = `${c.vorname?.[0] ?? ''}${c.nachname?.[0] ?? ''}`.toUpperCase() || '??';
   const stepsProgress = Math.round((c.completedSteps.length / 7) * 100);
   const isInaktiv = c.onboardingStatus === 'inaktiv';
+  const isEhemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
+  const isDimmed = isInaktiv || isEhemalig;
   const isSuperadmin = useHasRole('superadmin');
   const { startImpersonation } = useImpersonation();
   const [impersonating, setImpersonating] = useState(false);
@@ -332,7 +382,7 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
   };
 
   return (
-    <Card className={`shadow-sm cursor-pointer hover:shadow-md transition-shadow ${isInaktiv ? 'opacity-60' : ''}`} onClick={onClick}>
+    <Card className={`shadow-sm cursor-pointer hover:shadow-md transition-shadow ${isDimmed ? 'opacity-60' : ''}`} onClick={onClick}>
       <CardContent className="p-3">
         <div className="flex items-start gap-3">
           <Avatar className="h-10 w-10 shrink-0">
@@ -343,7 +393,7 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 min-w-0">
-                <p className={`font-medium text-sm truncate ${isInaktiv ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{displayName}</p>
+                <p className={`font-medium text-sm truncate ${isDimmed ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{displayName}</p>
                 {c.isTrainer && <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -367,22 +417,36 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    {isInaktiv ? (
+                    {(isInaktiv || isEhemalig) ? (
                       <DropdownMenuItem onClick={() => onAction('reaktivieren')}>
                         <RotateCcw className="w-3.5 h-3.5 mr-2" /> Reaktivieren
                       </DropdownMenuItem>
                     ) : (
-                      <DropdownMenuItem onClick={() => onAction('inaktiv')}>
-                        <Pause className="w-3.5 h-3.5 mr-2" /> Pausieren
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onClick={() => onAction('inaktiv')}>
+                          <Pause className="w-3.5 h-3.5 mr-2" /> Pausieren
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onAction('ausgestiegen')}>
+                          <LogOut className="w-3.5 h-3.5 mr-2" /> Ausgestiegen
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onAction('gefeuert')} className="text-destructive focus:text-destructive">
+                          <Ban className="w-3.5 h-3.5 mr-2" /> Endgültig deaktivieren
+                        </DropdownMenuItem>
+                      </>
                     )}
-                    <DropdownMenuItem onClick={() => onAction('gefeuert')} className="text-destructive focus:text-destructive">
-                      <Ban className="w-3.5 h-3.5 mr-2" /> Endgültig deaktivieren
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
+
+            {isEhemalig && c.austrittsDatum && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {ONBOARDING_STATUS_LABELS[c.onboardingStatus]} seit {new Date(c.austrittsDatum).toLocaleDateString('de-DE')}
+                {c.austrittsGrund ? ` · ${c.austrittsGrund}` : ''}
+              </p>
+            )}
+
 
             <div className="flex items-center gap-1.5 mt-0.5">
               {c.currentStep && (
