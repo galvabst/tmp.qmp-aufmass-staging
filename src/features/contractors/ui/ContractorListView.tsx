@@ -111,7 +111,8 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showInaktiv, setShowInaktiv] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<AdminContractor | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{ id: string; name: string; action: 'inaktiv' | 'gefeuert' | 'reaktivieren' } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ id: string; name: string; action: 'inaktiv' | 'ausgestiegen' | 'gefeuert' | 'reaktivieren' } | null>(null);
+  const [reasonText, setReasonText] = useState('');
 
   // Auto-select contractor when initialSelectedId is provided
   const autoSelectedRef = useRef(false);
@@ -125,16 +126,24 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     }
   }, [initialSelectedId, contractors]);
 
-  const handleStatusChange = useCallback(async (id: string, newStatus: 'inaktiv' | 'gefeuert' | 'in_progress') => {
-    const { error } = await (supabaseTC
-      .from('contractor_onboarding' as any)
-      .update({ onboarding_status: newStatus })
-      .eq('id', id) as any);
+  const handleStatusChange = useCallback(async (id: string, newStatus: 'inaktiv' | 'ausgestiegen' | 'gefeuert' | 'in_progress', grund: string | null) => {
+    const { data, error } = await (supabase.rpc as any)('set_contractor_austritt', {
+      p_onboarding_id: id,
+      p_status: newStatus,
+      p_grund: grund,
+    });
     if (error) {
-      toast.error('Status konnte nicht geändert werden');
+      console.error('[set_contractor_austritt]', error);
+      toast.error(`Status konnte nicht geändert werden: ${error.message}`);
       return;
     }
-    toast.success(newStatus === 'inaktiv' ? 'Techniker pausiert' : newStatus === 'gefeuert' ? 'Techniker deaktiviert' : 'Techniker reaktiviert');
+    const released = (data?.unassigned_thermochecks ?? 0) + (data?.unassigned_einweisungen ?? 0);
+    const msg =
+      newStatus === 'inaktiv' ? 'Techniker pausiert' :
+      newStatus === 'ausgestiegen' ? 'Techniker als ausgestiegen markiert' :
+      newStatus === 'gefeuert' ? 'Techniker endgültig deaktiviert' :
+      'Techniker reaktiviert';
+    toast.success(released > 0 ? `${msg} · ${released} Aufträge zurück in Pool` : msg);
     queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] });
     queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] });
   }, [queryClient]);
@@ -142,9 +151,11 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   const confirmAction = useCallback(() => {
     if (!confirmDialog) return;
     const newStatus = confirmDialog.action === 'reaktivieren' ? 'in_progress' : confirmDialog.action;
-    handleStatusChange(confirmDialog.id, newStatus as any);
+    const grund = reasonText.trim() || null;
+    handleStatusChange(confirmDialog.id, newStatus as any, grund);
     setConfirmDialog(null);
-  }, [confirmDialog, handleStatusChange]);
+    setReasonText('');
+  }, [confirmDialog, reasonText, handleStatusChange]);
 
   // KPI values
   const kpis = useMemo(() => {
