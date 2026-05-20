@@ -238,6 +238,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
   const { data: contractors, isLoading: cLoading } = useAdminContractorList();
   const { data: stats, isLoading: sLoading } = useAdminDashboardStats();
   const { data: perfStats, isLoading: pLoading } = useAdminAggregatedStats();
+  const { data: durationStats, isLoading: dLoading } = useOnboardingDurationStats();
   const [activeTab, setActiveTab] = useState<TabKey>('alle');
   const [verzugOpen, setVerzugOpen] = useState(false);
 
