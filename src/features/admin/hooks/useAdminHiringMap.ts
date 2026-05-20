@@ -4,7 +4,7 @@ import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { geocodePlzBatch, geocodeCity, PlzCoordinate } from '@/features/pool/utils/plz-geocoder';
 import { useEffect, useState, useRef, useCallback } from 'react';
 
-export type ContractorMapAction = 'pause' | 'fire' | 'reactivate';
+export type ContractorMapAction = 'pause' | 'fire' | 'exit' | 'reactivate';
 
 export interface SalesRepMapEntry {
   id: string;
@@ -255,19 +255,28 @@ export function useAdminHiringMap(selectedMonth: Date | null) {
   // Mutation: pause / fire / reactivate a contractor directly from the map
   const queryClient = useQueryClient();
   const setContractorOnboardingStatus = useCallback(
-    async (onboardingId: string, action: ContractorMapAction): Promise<void> => {
+    async (onboardingId: string, action: ContractorMapAction): Promise<{ unassigned: number }> => {
       const newStatus =
-        action === 'pause' ? 'inaktiv' : action === 'fire' ? 'gefeuert' : 'in_progress';
-      const { error } = await (supabaseTC
-        .from('contractor_onboarding' as any)
-        .update({ onboarding_status: newStatus } as any)
-        .eq('id', onboardingId) as any);
+        action === 'pause' ? 'inaktiv'
+        : action === 'fire' ? 'gefeuert'
+        : action === 'exit' ? 'ausgestiegen'
+        : 'in_progress';
+      // Use SECURITY DEFINER RPC so open orders get released back to the pool
+      // (parity with the contractor list flow).
+      const { data, error } = await (supabase.rpc as any)('set_contractor_austritt', {
+        p_onboarding_id: onboardingId,
+        p_status: newStatus,
+        p_grund: null,
+      });
       if (error) throw error;
+      const unassigned =
+        (data?.unassigned_thermochecks ?? 0) + (data?.unassigned_einweisungen ?? 0);
       // Refresh map + contractor list
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-hiring-map-contractors'] }),
         queryClient.invalidateQueries({ queryKey: ['admin-contractor-list'] }),
       ]);
+      return { unassigned };
     },
     [queryClient]
   );
