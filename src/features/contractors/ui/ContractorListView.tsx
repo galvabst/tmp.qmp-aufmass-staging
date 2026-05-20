@@ -382,7 +382,7 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
   };
 
   return (
-    <Card className={`shadow-sm cursor-pointer hover:shadow-md transition-shadow ${isInaktiv ? 'opacity-60' : ''}`} onClick={onClick}>
+    <Card className={`shadow-sm cursor-pointer hover:shadow-md transition-shadow ${isDimmed ? 'opacity-60' : ''}`} onClick={onClick}>
       <CardContent className="p-3">
         <div className="flex items-start gap-3">
           <Avatar className="h-10 w-10 shrink-0">
@@ -393,7 +393,7 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 min-w-0">
-                <p className={`font-medium text-sm truncate ${isInaktiv ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{displayName}</p>
+                <p className={`font-medium text-sm truncate ${isDimmed ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{displayName}</p>
                 {c.isTrainer && <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -417,22 +417,36 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    {isInaktiv ? (
+                    {(isInaktiv || isEhemalig) ? (
                       <DropdownMenuItem onClick={() => onAction('reaktivieren')}>
                         <RotateCcw className="w-3.5 h-3.5 mr-2" /> Reaktivieren
                       </DropdownMenuItem>
                     ) : (
-                      <DropdownMenuItem onClick={() => onAction('inaktiv')}>
-                        <Pause className="w-3.5 h-3.5 mr-2" /> Pausieren
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onClick={() => onAction('inaktiv')}>
+                          <Pause className="w-3.5 h-3.5 mr-2" /> Pausieren
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onAction('ausgestiegen')}>
+                          <LogOut className="w-3.5 h-3.5 mr-2" /> Ausgestiegen
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onAction('gefeuert')} className="text-destructive focus:text-destructive">
+                          <Ban className="w-3.5 h-3.5 mr-2" /> Endgültig deaktivieren
+                        </DropdownMenuItem>
+                      </>
                     )}
-                    <DropdownMenuItem onClick={() => onAction('gefeuert')} className="text-destructive focus:text-destructive">
-                      <Ban className="w-3.5 h-3.5 mr-2" /> Endgültig deaktivieren
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
+
+            {isEhemalig && c.austrittsDatum && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {ONBOARDING_STATUS_LABELS[c.onboardingStatus]} seit {new Date(c.austrittsDatum).toLocaleDateString('de-DE')}
+                {c.austrittsGrund ? ` · ${c.austrittsGrund}` : ''}
+              </p>
+            )}
+
 
             <div className="flex items-center gap-1.5 mt-0.5">
               {c.currentStep && (
