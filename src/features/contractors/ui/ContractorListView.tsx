@@ -275,6 +275,12 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
             onReset={() => { setSearchQuery(''); setStatusFilter(null); }}
           />
 
+          {hasSearch && !showInaktiv && ehemaligeInResults > 0 && (
+            <div className="text-[11px] text-muted-foreground px-3 py-2 rounded-lg bg-muted/50 border border-border">
+              Suche enthält auch {ehemaligeInResults} ehemalige Techniker (ausgestiegen / gefeuert).
+            </div>
+          )}
+
           <div className="space-y-2">
             {filtered.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">Keine Techniker gefunden</div>
@@ -284,7 +290,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
                   key={c.id}
                   contractor={c}
                   onClick={() => setSelectedContractor(c)}
-                  onAction={(action) => setConfirmDialog({ id: c.id, name: [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Techniker', action })}
+                  onAction={(action) => { setReasonText(''); setConfirmDialog({ id: c.id, name: [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Techniker', action }); }}
                 />
               ))
             )}
@@ -293,20 +299,35 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       )}
 
       {/* Confirmation Dialog */}
-      <AlertDialog open={!!confirmDialog} onOpenChange={(open) => !open && setConfirmDialog(null)}>
+      <AlertDialog open={!!confirmDialog} onOpenChange={(open) => { if (!open) { setConfirmDialog(null); setReasonText(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirmDialog?.action === 'inaktiv' && '⏸️ Techniker pausieren'}
-              {confirmDialog?.action === 'gefeuert' && '🚫 Techniker deaktivieren'}
+              {confirmDialog?.action === 'ausgestiegen' && '🚪 Techniker als ausgestiegen markieren'}
+              {confirmDialog?.action === 'gefeuert' && '🚫 Techniker endgültig deaktivieren'}
               {confirmDialog?.action === 'reaktivieren' && '🔄 Techniker reaktivieren'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmDialog?.action === 'inaktiv' && `${confirmDialog.name} wird als inaktiv markiert. Er/sie bekommt keine neuen Aufträge, kann aber jederzeit reaktiviert werden.`}
-              {confirmDialog?.action === 'gefeuert' && `${confirmDialog?.name} wird endgültig deaktiviert und verschwindet aus allen Listen und der Hiring-Map. Diese Aktion kann nur manuell rückgängig gemacht werden.`}
+              {confirmDialog?.action === 'ausgestiegen' && `${confirmDialog?.name} wird als freiwillig ausgeschieden markiert. Aktive Aufträge werden zurück in den Pool gegeben. Der Techniker bleibt nur über die Namenssuche auffindbar.`}
+              {confirmDialog?.action === 'gefeuert' && `${confirmDialog?.name} wird endgültig deaktiviert. Aktive Aufträge werden zurück in den Pool gegeben. Der Techniker bleibt nur über die Namenssuche auffindbar.`}
               {confirmDialog?.action === 'reaktivieren' && `${confirmDialog.name} wird reaktiviert und ist wieder für Aufträge verfügbar.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {confirmDialog && confirmDialog.action !== 'reaktivieren' && (
+            <div className="space-y-2 py-1">
+              <Label htmlFor="austritts-grund" className="text-xs">Grund / Notiz (optional)</Label>
+              <Textarea
+                id="austritts-grund"
+                value={reasonText}
+                onChange={(e) => setReasonText(e.target.value)}
+                placeholder="z. B. Hat sich gemeldet, möchte nicht weitermachen…"
+                rows={3}
+                className="text-sm"
+              />
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
             <AlertDialogAction
@@ -314,6 +335,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
               className={confirmDialog?.action === 'gefeuert' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
             >
               {confirmDialog?.action === 'inaktiv' && 'Pausieren'}
+              {confirmDialog?.action === 'ausgestiegen' && 'Als ausgestiegen markieren'}
               {confirmDialog?.action === 'gefeuert' && 'Endgültig deaktivieren'}
               {confirmDialog?.action === 'reaktivieren' && 'Reaktivieren'}
             </AlertDialogAction>
