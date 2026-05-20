@@ -284,6 +284,8 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       mitfahrtTermin: o.mitfahrt_termin ?? null,
       mitfahrtBezahltAm: o.mitfahrt_bezahlt_am ?? null,
       einweisungFreigabe: o.einweisung_freigabe ?? false,
+      austrittsDatum: (o as any).austritts_datum ?? null,
+      austrittsGrund: (o as any).austritts_grund ?? null,
     };
   });
 }
