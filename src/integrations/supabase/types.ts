@@ -12151,6 +12151,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      admin_book_coaching_ride: {
+        Args: { p_auftrag_id: string; p_trainee_profile_id: string }
+        Returns: Json
+      }
       admin_check_user_dependencies: {
         Args: { _target_user_id: string }
         Returns: Json
@@ -12352,6 +12356,10 @@ export type Database = {
           vorname: string
         }[]
       }
+      admin_reject_praxistest: {
+        Args: { p_notiz?: string; p_onboarding_id: string }
+        Returns: Json
+      }
       admin_remove_group_member: {
         Args: { _group_id: string; _user_id: string }
         Returns: undefined
@@ -12376,6 +12384,10 @@ export type Database = {
       admin_set_group_modules: {
         Args: { _group_id: string; _modules: Json }
         Returns: undefined
+      }
+      admin_set_onboarding_step: {
+        Args: { p_profile_id: string; p_target_step: string }
+        Returns: Json
       }
       admin_set_user_access_groups: {
         Args: { _access_group_ids: string[]; _target_user_id: string }
