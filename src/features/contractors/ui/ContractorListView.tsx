@@ -39,6 +39,7 @@ const STATUS_ICON_MAP: Record<OnboardingStatusEnum, LucideIcon> = {
   deaktiviert: UserX,
   mitfahrt: Car,
   inaktiv: UserX,
+  ausgestiegen: LogOut,
   gefeuert: UserX,
 };
 
@@ -52,6 +53,7 @@ const STATUS_BG_MAP: Record<OnboardingStatusEnum, string> = {
   deaktiviert: 'bg-gray-50 dark:bg-gray-900/30',
   mitfahrt: 'bg-indigo-50 dark:bg-indigo-950/30',
   inaktiv: 'bg-gray-50 dark:bg-gray-900/30',
+  ausgestiegen: 'bg-gray-50 dark:bg-gray-900/30',
   gefeuert: 'bg-red-50 dark:bg-red-950/30',
 };
 
