@@ -67,7 +67,8 @@ function getStatusBadgeVariant(status: OnboardingStatusEnum): 'default' | 'secon
     case 'blocked':
     case 'deaktiviert':
     case 'gefeuert': return 'destructive';
-    case 'inaktiv': return 'outline';
+    case 'inaktiv':
+    case 'ausgestiegen': return 'outline';
     default: return 'outline';
   }
 }
