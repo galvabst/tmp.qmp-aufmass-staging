@@ -13293,10 +13293,14 @@ export type Database = {
           gewerbeschein_spaeter: boolean
           gewerbeschein_url: string
           intro_video_watched: boolean
+          onboarding_id: string
           outro_video_watched: boolean
           praxistest_eingereicht: boolean
           praxistest_freigabe: boolean
+          praxistest_runde: number
+          praxistest_scan_freigegeben: boolean
           praxistest_scan_url: string
+          praxistest_video_freigegeben: boolean
           praxistest_video_url: string
         }[]
       }
