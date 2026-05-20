@@ -159,20 +159,22 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
 
   // KPI values
   const kpis = useMemo(() => {
-    if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0, inaktiv: 0 };
+    if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0, inaktiv: 0, ehemalige: 0 };
+    const isEhemalig = (s: OnboardingStatusEnum) => EHEMALIGE_STATUSES.includes(s);
     return {
-      total: contractors.filter(c => c.onboardingStatus !== 'inaktiv').length,
+      total: contractors.filter(c => c.onboardingStatus !== 'inaktiv' && !isEhemalig(c.onboardingStatus)).length,
       ready: contractors.filter(c => c.onboardingStatus === 'ready').length,
       onboarding: contractors.filter(c => ['started', 'in_progress', 'mitfahrt'].includes(c.onboardingStatus)).length,
       trainers: contractors.filter(c => c.isTrainer).length,
       inaktiv: contractors.filter(c => c.onboardingStatus === 'inaktiv').length,
+      ehemalige: contractors.filter(c => isEhemalig(c.onboardingStatus)).length,
     };
   }, [contractors]);
 
   // Pipeline stats
   const pipelineStats: PipelineStat[] = useMemo(() => {
     if (!contractors?.length) return [];
-    const activeContractors = contractors.filter(c => c.onboardingStatus !== 'inaktiv');
+    const activeContractors = contractors.filter(c => c.onboardingStatus !== 'inaktiv' && !EHEMALIGE_STATUSES.includes(c.onboardingStatus));
     const total = activeContractors.length;
     if (total === 0) return [];
     const counts = new Map<OnboardingStatusEnum, number>();
@@ -180,7 +182,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
 
     return Array.from(counts.entries())
       .sort(([a], [b]) => {
-        const order: OnboardingStatusEnum[] = ['angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'ready', 'blocked', 'deaktiviert', 'inaktiv', 'gefeuert'];
+        const order: OnboardingStatusEnum[] = ['angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'ready', 'blocked', 'deaktiviert', 'inaktiv', 'ausgestiegen', 'gefeuert'];
         return order.indexOf(a) - order.indexOf(b);
       })
       .map(([status, count]) => ({
@@ -193,27 +195,33 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       }));
   }, [contractors]);
 
+  const hasSearch = searchQuery.trim().length > 0;
   const filtered = useMemo(() => {
     if (!contractors) return [];
     return contractors.filter(c => {
-      // Inaktiv tab logic
+      const isEhemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
+      // Tab logic
       if (showInaktiv) {
         if (c.onboardingStatus !== 'inaktiv') return false;
       } else {
         if (c.onboardingStatus === 'inaktiv') return false;
+        // Ehemalige nur per Suche zeigen
+        if (isEhemalig && !hasSearch) return false;
         if (statusFilter && c.onboardingStatus !== statusFilter) return false;
       }
-      if (searchQuery) {
+      if (hasSearch) {
         const q = searchQuery.toLowerCase();
         const name = `${c.vorname} ${c.nachname}`.toLowerCase();
         return name.includes(q) || c.email.toLowerCase().includes(q) || c.ort.toLowerCase().includes(q);
       }
       return true;
     });
-  }, [contractors, statusFilter, searchQuery, showInaktiv]);
+  }, [contractors, statusFilter, searchQuery, showInaktiv, hasSearch]);
+
+  const ehemaligeInResults = filtered.filter(c => EHEMALIGE_STATUSES.includes(c.onboardingStatus)).length;
 
   const statusOptions = Object.entries(ONBOARDING_STATUS_LABELS)
-    .filter(([k]) => k !== 'inaktiv' && k !== 'gefeuert')
+    .filter(([k]) => k !== 'inaktiv' && k !== 'gefeuert' && k !== 'ausgestiegen' && k !== 'deaktiviert')
     .map(([value, label]) => ({ value, label }));
 
   if (selectedContractor) {
