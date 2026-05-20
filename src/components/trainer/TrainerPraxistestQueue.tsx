@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAdminQGPraxistests, useApprovePraxistest } from '@/features/quality-gate/hooks/useAdminQGQueue';
-import { Link2, FileVideo, ShieldCheck, Loader2, ClipboardCheck } from 'lucide-react';
+import { Link2, FileVideo, ShieldCheck, ShieldX, Loader2, ClipboardCheck } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { PraxistestFeedbackDialog } from '@/features/praxistest-feedback/ui/PraxistestFeedbackDialog';
 import type { AdminQGPraxistest } from '@/features/quality-gate/hooks/useAdminQGQueue';
 
 interface TrainerPraxistestQueueProps {
@@ -21,6 +23,7 @@ function PraxistestCard({ item }: { item: AdminQGPraxistest }) {
     .join('')
     .toUpperCase() || '?';
   const { mutate: approve, isPending } = useApprovePraxistest();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   return (
     <div className="bg-card rounded-xl border border-border/60 shadow-card overflow-hidden">
@@ -41,7 +44,7 @@ function PraxistestCard({ item }: { item: AdminQGPraxistest }) {
 
       <div className="mx-4 border-t border-border/40" />
 
-      <div className="px-4 py-3 space-y-2">
+      <div className="px-4 py-3 space-y-3">
         <div className="flex items-center gap-3 flex-wrap">
           {item.scanUrl && (
             <a href={item.scanUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
@@ -55,21 +58,42 @@ function PraxistestCard({ item }: { item: AdminQGPraxistest }) {
           )}
         </div>
 
-        <Button
-          size="sm"
-          className="w-full gap-1.5"
-          disabled={isPending}
-          onClick={() => {
-            approve(item.onboardingId, {
-              onSuccess: () => toast.success(`Praxistest von ${item.contractorName} freigegeben`),
-              onError: (err: any) => toast.error(err.message || 'Fehler bei der Freigabe'),
-            });
-          }}
-        >
-          {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-          Praxistest freigeben
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5"
+            disabled={isPending}
+            onClick={() => {
+              approve(item.onboardingId, {
+                onSuccess: () => toast.success(`Praxistest von ${item.contractorName} freigegeben`),
+                onError: (err: any) => toast.error(err.message || 'Fehler bei der Freigabe'),
+              });
+            }}
+          >
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+            Freigeben
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="gap-1.5"
+            disabled={isPending}
+            onClick={() => setFeedbackOpen(true)}
+          >
+            <ShieldX className="w-4 h-4" />
+            Feedback
+          </Button>
+        </div>
       </div>
+
+      <PraxistestFeedbackDialog
+        open={feedbackOpen}
+        onOpenChange={setFeedbackOpen}
+        onboardingId={item.onboardingId}
+        contractorName={item.contractorName}
+        scanEingereicht={!!item.scanUrl}
+        videoEingereicht={!!item.videoUrl}
+      />
     </div>
   );
 }
