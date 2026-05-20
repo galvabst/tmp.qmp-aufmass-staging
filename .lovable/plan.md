@@ -1,89 +1,60 @@
-## Problem-Analyse Alexandra Jaap (profile_id `a5e43e83-…1136206f09bc`)
+## Ziel
 
-### Aktueller DB-Zustand
-- `current_step = akademie`
-- `akademie_test_bestanden = FALSE`
-- `praxistest_scan_url`, `praxistest_video_url`, `praxistest_eingereicht_am` → **alle NULL**
-- 0 Einträge in `contractor_akademie_lektions_fortschritt`
-- 0 Einträge in `contractor_akademie_quiz_ergebnis`
+Innendienst soll Techniker sauber aus dem Onboarding/Aktiv-System entfernen können, ohne historische Daten zu verlieren. Drei klar getrennte Austrittsgründe, automatische Bereinigung offener Aufträge, und Ehemalige bleiben per Suche auffindbar.
 
-Heißt: aus DB-Sicht hat Alexandra **noch nicht einmal den Akademie-Abschlusstest bestanden**, geschweige denn den Praxistest eingereicht. Sie hat aber lokal sicher gespielt (LocalStorage hydratisiert in `useOnboardingState`), deshalb sieht sie das Praxistest-Formular und versucht es einzureichen — und es passiert **schweigend nichts**.
+## Drei Austrittsstufen
 
-### Root-Causes (mehrere übereinanderliegende Bugs)
+| Aktion | Status | Reversibel | Sichtbar in |
+|---|---|---|---|
+| **Pausieren** (bestehend) | `inaktiv` | ✅ Reaktivieren | Eigener "Inaktiv"-Tab |
+| **Ausgestiegen** (neu) | `ausgestiegen` | nur manuell | Nur per Suche |
+| **Gefeuert** (bestehend) | `gefeuert` | nur manuell | Nur per Suche |
 
-**Bug 1 — RPC-Overload schreibt in nicht-existente Spalte (HARDFAIL beim Einreichen)**
-In der DB existieren zwei Overloads von `public.update_contractor_praxistest`:
-- 2-arg `(p_scan_url, p_video_url)` → schreibt `SET … updated_at = NOW()`
-- 3-arg `(p_scan_url, p_video_url, p_target_profile_id)` → korrekt
+`ausgestiegen` = freiwilliger Ausstieg (z.B. Jonas Magdeburg, Justin Balk, Olaf Markmann).
+`gefeuert` = unfreiwillige Trennung (Performance, Fehlverhalten).
 
-Die Tabelle `thermocheck.contractor_onboarding` hat **kein** `updated_at`, sondern `aktualisiert_am`. Der Standard-Aufruf vom Techniker (ohne `p_target_profile_id`) löst die 2-arg-Variante aus → Postgres wirft `column "updated_at" does not exist` → RPC `throw` → React-Mutation `reject`.
+## Datenbank-Änderungen
 
-**Bug 2 — Frontend frisst Fehler still (kein Toast, kein Banner)**
-In `OnboardingScreen.tsx` `onPraxistestEinreichen` läuft `await savePraxistest(...)` ohne `try/catch`. PraxistestSection setzt im `finally` nur `isSubmitting=false` zurück. Effekt für Alexandra: Button hört auf zu drehen — sonst nichts. „Hängt fest".
+1. **Enum erweitern**: `thermocheck.contractor_onboarding_status_enum` um Wert `ausgestiegen` ergänzen.
+2. **Neue Spalten** auf `thermocheck.contractor_onboarding`:
+   - `austritts_datum timestamptz` (automatisch via Trigger gesetzt)
+   - `austritts_grund text` (optionale Notiz vom Innendienst)
+3. **Trigger** `set_austritts_datum_trg`: setzt `austritts_datum=now()` automatisch sobald `onboarding_status` auf `inaktiv`/`ausgestiegen`/`gefeuert`/`deaktiviert` wechselt; setzt es zurück auf `NULL` bei Reaktivierung.
+4. **SECURITY DEFINER RPC** `thermocheck.set_contractor_austritt(p_onboarding_id uuid, p_status text, p_grund text)`:
+   - Prüft `is_innendienst()` (Standardpattern)
+   - Validiert `p_status ∈ {inaktiv, ausgestiegen, gefeuert, in_progress}`
+   - Update Status + Notiz
+   - Bei `ausgestiegen`/`gefeuert`: setzt `zugewiesener_techniker_id = NULL` auf allen offenen Aufträgen dieses Technikers (Status ≠ abgeschlossen/storniert) → Aufträge fallen automatisch zurück in den Pool
+   - Alles in einer DB-Transaktion (transaktionales Pattern, kein Teil-Fehlschlag)
 
-**Bug 3 — Quiz-Speicherung schluckt Fehler ebenfalls still**
-`handleQuizComplete` setzt lokal `akademieTestBestanden=true` + Toast „Bestanden 🎉" **bevor** der RPC `update_contractor_akademie_test_bestanden` läuft. Wenn der RPC fehlschlägt, gibt es nur `console.warn`. Erklärt, warum sie lokal weiterläuft, in der DB aber `false` bleibt → Innendienst sieht sie weiter im Schritt „akademie", obwohl sie gefühlt weiter ist.
+## Frontend-Änderungen
 
-**Bug 4 (Hygiene) — auch der 3-arg Praxistest-RPC aktualisiert `aktualisiert_am` nicht**
-Kein Hardfail, aber das Update-Datum bleibt stehen, was Reports & „letzte Aktivität" verfälscht.
+### `useAdminContractorList`
+- Default-Filter erweitern: `.not('onboarding_status', 'in', '("deaktiviert","gefeuert","ausgestiegen")')`
+- **Ausnahme**: wenn Suchquery aktiv → zusätzliche Query, die auch ehemalige Techniker (deaktiviert/gefeuert/ausgestiegen) einschließt, damit Jonas/Justin/Olaf über Namenssuche gefunden werden.
+- Neue Felder `austrittsDatum`, `austrittsGrund` mappen.
 
----
+### `ContractorListView`
+- Dropdown im Card-Menü → drei Optionen statt zwei:
+  - "Pausieren" (Pause-Icon)
+  - "Ausgestiegen" (LogOut-Icon, neutral)
+  - "Endgültig deaktivieren" (Ban-Icon, destruktiv)
+- Bestätigungsdialog erweitert: optionales `<Textarea>` für Grund/Notiz.
+- Wenn aktuell ein Suchbegriff eingegeben ist: oberhalb der Trefferliste dezenter Hinweis "Suche zeigt auch ehemalige Techniker (X gefunden)".
+- Ehemalige Cards: grau, durchgestrichen, Status-Badge in Sekundärfarbe + kleines Datum "Ausgestiegen 12.03.2025".
 
-## Plan zur Behebung
+### `useAdminHiringMap`
+- Filter erweitern um `ausgestiegen` → keine ehemaligen Techniker mehr auf der Karte.
 
-### 1. DB-Migration: kaputten Overload entfernen + korrekten RPC härten
-```sql
--- Defekten 2-arg Overload entfernen
-DROP FUNCTION IF EXISTS public.update_contractor_praxistest(text, text);
+## Technische Details
 
--- 3-arg Version: explizit aktualisiert_am setzen, defensiv „NOT FOUND" werfen
-CREATE OR REPLACE FUNCTION public.update_contractor_praxistest(
-  p_scan_url text,
-  p_video_url text,
-  p_target_profile_id uuid DEFAULT NULL
-) …
-  UPDATE thermocheck.contractor_onboarding
-  SET praxistest_scan_url       = p_scan_url,
-      praxistest_video_url      = p_video_url,
-      praxistest_eingereicht_am = NOW(),
-      aktualisiert_am           = NOW()
-  WHERE profile_id = v_profile_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'No onboarding record found'; END IF;
-```
+- TypeScript-Types werden nach Migration vom Lovable-Pipeline regeneriert (kein manuelles `types.ts`-Editing).
+- Status-Konstanten in `useAdminContractorList.ts` (`ONBOARDING_STATUS_LABELS`, Icon/BG-Maps) um `ausgestiegen: 'Ausgestiegen'` ergänzen.
+- Reaktivierung eines ausgestiegenen/gefeuerten Technikers bleibt manuell über das Detail-Dropdown möglich (setzt Status zurück auf `in_progress`, Trigger nullt das Austrittsdatum).
+- Trainer-Flag bleibt unangetastet (auf Wunsch nicht gewählt).
 
-### 2. Frontend defensiv machen (kein Silent-Fail mehr)
-`src/components/OnboardingScreen.tsx`
-- `onPraxistestEinreichen`: `try/catch` mit `toast.error(err.message ?? 'Einreichen fehlgeschlagen — bitte erneut versuchen.')`. Local-State `setPraxistestEingereicht(true)` nur im Success-Pfad.
-- `handleQuizComplete`: lokalen State erst **nach** erfolgreichem RPC setzen; bei Fehler `toast.error` + lokalen Flag nicht setzen, damit DB und UI nicht auseinanderlaufen.
-- `onPraxistestVideoUpload`: Upload-Fehler ebenfalls als Toast surface'n (aktuell nur `finally`).
+## Out of Scope
 
-`src/components/onboarding/steps/PraxistestSection.tsx`
-- `handleSubmit`: Fehler explizit anzeigen statt nur `setIsSubmitting(false)`.
-
-### 3. Datenkorrektur Alexandra Jaap (einmaliger Reset, damit sie sauber neu einreichen kann)
-Nichts schreiben, bis die obigen Fixes live sind. Danach **eine** der zwei Optionen je nach Realität:
-
-a) **Sie hat den Akademie-Abschlusstest tatsächlich gemacht** (per Telefon prüfen):  
-  `akademie_test_bestanden=TRUE` setzen via bestehendem RPC `update_contractor_akademie_test_bestanden` (Admin-Variante notfalls neu, siehe 4) — danach kann sie Praxistest direkt hochladen.
-
-b) **Sie hat ihn nicht gemacht**: nichts ändern, sie macht den Quiz nochmal — diesmal wird der Fortschritt dank Fix 2 sauber in der DB landen.
-
-Aktuell sind ohnehin `praxistest_scan_url`/`_video_url`/`_eingereicht_am` alle NULL, es gibt nichts „halb-Eingereichtes" zu bereinigen.
-
-### 4. (optional, falls Innendienst Alexandra direkt anschieben soll) Admin-Overload für Akademie-Test
-Analog zum Praxistest einen `p_target_profile_id`-Parameter ergänzen (Admin-Guard via `thermocheck.is_innendienst()`), damit der Innendienst sie ohne SQL-Eingriff freischalten kann.
-
-### 5. Validierung (Pflicht-7-Schritt-Protokoll)
-1. Migration deployen, beide Overloads in `pg_proc` prüfen.
-2. Edge-Free RPC-Test: `select update_contractor_praxistest('https://x','https://y')` als Techniker → erwartet success, `praxistest_eingereicht_am` & `aktualisiert_am` gesetzt.
-3. UI-Flow im Admin-Preview-Mode für einen Test-Techniker durchklicken (Upload Video, Autarc-Link, Einreichen) — Toast bei Erfolg, Toast bei provoziertem Fehler.
-4. Alexandras Datensatz nach ihrer erneuten Einreichung erneut abfragen: `praxistest_eingereicht_am IS NOT NULL`.
-5. Trainer-Queue (`TrainerPraxistestQueue`) zeigt Alexandra nach Einreichung an → Trainer kann freigeben → `praxistest_freigabe=true` → sie kommt in Schritt `coaching`/`nachweise`.
-6. Lighthouse/Console: keine neuen Fehler.
-7. Memory `mem://features/coaching/praxistest-system` ergänzen: „RPC schreibt `aktualisiert_am`, Frontend toastet Fehler, kein Silent-Fail".
-
----
-
-## Was der User danach sieht
-- Klick auf „Praxistest einreichen" → entweder grüner Toast „Eingereicht, warte auf Trainer-Freigabe" und der Bereich klappt um auf den Warte-Zustand, oder ein klarer roter Toast mit Fehlertext (nie mehr „nichts passiert").
-- Der Praxistest erscheint im Trainer-Hub und kann freigegeben werden — sauber, transaktional, ohne LocalStorage-Drift.
+- Login-Sperre (Auth-User deaktivieren) — nicht gewählt
+- Trainer-Flag automatisch entfernen — nicht gewählt
+- Eigener "Ehemalige"-Tab — nicht gewählt, nur Suche
