@@ -313,6 +313,31 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
           </div>
         )}
 
+        {/* ── Admin-Orchestrierung ── */}
+        {isAdmin && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <Settings2 className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Admin-Orchestrierung</p>
+            </div>
+            <AdminStepOverride
+              profileId={c.profileId}
+              currentStep={c.currentStep}
+              contractorName={displayName}
+            />
+            <AdminCoachingAssignment
+              traineeProfileId={c.profileId}
+              traineeName={displayName}
+            />
+            <AdminPraxistestActions
+              onboardingId={c.id}
+              contractorName={displayName}
+              praxistestEingereicht={c.praxistestEingereicht}
+              praxistestFreigabe={c.praxistestFreigabe}
+            />
+          </div>
+        )}
+
         {/* ── Detail Accordions ── */}
         <Accordion type="multiple" className="space-y-2">
           {/* Dokumente */}
