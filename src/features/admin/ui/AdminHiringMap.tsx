@@ -325,6 +325,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
         const actionsHtml = isInaktiv
           ? `<button data-action="reactivate" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(142,71%,45%);background:hsl(142,71%,45%);color:white;border-radius:6px;cursor:pointer;">▶ Reaktivieren</button>`
           : `<button data-action="pause" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(45,93%,47%);background:hsl(45,93%,47%);color:white;border-radius:6px;cursor:pointer;">⏸ Pausieren</button>
+             <button data-action="exit" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(25,85%,50%);background:hsl(25,85%,50%);color:white;border-radius:6px;cursor:pointer;">↩ Ausgestiegen</button>
              <button data-action="fire" style="flex:1;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid hsl(0,84%,55%);background:hsl(0,84%,55%);color:white;border-radius:6px;cursor:pointer;">🚫 Feuern</button>`;
         const trainerBadgeHtml = c.isTrainer
           ? `<div style="display:inline-block;margin-left:6px;padding:1px 6px;background:hsl(280,70%,55%);color:white;font-size:10px;font-weight:700;border-radius:8px;vertical-align:middle;">★ TRAINER</div>`
@@ -368,6 +369,7 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
         if (
           action === 'pause' ||
           action === 'fire' ||
+          action === 'exit' ||
           action === 'reactivate' ||
           action === 'promote-trainer' ||
           action === 'demote-trainer'
@@ -485,14 +487,17 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           description: `${pendingAction.contractorName} ${promote ? 'ist jetzt Trainer.' : 'ist kein Trainer mehr.'}`,
         });
       } else {
-        await setContractorOnboardingStatus(pendingAction.onboardingId, pendingAction.action);
+        const { unassigned } = await setContractorOnboardingStatus(pendingAction.onboardingId, pendingAction.action);
         const verbPast =
           pendingAction.action === 'pause' ? 'pausiert'
           : pendingAction.action === 'fire' ? 'endgültig deaktiviert'
+          : pendingAction.action === 'exit' ? 'als ausgestiegen markiert'
           : 'reaktiviert';
         toast({
           title: `Techniker ${verbPast}`,
-          description: `${pendingAction.contractorName} wurde erfolgreich ${verbPast}.`,
+          description: unassigned > 0
+            ? `${pendingAction.contractorName} wurde erfolgreich ${verbPast} · ${unassigned} Aufträge zurück in Pool.`
+            : `${pendingAction.contractorName} wurde erfolgreich ${verbPast}.`,
         });
       }
       setPendingAction(null);
@@ -515,10 +520,17 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
           confirmText: 'Pausieren',
           destructive: false,
         }
+      : pendingAction.action === 'exit'
+      ? {
+          title: 'Techniker als ausgestiegen markieren?',
+          desc: `${pendingAction.contractorName} wird als „Ausgestiegen" markiert (freiwilliger Austritt). Offene Thermocheck-/Einweisungs-Aufträge gehen automatisch zurück in den Pool. Kann von einem Admin rückgängig gemacht werden.`,
+          confirmText: 'Als ausgestiegen markieren',
+          destructive: false,
+        }
       : pendingAction.action === 'fire'
       ? {
           title: 'Techniker endgültig deaktivieren?',
-          desc: `${pendingAction.contractorName} wird gefeuert und verschwindet komplett aus der Map sowie aus allen aktiven Listen. Diese Aktion kann nur durch einen Admin manuell rückgängig gemacht werden.`,
+          desc: `${pendingAction.contractorName} wird gefeuert und verschwindet komplett aus der Map sowie aus allen aktiven Listen. Offene Aufträge gehen zurück in den Pool. Diese Aktion kann nur durch einen Admin manuell rückgängig gemacht werden.`,
           confirmText: 'Endgültig deaktivieren',
           destructive: true,
         }
