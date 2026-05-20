@@ -23,6 +23,7 @@ interface PraxistestSectionProps {
   onVideoUpload: (file: File) => Promise<void>;
   onEinreichen: () => Promise<void>;
   isUploading?: boolean;
+  onboardingId?: string;
   // Admin preview props
   isPreview?: boolean;
   contractors?: ContractorOption[];
