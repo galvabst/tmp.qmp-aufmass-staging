@@ -107,6 +107,8 @@ export interface AdminContractor {
   // Praxistest
   praxistestEingereicht: boolean;
   praxistestFreigabe: boolean;
+  scanFreigegeben: boolean;
+  videoFreigegeben: boolean;
   // Intern
   vertragGeprueft: boolean;
   kleidungBestellt: boolean;
