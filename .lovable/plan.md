@@ -1,60 +1,101 @@
 ## Ziel
 
-Innendienst soll Techniker sauber aus dem Onboarding/Aktiv-System entfernen können, ohne historische Daten zu verlieren. Drei klar getrennte Austrittsgründe, automatische Bereinigung offener Aufträge, und Ehemalige bleiben per Suche auffindbar.
+Admin/Innendienst soll an drei Stellen manuell eingreifen können — **mit exakt der gleichen DB-Wirkung**, als hätte es Trainee/Trainer selbst gemacht. Alle Aktionen laufen über `SECURITY DEFINER` RPCs mit `is_innendienst()`-Check (kein Bypass per Frontend).
 
-## Drei Austrittsstufen
+---
 
-| Aktion | Status | Reversibel | Sichtbar in |
-|---|---|---|---|
-| **Pausieren** (bestehend) | `inaktiv` | ✅ Reaktivieren | Eigener "Inaktiv"-Tab |
-| **Ausgestiegen** (neu) | `ausgestiegen` | nur manuell | Nur per Suche |
-| **Gefeuert** (bestehend) | `gefeuert` | nur manuell | Nur per Suche |
+## 1. Coaching-Mitfahrt manuell zuweisen
 
-`ausgestiegen` = freiwilliger Ausstieg (z.B. Jonas Magdeburg, Justin Balk, Olaf Markmann).
-`gefeuert` = unfreiwillige Trennung (Performance, Fehlverhalten).
+**Wo:** Admin → Techniker-Detail → neuer Abschnitt „Coaching-Mitfahrt orchestrieren" (sichtbar wenn `current_step` ≤ coaching ODER noch keine Bewertung).
 
-## Datenbank-Änderungen
+**Flow:**
+1. Trainer auswählen (Dropdown aller `is_trainer = true`)
+2. Auftrag dieses Trainers wählen — Liste aller `thermocheck_auftraege` mit `zugewiesener_techniker_id = trainer` **inkl. vergangener Daten** (Nacherfassung), mit Termin-Anzeige + Hinweis ob schon belegt
+3. Bestätigen → RPC `admin_book_coaching_ride(p_trainee_profile_id, p_auftrag_id)`
 
-1. **Enum erweitern**: `thermocheck.contractor_onboarding_status_enum` um Wert `ausgestiegen` ergänzen.
-2. **Neue Spalten** auf `thermocheck.contractor_onboarding`:
-   - `austritts_datum timestamptz` (automatisch via Trigger gesetzt)
-   - `austritts_grund text` (optionale Notiz vom Innendienst)
-3. **Trigger** `set_austritts_datum_trg`: setzt `austritts_datum=now()` automatisch sobald `onboarding_status` auf `inaktiv`/`ausgestiegen`/`gefeuert`/`deaktiviert` wechselt; setzt es zurück auf `NULL` bei Reaktivierung.
-4. **SECURITY DEFINER RPC** `thermocheck.set_contractor_austritt(p_onboarding_id uuid, p_status text, p_grund text)`:
-   - Prüft `is_innendienst()` (Standardpattern)
-   - Validiert `p_status ∈ {inaktiv, ausgestiegen, gefeuert, in_progress}`
-   - Update Status + Notiz
-   - Bei `ausgestiegen`/`gefeuert`: setzt `zugewiesener_techniker_id = NULL` auf allen offenen Aufträgen dieses Technikers (Status ≠ abgeschlossen/storniert) → Aufträge fallen automatisch zurück in den Pool
-   - Alles in einer DB-Transaktion (transaktionales Pattern, kein Teil-Fehlschlag)
+**RPC-Verhalten** (identisch zu `book_coaching_ride`, nur:
+- Auth-Check: `is_innendienst()` statt `auth.uid()`
+- `coaching_gebucht_von` = **Trainee** (nicht Caller)
+- Override-Flag: erlaubt auch wenn Trainee bereits Buchung hat (alte wird gelöscht / Hinweis)
+- Setzt `gebuchter_coaching_termin` + `gebuchter_coach_name` auf Trainee-Onboarding wie das Original.
 
-## Frontend-Änderungen
+---
 
-### `useAdminContractorList`
-- Default-Filter erweitern: `.not('onboarding_status', 'in', '("deaktiviert","gefeuert","ausgestiegen")')`
-- **Ausnahme**: wenn Suchquery aktiv → zusätzliche Query, die auch ehemalige Techniker (deaktiviert/gefeuert/ausgestiegen) einschließt, damit Jonas/Justin/Olaf über Namenssuche gefunden werden.
-- Neue Felder `austrittsDatum`, `austrittsGrund` mappen.
+## 2. Onboarding-Step manuell setzen
 
-### `ContractorListView`
-- Dropdown im Card-Menü → drei Optionen statt zwei:
-  - "Pausieren" (Pause-Icon)
-  - "Ausgestiegen" (LogOut-Icon, neutral)
-  - "Endgültig deaktivieren" (Ban-Icon, destruktiv)
-- Bestätigungsdialog erweitert: optionales `<Textarea>` für Grund/Notiz.
-- Wenn aktuell ein Suchbegriff eingegeben ist: oberhalb der Trefferliste dezenter Hinweis "Suche zeigt auch ehemalige Techniker (X gefunden)".
-- Ehemalige Cards: grau, durchgestrichen, Status-Badge in Sekundärfarbe + kleines Datum "Ausgestiegen 12.03.2025".
+**Wo:** Admin → Techniker-Detail → Step-Liste (bereits sichtbar). Neuer Button „Step setzen" pro Step (Admin only).
 
-### `useAdminHiringMap`
-- Filter erweitern um `ausgestiegen` → keine ehemaligen Techniker mehr auf der Karte.
+**RPC:** `admin_set_onboarding_step(p_profile_id, p_target_step)`
+- Validiert Step ∈ ALL_STEPS ∪ {'einsatzbereit'}
+- Setzt `current_step = p_target_step`
+- `completed_steps` = alle Steps **vor** dem Ziel-Step
+- Bei Sprung nach `einsatzbereit`: `onboarding_status = 'ready'`, sonst zurück auf `in_progress`
+- Audit: `aktualisiert_am = now()`
 
-## Technische Details
+---
 
-- TypeScript-Types werden nach Migration vom Lovable-Pipeline regeneriert (kein manuelles `types.ts`-Editing).
-- Status-Konstanten in `useAdminContractorList.ts` (`ONBOARDING_STATUS_LABELS`, Icon/BG-Maps) um `ausgestiegen: 'Ausgestiegen'` ergänzen.
-- Reaktivierung eines ausgestiegenen/gefeuerten Technikers bleibt manuell über das Detail-Dropdown möglich (setzt Status zurück auf `in_progress`, Trigger nullt das Austrittsdatum).
-- Trainer-Flag bleibt unangetastet (auf Wunsch nicht gewählt).
+## 3. Praxistest manuell freigeben/ablehnen
 
-## Out of Scope
+**Wo:** Admin → Techniker-Detail → neue Aktions-Zeile im Praxistest-Block. Auch wenn `praxistest_eingereicht_am IS NULL`.
 
-- Login-Sperre (Auth-User deaktivieren) — nicht gewählt
-- Trainer-Flag automatisch entfernen — nicht gewählt
-- Eigener "Ehemalige"-Tab — nicht gewählt, nur Suche
+**RPCs:**
+- `approve_contractor_praxistest` (existiert) → wird wiederverwendet für Freigabe
+- Neu: `admin_reject_praxistest(p_onboarding_id, p_notiz)` → setzt `praxistest_freigabe = false`, `praxistest_scan_url`/`praxistest_video_url` = NULL, Trainee muss neu einreichen. Notiz wird in `interner_kommentar` angehängt.
+
+---
+
+## Technik
+
+### DB-Migration (1 Migration, 3 RPCs)
+```sql
+-- alle SECURITY DEFINER, search_path = thermocheck, public
+-- Auth: IF NOT thermocheck.is_innendienst() THEN raise/return error END IF;
+
+CREATE OR REPLACE FUNCTION thermocheck.admin_book_coaching_ride(
+  p_trainee_profile_id uuid,
+  p_auftrag_id uuid
+) RETURNS jsonb ...
+
+CREATE OR REPLACE FUNCTION thermocheck.admin_set_onboarding_step(
+  p_profile_id uuid,
+  p_target_step text
+) RETURNS jsonb ...
+
+CREATE OR REPLACE FUNCTION thermocheck.admin_reject_praxistest(
+  p_onboarding_id uuid,
+  p_notiz text DEFAULT NULL
+) RETURNS jsonb ...
+
+-- + public wrapper für jede RPC (sql, SECURITY DEFINER)
+```
+
+### Frontend
+| Datei | Änderung |
+|---|---|
+| `src/features/contractors/hooks/useAdminContractorActions.ts` (NEU, <200 LOC) | 3 React-Query Mutations + Hook für „verfügbare Trainer-Aufträge" |
+| `src/features/contractors/ui/AdminCoachingAssignment.tsx` (NEU, <200 LOC) | UI-Card mit Trainer-/Auftrag-Picker + Bestätigungs-Dialog |
+| `src/features/contractors/ui/AdminStepOverride.tsx` (NEU, <150 LOC) | Step-Dropdown + Bestätigungs-Dialog |
+| `src/features/contractors/ui/AdminPraxistestActions.tsx` (NEU, <150 LOC) | Freigeben + Ablehnen Buttons mit Notiz |
+| `src/features/contractors/ui/ContractorDetailView.tsx` | 3 neue Sektionen einhängen, hinter `useIsAdmin()`-Gate |
+
+### Sicherheit & Konventionen
+- Alle RPCs prüfen `thermocheck.is_innendienst()` → Verstoß = `jsonb {success:false, message:'Unzureichende Berechtigung'}`
+- `FOR UPDATE` Locks wo State-Übergänge stattfinden
+- Explizites `{ error }`-Handling im Frontend (Memory: Supabase Error Protocol)
+- Bestätigungs-Dialoge mit klarem Warntext (irreversibel / überschreibt Historie)
+- Audit-Spalten: `aktualisiert_am`, bei coaching ride `coaching_gebucht_am = now()`
+
+---
+
+## Out of Scope (bewusst)
+- Manuelle Coaching-Bewertung durch Admin (bereits Teil eines vorherigen Tasks)
+- Free-form Datum ohne Auftrag (Nacherfassung läuft über existierende Trainer-Aufträge)
+- Bulk-Operationen über mehrere Techniker
+
+---
+
+## Reihenfolge
+1. DB-Migration (3 RPCs + Wrapper) → Approval abwarten
+2. Hook + 3 UI-Komponenten
+3. In `ContractorDetailView` einhängen
+4. Manuelle Verifikation in `/admin` → Techniker auswählen → 3 neue Sektionen testen
