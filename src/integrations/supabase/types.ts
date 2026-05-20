@@ -12427,6 +12427,10 @@ export type Database = {
         Args: { p_onboarding_id: string }
         Returns: undefined
       }
+      approve_praxistest_komponente: {
+        Args: { p_komponente: "scan" | "video"; p_onboarding_id: string }
+        Returns: undefined
+      }
       assign_lead_to_bestellung: {
         Args: { p_lead_id: string }
         Returns: string
@@ -14500,6 +14504,10 @@ export type Database = {
       }
       register_anrufversuch: {
         Args: { p_arbeitspaket_id: string }
+        Returns: Json
+      }
+      reject_contractor_praxistest: {
+        Args: { p_components: Json; p_onboarding_id: string }
         Returns: Json
       }
       repair_thc_orphaned_pipeline_state: {
