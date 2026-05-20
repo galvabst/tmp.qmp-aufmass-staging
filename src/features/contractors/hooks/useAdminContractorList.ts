@@ -283,6 +283,8 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       gewerbescheinSpaeter: o.gewerbeschein_spaeter ?? false,
       praxistestEingereicht: !!o.praxistest_eingereicht_am,
       praxistestFreigabe: o.praxistest_freigabe ?? false,
+      scanFreigegeben: (o as any).praxistest_scan_freigegeben ?? false,
+      videoFreigegeben: (o as any).praxistest_video_freigegeben ?? false,
       mitfahrtTermin: o.mitfahrt_termin ?? null,
       mitfahrtBezahltAm: o.mitfahrt_bezahlt_am ?? null,
       einweisungFreigabe: o.einweisung_freigabe ?? false,
