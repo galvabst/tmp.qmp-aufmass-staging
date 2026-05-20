@@ -166,19 +166,9 @@ export function useMyAssignedOrders() {
         throw new Error("Failed to fetch assigned auftraege");
       }
 
-      const auftraegeRaw: AuftragRow[] = await auftraegeRes.json();
-      // Filter out lost/cancelled auftraege ONLY if the Thermocheck never took place
-      // (no vor_ort_checkin_at). Orders where the check-in already happened stay
-      // visible for history/billing — even if they later moved to verloren/storno.
-      const auftraege = auftraegeRaw.filter(a => {
-        const isTerminal =
-          (a.pipeline_status && TERMINAL_PIPELINE_STATUSES.has(a.pipeline_status)) ||
-          !!a.storno_datum;
-        if (!isTerminal) return true;
-        // Terminal but the appointment already took place → keep it
-        return !!a.vor_ort_checkin_at;
-      });
+      const auftraege: AuftragRow[] = await auftraegeRes.json();
       if (!auftraege.length) return [];
+
 
 
       const auftragIds = auftraege.map(a => a.id);
