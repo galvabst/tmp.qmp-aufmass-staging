@@ -118,6 +118,9 @@ export interface AdminContractor {
   mitfahrtBezahltAm: string | null;
   // Freigaben
   einweisungFreigabe: boolean;
+  // Austritt (für ehemalige Techniker)
+  austrittsDatum: string | null;
+  austrittsGrund: string | null;
 }
 
 // ── Fetcher ──
