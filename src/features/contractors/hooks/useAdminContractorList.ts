@@ -130,7 +130,7 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   const { data: onboardings, error: onbErr } = await (supabaseTC
     .from('contractor_onboarding')
     .select('*')
-    .not('onboarding_status', 'in', '("deaktiviert","gefeuert")') as any);
+    .not('onboarding_status', 'in', '("deaktiviert")') as any);
   if (onbErr) throw onbErr;
   if (!onboardings?.length) return [];
 
