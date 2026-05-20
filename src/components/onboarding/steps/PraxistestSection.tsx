@@ -48,6 +48,7 @@ export function PraxistestSection({
   onVideoUpload,
   onEinreichen,
   isUploading = false,
+  onboardingId,
   isPreview = false,
   contractors = [],
   selectedContractorId,
@@ -55,6 +56,7 @@ export function PraxistestSection({
 }: PraxistestSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: feedback = [] } = usePraxistestFeedback(onboardingId);
 
   // Only show after theoretical test is passed
   if (!testBestanden) return null;
@@ -85,6 +87,8 @@ export function PraxistestSection({
       </div>
     );
   }
+
+  const hasFeedback = feedback.length > 0;
 
   const canSubmit = scanUrl.trim().length > 0 && videoUrl.length > 0 && !isSubmitting && !isUploading
     && (!isPreview || !!selectedContractorId);
