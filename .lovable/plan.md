@@ -1,46 +1,43 @@
-# Bugfix: Bestätigungs-Dialog in Hiring-Map nicht schließbar
+## Ziel
+Michel Süße und Brian Maina als Coaching-Mitfahrer bei Arthur Penner eintragen, sodass Arthur sie in seinem Trainer-Tab unter „Vergangene Mitfahrten" sieht und mit *Bestanden* freigeben kann.
 
-## Problem
+## Treffer in der DB
 
-In der Admin-Hiring-Map öffnet ein Klick auf einen Techniker-Marker das Popup mit Aktions-Buttons (Pausieren, Ausgestiegen, Feuern, …). Beim Klick auf z.B. „Als ausgestiegen markieren" erscheint zwar der Bestätigungs-Dialog mit dem Titel — aber:
+| Trainee | Datum | Ort | Auftrag-ID | Kunde |
+|---|---|---|---|---|
+| Michel Süße | 24.04.2026 | Chemnitz (09224) | `ac1db288-…5b3f8f26577a` | Michael Gerlach |
+| Brian Maina | 22.04.2026 | Witten (58453) | `b3ccb43a-…0a2a2e8c40f6` | Heinz Hetschold |
+| Brian Maina | 22.04.2026 | Essen (45133) | `9f99fdcf-…4e73b4373987` | Erik Kolstø |
 
-- Kein abdunkelnder Hintergrund (Overlay fehlt visuell)
-- Beschreibungstext und Buttons („Abbrechen" / „Bestätigen") sind nicht klickbar
-- ESC und Klick außerhalb funktionieren nicht
-- User sitzt fest auf der Map-Ansicht
+Aalen am 22.04. (von dir erwähnt) existiert bei Arthur nicht — wird weggelassen.
 
-## Ursache
+## Wichtige Einschränkung der bestehenden RPC
+`admin_book_coaching_ride` erlaubt pro Trainee nur **eine aktive** Buchung mit `coaching_bewertung = 'ausstehend'`. Eine zweite Buchung würde die erste automatisch wieder freigeben.
 
-Leaflet rendert seine Karten-Panes mit hohen, hartkodierten z-index-Werten (Map-Container `z-index: 400`, Popups `z-index: 700`, Controls `z-index: 1000`). Der Radix `AlertDialog` aus shadcn nutzt per Default `z-50` für Overlay und Content. Dadurch liegt der gesamte Dialog **unter** der Leaflet-Karte — sichtbar ist nur der Teil, der zufällig über der Card-Header-Zeile liegt. Klicks gehen an die Karte, nicht an den Dialog.
+→ Für Brian müssen wir die beiden Buchungen **direkt mitbewerten**, sonst überschreibt die zweite die erste. Das bedeutet: ich buche die Mitfahrt **und** setze sie sofort auf `bestanden` (mit dir als `coaching_bewertung_von`, Notiz: „Nachträglich durch Innendienst eingetragen").
 
-## Fix
+Da Brian und Michel laut deiner Aussage sowieso „auf die Freigabe warten" und Arthur die Mitfahrten faktisch schon gemacht hat, ist das die saubere Lösung. Wenn du das nicht willst, sag Bescheid — dann buche ich pro Trainee nur einen Auftrag.
 
-Den `AlertDialog` in `src/features/admin/ui/AdminHiringMap.tsx` (Zeile ~753) so anpassen, dass Overlay und Content über Leaflet liegen:
+## Vorgehen (3 SQL-Schritte via `INSERT/UPDATE`-Tool, transaktional pro Trainee)
 
-- `AlertDialogContent` bekommt `className="z-[2000]"`
-- Das von Radix automatisch gerenderte Overlay separat erhöhen, indem ein expliziter `AlertDialogOverlay` mit `className="z-[1999]"` davor gerendert wird (shadcn-AlertDialog erlaubt das via Komposition)
+1. **Michel Süße** auf Chemnitz-Auftrag buchen + direkt `bestanden`
+   - `admin_book_coaching_ride(michel_profile, ac1db288…)` → setzt `coaching_gebucht_von`, aktualisiert Onboarding (`gebuchter_coaching_termin`, `gebuchter_coach_name`)
+   - `bewerte_coaching_mitfahrt(ac1db288…, 'bestanden', 'Nachträglich eingetragen')` → schaltet Onboarding frei (Step → `nachweise`)
 
-Alternativ — und sauberer für den ganzen Admin-Bereich — eine globale CSS-Regel in `src/index.css`:
+2. **Brian Maina** auf Witten-Auftrag → buchen + `bestanden`
+   - gleiche zwei Calls mit `b3ccb43a…`
+   - schaltet Brians Onboarding frei
 
-```css
-/* Leaflet darf Radix-Dialoge/Popovers/Toasts nicht überdecken */
-.leaflet-pane,
-.leaflet-top,
-.leaflet-bottom { z-index: 30 !important; }
-.leaflet-popup-pane { z-index: 40 !important; }
-```
+3. **Brian Maina** auf Essen-Auftrag → buchen + `bestanden`
+   - gleiche zwei Calls mit `9f99fdcf…`
+   - Onboarding ist schon frei, aber Auftrag erscheint zusätzlich in Arthurs Verlauf
 
-Ich empfehle den **globalen CSS-Fix**, weil:
-- Er auch andere Dialoge/Tooltips/Toasts/Popovers über der Map automatisch fixt (z.B. Sheet-Komponenten, Sonner-Toasts)
-- Die Leaflet-Controls (+/−) und Popups bleiben über der Karte, nur die globale Schicht (z-50+) gewinnt
-- Keine Änderung pro Dialog nötig
+Falls einer der Schritte fehlschlägt, bricht der Plan an dieser Stelle ab und meldet den Fehler — keine halbgaren Zustände.
 
-## Technische Details
+## Validierung danach
+- `SELECT id, coaching_gebucht_von, coaching_bewertung FROM thermocheck_auftraege WHERE id IN (3 IDs)` → alle drei zeigen den richtigen Trainee + `bestanden`
+- `SELECT current_step, coaching_freigabe FROM contractor_onboarding WHERE profile_id IN (Michel, Brian)` → beide auf `nachweise` (oder weiter)
+- In Arthurs Trainer-Tab unter „Vergangene Mitfahrten" tauchen 3 Karten mit Badge **Bestanden** auf
 
-**Geänderte Dateien:**
-- `src/index.css` — neue Sektion „Leaflet z-index normalisieren" am Ende
-
-**Verifikation:**
-- Browser auf /admin: Marker klicken → „Ausgestiegen" → Dialog erscheint mit Overlay, „Abbrechen" schließt sauber, ESC funktioniert
-- Map-Funktionalität (Zoom, Popup-Buttons, Heatmap-Layer) bleibt erhalten
-- Sonner-Toasts erscheinen weiterhin über der Karte
+## Was du tun musst
+Nur freigeben. Ich führe alle DB-Operationen aus, sobald du den Plan akzeptierst.
