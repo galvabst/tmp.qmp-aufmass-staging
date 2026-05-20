@@ -4340,6 +4340,7 @@ export type Database = {
           bestellung_id: string | null
           campaign_id: string | null
           created_at: string
+          direct_close: boolean
           empfohlen_von_mb_id: string | null
           erstelldatum_crm: string
           feinaufmass_status:
@@ -4412,6 +4413,7 @@ export type Database = {
           bestellung_id?: string | null
           campaign_id?: string | null
           created_at?: string
+          direct_close?: boolean
           empfohlen_von_mb_id?: string | null
           erstelldatum_crm?: string
           feinaufmass_status?:
@@ -4484,6 +4486,7 @@ export type Database = {
           bestellung_id?: string | null
           campaign_id?: string | null
           created_at?: string
+          direct_close?: boolean
           empfohlen_von_mb_id?: string | null
           erstelldatum_crm?: string
           feinaufmass_status?:
