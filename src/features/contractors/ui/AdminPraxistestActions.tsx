@@ -1,25 +1,22 @@
 import { useState } from 'react';
 import { Loader2, ShieldCheck, ShieldX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAdminRejectPraxistest } from '../hooks/useAdminContractorActions';
+import { PraxistestFeedbackDialog } from '@/features/praxistest-feedback/ui/PraxistestFeedbackDialog';
 
 interface Props {
   onboardingId: string;
   contractorName: string;
   praxistestEingereicht: boolean;
   praxistestFreigabe: boolean;
+  scanFreigegeben?: boolean;
+  videoFreigegeben?: boolean;
 }
 
-export function AdminPraxistestActions({ onboardingId, contractorName, praxistestEingereicht, praxistestFreigabe }: Props) {
+export function AdminPraxistestActions({ onboardingId, contractorName, praxistestEingereicht, praxistestFreigabe, scanFreigegeben = false, videoFreigegeben = false }: Props) {
   const qc = useQueryClient();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [notiz, setNotiz] = useState('');
