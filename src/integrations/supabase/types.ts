@@ -11965,16 +11965,25 @@ export type Database = {
           email: string | null
           id: string | null
           name: string | null
+          taetigkeit:
+            | Database["public"]["Enums"]["verkaeufer_taetigkeit_enum"]
+            | null
         }
         Insert: {
           email?: string | null
           id?: string | null
           name?: string | null
+          taetigkeit?:
+            | Database["public"]["Enums"]["verkaeufer_taetigkeit_enum"]
+            | null
         }
         Update: {
           email?: string | null
           id?: string | null
           name?: string | null
+          taetigkeit?:
+            | Database["public"]["Enums"]["verkaeufer_taetigkeit_enum"]
+            | null
         }
         Relationships: []
       }
