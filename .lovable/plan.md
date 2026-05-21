@@ -1,26 +1,16 @@
-## Befund
+## Problem
 
-Die letzte Änderung ist noch nicht ausreichend: Die App fragt jetzt zwar `v_thermocheck_auftraege` ab, aber diese View enthält die Spalten `coaching_gebucht_von` und `coaching_bewertung` nicht. Dadurch antwortet Supabase mit `400` und der Dropdown bleibt leer.
+Beim manuellen Setzen eines Onboarding-Steps (z. B. auf „coaching") wirft die Datenbank den Fehler `column "updated_at" of relation "contractor_onboarding" does not exist`.
 
-## Plan
+Die Tabelle `thermocheck.contractor_onboarding` folgt der Projekt-Konvention und nutzt `aktualisiert_am` (deutscher Spaltenname). Die RPC `thermocheck.admin_set_onboarding_step` greift jedoch fälschlich auf `updated_at` zu (an zwei Stellen).
 
-1. **Query robust korrigieren**
-   - In `useTrainerAuftraege` wieder die Basistabelle `thermocheck_auftraege` für die Coaching-Spalten verwenden.
-   - Dort nur technische Auftragsdaten laden: `id`, `lead_id`, `coaching_gebucht_von`, `coaching_bewertung`, `zugewiesener_techniker_id`.
+## Fix
 
-2. **Kundendaten getrennt laden**
-   - Die zugehörigen `lead_id`s sammeln.
-   - Kundennamen und Ort separat aus `leads` laden.
-   - Das folgt der vorhandenen Projektlogik aus `useCoachingSlots` und vermeidet die kaputte View-Spaltenmischung.
+Eine Migration: die RPC `thermocheck.admin_set_onboarding_step(p_profile_id uuid, p_target_step text)` per `CREATE OR REPLACE FUNCTION` neu definieren und beide `updated_at = now()` durch `aktualisiert_am = now()` ersetzen. Logik, Signatur und Rückgaben bleiben 1:1 identisch.
 
-3. **Termine wie bisher laden**
-   - `thermocheck_terminvorschlaege` bleibt unverändert.
-   - Danach Aufträge, Kundendaten und Termine sauber zusammenführen.
+Kein Frontend-Code muss geändert werden — der Wrapper `public.admin_set_onboarding_step` bleibt unverändert.
 
-4. **Fehler sichtbar behandeln**
-   - Supabase-Fehler weiter explizit werfen, damit nicht wieder still `[]` angezeigt wird.
-   - React Query invalidation bleibt unverändert.
+## Validierung
 
-## Ergebnis
-
-Arthur sollte danach seine vorhandenen Aufträge im Mitfahrt-/Coaching-Dropdown sehen, ohne Datenbankmigration und ohne Änderung an anderen Trainer- oder Auftragslisten.
+- Nach Migration: in der Detailansicht eines Contractors „Step setzen" → `coaching` → erwartet `success: true`, `current_step = 'coaching'`, `completed_steps = ['profil','dokumente','bestellungen','equipment','akademie']`, `aktualisiert_am` aktualisiert.
+- Auch „einsatzbereit" testen → `onboarding_status = 'ready'`.
