@@ -32,6 +32,7 @@ const App = () => (
           <Route path="/set-password" element={<SetPassword />} />
           <Route path="/akademie/modul/:modulId" element={<AkademieModul />} />
           <Route path="/thermocheck/aufmass/:auftragId" element={<Suspense fallback={<div className="p-4">Laden...</div>}><AufmassFormPage /></Suspense>} />
+          <Route path="/thermocheck/aufstellort-check/:auftragId" element={<Suspense fallback={<div className="p-4">Laden...</div>}><AufstellortCheckPage /></Suspense>} />
           <Route 
             path="/admin" 
             element={
