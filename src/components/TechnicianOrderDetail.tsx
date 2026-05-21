@@ -598,6 +598,19 @@ Mit freundlichen Grüßen`;
           />
         )}
 
+        {/* ── Aufstellort-Check (vor-Ort, vor dem Formular) ── */}
+        {!isPoolOrder && !isSubmitted && !isApproved && (
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full rounded-2xl border-primary/40 bg-primary/5 text-primary hover:bg-primary/10 text-base font-semibold h-12"
+            onClick={() => navigate(`/thermocheck/aufstellort-check/${order.auftragId || order.id}`)}
+          >
+            <MapPin className="w-5 h-5 mr-2" />
+            AI-Aufstellort-Check (vor Ort)
+          </Button>
+        )}
+
         {/* ── Aufmaß Button ── */}
         {!isPoolOrder && (
           <Button

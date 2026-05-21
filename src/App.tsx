@@ -12,6 +12,7 @@ import AkademieModul from "./pages/AkademieModul";
 import NotFound from "./pages/NotFound";
 import { lazy, Suspense } from "react";
 const AufmassFormPage = lazy(() => import("@/features/aufmass/ui/AufmassFormPage"));
+const AufstellortCheckPage = lazy(() => import("@/features/aufmass/ui/AufstellortCheckPage"));
 import { ProtectedAdminRoute } from "@/components/auth/ProtectedAdminRoute";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/set-password" element={<SetPassword />} />
           <Route path="/akademie/modul/:modulId" element={<AkademieModul />} />
           <Route path="/thermocheck/aufmass/:auftragId" element={<Suspense fallback={<div className="p-4">Laden...</div>}><AufmassFormPage /></Suspense>} />
+          <Route path="/thermocheck/aufstellort-check/:auftragId" element={<Suspense fallback={<div className="p-4">Laden...</div>}><AufstellortCheckPage /></Suspense>} />
           <Route 
             path="/admin" 
             element={
