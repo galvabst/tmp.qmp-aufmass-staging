@@ -2,22 +2,96 @@ import { useState, useMemo } from 'react';
 import { AdminLayout } from '@/features/admin/ui/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Calendar, List, Map, Clock, CalendarX } from 'lucide-react';
+import { MapPin, Calendar, Map as MapIcon, CalendarX, Clock, AlertTriangle, Briefcase, UserCheck, Inbox } from 'lucide-react';
 import { FilterRow } from '@/components/FilterRow';
 import { OrderMap } from '@/components/OrderMap';
 import { ListSkeleton } from '@/components/ListSkeleton';
 import { Badge } from '@/components/ui/badge';
-import { useAdminPoolTermine } from '../hooks/useAdminObjectOrders';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAdminPoolTermine, type PoolKategorie, type AdminAuftrag } from '../hooks/useAdminObjectOrders';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 
-type KategorieFilter = 'alle' | 'mit_termin' | 'ohne_termin';
+type AgingFilter = 'alle' | 'gt2' | 'gt5';
+type TypFilter = 'alle' | 'thermocheck' | 'einweisung' | 'pv';
+
+const PIPELINE_LABELS: Record<string, string> = {
+  termin_abwarten: 'Termin abwarten',
+  termin_neubuchung: 'Neubuchung',
+  wc1_durchfuehren: 'WC1 durchführen',
+  termin_bestaetigt: 'Bestätigt',
+};
+
+const TYP_LABELS: Record<string, string> = {
+  thermocheck: 'Thermocheck',
+  einweisung: 'Einweisung',
+  pv: 'PV',
+};
+
+function getInitials(name: string | null) {
+  if (!name) return '–';
+  return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() || '').join('');
+}
+
+function getAgeColor(days: number | null): string {
+  if (days == null) return 'text-muted-foreground';
+  if (days >= 5) return 'text-red-600';
+  if (days >= 2) return 'text-amber-600';
+  return 'text-emerald-600';
+}
+
+function getBorderClass(a: AdminAuftrag): string {
+  if (a.kategorie === 'neubuchung') return 'border-l-orange-400';
+  if (a.kategorie === 'angenommen') return 'border-l-blue-400';
+  return 'border-l-muted';
+}
 
 export function ObjectOrderListView() {
   const { data: auftraege, isLoading } = useAdminPoolTermine();
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [showMap, setShowMap] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [kategorieFilter, setKategorieFilter] = useState<KategorieFilter>('alle');
+  const [kategorieFilter, setKategorieFilter] = useState<PoolKategorie>('frei');
+  const [typFilter, setTypFilter] = useState<TypFilter>('alle');
+  const [technikerFilter, setTechnikerFilter] = useState<string>('alle');
+  const [agingFilter, setAgingFilter] = useState<AgingFilter>('alle');
+
+  // KPIs
+  const kpis = useMemo(() => {
+    if (!auftraege) return { frei: 0, freiMitVorschlag: 0, angenommen: 0, neubuchung: 0, oldestDays: 0 };
+    const frei = auftraege.filter(a => a.kategorie === 'frei');
+    const oldestDays = frei.reduce((max, a) => Math.max(max, a.ageDays ?? 0), 0);
+    return {
+      frei: frei.length,
+      freiMitVorschlag: frei.filter(a => a.hasVorschlag).length,
+      angenommen: auftraege.filter(a => a.kategorie === 'angenommen').length,
+      neubuchung: auftraege.filter(a => a.kategorie === 'neubuchung').length,
+      oldestDays,
+    };
+  }, [auftraege]);
+
+  const counts = useMemo(() => {
+    if (!auftraege) return { alle: 0, frei: 0, angenommen: 0, neubuchung: 0 };
+    return {
+      alle: auftraege.length,
+      frei: auftraege.filter(a => a.kategorie === 'frei').length,
+      angenommen: auftraege.filter(a => a.kategorie === 'angenommen').length,
+      neubuchung: auftraege.filter(a => a.kategorie === 'neubuchung').length,
+    };
+  }, [auftraege]);
+
+  // Techniker-Dropdown source (alle eindeutig)
+  const technikerOptions = useMemo(() => {
+    if (!auftraege) return [] as { id: string; name: string }[];
+    const map = new Map<string, string>();
+    auftraege.forEach(a => {
+      if (a.technikerId && a.technikerName) map.set(a.technikerId, a.technikerName);
+    });
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((x, y) => x.name.localeCompare(y.name));
+  }, [auftraege]);
 
   const filtered = useMemo(() => {
     if (!auftraege) return [];
@@ -25,112 +99,217 @@ export function ObjectOrderListView() {
     if (kategorieFilter !== 'alle') {
       result = result.filter(a => a.kategorie === kategorieFilter);
     }
+    if (typFilter !== 'alle') {
+      result = result.filter(a => a.auftragstyp === typFilter);
+    }
+    if (technikerFilter !== 'alle') {
+      result = result.filter(a => a.technikerId === technikerFilter);
+    }
+    if (agingFilter === 'gt2') result = result.filter(a => (a.ageDays ?? 0) >= 2);
+    if (agingFilter === 'gt5') result = result.filter(a => (a.ageDays ?? 0) >= 5);
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(a =>
         a.address.toLowerCase().includes(q) ||
         a.city.toLowerCase().includes(q) ||
         a.postalCode.includes(q) ||
-        a.customerName.toLowerCase().includes(q)
+        a.customerName.toLowerCase().includes(q) ||
+        (a.technikerName?.toLowerCase().includes(q) ?? false)
       );
     }
-    return result;
-  }, [auftraege, searchQuery, kategorieFilter]);
+    // Älteste Frei-Aufträge zuerst
+    return [...result].sort((x, y) => (y.ageDays ?? 0) - (x.ageDays ?? 0));
+  }, [auftraege, searchQuery, kategorieFilter, typFilter, technikerFilter, agingFilter]);
 
-  const counts = useMemo(() => {
-    if (!auftraege) return { alle: 0, mit_termin: 0, ohne_termin: 0 };
-    return {
-      alle: auftraege.length,
-      mit_termin: auftraege.filter(a => a.kategorie === 'mit_termin').length,
-      ohne_termin: auftraege.filter(a => a.kategorie === 'ohne_termin').length,
-    };
-  }, [auftraege]);
+  const showTechnikerFilter = kategorieFilter === 'angenommen' || kategorieFilter === 'alle';
 
   return (
     <AdminLayout
-      title="Pool – Offene Aufträge"
-      subtitle={isLoading ? undefined : `${filtered.length} unzugewiesene Aufträge`}
+      title="Pool – Kommandozentrale"
+      subtitle={isLoading ? undefined : `${filtered.length} von ${counts.alle} Aufträgen`}
       count={isLoading ? undefined : filtered.length}
     >
       {isLoading ? <ListSkeleton count={5} showAvatar={false} showBadge /> : (
         <>
-          <Tabs value={kategorieFilter} onValueChange={(v) => setKategorieFilter(v as KategorieFilter)} className="mb-3">
-            <TabsList className="grid w-full grid-cols-3">
+          {/* KPI Cockpit */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                  <Inbox className="w-3.5 h-3.5" /> Frei im Pool
+                </div>
+                <div className="text-2xl font-semibold tabular-nums">{kpis.frei}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  {kpis.freiMitVorschlag} mit Vorschlag · {kpis.frei - kpis.freiMitVorschlag} ohne
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                  <UserCheck className="w-3.5 h-3.5" /> Angenommen
+                </div>
+                <div className="text-2xl font-semibold tabular-nums">{kpis.angenommen}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Termin steht</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Neubuchung
+                </div>
+                <div className="text-2xl font-semibold tabular-nums">{kpis.neubuchung}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Aktion nötig</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                  <Clock className="w-3.5 h-3.5" /> Älteste offen
+                </div>
+                <div className={`text-2xl font-semibold tabular-nums ${getAgeColor(kpis.oldestDays)}`}>
+                  {kpis.oldestDays}d
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  {kpis.oldestDays >= 5 ? 'Kritisch' : kpis.oldestDays >= 2 ? 'Beobachten' : 'Im Plan'}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Kategorie Tabs */}
+          <Tabs value={kategorieFilter} onValueChange={(v) => setKategorieFilter(v as PoolKategorie)} className="mb-3">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="frei">Frei ({counts.frei})</TabsTrigger>
+              <TabsTrigger value="angenommen">Angenommen ({counts.angenommen})</TabsTrigger>
+              <TabsTrigger value="neubuchung">Neubuchung ({counts.neubuchung})</TabsTrigger>
               <TabsTrigger value="alle">Alle ({counts.alle})</TabsTrigger>
-              <TabsTrigger value="ohne_termin">Ohne Vorschlag ({counts.ohne_termin})</TabsTrigger>
-              <TabsTrigger value="mit_termin">Mit Vorschlag ({counts.mit_termin})</TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'map')} className="mb-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="list" className="gap-2"><List className="w-4 h-4" />Liste</TabsTrigger>
-              <TabsTrigger value="map" className="gap-2"><Map className="w-4 h-4" />Karte</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {/* Filter-Zeile */}
+          <div className="flex flex-col gap-2 mb-3">
+            <FilterRow
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Name, Adresse, PLZ, Stadt, Techniker..."
+              onReset={() => { setSearchQuery(''); setTypFilter('alle'); setTechnikerFilter('alle'); setAgingFilter('alle'); }}
+            />
+            <div className="flex flex-wrap gap-2 items-center">
+              <Select value={typFilter} onValueChange={(v) => setTypFilter(v as TypFilter)}>
+                <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Auftragstyp" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="alle">Alle Typen</SelectItem>
+                  <SelectItem value="thermocheck">Thermocheck</SelectItem>
+                  <SelectItem value="einweisung">Einweisung</SelectItem>
+                  <SelectItem value="pv">PV</SelectItem>
+                </SelectContent>
+              </Select>
 
-          <FilterRow
-            searchValue={searchQuery}
-            onSearchChange={setSearchQuery}
-            searchPlaceholder="Adresse, PLZ, Stadt, Name..."
-            onReset={() => setSearchQuery('')}
-            className="mb-4"
-          />
+              {showTechnikerFilter && (
+                <Select value={technikerFilter} onValueChange={setTechnikerFilter}>
+                  <SelectTrigger className="h-8 text-xs w-[200px]"><SelectValue placeholder="Techniker" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="alle">Alle Techniker</SelectItem>
+                    {technikerOptions.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
-          {viewMode === 'list' ? (
-            <div className="space-y-3">
-              {filtered.length === 0 ? (
-                <Card><CardContent className="p-6 text-center text-muted-foreground">Keine Aufträge gefunden</CardContent></Card>
-              ) : filtered.map((a) => {
-                const hasTermin = a.kategorie === 'mit_termin';
-                return (
-                  <Card key={a.id} className={`shadow-sm ${hasTermin ? 'border-l-4 border-l-orange-400' : 'border-l-4 border-l-muted'}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <p className="font-medium text-sm text-foreground">{a.customerName}</p>
-                        <div className="flex gap-1.5 items-center">
-                          {a.pipelineStatus && (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono text-muted-foreground">
-                              {a.pipelineStatus}
-                            </Badge>
-                          )}
-                          <Badge variant={hasTermin ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0.5">
-                            {hasTermin ? `${a.terminCount} Termin${a.terminCount > 1 ? 'e' : ''}` : 'Offen'}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="space-y-1.5 text-sm">
-                        <div className="flex items-start gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                          <span className="text-foreground text-xs">{a.address}, {a.postalCode} {a.city}</span>
-                        </div>
-                        {hasTermin && a.naechsterTermin ? (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-foreground text-xs">
-                              {format(parseISO(a.naechsterTermin), 'EEE, d. MMM yyyy', { locale: de })} · {a.naechsteZeit}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <CalendarX className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-muted-foreground text-xs italic">Kein Terminvorschlag</span>
-                          </div>
-                        )}
-                        {a.technikerId && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">Techniker zugewiesen</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              <Select value={agingFilter} onValueChange={(v) => setAgingFilter(v as AgingFilter)}>
+                <SelectTrigger className="h-8 text-xs w-[160px]"><SelectValue placeholder="Aging" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="alle">Jedes Alter</SelectItem>
+                  <SelectItem value="gt2">≥ 2 Tage offen</SelectItem>
+                  <SelectItem value="gt5">≥ 5 Tage offen</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant={showMap ? 'default' : 'outline'}
+                size="sm"
+                className="h-8 text-xs ml-auto gap-1.5"
+                onClick={() => setShowMap(s => !s)}
+              >
+                <MapIcon className="w-3.5 h-3.5" /> Karte
+              </Button>
             </div>
-          ) : (
-            <OrderMap orders={[]} onOrderClick={(id) => console.log('Auftrag:', id)} className="h-[60vh] rounded-lg overflow-hidden border border-border" />
+          </div>
+
+          {showMap && (
+            <div className="mb-4">
+              <OrderMap orders={[]} onOrderClick={(id) => console.log('Auftrag:', id)} className="h-[50vh] rounded-lg overflow-hidden border border-border" />
+              <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                Karte zeigt nur geocodierte Aufträge
+              </p>
+            </div>
           )}
+
+          {/* Liste */}
+          <div className="space-y-2.5">
+            {filtered.length === 0 ? (
+              <Card><CardContent className="p-6 text-center text-muted-foreground text-sm">Keine Aufträge gefunden</CardContent></Card>
+            ) : filtered.map((a) => (
+              <Card key={a.id} className={`shadow-sm border-l-4 ${getBorderClass(a)}`}>
+                <CardContent className="p-3.5">
+                  <div className="flex items-start justify-between gap-3 mb-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm text-foreground truncate">{a.customerName}</p>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 gap-1">
+                          <Briefcase className="w-2.5 h-2.5" />
+                          {TYP_LABELS[a.auftragstyp] || a.auftragstyp}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                          {PIPELINE_LABELS[a.pipelineStatus] || a.pipelineStatus}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className={`text-[10px] font-medium tabular-nums shrink-0 ${getAgeColor(a.ageDays)}`}>
+                      {a.ageDays != null ? `${a.ageDays}d offen` : ''}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <MapPin className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{a.address}, {a.postalCode} {a.city}</span>
+                    </div>
+                    {a.hasVorschlag && a.naechsterTermin ? (
+                      <div className="flex items-center gap-1.5 text-foreground">
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        <span>
+                          {format(parseISO(a.naechsterTermin), 'EEE, d. MMM', { locale: de })} · {a.naechsteZeit}
+                          {a.terminCount > 1 && <span className="text-muted-foreground"> (+{a.terminCount - 1})</span>}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-muted-foreground italic">
+                        <CalendarX className="w-3 h-3 shrink-0" /> Kein Terminvorschlag
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between">
+                    {a.technikerName ? (
+                      <div className="flex items-center gap-1.5">
+                        <Avatar className="w-5 h-5">
+                          {a.technikerAvatar && <AvatarImage src={a.technikerAvatar} />}
+                          <AvatarFallback className="text-[8px]">{getInitials(a.technikerName)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-[11px] text-foreground">{a.technikerName}</span>
+                      </div>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-muted-foreground">Frei</Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </>
       )}
     </AdminLayout>
