@@ -62,7 +62,7 @@ export function useTrainerAuftraege(trainerOnboardingId: string | null) {
     queryFn: async (): Promise<TrainerAuftragOption[]> => {
       if (!trainerOnboardingId) return [];
       const { data: auftraege, error } = await supabaseTC
-        .from('thermocheck_auftraege')
+        .from('v_thermocheck_auftraege')
         .select('id, kunde_vorname, kunde_nachname, kunde_ort, coaching_gebucht_von, coaching_bewertung')
         .eq('zugewiesener_techniker_id', trainerOnboardingId);
       if (error) throw error;
