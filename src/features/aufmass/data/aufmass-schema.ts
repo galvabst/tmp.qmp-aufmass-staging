@@ -68,6 +68,9 @@ export const aufmassDraftSchema = z.object({
   aufstellort_aenderung: optionalBoolean,
   distanz_alter_neuer_aufstellort: optionalNonNegativeNumber,
   raumscan_url: optionalString,
+  aufstellort_ai_pruefung_id: optionalString,
+  aufstellort_ai_empfehlung: optionalString,
+  aufstellort_ai_zusammenfassung: optionalString,
 });
 
 /** Zod schema for final submission (required fields enforced) */
@@ -122,6 +125,9 @@ export const aufmassSubmitSchema = z.object({
   aufstellort_aenderung: z.boolean({ required_error: 'Bitte auswählen' }),
   distanz_alter_neuer_aufstellort: optionalNonNegativeNumber,
   raumscan_url: optionalString,
+  aufstellort_ai_pruefung_id: optionalString,
+  aufstellort_ai_empfehlung: optionalString,
+  aufstellort_ai_zusammenfassung: optionalString,
 }).superRefine((data, ctx) => {
   // Conditional: Öl-Felder Pflicht bei heizungsart === 'oel'
   if (data.heizungsart === 'oel') {

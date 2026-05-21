@@ -7,6 +7,9 @@ import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
 import { SignatureField } from '../components/SignatureField';
 import { useUploadVotBild } from '../../hooks/useVotBilder';
+import { AufstellortAIPanel } from './AufstellortAIPanel';
+import type { AufstellortPruefung } from '../../hooks/useAufstellortPruefung';
+import { toast } from 'sonner';
 
 
 interface Props {
@@ -25,7 +28,8 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
   const alt2 = watch('alternative_2_vorhanden');
   const bestaetigt = watch('kunde_aufstellort_bestaetigt');
   const aufstellortAenderung = watch('aufstellort_aenderung');
-  
+  const aiEmpfehlung = watch('aufstellort_ai_empfehlung');
+
   const uploadMutation = useUploadVotBild();
 
   const handleSignature = async (blob: Blob) => {
@@ -37,8 +41,32 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
     });
   };
 
+  const handleApplyAI = (p: AufstellortPruefung) => {
+    setValue('aufstellort_ai_pruefung_id', p.id, { shouldDirty: true });
+    setValue('aufstellort_ai_empfehlung', p.empfehlung ?? undefined, { shouldDirty: true });
+    setValue('aufstellort_ai_zusammenfassung', p.findings?.reasoning ?? undefined, { shouldDirty: true });
+    // Auto-Default für Aufstellort-Änderung wenn AI „sanierung" oder „grossanpassung" empfiehlt
+    if (p.empfehlung === 'sanierung' || p.empfehlung === 'grossanpassung') {
+      setValue('aufstellort_aenderung', true, { shouldDirty: true });
+      toast.success('AI-Ergebnis übernommen — „Aufstellort ändern" automatisch gesetzt');
+    } else {
+      toast.success('AI-Ergebnis ins Formular übernommen');
+    }
+  };
+
+
   return (
     <div className="space-y-6">
+      {/* AI-Aufstellort-Check */}
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.02] p-4">
+        <AufstellortAIPanel leadId={leadId} disabled={disabled} onApplyResult={handleApplyAI} />
+        {aiEmpfehlung && (
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            ✓ AI-Ergebnis im Formular gespeichert: <strong>{aiEmpfehlung}</strong>
+          </p>
+        )}
+      </div>
+
       {/* 1. Option */}
       <PhotoUploadField kategorie="aufstellort_option_1" existingBilder={filterBilderByKategorie(bilder, 'aufstellort_option_1')}
         votFormularId={votFormularId} leadName={leadName} leadId={leadId} auftragId={auftragId} disabled={disabled} />
