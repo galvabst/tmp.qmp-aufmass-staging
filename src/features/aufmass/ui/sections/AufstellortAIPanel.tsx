@@ -6,14 +6,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAufstellortPruefung, type AufstellortEmpfehlung, type AufstellortPruefung } from '../../hooks/useAufstellortPruefung';
 import { cn } from '@/lib/utils';
 
-const VIEWS = [
+type ViewCfg = { slug: string; label: string; hint: string; optional?: boolean };
+const VIEWS: ViewCfg[] = [
   { slug: 'uebersicht', label: 'Übersicht', hint: '4–5m Abstand, kompletter Aufstell-Bereich + Hauswand sichtbar' },
   { slug: 'links90', label: 'Links (90°)', hint: 'Entlang Hauswand fotografiert — zeigt Tiefe nach links' },
   { slug: 'rechts90', label: 'Rechts (90°)', hint: 'Gegenrichtung — zeigt Tiefe nach rechts' },
   { slug: 'boden', label: 'Boden-Detail', hint: 'Nahaufnahme Untergrund (Pflaster / Rasen / Beton)' },
   { slug: 'wand', label: 'Wand-Detail', hint: 'Wo Rohrdurchführung möglich (Höhe, Fassade)' },
   { slug: 'mit_referenz', label: 'Mit Zollstock/A4', hint: 'Optional — High-Confidence-Modus', optional: true },
-] as const;
+];
 
 const EMPF_META: Record<AufstellortEmpfehlung, { label: string; cls: string; icon: typeof CheckCircle2 }> = {
   keine_anpassung: { label: 'Aufstellort geeignet', cls: 'border-green-300 bg-green-50 text-green-900 dark:bg-green-950/30 dark:text-green-100 dark:border-green-900/40', icon: CheckCircle2 },
