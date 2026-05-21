@@ -68,6 +68,9 @@ export const aufmassDraftSchema = z.object({
   aufstellort_aenderung: optionalBoolean,
   distanz_alter_neuer_aufstellort: optionalNonNegativeNumber,
   raumscan_url: optionalString,
+  aufstellort_ai_pruefung_id: optionalString,
+  aufstellort_ai_empfehlung: optionalString,
+  aufstellort_ai_zusammenfassung: optionalString,
 });
 
 /** Zod schema for final submission (required fields enforced) */
