@@ -14154,6 +14154,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_orbit_access_denied: {
+        Args: {
+          _caller_id?: string
+          _caller_mitarbeiter_id?: string
+          _ip?: string
+          _log_tag: string
+          _reason: string
+          _request_path?: string
+          _requested_mitarbeiter_id?: string
+          _user_agent?: string
+        }
+        Returns: undefined
+      }
       log_orbit_subscription_health: { Args: never; Returns: undefined }
       log_pipeline_guard_block: {
         Args: {
