@@ -1,64 +1,108 @@
 
-# Pool-Kommandozentrale
+## Ziel
 
-Aktuell zeigt `/admin` → Pool nur unzugewiesene Aufträge mit zwei nichtssagenden Tabs ("Mit/Ohne Vorschlag") und einer leeren Karte. Das Ziel: eine echte Übersicht **was passiert gerade im Pool**, mit Aging, Zuweisungs-Status und Techniker-Drilldown.
+Den im Projekt **salesos** vorhandenen "Aufstellort-AI-Planner" (Foto-Wizard + Gemini-Analyse + Norm-Check für Vitocal R290) direkt in den Aufmaß-/VOT-Formular-Schritt **„Aufstellort"** im Thermocheck einbauen. Der Techniker fotografiert vor Ort, die AI bewertet (geht / mit Auflagen / nicht möglich), das Ergebnis wird in das VOT-Formular geschrieben.
 
-## Was geändert wird
+## Glücksfall: gemeinsame Supabase-Instanz
 
-### 1. Datengrundlage erweitern
-Hook `useAdminPoolTermine` umbauen zu `useAdminPoolOverview`:
-- **Nicht mehr** nur `zugewiesener_techniker_id IS NULL` laden
-- Stattdessen alle Aufträge in den **aktiven Pool-Phasen** laden:
-  - `termin_abwarten` (Pool offen + Pool angenommen)
-  - `termin_neubuchung` (Neubuchung nötig)
-  - `wc1_durchfuehren` (akzeptiert, Termin steht)
-  - `termin_bestaetigt`
-- Pro Auftrag mitliefern: `auftragstyp`, `pipeline_status`, `zugewiesener_techniker_id`, Techniker-Name (join via `contractor_onboarding` → `profiles`), `erstellt_am` (für Aging), Anzahl Terminvorschläge, frühester Vorschlag.
+Beide Projekte (salesos + thermocheck) teilen sich dieselbe Supabase-DB. Die komplette Backend-Infrastruktur ist also schon da:
 
-### 2. KPI-Header (vier Kacheln oben)
-Wie ein Cockpit, sofort lesbar:
-- **Frei im Pool** (unzugewiesen, `termin_abwarten`) — davon X mit Vorschlag, Y ohne
-- **Angenommen, Termin steht** (`wc1_durchfuehren` + `termin_bestaetigt`)
-- **Neubuchung nötig** (`termin_neubuchung`)
-- **Älteste offen seit** (Tage des ältesten unzugewiesenen Auftrags) — Ampel: grün <2d, gelb 2–5d, rot >5d
+| Asset | Status |
+|---|---|
+| `public.sales_zaehlerschrank_pruefungen` (mit `pruefung_typ='aufstellort'`) | ✅ existiert, FK `lead_id → leads(id)` |
+| `public.sales_zaehlerschrank_fotos` | ✅ existiert |
+| `public.sales_zaehlerschrank_chat_messages` | ✅ existiert |
+| Storage-Bucket `sales-zaehlerschrank-photos` | ✅ existiert |
+| Edge-Function `sales-zaehlerschrank-analyze` | ✅ deployed, hat schon den `SYSTEM_PROMPT_AUFSTELLORT` |
+| RLS | ✅ erlaubt jedem authentifizierten User SELECT + INSERT (created_by = auth.uid()) |
 
-### 3. Tabs neu (statt "Mit/Ohne Vorschlag")
-- **Frei** (unzugewiesen) — Default
-- **Angenommen** (Techniker zugewiesen, noch nicht abgeschlossen)
-- **Neubuchung**
-- **Alle**
+Außerdem hat `thermocheck.thermocheck_auftraege.lead_id` denselben FK-Pfad — wir können die `lead_id` des Auftrags direkt als `lead_id` für die Prüfung verwenden. **Keine neuen Tabellen, keine neue Edge Function, keine Migrations nötig.**
 
-### 4. Filterzeile
-- Suche (wie bisher: Name/PLZ/Stadt/Adresse)
-- **Auftragstyp**: Thermocheck / Einweisung / PV
-- **Techniker** (Dropdown, nur sichtbar im Tab "Angenommen"/"Alle") — zeigt welche Aufträge welcher Leiter angenommen hat
-- **Aging-Filter**: alle / >2 Tage offen / >5 Tage offen
-- "Zurücksetzen"-Button
+## Was umgesetzt wird
 
-### 5. Karten-Ansicht entfernen (default)
-Die leere Europa-Karte hat null Mehrwert. Karte als optionaler Toggle bleibt, aber:
-- Wird nur gerendert wenn Aufträge geocodiert sind
-- Default-Ansicht ist Liste
-- Karten-Toggle kleiner, neben Filterzeile (nicht als großer Tab)
+### 1. Hook portieren — `src/features/aufmass/hooks/useAufstellortPruefung.ts` (neu)
 
-### 6. Listen-Karte überarbeiten
-Pro Auftrag-Zeile:
-- Links: Kundenname, Adresse, PLZ/Ort
-- Mitte: Auftragstyp-Badge (Thermocheck/Einweisung/PV), Pipeline-Status (lesbar, nicht Mono-Slug), Terminvorschlag-Datum oder "Kein Vorschlag"
-- Rechts: **Aging-Chip** ("vor 3d") + Techniker-Name (wenn zugewiesen, mit Avatar-Initial) oder Badge "Frei"
-- Linke Border-Farbe nach Status: grau=frei, blau=angenommen, orange=Neubuchung
+Adaptierte Kopie von `useElektroPruefung` aus salesos, fest auf `type='aufstellort'`:
+- Liest aktuellste Prüfung pro `lead_id` (aus Auftrag).
+- `uploadFotos` mit EXIF-Stripping + Upload via Standard-supabase-Client (kein `uploadWithRetry`-Wrapper, stattdessen direkter `storage.upload`).
+- `startAnalysis` ruft Edge Function `sales-zaehlerschrank-analyze` mit `{ pruefung_id }`.
+- Polling bei Status `analyzing` / `waiting_for_photos` alle 3 s.
+- Auth via `supabase.auth.getUser()` statt salesos-`AuthContext`.
+
+### 2. Komponenten portieren (1:1, nur Auth- und Import-Pfade angepasst)
+
+- `src/features/aufmass/ui/aufstellort-ai/AufstellortFotoWizard.tsx` — 5 Pflicht-Views (Übersicht / Links 90° / Rechts 90° / Boden / Wand) + optional „Mit Zollstock/A4" für High-Confidence.
+- `src/features/aufmass/ui/aufstellort-ai/AufstellortAIRequest.tsx` — Nachforder-UI wenn die AI mehr Fotos braucht.
+- `src/features/aufmass/ui/aufstellort-ai/AufstellortResult.tsx` — Ergebnis-Karte (4 Empfehlungs-Level, Reasoning, Red Flags, Komponenten-Inventar, Maßnahmen, Konfidenz, Kosten).
+- `src/features/aufmass/ui/aufstellort-ai/AufstellortAIPanel.tsx` — Container, der Wizard / Loading / AIRequest / Result je nach `pruefung.status` switcht.
+
+### 3. In bestehende `AufstellortSection.tsx` einbauen
+
+Oberhalb der schon vorhandenen Felder (Pflicht-Fotos, Distanzen, Aufstellort-Änderung, Kundenbestätigung) ein **Collapsible „AI-Aufstellort-Check"** (default geöffnet wenn noch keine Prüfung läuft).
+
+Wenn die AI eine Empfehlung liefert, "In Formular übernehmen"-Button:
+- `empfehlung === 'sanierung'` → setzt `aufstellort_aenderung = true` automatisch (und zeigt einen Hinweis "AI empfiehlt neuen Aufstellort").
+- `findings.components` mit Distanzschätzungen (z. B. „Abstand Außeneinheit ↔ Wand: 1.2 m ±10 cm") werden als Vorbelegung in die Distanz-Inputs gepusht, der Techniker kann sie korrigieren.
+- Reasoning + AI-Modell + Confidence werden zusätzlich in einem neuen Feld `aufstellort_ai_zusammenfassung` (Text) gespeichert.
+
+### 4. Persistenz im VOT-Formular
+
+Drei neue Spalten auf `thermocheck.thermocheck_vot_formulare` (Migration nötig — die einzige im Plan):
+- `aufstellort_ai_pruefung_id uuid` (Referenz zur sales_zaehlerschrank_pruefungen)
+- `aufstellort_ai_empfehlung text` (Snapshot der Empfehlung beim Einreichen)
+- `aufstellort_ai_zusammenfassung text` (Reasoning-Snapshot)
+
+`aufmassDraftSchema` + `aufmassSubmitSchema` werden um diese drei optionalen Felder erweitert.
+
+### 5. Was nicht angefasst wird
+
+- Edge Function bleibt unangetastet (der `SYSTEM_PROMPT_AUFSTELLORT` ist schon korrekt für Vitocal R290 + Galvanek-Regeln).
+- Keine Änderung am salesos-Projekt.
+- Keine RLS-Änderungen (bestehende Policies passen).
+- Bestehende manuelle Foto-Uploads (`aufstellort_option_1`, `aufstellort_umgebung_1`, etc.) bleiben **zusätzlich** verfügbar — die AI-Bilder leben in einem separaten Bucket und sind nicht Teil des VOT-Bilder-Sets.
 
 ## Technische Details
-- Datei: `src/features/object-orders/hooks/useAdminObjectOrders.ts` → erweitern (Filter raus, Joins rein).
-- Datei: `src/features/object-orders/ui/ObjectOrderListView.tsx` → KPI-Header + neue Tabs + Filter + Karte hinter Toggle.
-- Neue Status-Mappings via bestehender `src/lib/status-config.ts` (Slug → Label/Farbe).
-- Techniker-Join: `contractor_onboarding(id, profile_id)` → `profiles(id, vorname, nachname)`; pro Liste einmal laden und in Map auflösen (keine N+1).
-- Aging: `Math.floor((now - erstellt_am) / 86400000)`.
-- Keine DB-Migration nötig.
 
-## Akzeptanzkriterien
-- Header zeigt korrekte Zahlen (gegen Pipeline-Verteilung der DB validierbar).
-- Tab "Angenommen" zeigt Aufträge mit `zugewiesener_techniker_id IS NOT NULL` in `wc1_durchfuehren`/`termin_bestaetigt`.
-- Techniker-Dropdown filtert Liste auf Aufträge dieses Leiters.
-- Aging-Chip auf jeder Zeile sichtbar, älteste offene Frei-Aufträge zuerst.
-- Karten-Tab ist Toggle, nicht mehr Default-Halbbildschirm.
+```text
+┌─────────────────────────────────────────────────────────┐
+│ AufmassFormPage  →  AufstellortSection (Schritt N)      │
+│                                                         │
+│  ┌─ Collapsible: "AI-Aufstellort-Check" ─────────────┐  │
+│  │  <AufstellortAIPanel auftrag={...} leadId={...}/> │  │
+│  │   useAufstellortPruefung({ leadId })              │  │
+│  │     ├── status='draft'           → FotoWizard     │  │
+│  │     ├── status='photo_uploaded'  → CTA "Analyse"  │  │
+│  │     ├── status='analyzing'       → Spinner        │  │
+│  │     ├── status='waiting_photos'  → AIRequest      │  │
+│  │     └── status='completed'       → Result + ÜN    │  │
+│  │                                                   │  │
+│  │  on "In Formular übernehmen":                     │  │
+│  │    form.setValue(aufstellort_aenderung, ...)      │  │
+│  │    form.setValue(aufstellort_ai_*, snapshot)      │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                         │
+│  [bestehende Felder: Pflichtfotos, Distanzen, etc.]     │
+└─────────────────────────────────────────────────────────┘
+
+DB:                                       Storage:
+sales_zaehlerschrank_pruefungen           sales-zaehlerschrank-photos
+   ↑ lead_id (FK → leads)                    {user_id}/{pruefung_id}/...
+   ↑ pruefung_typ='aufstellort'
+
+Edge Fn: sales-zaehlerschrank-analyze
+   → Gemini 2.5 Pro Vision + Tools
+   → schreibt findings, empfehlung, confidence zurück
+```
+
+**Validierung nach Implementierung (gemäß 7-Step-Protocol):**
+1. Hook lädt Prüfung korrekt für `lead_id` des Auftrags.
+2. Upload → Foto erscheint in `sales_zaehlerschrank_fotos` mit `is_ai_requested=true` + korrektem View-Slug.
+3. `startAnalysis` triggert Edge Fn, Status wechselt auf `analyzing` → später `completed` oder `waiting_for_photos`.
+4. „In Formular übernehmen" setzt `aufstellort_aenderung`, AI-Snapshot-Felder + persistiert beim Draft-Save.
+5. RLS-Test: Anderer Techniker kann die Prüfung sehen (SELECT erlaubt) aber nicht updaten.
+6. Read-Only-Modus (eingereichtes Formular): AI-Panel zeigt nur das Ergebnis, kein Upload/Reset möglich.
+7. Keine Änderung am salesos-Verhalten (gleicher Pruefung-Datensatz wäre auch dort sichtbar — bewusst, weil Lead-bezogen).
+
+## Offene Frage vor Start
+
+Soll der „In Formular übernehmen"-Schritt **automatisch** beim Abschluss der AI-Analyse passieren, oder bleibt es ein expliziter Button-Klick durch den Techniker? Ich würde **Button** empfehlen — der Techniker bleibt Entscheider, AI ist Assistenz.
