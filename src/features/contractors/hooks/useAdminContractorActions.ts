@@ -62,12 +62,21 @@ export function useTrainerAuftraege(trainerOnboardingId: string | null) {
     queryFn: async (): Promise<TrainerAuftragOption[]> => {
       if (!trainerOnboardingId) return [];
       const { data: auftraege, error } = await supabaseTC
-        .from('v_thermocheck_auftraege')
-        .select('id, kunde_vorname, kunde_nachname, kunde_ort, coaching_gebucht_von, coaching_bewertung')
+        .from('thermocheck_auftraege')
+        .select('id, lead_id, coaching_gebucht_von, coaching_bewertung')
         .eq('zugewiesener_techniker_id', trainerOnboardingId);
       if (error) throw error;
       if (!auftraege || auftraege.length === 0) return [];
       const ids = auftraege.map(a => a.id);
+      const leadIds = [...new Set(auftraege.map(a => a.lead_id).filter(Boolean))] as string[];
+      const { data: leads, error: lErr } = leadIds.length > 0
+        ? await supabase
+            .from('leads')
+            .select('id, kunde_vorname, kunde_nachname, kunde_ort')
+            .in('id', leadIds)
+        : { data: [], error: null };
+      if (lErr) throw lErr;
+      const leadMap = new Map((leads ?? []).map(l => [l.id, l]));
       const { data: termine, error: tErr } = await supabaseTC
         .from('thermocheck_terminvorschlaege')
         .select('thermocheck_auftrag_id, datum, ganztaegig, zeit_von, zeit_bis, sortierung')
@@ -81,14 +90,17 @@ export function useTrainerAuftraege(trainerOnboardingId: string | null) {
         tmap.set(t.thermocheck_auftrag_id, list);
       }
       return auftraege
-        .map((a): TrainerAuftragOption => ({
-          auftragId: a.id,
-          customerName: `${a.kunde_vorname ?? ''} ${a.kunde_nachname ?? ''}`.trim() || '–',
-          ort: a.kunde_ort ?? null,
-          termine: tmap.get(a.id) ?? [],
-          gebuchtVonProfileId: a.coaching_gebucht_von ?? null,
-          coachingBewertung: a.coaching_bewertung ?? null,
-        }))
+        .map((a): TrainerAuftragOption => {
+          const lead = a.lead_id ? leadMap.get(a.lead_id) : undefined;
+          return {
+            auftragId: a.id,
+            customerName: `${lead?.kunde_vorname ?? ''} ${lead?.kunde_nachname ?? ''}`.trim() || '–',
+            ort: lead?.kunde_ort ?? null,
+            termine: tmap.get(a.id) ?? [],
+            gebuchtVonProfileId: a.coaching_gebucht_von ?? null,
+            coachingBewertung: a.coaching_bewertung ?? null,
+          };
+        })
         .sort((a, b) => {
           const da = a.termine[0]?.datum ?? '9999';
           const db = b.termine[0]?.datum ?? '9999';
