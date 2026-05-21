@@ -1,43 +1,25 @@
-## Ziel
-Michel Süße und Brian Maina als Coaching-Mitfahrer bei Arthur Penner eintragen, sodass Arthur sie in seinem Trainer-Tab unter „Vergangene Mitfahrten" sieht und mit *Bestanden* freigeben kann.
+## Problem
+Im Trainer-Detail bei Arthur Penner zeigt das Dropdown "Coaching-Mitfahrt manuell zuweisen" **„Keine Aufträge für diesen Trainer"** — obwohl Arthur über 25 zugewiesene Thermocheck-Aufträge mit Terminen hat (von 2026-03-31 bis 2026-11-13).
 
-## Treffer in der DB
+## Ursache
+`useTrainerAuftraege` in `src/features/contractors/hooks/useAdminContractorActions.ts` liest direkt aus der Basistabelle `thermocheck.thermocheck_auftraege` und versucht die Spalten `kunde_vorname`, `kunde_nachname`, `kunde_ort` zu selektieren. **Diese Spalten existieren dort nicht** — sie kommen erst durch den Join in der View `v_thermocheck_auftraege` zustande.
 
-| Trainee | Datum | Ort | Auftrag-ID | Kunde |
-|---|---|---|---|---|
-| Michel Süße | 24.04.2026 | Chemnitz (09224) | `ac1db288-…5b3f8f26577a` | Michael Gerlach |
-| Brian Maina | 22.04.2026 | Witten (58453) | `b3ccb43a-…0a2a2e8c40f6` | Heinz Hetschold |
-| Brian Maina | 22.04.2026 | Essen (45133) | `9f99fdcf-…4e73b4373987` | Erik Kolstø |
+Der Query wirft also einen `column does not exist`-Fehler, react-query liefert `undefined`, das Default-`[]` greift, und das Dropdown zeigt den Leer-Zustand.
 
-Aalen am 22.04. (von dir erwähnt) existiert bei Arthur nicht — wird weggelassen.
+Beweis aus der DB:
+- Spalten-Check auf `thermocheck_auftraege`: keine `kunde_*` Spalten vorhanden
+- 28 Aufträge mit `zugewiesener_techniker_id = Arthur` existieren, alle mit `coaching_bewertung = 'ausstehend'` und mindestens einem Termin
 
-## Wichtige Einschränkung der bestehenden RPC
-`admin_book_coaching_ride` erlaubt pro Trainee nur **eine aktive** Buchung mit `coaching_bewertung = 'ausstehend'`. Eine zweite Buchung würde die erste automatisch wieder freigeben.
+## Fix (1 Datei, ~3 Zeilen)
+In `useTrainerAuftraege` (Zeile 64-67) die Quelle von `thermocheck_auftraege` auf `v_thermocheck_auftraege` umstellen — analog zu `useAdminPoolTermine`, das die View bereits korrekt nutzt. Selektierte Felder bleiben identisch (`kunde_vorname, kunde_nachname, kunde_ort, coaching_gebucht_von, coaching_bewertung`).
 
-→ Für Brian müssen wir die beiden Buchungen **direkt mitbewerten**, sonst überschreibt die zweite die erste. Das bedeutet: ich buche die Mitfahrt **und** setze sie sofort auf `bestanden` (mit dir als `coaching_bewertung_von`, Notiz: „Nachträglich durch Innendienst eingetragen").
+## Validierung
+1. Trainer-Detail Arthur Penner öffnen → Dropdown muss alle 28 Aufträge zeigen, sortiert nach Datum absteigend, mit Kundenname + Ort + Datum.
+2. Bereits belegte Termine (z. B. die 3 von Michel/Brian) erscheinen mit Badge **belegt** und sind disabled.
+3. Vergangene Termine bekommen das **vergangen**-Badge (Nacherfassung weiter möglich).
+4. Eine Test-Zuweisung an einen Trainee funktioniert wie zuvor (kein RPC-Change nötig).
 
-Da Brian und Michel laut deiner Aussage sowieso „auf die Freigabe warten" und Arthur die Mitfahrten faktisch schon gemacht hat, ist das die saubere Lösung. Wenn du das nicht willst, sag Bescheid — dann buche ich pro Trainee nur einen Auftrag.
-
-## Vorgehen (3 SQL-Schritte via `INSERT/UPDATE`-Tool, transaktional pro Trainee)
-
-1. **Michel Süße** auf Chemnitz-Auftrag buchen + direkt `bestanden`
-   - `admin_book_coaching_ride(michel_profile, ac1db288…)` → setzt `coaching_gebucht_von`, aktualisiert Onboarding (`gebuchter_coaching_termin`, `gebuchter_coach_name`)
-   - `bewerte_coaching_mitfahrt(ac1db288…, 'bestanden', 'Nachträglich eingetragen')` → schaltet Onboarding frei (Step → `nachweise`)
-
-2. **Brian Maina** auf Witten-Auftrag → buchen + `bestanden`
-   - gleiche zwei Calls mit `b3ccb43a…`
-   - schaltet Brians Onboarding frei
-
-3. **Brian Maina** auf Essen-Auftrag → buchen + `bestanden`
-   - gleiche zwei Calls mit `9f99fdcf…`
-   - Onboarding ist schon frei, aber Auftrag erscheint zusätzlich in Arthurs Verlauf
-
-Falls einer der Schritte fehlschlägt, bricht der Plan an dieser Stelle ab und meldet den Fehler — keine halbgaren Zustände.
-
-## Validierung danach
-- `SELECT id, coaching_gebucht_von, coaching_bewertung FROM thermocheck_auftraege WHERE id IN (3 IDs)` → alle drei zeigen den richtigen Trainee + `bestanden`
-- `SELECT current_step, coaching_freigabe FROM contractor_onboarding WHERE profile_id IN (Michel, Brian)` → beide auf `nachweise` (oder weiter)
-- In Arthurs Trainer-Tab unter „Vergangene Mitfahrten" tauchen 3 Karten mit Badge **Bestanden** auf
-
-## Was du tun musst
-Nur freigeben. Ich führe alle DB-Operationen aus, sobald du den Plan akzeptierst.
+## Nicht im Scope
+- Keine DB-Migration.
+- Kein UI-Change.
+- Kein Verhalten anderer Trainer-Listen.
