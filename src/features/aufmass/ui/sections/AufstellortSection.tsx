@@ -57,6 +57,16 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
 
   return (
     <div className="space-y-6">
+      {/* AI-Aufstellort-Check */}
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.02] p-4">
+        <AufstellortAIPanel leadId={leadId} disabled={disabled} onApplyResult={handleApplyAI} />
+        {aiEmpfehlung && (
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            ✓ AI-Ergebnis im Formular gespeichert: <strong>{aiEmpfehlung}</strong>
+          </p>
+        )}
+      </div>
+
       {/* 1. Option */}
       <PhotoUploadField kategorie="aufstellort_option_1" existingBilder={filterBilderByKategorie(bilder, 'aufstellort_option_1')}
         votFormularId={votFormularId} leadName={leadName} leadId={leadId} auftragId={auftragId} disabled={disabled} />
