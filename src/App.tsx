@@ -12,6 +12,7 @@ import AkademieModul from "./pages/AkademieModul";
 import NotFound from "./pages/NotFound";
 import { lazy, Suspense } from "react";
 const AufmassFormPage = lazy(() => import("@/features/aufmass/ui/AufmassFormPage"));
+const AufstellortCheckPage = lazy(() => import("@/features/aufmass/ui/AufstellortCheckPage"));
 import { ProtectedAdminRoute } from "@/components/auth/ProtectedAdminRoute";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 
