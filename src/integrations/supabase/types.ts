@@ -8755,6 +8755,7 @@ export type Database = {
           total_tokens_in: number
           total_tokens_out: number
           updated_at: string
+          variant: string | null
         }
         Insert: {
           ai_model?: string | null
@@ -8782,6 +8783,7 @@ export type Database = {
           total_tokens_in?: number
           total_tokens_out?: number
           updated_at?: string
+          variant?: string | null
         }
         Update: {
           ai_model?: string | null
@@ -8809,6 +8811,7 @@ export type Database = {
           total_tokens_in?: number
           total_tokens_out?: number
           updated_at?: string
+          variant?: string | null
         }
         Relationships: [
           {
