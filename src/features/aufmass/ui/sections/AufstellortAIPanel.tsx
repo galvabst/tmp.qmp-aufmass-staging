@@ -25,15 +25,16 @@ const EMPF_META: Record<AufstellortEmpfehlung, { label: string; cls: string; ico
 
 interface Props {
   leadId: string | null;
+  variant?: 'haupt' | 'alt_1' | 'alt_2';
   disabled?: boolean;
   onApplyResult?: (p: AufstellortPruefung) => void;
 }
 
-export function AufstellortAIPanel({ leadId, disabled, onApplyResult }: Props) {
+export function AufstellortAIPanel({ leadId, variant = 'haupt', disabled, onApplyResult }: Props) {
   const {
     pruefung, fotos, isLoading, isUploading, isStarting,
     uploadFotos, startAnalysis, resetPruefung, getSignedUrl,
-  } = useAufstellortPruefung({ leadId, enabled: !!leadId });
+  } = useAufstellortPruefung({ leadId, variant, enabled: !!leadId });
 
   const [activeView, setActiveView] = useState<string>('uebersicht');
   const inputRef = useRef<HTMLInputElement>(null);

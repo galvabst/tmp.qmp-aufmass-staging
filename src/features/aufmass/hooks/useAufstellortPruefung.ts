@@ -81,18 +81,26 @@ async function stripExif(file: File): Promise<File> {
   });
 }
 
-export function useAufstellortPruefung({ leadId, enabled = true }: { leadId: string | null; enabled?: boolean }) {
+export type AufstellortVariant = 'haupt' | 'alt_1' | 'alt_2';
+
+export function useAufstellortPruefung({
+  leadId,
+  variant = 'haupt',
+  enabled = true,
+}: { leadId: string | null; variant?: AufstellortVariant; enabled?: boolean }) {
   const qc = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
 
   const { data: pruefung, isLoading: pLoading } = useQuery<AufstellortPruefung | null>({
-    queryKey: ['aufstellort-pruefung', leadId],
+    queryKey: ['aufstellort-pruefung', leadId, variant],
     enabled: enabled && !!leadId,
     queryFn: async () => {
+      // Latest active prüfung for this lead+variant; ignore cancelled rows so reset() creates a fresh one.
       const { data, error } = await (supabase as any)
         .from(TABLE_PRUEF).select('*')
-        .eq('lead_id', leadId).eq('pruefung_typ', TYPE)
+        .eq('lead_id', leadId).eq('pruefung_typ', TYPE).eq('variant', variant)
+        .neq('status', 'cancelled')
         .order('created_at', { ascending: false }).limit(1).maybeSingle();
       if (error) throw error;
       return (data ?? null) as AufstellortPruefung | null;
@@ -117,10 +125,10 @@ export function useAufstellortPruefung({ leadId, enabled = true }: { leadId: str
 
   const invalidate = useCallback(async () => {
     await Promise.all([
-      qc.invalidateQueries({ queryKey: ['aufstellort-pruefung', leadId] }),
+      qc.invalidateQueries({ queryKey: ['aufstellort-pruefung', leadId, variant] }),
       qc.invalidateQueries({ queryKey: ['aufstellort-fotos'] }),
     ]);
-  }, [qc, leadId]);
+  }, [qc, leadId, variant]);
 
   const createPruefung = useCallback(async (): Promise<AufstellortPruefung | null> => {
     if (!leadId) { toast.error('Lead-ID fehlt'); return null; }
@@ -128,13 +136,13 @@ export function useAufstellortPruefung({ leadId, enabled = true }: { leadId: str
     const userId = userRes.user?.id;
     if (!userId) { toast.error('Nicht eingeloggt'); return null; }
     const { data, error } = await (supabase as any).from(TABLE_PRUEF).insert({
-      lead_id: leadId, created_by: userId, pruefung_typ: TYPE,
+      lead_id: leadId, created_by: userId, pruefung_typ: TYPE, variant,
       status: 'draft', current_step: 1,
     }).select('*').single();
     if (error) { toast.error(`Prüfung konnte nicht erstellt werden: ${error.message}`); return null; }
     await invalidate();
     return data as AufstellortPruefung;
-  }, [leadId, invalidate]);
+  }, [leadId, variant, invalidate]);
 
   const uploadFotos = useCallback(async (
     files: File[], opts: { aiRequestedView?: string; aiRequestReason?: string } = {}
