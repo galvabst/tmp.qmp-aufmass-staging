@@ -41,11 +41,12 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
     });
   };
 
+  // Nur die Haupt-Variante wird ins Formular gesnapshottet (steuert „Aufstellort ändern").
+  // Alt-1 / Alt-2 werden eigenständig persistiert (sales_zaehlerschrank_pruefungen.variant).
   const handleApplyAI = (p: AufstellortPruefung) => {
     setValue('aufstellort_ai_pruefung_id', p.id, { shouldDirty: true });
     setValue('aufstellort_ai_empfehlung', p.empfehlung ?? undefined, { shouldDirty: true });
     setValue('aufstellort_ai_zusammenfassung', p.findings?.reasoning ?? undefined, { shouldDirty: true });
-    // Auto-Default für Aufstellort-Änderung wenn AI „sanierung" oder „grossanpassung" empfiehlt
     if (p.empfehlung === 'sanierung' || p.empfehlung === 'grossanpassung') {
       setValue('aufstellort_aenderung', true, { shouldDirty: true });
       toast.success('AI-Ergebnis übernommen — „Aufstellort ändern" automatisch gesetzt');
@@ -54,20 +55,35 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
     }
   };
 
+  const handleApplyAlt = (label: string) => (_p: AufstellortPruefung) => {
+    toast.success(`AI-Ergebnis für ${label} gespeichert`);
+  };
+
 
   return (
     <div className="space-y-6">
-      {/* AI-Aufstellort-Check */}
-      <div className="rounded-xl border border-primary/20 bg-primary/[0.02] p-4">
-        <AufstellortAIPanel leadId={leadId} disabled={disabled} onApplyResult={handleApplyAI} />
-        {aiEmpfehlung && (
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            ✓ AI-Ergebnis im Formular gespeichert: <strong>{aiEmpfehlung}</strong>
-          </p>
-        )}
+      {/* Hinweis: AI prüft ausschließlich den Außenaufstellort (Vitocal R290 Monoblock) */}
+      <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          ℹ️ Die AI-Prüfung bewertet den <strong>Außenaufstellort</strong> der Wärmepumpe
+          (Vitocal R290 Monoblock — TA-Lärm, R290-Schutzbereich, Abstände, Untergrund).
+          Pro Aufstell-Option (Haupt &amp; Alternativen) wird eine eigene Prüfung erstellt.
+        </p>
       </div>
 
-      {/* 1. Option */}
+      {/* Haupt-Aufstellort */}
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.02] p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Haupt-Aufstellort</h3>
+          {aiEmpfehlung && (
+            <span className="text-[11px] text-muted-foreground">
+              Formular-Snapshot: <strong>{aiEmpfehlung}</strong>
+            </span>
+          )}
+        </div>
+        <AufstellortAIPanel leadId={leadId} variant="haupt" disabled={disabled} onApplyResult={handleApplyAI} />
+      </div>
+
       <PhotoUploadField kategorie="aufstellort_option_1" existingBilder={filterBilderByKategorie(bilder, 'aufstellort_option_1')}
         votFormularId={votFormularId} leadName={leadName} leadId={leadId} auftragId={auftragId} disabled={disabled} />
       <PhotoUploadField kategorie="aufstellort_umgebung_1" existingBilder={filterBilderByKategorie(bilder, 'aufstellort_umgebung_1')}
@@ -90,6 +106,11 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
 
       {alt1 && (
         <>
+          <div className="rounded-xl border border-primary/20 bg-primary/[0.02] p-4 space-y-3">
+            <h3 className="text-sm font-semibold">AI-Check — Alternative 1</h3>
+            <AufstellortAIPanel leadId={leadId} variant="alt_1" disabled={disabled} onApplyResult={handleApplyAlt('Alternative 1')} />
+          </div>
+
           <PhotoUploadField kategorie="aufstellort_alt_1" existingBilder={filterBilderByKategorie(bilder, 'aufstellort_alt_1')}
             votFormularId={votFormularId} leadName={leadName} leadId={leadId} auftragId={auftragId} disabled={disabled} />
           <PhotoUploadField kategorie="aufstellort_umgebung_alt_1" existingBilder={filterBilderByKategorie(bilder, 'aufstellort_umgebung_alt_1')}
@@ -112,6 +133,11 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
 
           {alt2 && (
             <>
+              <div className="rounded-xl border border-primary/20 bg-primary/[0.02] p-4 space-y-3">
+                <h3 className="text-sm font-semibold">AI-Check — Alternative 2</h3>
+                <AufstellortAIPanel leadId={leadId} variant="alt_2" disabled={disabled} onApplyResult={handleApplyAlt('Alternative 2')} />
+              </div>
+
               <PhotoUploadField kategorie="aufstellort_alt_2" existingBilder={filterBilderByKategorie(bilder, 'aufstellort_alt_2')}
                 votFormularId={votFormularId} leadName={leadName} leadId={leadId} auftragId={auftragId} disabled={disabled} />
               <PhotoUploadField kategorie="aufstellort_umgebung_alt_2" existingBilder={filterBilderByKategorie(bilder, 'aufstellort_umgebung_alt_2')}
