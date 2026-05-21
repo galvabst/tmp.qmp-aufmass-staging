@@ -14080,6 +14080,7 @@ export type Database = {
       }
       is_admin: { Args: { user_id?: string }; Returns: boolean }
       is_closer: { Args: { _user_id?: string }; Returns: boolean }
+      is_fake_phone: { Args: { p_normalized: string }; Returns: boolean }
       is_innendienst: { Args: { p_user_id?: string }; Returns: boolean }
       is_month_locked: {
         Args: { p_month: number; p_year: number }
@@ -14469,6 +14470,7 @@ export type Database = {
             Returns: string
           }
       merge_duplicate_lead_status_entries: { Args: never; Returns: Json }
+      normalize_phone_de: { Args: { p_phone: string }; Returns: string }
       orbit_is_verkaeufer_locked: {
         Args: { _user_id?: string }
         Returns: boolean
