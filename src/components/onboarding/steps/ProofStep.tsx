@@ -20,7 +20,6 @@ interface ProofStepProps {
 const CHECKLIST_ITEMS = [
   { key: 'kleidung-erhalten', label: 'Arbeitskleidung erhalten (Zipper, Hausschuhe)' },
   { key: 'utensilien-komplett', label: 'Alle Pflichtutensilien vollständig' },
-  { key: 'drohnen-fuehrerschein', label: 'EU-Drohnenführerschein vorhanden' },
 ];
 
 export function ProofStep({
