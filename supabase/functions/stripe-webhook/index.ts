@@ -445,7 +445,7 @@ Deno.serve(async (req) => {
         lookupMethod = "subscription_id";
 
         if (invoice.subscription) {
-          // Find ALL orders with this subscription (could be initial or renewal)
+          // Update legacy contractor_bestellungen
           const { data: bestellungen } = await supabase
             .schema("thermocheck")
             .from("contractor_bestellungen")
@@ -454,9 +454,8 @@ Deno.serve(async (req) => {
 
           if (bestellungen && bestellungen.length > 0) {
             for (const bestellung of bestellungen) {
-              // Update to paid if not already
               if (bestellung.stripe_payment_status !== "paid") {
-                const { error: updateError } = await supabase
+                await supabase
                   .schema("thermocheck")
                   .from("contractor_bestellungen")
                   .update({
@@ -466,19 +465,26 @@ Deno.serve(async (req) => {
                     idempotency_key: event.id,
                   })
                   .eq("id", bestellung.id);
-
-                if (updateError) {
-                  console.error(`[stripe-webhook] Error updating order ${bestellung.id} to paid:`, updateError);
-                } else {
-                  console.log(`[stripe-webhook] invoice.paid: Updated order ${bestellung.id} to paid`);
-                }
               }
               ordersUpdated++;
               orderIds.push(bestellung.id);
             }
-          } else {
-            // Fallback: try finding by stripe_session_id from checkout metadata
-            console.warn(`[stripe-webhook] No orders found for subscription ${invoice.subscription}`);
+          }
+
+          // New: subscription tracker
+          const subRowId = await findOrCreateSubscriptionRowByInvoice(supabase, stripe, invoice);
+          if (subRowId) {
+            await recordSubscriptionEvent(supabase, {
+              subscription_row_id: subRowId,
+              stripe_event_id: event.id,
+              event_type: "invoice.paid",
+              invoice_id: invoice.id,
+              invoice_status: "paid",
+              amount_brutto: invoice.amount_paid ? invoice.amount_paid / 100 : null,
+              period_start: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
+              period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
+              raw_payload: invoice,
+            });
           }
         }
         break;
@@ -499,9 +505,8 @@ Deno.serve(async (req) => {
 
           if (bestellungen && bestellungen.length > 0) {
             for (const bestellung of bestellungen) {
-              // Only mark as failed if currently pending (don't override a paid status)
               if (bestellung.stripe_payment_status === "pending") {
-                const { error: updateError } = await supabase
+                await supabase
                   .schema("thermocheck")
                   .from("contractor_bestellungen")
                   .update({
@@ -510,17 +515,51 @@ Deno.serve(async (req) => {
                     idempotency_key: event.id,
                   })
                   .eq("id", bestellung.id);
-
-                if (updateError) {
-                  console.error(`[stripe-webhook] Error marking order ${bestellung.id} as failed:`, updateError);
-                } else {
-                  console.log(`[stripe-webhook] Marked order ${bestellung.id} as failed`);
-                }
               }
               ordersUpdated++;
               orderIds.push(bestellung.id);
             }
           }
+
+          // New: subscription tracker
+          const subRowId = await findOrCreateSubscriptionRowByInvoice(supabase, stripe, invoice);
+          if (subRowId) {
+            const failureReason = (invoice as any).last_finalization_error?.message
+              ?? (invoice as any).billing_reason
+              ?? null;
+            await recordSubscriptionEvent(supabase, {
+              subscription_row_id: subRowId,
+              stripe_event_id: event.id,
+              event_type: "invoice.payment_failed",
+              invoice_id: invoice.id,
+              invoice_status: invoice.status ?? "open",
+              amount_brutto: invoice.amount_due ? invoice.amount_due / 100 : null,
+              failure_reason: failureReason,
+              period_start: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
+              period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
+              raw_payload: invoice,
+            });
+          }
+        }
+        break;
+      }
+
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        console.log(`[stripe-webhook] ${event.type}: ${sub.id}, status=${sub.status}`);
+        actionType = event.type.replace(/\./g, "_");
+        lookupMethod = "subscription_id";
+
+        const subRowId = await upsertSubscription(supabase, sub);
+        if (subRowId) {
+          await recordSubscriptionEvent(supabase, {
+            subscription_row_id: subRowId,
+            stripe_event_id: event.id,
+            event_type: event.type,
+            raw_payload: sub,
+          });
         }
         break;
       }
