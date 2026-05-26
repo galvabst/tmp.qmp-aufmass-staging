@@ -8732,6 +8732,8 @@ export type Database = {
         Row: {
           ai_model: string | null
           analyzing_started_at: string | null
+          cancellation_requested: boolean
+          cancellation_requested_at: string | null
           completed_at: string | null
           confidence: number | null
           created_at: string
@@ -8760,6 +8762,8 @@ export type Database = {
         Insert: {
           ai_model?: string | null
           analyzing_started_at?: string | null
+          cancellation_requested?: boolean
+          cancellation_requested_at?: string | null
           completed_at?: string | null
           confidence?: number | null
           created_at?: string
@@ -8788,6 +8792,8 @@ export type Database = {
         Update: {
           ai_model?: string | null
           analyzing_started_at?: string | null
+          cancellation_requested?: boolean
+          cancellation_requested_at?: string | null
           completed_at?: string | null
           confidence?: number | null
           created_at?: string
