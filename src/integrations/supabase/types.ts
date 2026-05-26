@@ -12839,6 +12839,7 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      custom_access_token_hook_v2: { Args: { event: Json }; Returns: Json }
       decline_thermocheck_reschedule: {
         Args: { p_auftrag_id: string }
         Returns: Json
