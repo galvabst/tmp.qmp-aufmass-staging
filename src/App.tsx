@@ -25,6 +25,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <ImpersonationBanner />
+      <SubscriptionBlockedOverlay />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
