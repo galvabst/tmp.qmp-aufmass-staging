@@ -1,125 +1,79 @@
+# Fix: Trainer-Bestanden → Nachweise → Einsatzbereit
 
-# Subscription-Tracker für Thermo-Checker
+## Problem (evidence)
 
-## Ziel
+Bei drei "Bestanden"-Trainees auf der Karte fehlt der Aktiv-Status, obwohl der Trainer die Mitfahrt akzeptiert hat:
 
-Pro aktiver Subscription (nicht pro Bestellung) den vollen Lifecycle inkl. jedes Monats-Events tracken, damit Innendienst & Techniker sehen, wann eine Abbuchung scheitert, und der Zugang automatisch reguliert wird.
+| Trainee | Steps | trainer_freigabe | mitfahrt_bezahlt_am | Status heute | erwartet |
+|---|---|---|---|---|---|
+| Michel Süße | 6/7 (current=`nachweise`) | ✅ | ❌ NULL | `mitfahrt` | nach Nachweise-Upload → `ready` |
+| Brian Maina | 4/7 (current=`akademie`) | ✅ | ❌ NULL | `mitfahrt` | erst akademie/coaching/nachweise nachholen |
+| Alexandra Jaap | 4/7 | ✅ | ❌ NULL | `inaktiv` (manuell) | bleibt `inaktiv` bis Admin reaktiviert |
 
-## Datenbankstruktur (2 Tabellen, normalisiert)
+Zwei Defekte verursachen das:
 
-```text
-contractor_subscriptions          (1 Zeile pro Stripe-Subscription)
-└── contractor_subscription_events (n Zeilen pro Subscription, je Webhook-Event)
-```
+**A) `bewerte_coaching_mitfahrt('bestanden')` fasst die Onboarding-Steps nicht an.**
+Es setzt nur `coaching_bewertung='bestanden'`, `trainer_freigabe=true` — aber `completed_steps` und `current_step` bleiben unverändert. Der Trainee sieht in seiner Onboarding-UI den nächsten Step (Nachweise) gar nicht und kann nicht abschließen.
 
-### `thermocheck.contractor_subscriptions`
-- `id` (uuid, PK)
-- `onboarding_id` (FK → contractor_onboarding.id)
-- `stripe_subscription_id` (text, unique)
-- `stripe_customer_id` (text)
-- `produkt_key` (text)
-- `status` ENUM `subscription_status`: `active | past_due | unpaid | canceled | incomplete | incomplete_expired | paused | trialing`
-- `current_period_start`, `current_period_end` (timestamptz)
-- `cancel_at_period_end` (bool)
-- `canceled_at` (timestamptz, nullable)
-- `latest_invoice_id`, `latest_invoice_status` (text)
-- `last_payment_failed_at`, `last_payment_failed_reason` (text)
-- `last_payment_succeeded_at` (timestamptz)
-- `consecutive_failures` (int, default 0) — wird bei jedem `invoice.paid` resettet
-- `access_state` ENUM `subscription_access_state`: `ok | warning | blocked` (abgeleitet, per Trigger gepflegt)
-- `erstellt_am`, `aktualisiert_am`
+**B) `sync_onboarding_status` macht `mitfahrt_bezahlt_am` zum harten Ready-Gate.**
+Priority 2 zieht den Status zurück auf `mitfahrt`, solange `gebuchter_coaching_termin IS NOT NULL AND mitfahrt_bezahlt_am IS NULL`. Du verrechnest Mitfahrten manuell später → `mitfahrt_bezahlt_am` wird im operativen Betrieb nie zeitnah gesetzt → `ready` wird nie erreicht.
 
-### `thermocheck.contractor_subscription_events`
-- `id` (uuid, PK)
-- `subscription_id` (FK → contractor_subscriptions.id, cascade)
-- `stripe_event_id` (text, unique → Idempotenz)
-- `event_type` (text, z. B. `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`)
-- `invoice_id`, `invoice_status` (text)
-- `amount_brutto` (numeric)
-- `failure_reason` (text)
-- `period_start`, `period_end` (timestamptz)
-- `raw_payload` (jsonb)
-- `erstellt_am`
+## Lösung
 
-→ Damit ist jeder Monat als eigene Zeile sichtbar (`okay, geklappt / nicht geklappt`), genau wie gewünscht.
+### 1. RPC `bewerte_coaching_mitfahrt` erweitern (bei Entscheidung `'bestanden'`)
 
-### Trigger-Logik
-- `on insert event` → setzt parent `contractor_subscriptions.status / consecutive_failures / access_state` neu.
-- `access_state`-Mapping:
-  - `active` → `ok`
-  - `past_due` oder `cancel_at_period_end=true` → `warning`
-  - `unpaid | canceled | incomplete_expired` → `blocked`
+Zusätzlich zum bestehenden Update auf `contractor_onboarding`:
+- `completed_steps` um `'coaching'` ergänzen (idempotent, nur wenn fehlt)
+- `current_step` auf `'nachweise'` setzen, **wenn** aktuell `current_step IN ('coaching','akademie','mitfahrt')` ist (nicht zurückspringen, falls Trainee schon weiter ist)
 
-## Webhook-Erweiterung (`stripe-webhook`)
+Damit sieht der Trainee nach Bestätigung sofort den Nachweise-Step in seiner Onboarding-Maske.
 
-Neue Event-Handler:
-- `customer.subscription.created` → upsert Subscription
-- `customer.subscription.updated` → sync Status, Perioden, `cancel_at_period_end`
-- `customer.subscription.deleted` → status=`canceled`
-- `invoice.paid` → event-row anlegen (success), parent-status auf `active`, `consecutive_failures=0`, `last_payment_succeeded_at`
-- `invoice.payment_failed` → event-row anlegen (failure), parent-status auf `past_due/unpaid`, increment `consecutive_failures`
+### 2. Trigger `sync_onboarding_status` entkoppeln von Mitfahrt-Bezahlung
 
-Mapping `onboarding_id`: über bestehende `contractor_bestellungen.stripe_subscription_id` (initialer Kauf).
+Priority 2 (`mitfahrt_gebucht` / `mitfahrt_in_rechnung`) wird **nur noch** angewendet, wenn der Trainer **noch nicht** bestanden hat (`coalesce(trainer_freigabe,false) = false`). Sobald `trainer_freigabe=true`, fällt die Logik durch zu Priority 4 (Ready-Prüfung) bzw. zu Priority 5 (in_progress), je nach Step-Stand.
 
-Idempotenz via `stripe_event_id` Unique-Index.
+Effekt:
+- Trainee mit Trainer-Freigabe + 7/7 Steps + Admin-Gates (Vertrag, Kleidung, Lizenzen) → `ready`
+- Trainee mit Trainer-Freigabe aber noch nicht alle Steps → `in_progress` (sinnvoller als „mitfahrt", denn die Mitfahrt ist ja durch)
+- `mitfahrt_bezahlt_am` bleibt als Feld erhalten und kann weiter manuell gesetzt werden — ist nur kein UI-Blocker mehr
 
-## Zugangskontrolle (App-Verhalten)
+### 3. Backfill bestehender Trainees
 
-Neuer Hook `useSubscriptionAccess()` liest den aggregierten worst-case `access_state` aller aktiven Subscriptions des Technikers:
+Einmalig nach dem Migrations-Deploy: für alle Onboardings mit `coaching_bewertung='bestanden' AND trainer_freigabe=true` die Logik aus Punkt 1 nachholen (coaching-step ergänzen, current_step ggf. auf nachweise heben). Anschließend ein leeres `UPDATE` triggert den `sync_onboarding_status` neu → Status wird korrekt umgerechnet.
 
-| access_state | Verhalten |
-|---|---|
-| `ok` | nichts |
-| `warning` | gelbes Banner im Hub: "Dein Abo läuft am … aus. Bitte verlängern, sonst wird der Account gesperrt." + Button zum Stripe-Customer-Portal |
-| `blocked` | Fullscreen-Modal (nicht schließbar) auf allen App-Seiten: "Dein Abo ist abgelaufen / Zahlung fehlgeschlagen. Bitte verlängern, bevor du den nächsten Auftrag machen kannst." + Portal-Button. Pool/Aufträge nicht annehmbar (server-side check in `accept_order` RPC). |
+Erwartung danach:
+- Michel Süße: bleibt `mitfahrt`/`nachweise` bis er den Nachweise-Step abschließt → dann automatisch `ready` (sofern Admin-Gates true)
+- Brian Maina: wird `in_progress` (Trainer-Freigabe ja, aber Akademie/Coaching/Nachweise noch offen)
+- Alexandra Jaap: bleibt `inaktiv` (manueller Admin-Status, wird vom Trigger nicht überschrieben)
 
-## Admin-Sicht
+### 4. Admin-UI: „Was fehlt für ready?"
 
-Neuer Tab/Block im AdminDashboard: **Subscription-Health**
-- Tabelle aktiver Techniker mit Subscriptions im Status `past_due/unpaid/canceled/warning/blocked`
-- Spalten: Techniker, Produkt, Status, letzter Fehlversuch, `consecutive_failures`, nächste Periode
-- Aktionen: Customer-Portal-Link kopieren, manueller Sync-Button
-- Drill-down: Klick auf Subscription → Event-Historie (alle Monate mit grünem/rotem Punkt)
+In der Contractor-Liste (Admin) pro Eintrag mit `trainer_freigabe=true AND onboarding_status != 'ready'` eine kleine Hinweis-Zeile rendern, die genau zeigt was noch fehlt:
+- „Steps offen: nachweise"
+- „Vertrag nicht geprüft"
+- „Kleidung nicht bestellt"
+- „Lizenzen nicht bereitgestellt"
 
-## Reconcile (Edge Function erweitern)
+Reine Lesedarstellung aus den vorhandenen Spalten — kein zusätzlicher RPC, kein Datenschreiben.
 
-`reconcile-stripe-orders` bekommt `mode=subscriptions`:
-- Listet alle `contractor_subscriptions` mit `status ∈ {active, past_due, unpaid, trialing, incomplete}`
-- Holt `GET /v1/subscriptions/{id}` + `latest_invoice`
-- Synct Felder & legt fehlende Events nach
-- Schreibt `audit_log`
+## Was sich NICHT ändert
 
-### pg_cron
-Täglich um 03:00 Europe/Berlin → `mode=subscriptions`.
-Plus manueller Button im Admin (analog `StripeReconcileButton`).
-
-## Roll-out / Backfill
-
-Einmaliger Backfill-Lauf nach Deploy:
-- Für jede `contractor_bestellungen` mit `stripe_subscription_id IS NOT NULL` → Subscription bei Stripe abrufen, Tabelle befüllen, letzte 12 Invoices als Events einlesen.
+- Admin-Gates (`vertrag_geprueft_intern`, `kleidung_bestellt_intern`, `lizenzen_bereitgestellt_intern`) bleiben Pflicht — du behältst die manuelle Kontrolle.
+- `mitfahrt_bezahlt_am` bleibt als Spalte für die Buchhaltung erhalten.
+- Trainer-Bewertungen `nicht_bestanden`/`abgesagt`/`no_show` verhalten sich unverändert.
+- Hiring-Map-Logik (`onboarding_status='ready'` → Aktiv) bleibt wie sie ist.
 
 ## Technische Details
 
-- ENUMs nativ in Postgres (`subscription_status`, `subscription_access_state`) gemäß DB-Standard.
-- RLS:
-  - Techniker: `SELECT` eigene Rows via `onboarding_id` ↔ `profile_id`.
-  - Innendienst: voll via `thermocheck.is_innendienst()`.
-- SECURITY DEFINER RPCs:
-  - `sync_subscription_from_stripe(_subscription_id text)` für manuellen Sync-Button.
-  - `block_check_for_order_accept(_onboarding_id uuid)` zur server-seitigen Annahme-Sperre.
-- Edge Functions: nur Service-Role, keine Client-Direktinserts.
-- Defensive Webhook-Verarbeitung: jedes Event in Try/Catch, Idempotenz via `stripe_event_id`.
+**Migration (eine Transaktion):**
+1. `CREATE OR REPLACE FUNCTION thermocheck.bewerte_coaching_mitfahrt(...)` — im `bestanden`-Branch das `UPDATE thermocheck.contractor_onboarding ... SET` um `completed_steps = (CASE WHEN 'coaching' = ANY(completed_steps) THEN completed_steps ELSE array_append(completed_steps, 'coaching') END)` und `current_step = CASE WHEN current_step IN ('coaching','akademie','mitfahrt') THEN 'nachweise' ELSE current_step END` erweitern.
+2. `CREATE OR REPLACE FUNCTION thermocheck.sync_onboarding_status()` — Priority-2-Block einklammern mit `AND coalesce(NEW.trainer_freigabe, false) = false`.
+3. Backfill-Statement: `UPDATE thermocheck.contractor_onboarding SET completed_steps = array_append(completed_steps, 'coaching'), current_step = 'nachweise' WHERE coaching_bewertung='bestanden' AND trainer_freigabe=true AND NOT ('coaching' = ANY(completed_steps)) AND current_step IN ('coaching','akademie','mitfahrt');` — der `BEFORE UPDATE`-Trigger rechnet den Status dabei automatisch neu.
 
-## Liefer-Reihenfolge
+**Frontend:**
+- `src/features/contractors/hooks/useAdminContractorList.ts` und `AdminContractorListItem` (oder die Stelle, die die Liste rendert) um eine `readinessGapHint`-Berechnung erweitern. Reine Funktion über bestehende Felder.
 
-1. Migration: ENUMs, Tabellen, Trigger, RLS, RPCs
-2. `stripe-webhook` Handler-Erweiterung + Idempotenz
-3. `reconcile-stripe-orders` `mode=subscriptions` + Backfill-Script
-4. `useSubscriptionAccess` Hook + Warning-Banner + Blocked-Modal + accept-order Gate
-5. Admin "Subscription-Health" Panel + Event-Historie
-6. pg_cron Daily Job
-7. Validierungs-Doc `.lovable/validation-subscription-tracker.md`
-
-## Offen / nicht enthalten
-
-- Kein automatisches Mahnwesen / E-Mail-Versand (kann später als separate Edge Function ergänzt werden — sag Bescheid, wenn das mit rein soll).
+**Validation nach Deploy:**
+- DB-Read: `SELECT id, onboarding_status, current_step FROM thermocheck.contractor_onboarding WHERE coaching_bewertung='bestanden'` — Michel sollte `current_step=nachweise` haben, Brian `in_progress`.
+- Hiring-Map manuell neu laden → Aktiv-Counter sollte sich erhöhen, sobald Michel den Nachweise-Step abschließt.
+- Memory `mem://technical/ready-status-kriterien-v2` aktualisieren (Mitfahrt-Bezahlung ist kein Ready-Gate mehr).
