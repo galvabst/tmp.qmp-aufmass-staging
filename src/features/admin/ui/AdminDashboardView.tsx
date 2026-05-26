@@ -312,6 +312,11 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
         <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={inVerzugList.length} accent onClick={() => setVerzugOpen(true)} />
       </div>
 
+      {/* Subscription Health */}
+      <div className="mb-6">
+        <SubscriptionHealthPanel />
+      </div>
+
       {/* In Verzug Dialog */}
       <Dialog open={verzugOpen} onOpenChange={setVerzugOpen}>
         <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
