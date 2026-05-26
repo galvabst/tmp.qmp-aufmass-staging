@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     }
 
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // supabase client already created above
 
     const windowDays = mode === "backfill" ? backfillDays : 7;
     const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
