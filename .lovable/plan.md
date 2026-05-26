@@ -1,47 +1,92 @@
-## Problem
+## Befund aus den Daten
 
-Das Panel „Subscription-Health" zeigt aktuell 8 Einträge mit „Gekündigt" — ohne Namen, ohne Kontext, ohne Erklärung, was das überhaupt bedeutet. Recherche in der DB hat zwei Ursachen ergeben:
+- **Torsten Lauschke**: Bestellung/Abrechnung ist bezahlt (`latest_invoice_status = paid`, Orders `paid`). Trotzdem steht die Subscription als `canceled`. Das Panel darf ihn nicht pauschal als „muss etwas tun" darstellen, sondern muss unterscheiden: **Abo laut Stripe gekündigt, aber letzte Abrechnung bezahlt**.
+- **Vincent Heth**: In `contractor_onboarding` steht `onboarding_status = in_progress`, aber `is_trainer = true`. Die Contractor-Liste behandelt Trainer bereits als `ready`; die Subscription-Health-View aktuell nicht. Deshalb kam der falsche Badge „Onboarding".
+- **Brian Maina**: Hat aktive Subscriptions (`google-workspace`, `scanner-lizenz`) mit `status = active`, `latest_invoice_status = paid`, `access_state = ok`. Er wird aktuell nicht angezeigt, weil er kein Health-Problem hat. Das ist fachlich korrekt — aber der Zustand sollte im Detail/Übersicht nachvollziehbar sein.
+- **Event-Historie leer**: `contractor_subscription_events` hat für diese Subscriptions keine Events. Deshalb ist der Dialog aktuell nicht beweiskräftig. Wir brauchen die Bestellungen + Stripe-Tracker-Daten zusammen, nicht nur Event-Logs.
 
-1. **Namen fehlen**, weil die View `v_subscription_health` `vorname`/`nachname` aus `contractor_onboarding` zieht — die sind dort `NULL`. Die echten Namen liegen in `public.profiles` (z. B. Christian Born, Torsten Lauschke, Vincent Heth, Achim Mönning).
-2. **Karteileichen werden mitgezählt**: Subscriptions von Technikern mit `onboarding_status = 'gefeuert'` oder `'abgelehnt'` tauchen weiterhin auf. Beispiel: Achim Mönning ist gefeuert, seine zwei alten Stripe-Subs erscheinen aber noch als „Health-Problem". Außerdem werden zwei Subs pro Person gezählt (google-workspace + scanner-lizenz), was die „8" aufbläht.
+## Zielbild
 
-## Ziel
+Aus „Subscription-Health" wird eine klare **Abo- und Lizenzprüfung für Feinaufmaß-Techniker**:
 
-Das Panel soll auf einen Blick zeigen: **Wer** im Feinaufmaß-Hub hat ein **echtes** Subscription-Problem, das **jetzt** Aktion erfordert.
+- Oben eine **Techniker-zentrierte Liste**, nicht eine Zeile pro Subscription.
+- Pro Techniker zwei Produktzustände:
+  - Google Workspace
+  - Scanner-Lizenz
+- Jede Lizenz bekommt eine verständliche Bewertung:
+  - **OK**: aktive Subscription oder paid + kein Risiko
+  - **Hinweis**: gekündigt, aber letzte Rechnung bezahlt / läuft noch bis Datum
+  - **Aktion nötig**: unpaid, past_due, incomplete_expired oder echte Zahlungsprobleme
+- Keine irreführende Formulierung „läuft am …" als Hauptsignal. Stattdessen: **„Status laut Stripe"**, **„letzte Rechnung"**, **„letzte bezahlte Bestellung"**, **„Handlung"**.
 
-## Lösung
+## Umsetzung
 
-### 1. View `v_subscription_health` überarbeiten (Migration)
+### 1. Datenmodell für die Health-View reparieren
 
-- Namen + Email aus `public.profiles` joinen (Fallback auf `contractor_onboarding`-Felder).
-- Onboarding-Kontext mitgeben: `onboarding_status`, `current_step`.
-- Nur Subscriptions von **aktiv onboardenden oder einsatzbereiten Technikern**:
-  - Ausschließen: `onboarding_status IN ('gefeuert','abgelehnt')`.
-  - Ausschließen: Profile, die nicht im Feinaufmaß-Hub registriert sind (kein `profile_id`-Match).
-- `produkt_label` (lesbarer Name aus `contractor_products`) statt nur `produkt_key`.
+Neue/überarbeitete View `thermocheck.v_subscription_health`:
 
-### 2. Panel UI (`SubscriptionHealthPanel.tsx`)
+- Join auf `public.profiles` für korrekte Namen/E-Mail.
+- Effektiver Onboarding-Status:
+  - `is_trainer = true` wird als `ready` angezeigt, analog zur Contractor-Liste.
+  - Sonst `contractor_onboarding.onboarding_status`.
+- Subscriptions mit letztem Zahlungs-/Bestellkontext anreichern:
+  - letzter paid Order-Zeitpunkt je `onboarding_id + produkt_key`
+  - letzter Order-Status je Produkt
+  - letzter Rechnungsstatus aus `contractor_subscriptions.latest_invoice_status`
+- Risiko/Health-Einstufung in der View berechnen:
+  - `ok`
+  - `attention`
+  - `action_required`
+- Nur Techniker berücksichtigen, die im Feinaufmaß-Hub existieren und nicht `gefeuert`, `abgelehnt`, `ausgestiegen`, `deaktiviert`, `inaktiv` sind.
 
-- **Header-Erklärung**: kurzer Hilfetext / Tooltip am Titel: „Aktive Techniker, deren Stripe-Abo gekündigt, überfällig oder unbezahlt ist. Klick öffnet Details + Stripe-Link."
-- **Listeneintrag** zeigt jetzt:
-  - **Name + Email** des Technikers (statt nur Produktname).
-  - Onboarding-Badge daneben (`Onboarding · Coaching`, `Einsatzbereit`, `Nachweise`).
-  - Produkt-Label + Ablaufdatum + Fehler-Counter (wie bisher) in der Subzeile.
-- **Counter im Badge** zählt **eindeutige Techniker**, nicht einzelne Subs (eine Person mit 2 gekündigten Subs = 1 Problem).
-- Empty-State-Text präziser: „Alle aktiven Techniker haben gültige Abos."
+### 2. Hook sauber typisieren
 
-### 3. Detail-Dialog
+`useAdminSubscriptionHealth` bekommt neue Felder:
 
-- Im Header zusätzlich Onboarding-Status + Step anzeigen.
-- Direktlink „Im Feinaufmaß-Hub öffnen" (Route `/admin/contractors/:id`) ergänzen, damit man von hier direkt in den Techniker-Datensatz springen kann.
+- `effective_onboarding_status`
+- `is_trainer`
+- `latest_invoice_status`
+- `last_paid_order_at`
+- `last_order_status`
+- `health_level`
+- `health_reason`
 
-## Technische Details
+Der Hook lädt nicht mehr einfach `access_state != ok`, sondern nur relevante Risiken:
 
-- Migration: `CREATE OR REPLACE VIEW thermocheck.v_subscription_health` mit `LEFT JOIN public.profiles p ON p.id = co.profile_id` und `WHERE co.onboarding_status NOT IN ('gefeuert','abgelehnt') AND co.profile_id IS NOT NULL`. GRANTs bleiben.
-- Hook `useAdminSubscriptionHealth` bekommt zwei neue Felder (`onboarding_status`, `current_step`, `produkt_label`).
-- Keine Logik-Änderung am Stripe-Webhook / Reconcile — nur Anzeige.
+- `health_level in ('attention', 'action_required')`
 
-## Was sich NICHT ändert
+Damit erscheinen z. B. Brian nicht im Problem-Panel, weil er ok ist — aber Torsten kann als „Hinweis" statt als harter Fehler erscheinen.
 
-- Stripe-Webhook-Verarbeitung, `access_state`-Berechnung, Abgleich-Button bleiben unverändert.
-- Subscription-Daten selbst werden nicht gelöscht — nur in dieser Health-View ausgeblendet, wenn der Vertrag beendet ist.
+### 3. UI von Subscription-Zeilen auf Techniker-Gruppen umbauen
+
+`SubscriptionHealthPanel.tsx`:
+
+- Gruppierung nach Techniker (`onboarding_id`).
+- Eine Karte pro Techniker mit:
+  - Name, E-Mail, effektiver Status (`Einsatzbereit`, `Onboarding`, `Trainer`)
+  - Worst-Case-Badge: `Aktion nötig` oder `Hinweis`
+  - kompakte Produktchips für Google Workspace und Scanner-Lizenz
+- Dialog zeigt dann beide Lizenzen eines Technikers untereinander:
+  - Produkt
+  - Stripe-Status
+  - Rechnungsstatus
+  - letzte bezahlte Bestellung
+  - Kündigungs-/Periodeninfo nur als Detail, nicht als Hauptaussage
+  - Handlungstext, z. B. „Stripe prüfen: Subscription gekündigt, letzte Rechnung bezahlt" oder „Zahlung offen/fehlgeschlagen".
+
+### 4. Navigation korrekt machen
+
+Der aktuelle Link `/admin/contractors/:id` passt nicht zur App-Struktur. Stattdessen:
+
+- `AdminDashboardView` bekommt `onSelectContractor` in das Subscription-Panel durchgereicht.
+- Klick im Dialog/Button ruft `onSelectContractor(onboarding_id)` auf.
+- Dadurch öffnet sich die bestehende Contractor-Detailansicht sauber über den vorhandenen Admin-State.
+
+### 5. Validierung
+
+Nach Umsetzung prüfe ich per DB-Read:
+
+- Torsten erscheint nicht mehr als harter „Aktion nötig"-Fall, sondern höchstens als Hinweis mit „letzte Rechnung paid".
+- Vincent wird als `Einsatzbereit/Trainer` angezeigt, nicht als Onboarding.
+- Brian bleibt aus dem Problem-Panel raus, weil beide Abos `active/paid/ok` sind.
+- Christian bleibt als echter Problemfall sichtbar.
