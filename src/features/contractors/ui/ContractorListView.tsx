@@ -480,6 +480,23 @@ function ContractorCard({ contractor: c, onClick, onAction }: {
                 </span>
               )}
             </div>
+
+            {c.coachingBewertung === 'bestanden' && c.onboardingStatus !== 'ready' && !c.isTrainer && (() => {
+              const gaps: string[] = [];
+              if (c.completedSteps.length < 7) {
+                const stepLabel = c.currentStep ? (STEP_LABELS[c.currentStep] ?? c.currentStep) : `${c.completedSteps.length}/7`;
+                gaps.push(`Step: ${stepLabel}`);
+              }
+              if (!c.vertragGeprueft) gaps.push('Vertrag');
+              if (!c.kleidungBestellt) gaps.push('Kleidung');
+              if (!c.lizenzenBereitgestellt) gaps.push('Lizenzen');
+              if (gaps.length === 0) return null;
+              return (
+                <p className="text-[10px] text-amber-600 mt-1 truncate" title={gaps.join(' · ')}>
+                  Fehlt für Einsatzbereit: {gaps.join(' · ')}
+                </p>
+              );
+            })()}
           </div>
         </div>
       </CardContent>
