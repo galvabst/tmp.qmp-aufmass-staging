@@ -13127,10 +13127,10 @@ export type Database = {
       get_all_contractor_bestellungen_summary: {
         Args: never
         Returns: {
-          kleidung_intern_done: number
           kleidung_paid: number
           kleidung_total: number
-          lizenz_intern_done: number
+          lizenz_abo_lapsed_count: number
+          lizenz_abo_lapsed_items: Json
           lizenz_paid: number
           lizenz_total: number
           onboarding_id: string
@@ -14252,6 +14252,10 @@ export type Database = {
             }
             Returns: Json
           }
+      mark_contractor_bestellung_abo_gekuendigt: {
+        Args: { p_bestellung_id: string; p_gekuendigt: boolean }
+        Returns: undefined
+      }
       mark_rechnung_gestellt: {
         Args: { p_auftrag_id: string }
         Returns: undefined
