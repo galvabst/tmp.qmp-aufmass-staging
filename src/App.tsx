@@ -15,6 +15,7 @@ const AufmassFormPage = lazy(() => import("@/features/aufmass/ui/AufmassFormPage
 const AufstellortCheckPage = lazy(() => import("@/features/aufmass/ui/AufstellortCheckPage"));
 import { ProtectedAdminRoute } from "@/components/auth/ProtectedAdminRoute";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
+import { SubscriptionBlockedOverlay } from "@/components/subscription/SubscriptionAccessGate";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <ImpersonationBanner />
+      <SubscriptionBlockedOverlay />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

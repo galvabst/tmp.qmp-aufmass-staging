@@ -9,6 +9,7 @@ import { useOnboardingDurationStats } from '@/features/admin/hooks/useOnboarding
 import { Users, ClipboardList, AlertTriangle, MapPin, Check, X, Shirt, Footprints, CreditCard, MonitorSmartphone, ScanLine, GraduationCap, Car, FileCheck, UserX, Star, TrendingUp, Clock, Activity, Timer } from 'lucide-react';
 import { AdminHiringMap } from './AdminHiringMap';
 import { StripeReconcileButton } from './StripeReconcileButton';
+import { SubscriptionHealthPanel } from './SubscriptionHealthPanel';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -309,6 +310,11 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
         <KpiCard icon={<Users className="w-4 h-4" />} label="Einsatzbereit" value={ready} />
         <KpiCard icon={<MapPin className="w-4 h-4" />} label="Offene Pool-Termine" value={stats?.offenePool ?? '–'} />
         <KpiCard icon={<AlertTriangle className="w-4 h-4" />} label="In Verzug" value={inVerzugList.length} accent onClick={() => setVerzugOpen(true)} />
+      </div>
+
+      {/* Subscription Health */}
+      <div className="mb-6">
+        <SubscriptionHealthPanel />
       </div>
 
       {/* In Verzug Dialog */}
