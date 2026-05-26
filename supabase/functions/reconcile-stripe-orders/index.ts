@@ -72,11 +72,45 @@ Deno.serve(async (req) => {
 
     // ---- Subscription-Sync Branch ----
     if (mode === "subscriptions") {
+      // 1) Seed: alle bekannten Subscriptions aus contractor_bestellungen in tracker übernehmen
+      const { data: seedRows } = await supabase
+        .schema("thermocheck")
+        .from("contractor_bestellungen")
+        .select("stripe_subscription_id, stripe_customer_id, onboarding_id, produkt_key")
+        .not("stripe_subscription_id", "is", null);
+
+      const seedMap = new Map<string, { onboarding_id: string; stripe_customer_id: string | null; produkt_key: string }>();
+      for (const r of seedRows ?? []) {
+        if (!r.stripe_subscription_id || !r.onboarding_id) continue;
+        if (!seedMap.has(r.stripe_subscription_id)) {
+          seedMap.set(r.stripe_subscription_id, {
+            onboarding_id: r.onboarding_id,
+            stripe_customer_id: r.stripe_customer_id ?? null,
+            produkt_key: r.produkt_key,
+          });
+        }
+      }
+
+      let seeded = 0;
+      for (const [subId, meta] of seedMap.entries()) {
+        const { error: insErr } = await supabase
+          .schema("thermocheck")
+          .from("contractor_subscriptions")
+          .upsert({
+            stripe_subscription_id: subId,
+            onboarding_id: meta.onboarding_id,
+            stripe_customer_id: meta.stripe_customer_id,
+            produkt_key: meta.produkt_key,
+            status: "incomplete",
+          }, { onConflict: "stripe_subscription_id", ignoreDuplicates: true });
+        if (!insErr) seeded++;
+      }
+
+      // 2) Sync: alle subscriptions in tracker mit Stripe abgleichen
       const { data: subs, error: subsErr } = await supabase
         .schema("thermocheck")
         .from("contractor_subscriptions")
-        .select("id, stripe_subscription_id")
-        .in("status", ["active", "past_due", "unpaid", "trialing", "incomplete"]);
+        .select("id, stripe_subscription_id");
 
       if (subsErr) {
         return new Response(JSON.stringify({ error: subsErr.message }), {
@@ -107,12 +141,12 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({
-        version: RECONCILER_VERSION, mode, checked: subs?.length ?? 0, synced, errors,
+        version: RECONCILER_VERSION, mode, seeded, checked: subs?.length ?? 0, synced, errors,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // supabase client already created above
 
     const windowDays = mode === "backfill" ? backfillDays : 7;
     const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
