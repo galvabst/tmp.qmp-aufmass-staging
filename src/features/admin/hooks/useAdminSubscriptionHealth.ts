@@ -8,6 +8,8 @@ export interface SubscriptionHealthRow {
   vorname: string | null;
   nachname: string | null;
   email: string | null;
+  onboarding_status: string | null;
+  current_step: string | null;
   stripe_subscription_id: string;
   stripe_customer_id: string | null;
   produkt_key: string | null;
