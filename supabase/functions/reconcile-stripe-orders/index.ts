@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse body for mode/options (POST only). GET = recent default.
-    let mode: "recent" | "backfill" | "single" = "recent";
+    let mode: "recent" | "backfill" | "single" | "subscriptions" = "recent";
     let backfillDays = 7;
     let singleOrderId: string | null = null;
     if (req.method === "POST") {
@@ -62,9 +62,55 @@ Deno.serve(async (req) => {
         } else if (body?.mode === "single" && typeof body?.order_id === "string") {
           mode = "single";
           singleOrderId = body.order_id;
+        } else if (body?.mode === "subscriptions") {
+          mode = "subscriptions";
         }
       } catch (_) { /* no body / not json → recent */ }
     }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ---- Subscription-Sync Branch ----
+    if (mode === "subscriptions") {
+      const { data: subs, error: subsErr } = await supabase
+        .schema("thermocheck")
+        .from("contractor_subscriptions")
+        .select("id, stripe_subscription_id")
+        .in("status", ["active", "past_due", "unpaid", "trialing", "incomplete"]);
+
+      if (subsErr) {
+        return new Response(JSON.stringify({ error: subsErr.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let synced = 0;
+      const errors: Array<{ id: string; error: string }> = [];
+      for (const s of subs ?? []) {
+        try {
+          const sub: any = await stripeGet(stripeKey, `subscriptions/${s.stripe_subscription_id}?expand[]=latest_invoice`);
+          const latestInv = sub.latest_invoice;
+          await supabase.schema("thermocheck").from("contractor_subscriptions").update({
+            status: sub.status,
+            current_period_start: sub.current_period_start ? new Date(sub.current_period_start * 1000).toISOString() : null,
+            current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+            cancel_at_period_end: !!sub.cancel_at_period_end,
+            canceled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
+            latest_invoice_id: typeof latestInv === "object" ? latestInv?.id : (latestInv ?? null),
+            latest_invoice_status: typeof latestInv === "object" ? latestInv?.status : null,
+            stripe_customer_id: typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
+          }).eq("id", s.id);
+          synced++;
+        } catch (e) {
+          errors.push({ id: s.id, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+
+      return new Response(JSON.stringify({
+        version: RECONCILER_VERSION, mode, checked: subs?.length ?? 0, synced, errors,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
