@@ -13317,6 +13317,16 @@ export type Database = {
           praxistest_video_url: string
         }[]
       }
+      get_contractor_step_timeline: {
+        Args: { _onboarding_id: string }
+        Returns: {
+          entered_count: number
+          is_current: boolean
+          last_entered_at: string
+          step: string
+          total_seconds: number
+        }[]
+      }
       get_contractors: {
         Args: never
         Returns: {
