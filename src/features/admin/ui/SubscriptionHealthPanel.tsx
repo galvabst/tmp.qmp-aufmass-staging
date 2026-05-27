@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { AlertTriangle, RefreshCw, Info, ExternalLink, ShieldCheck, AlertCircle, CircleAlert } from "lucide-react";
+import { AlertTriangle, RefreshCw, Info, ExternalLink, ShieldCheck, AlertCircle, CircleAlert, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -142,6 +142,42 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
     }
   };
 
+  const [liveSyncing, setLiveSyncing] = useState(false);
+  const handleLiveSyncAll = async () => {
+    if (groups.length === 0) return;
+    setLiveSyncing(true);
+    const ids = groups.map((g) => g.onboarding_id);
+    let done = 0; let newSubs = 0; let warns = 0;
+    const errs: string[] = [];
+    // Sequenziell — Stripe-API-Limit + bessere Toast-Progression
+    for (const id of ids) {
+      try {
+        const { data, error } = await supabase.functions.invoke("stripe-sync-contractor", {
+          body: { onboarding_id: id },
+        });
+        if (error) throw error;
+        const r = data?.results?.[0];
+        if (r) {
+          newSubs += r.subscriptions_new ?? 0;
+          warns += (r.warnings?.length ?? 0);
+        }
+      } catch (e) {
+        errs.push(e instanceof Error ? e.message : String(e));
+      }
+      done++;
+      toast.message(`Live-Abgleich ${done} / ${ids.length}`, {
+        description: `${newSubs} neue Subs gefunden${warns ? ` · ${warns} Hinweise` : ""}`,
+        id: "live-sync-all",
+      });
+    }
+    setLiveSyncing(false);
+    await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+    if (errs.length === 0) toast.success(`Live-Abgleich fertig: ${ids.length} Techniker, ${newSubs} neue Subs erkannt.`);
+    else toast.error(`Live-Abgleich mit Fehlern: ${errs.length} / ${ids.length}. Siehe Konsole.`);
+    if (errs.length > 0) console.error("[live-sync-all] errors:", errs);
+  };
+
+
   return (
     <TooltipProvider delayDuration={150}>
       <Card>
@@ -167,10 +203,25 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
               </Tooltip>
             </CardTitle>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing}>
-            <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            <span className="ml-1 hidden sm:inline">Abgleich</span>
-          </Button>
+          <div className="flex items-center gap-1">
+            {groups.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={handleLiveSyncAll} disabled={liveSyncing || syncing}>
+                    <Zap className={`h-4 w-4 ${liveSyncing ? "animate-pulse text-amber-500" : ""}`} />
+                    <span className="ml-1 hidden sm:inline">Live-Sync</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  Pullt für jeden hier gelisteten Techniker direkt aus Stripe alle Subscriptions & letzten Rechnungen (auch unbekannte Customer-Records via E-Mail-Match). Dauert ein paar Sekunden pro Techniker.
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing || liveSyncing}>
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              <span className="ml-1 hidden sm:inline">Abgleich</span>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -248,10 +299,54 @@ function TechnicianDetailDialog({
   onClose: () => void;
   onOpenContractor?: (onboardingId: string) => void;
 }) {
+  const queryClient = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<null | {
+    when: Date;
+    customer_ids: string[];
+    customer_ids_via_email: string[];
+    subscriptions_found: number;
+    subscriptions_new: number;
+    invoices_new: number;
+    warnings: string[];
+  }>(null);
+
   if (!group) return null;
   const first = group.rows[0];
   const fullName = `${first.vorname ?? ""} ${first.nachname ?? ""}`.trim() || "Unbenannter Techniker";
   const ob = onboardingBadge(first);
+
+  const handleLiveSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("stripe-sync-contractor", {
+        body: { onboarding_id: group.onboarding_id },
+      });
+      if (error) throw error;
+      const r = data?.results?.[0];
+      if (r) {
+        setLastSync({
+          when: new Date(),
+          customer_ids: r.customer_ids ?? [],
+          customer_ids_via_email: r.customer_ids_via_email ?? [],
+          subscriptions_found: r.subscriptions_found ?? 0,
+          subscriptions_new: r.subscriptions_new ?? 0,
+          invoices_new: r.invoices_new ?? 0,
+          warnings: r.warnings ?? [],
+        });
+        toast.success(
+          `Live-Sync: ${r.subscriptions_found} Subs gefunden, ${r.subscriptions_new} neu, ${r.invoices_new} neue Rechnungen.`,
+        );
+      } else {
+        toast.error("Live-Sync lieferte kein Ergebnis.");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+    } catch (e) {
+      toast.error(`Live-Sync fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
@@ -317,7 +412,41 @@ function TechnicianDetailDialog({
             );
           })}
 
+          {lastSync && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs">
+              <div className="flex items-center gap-1.5 font-medium text-amber-800">
+                <Zap className="h-3.5 w-3.5" />
+                Letzter Live-Sync: {lastSync.when.toLocaleTimeString("de-DE")}
+              </div>
+              <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-amber-900">
+                <div>Gefundene Subs: <b>{lastSync.subscriptions_found}</b></div>
+                <div>Neu in DB: <b>{lastSync.subscriptions_new}</b></div>
+                <div>Neue Rechnungen: <b>{lastSync.invoices_new}</b></div>
+                <div>Customer-IDs: <b>{lastSync.customer_ids.length}</b></div>
+              </div>
+              {lastSync.customer_ids_via_email.length > 0 && (
+                <p className="mt-1 text-amber-800">
+                  Per E-Mail-Match neu gefunden: {lastSync.customer_ids_via_email.join(", ")}
+                </p>
+              )}
+              {lastSync.warnings.length > 0 && (
+                <ul className="mt-1 list-disc pl-4 text-amber-700">
+                  {lastSync.warnings.slice(0, 5).map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="default"
+              className="flex-1"
+              onClick={handleLiveSync}
+              disabled={syncing}
+            >
+              <Zap className={`mr-1 h-4 w-4 ${syncing ? "animate-pulse" : ""}`} />
+              {syncing ? "Synce …" : "Live mit Stripe abgleichen"}
+            </Button>
             {onOpenContractor && (
               <Button
                 variant="outline"
