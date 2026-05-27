@@ -142,6 +142,42 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
     }
   };
 
+  const [liveSyncing, setLiveSyncing] = useState(false);
+  const handleLiveSyncAll = async () => {
+    if (groups.length === 0) return;
+    setLiveSyncing(true);
+    const ids = groups.map((g) => g.onboarding_id);
+    let done = 0; let newSubs = 0; let warns = 0;
+    const errs: string[] = [];
+    // Sequenziell — Stripe-API-Limit + bessere Toast-Progression
+    for (const id of ids) {
+      try {
+        const { data, error } = await supabase.functions.invoke("stripe-sync-contractor", {
+          body: { onboarding_id: id },
+        });
+        if (error) throw error;
+        const r = data?.results?.[0];
+        if (r) {
+          newSubs += r.subscriptions_new ?? 0;
+          warns += (r.warnings?.length ?? 0);
+        }
+      } catch (e) {
+        errs.push(e instanceof Error ? e.message : String(e));
+      }
+      done++;
+      toast.message(`Live-Abgleich ${done} / ${ids.length}`, {
+        description: `${newSubs} neue Subs gefunden${warns ? ` · ${warns} Hinweise` : ""}`,
+        id: "live-sync-all",
+      });
+    }
+    setLiveSyncing(false);
+    await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+    if (errs.length === 0) toast.success(`Live-Abgleich fertig: ${ids.length} Techniker, ${newSubs} neue Subs erkannt.`);
+    else toast.error(`Live-Abgleich mit Fehlern: ${errs.length} / ${ids.length}. Siehe Konsole.`);
+    if (errs.length > 0) console.error("[live-sync-all] errors:", errs);
+  };
+
+
   return (
     <TooltipProvider delayDuration={150}>
       <Card>
