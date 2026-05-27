@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseTC } from "@/integrations/supabase/thermocheck-client";
 
+export type HealthLevel = "ok" | "attention" | "action_required";
+
 export interface SubscriptionHealthRow {
   subscription_id: string;
   onboarding_id: string;
@@ -9,12 +11,15 @@ export interface SubscriptionHealthRow {
   nachname: string | null;
   email: string | null;
   onboarding_status: string | null;
+  effective_onboarding_status: string | null;
   current_step: string | null;
+  is_trainer: boolean;
   stripe_subscription_id: string;
   stripe_customer_id: string | null;
   produkt_key: string | null;
   status: string;
   access_state: "ok" | "warning" | "blocked";
+  latest_invoice_status: string | null;
   current_period_start: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean;
@@ -22,13 +27,18 @@ export interface SubscriptionHealthRow {
   last_payment_failed_at: string | null;
   last_payment_failed_reason: string | null;
   last_payment_succeeded_at: string | null;
+  last_paid_order_at: string | null;
+  last_order_status: string | null;
   consecutive_failures: number;
   aktualisiert_am: string;
+  health_level: HealthLevel;
+  health_reason: string | null;
 }
 
 /**
- * Admin: alle Subscriptions mit Problemen
- * (access_state != 'ok' ODER status nicht 'active').
+ * Admin: alle Subscriptions, die Aufmerksamkeit brauchen
+ * (health_level != 'ok'). Trainer und gefeuerte/ausgestiegene Techniker
+ * werden bereits in der View korrekt behandelt.
  */
 export function useAdminSubscriptionHealth() {
   return useQuery<SubscriptionHealthRow[]>({
@@ -38,8 +48,9 @@ export function useAdminSubscriptionHealth() {
       const { data, error } = await supabaseTC
         .from("v_subscription_health")
         .select("*")
-        .neq("access_state", "ok")
-        .order("aktualisiert_am", { ascending: false });
+        .neq("health_level", "ok")
+        .order("health_level", { ascending: true })
+        .order("nachname", { ascending: true });
 
       if (error) {
         console.error("[useAdminSubscriptionHealth] error:", error);
