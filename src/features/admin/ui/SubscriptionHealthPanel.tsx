@@ -299,10 +299,54 @@ function TechnicianDetailDialog({
   onClose: () => void;
   onOpenContractor?: (onboardingId: string) => void;
 }) {
+  const queryClient = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<null | {
+    when: Date;
+    customer_ids: string[];
+    customer_ids_via_email: string[];
+    subscriptions_found: number;
+    subscriptions_new: number;
+    invoices_new: number;
+    warnings: string[];
+  }>(null);
+
   if (!group) return null;
   const first = group.rows[0];
   const fullName = `${first.vorname ?? ""} ${first.nachname ?? ""}`.trim() || "Unbenannter Techniker";
   const ob = onboardingBadge(first);
+
+  const handleLiveSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("stripe-sync-contractor", {
+        body: { onboarding_id: group.onboarding_id },
+      });
+      if (error) throw error;
+      const r = data?.results?.[0];
+      if (r) {
+        setLastSync({
+          when: new Date(),
+          customer_ids: r.customer_ids ?? [],
+          customer_ids_via_email: r.customer_ids_via_email ?? [],
+          subscriptions_found: r.subscriptions_found ?? 0,
+          subscriptions_new: r.subscriptions_new ?? 0,
+          invoices_new: r.invoices_new ?? 0,
+          warnings: r.warnings ?? [],
+        });
+        toast.success(
+          `Live-Sync: ${r.subscriptions_found} Subs gefunden, ${r.subscriptions_new} neu, ${r.invoices_new} neue Rechnungen.`,
+        );
+      } else {
+        toast.error("Live-Sync lieferte kein Ergebnis.");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+    } catch (e) {
+      toast.error(`Live-Sync fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
