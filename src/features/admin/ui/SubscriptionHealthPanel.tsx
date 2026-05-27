@@ -412,7 +412,41 @@ function TechnicianDetailDialog({
             );
           })}
 
+          {lastSync && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs">
+              <div className="flex items-center gap-1.5 font-medium text-amber-800">
+                <Zap className="h-3.5 w-3.5" />
+                Letzter Live-Sync: {lastSync.when.toLocaleTimeString("de-DE")}
+              </div>
+              <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-amber-900">
+                <div>Gefundene Subs: <b>{lastSync.subscriptions_found}</b></div>
+                <div>Neu in DB: <b>{lastSync.subscriptions_new}</b></div>
+                <div>Neue Rechnungen: <b>{lastSync.invoices_new}</b></div>
+                <div>Customer-IDs: <b>{lastSync.customer_ids.length}</b></div>
+              </div>
+              {lastSync.customer_ids_via_email.length > 0 && (
+                <p className="mt-1 text-amber-800">
+                  Per E-Mail-Match neu gefunden: {lastSync.customer_ids_via_email.join(", ")}
+                </p>
+              )}
+              {lastSync.warnings.length > 0 && (
+                <ul className="mt-1 list-disc pl-4 text-amber-700">
+                  {lastSync.warnings.slice(0, 5).map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="default"
+              className="flex-1"
+              onClick={handleLiveSync}
+              disabled={syncing}
+            >
+              <Zap className={`mr-1 h-4 w-4 ${syncing ? "animate-pulse" : ""}`} />
+              {syncing ? "Synce …" : "Live mit Stripe abgleichen"}
+            </Button>
             {onOpenContractor && (
               <Button
                 variant="outline"
