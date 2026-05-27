@@ -179,6 +179,9 @@ export function ContractorDetailView({ contractor: c, onBack }: Props) {
           </div>
         </div>
 
+        {/* ── Step-Verweildauer (Audit-Log) ── */}
+        <ContractorStepTimeline onboardingId={c.id} erstelltAm={c.erstelltAm} />
+
         {/* ── Innendienst + Bestellungen nebeneinander ── */}
         <div className="grid grid-cols-2 gap-2">
           {/* Linke Spalte: Innendienst */}
