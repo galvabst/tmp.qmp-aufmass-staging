@@ -1,92 +1,45 @@
-## Befund aus den Daten
+# Step-Verweildauer pro Techniker
 
-- **Torsten Lauschke**: Bestellung/Abrechnung ist bezahlt (`latest_invoice_status = paid`, Orders `paid`). Trotzdem steht die Subscription als `canceled`. Das Panel darf ihn nicht pauschal als „muss etwas tun" darstellen, sondern muss unterscheiden: **Abo laut Stripe gekündigt, aber letzte Abrechnung bezahlt**.
-- **Vincent Heth**: In `contractor_onboarding` steht `onboarding_status = in_progress`, aber `is_trainer = true`. Die Contractor-Liste behandelt Trainer bereits als `ready`; die Subscription-Health-View aktuell nicht. Deshalb kam der falsche Badge „Onboarding".
-- **Brian Maina**: Hat aktive Subscriptions (`google-workspace`, `scanner-lizenz`) mit `status = active`, `latest_invoice_status = paid`, `access_state = ok`. Er wird aktuell nicht angezeigt, weil er kein Health-Problem hat. Das ist fachlich korrekt — aber der Zustand sollte im Detail/Übersicht nachvollziehbar sein.
-- **Event-Historie leer**: `contractor_subscription_events` hat für diese Subscriptions keine Events. Deshalb ist der Dialog aktuell nicht beweiskräftig. Wir brauchen die Bestellungen + Stripe-Tracker-Daten zusammen, nicht nur Event-Logs.
+## Ziel
+In der Admin-Techniker-Detailansicht (und kompakt in der Liste) sehen, wie lange ein Techniker bereits im aktuellen Schritt ist und wie lange er für jeden vorherigen Schritt gebraucht hat — z.B. Dennis Capell: „Profil 2 Tage · Dokumente 1 Tag · Bestellungen 4 Tage · Equipment 12 Tage (aktuell)".
 
-## Zielbild
-
-Aus „Subscription-Health" wird eine klare **Abo- und Lizenzprüfung für Feinaufmaß-Techniker**:
-
-- Oben eine **Techniker-zentrierte Liste**, nicht eine Zeile pro Subscription.
-- Pro Techniker zwei Produktzustände:
-  - Google Workspace
-  - Scanner-Lizenz
-- Jede Lizenz bekommt eine verständliche Bewertung:
-  - **OK**: aktive Subscription oder paid + kein Risiko
-  - **Hinweis**: gekündigt, aber letzte Rechnung bezahlt / läuft noch bis Datum
-  - **Aktion nötig**: unpaid, past_due, incomplete_expired oder echte Zahlungsprobleme
-- Keine irreführende Formulierung „läuft am …" als Hauptsignal. Stattdessen: **„Status laut Stripe"**, **„letzte Rechnung"**, **„letzte bezahlte Bestellung"**, **„Handlung"**.
+## Datenquelle
+Es gibt **keine** dedizierte Step-History-Tabelle, aber `thermocheck.contractor_audit_log` protokolliert jedes Update von `contractor_onboarding` mit `payload->'old'` und `payload->'new'`. Daraus lassen sich alle `current_step`-Übergänge inkl. Zeitstempel rekonstruieren — rückwirkend für alle bestehenden Techniker, ohne Migration der historischen Daten.
 
 ## Umsetzung
 
-### 1. Datenmodell für die Health-View reparieren
+### 1. Migration — neue View + RPC
+**View `thermocheck.v_contractor_step_history`**
+- Aus `contractor_audit_log` (action_type `contractor_onboarding_updated`) alle Zeilen filtern, bei denen `payload->'new'->>'current_step'` ≠ `payload->'old'->>'current_step'`
+- Pro `object_id` (= onboarding_id) chronologisch sortieren
+- Felder: `onboarding_id`, `from_step`, `to_step`, `changed_at`, `duration_seconds` (= `changed_at` − vorheriger Übergang bzw. `erstellt_am` für den ersten)
+- Zusätzlich erste Zeile pro Techniker = Start (`from_step=null`, `to_step=erster current_step`, `changed_at=erstellt_am`)
 
-Neue/überarbeitete View `thermocheck.v_subscription_health`:
+**View `thermocheck.v_contractor_step_summary`**
+- Aggregiert pro `(onboarding_id, step)`: `total_seconds`, `entered_count`, `last_entered_at`
+- Plus eine Zeile pro Techniker für den **aktuellen** Schritt mit `is_current=true`, `current_seconds = now() − last_entered_at`
 
-- Join auf `public.profiles` für korrekte Namen/E-Mail.
-- Effektiver Onboarding-Status:
-  - `is_trainer = true` wird als `ready` angezeigt, analog zur Contractor-Liste.
-  - Sonst `contractor_onboarding.onboarding_status`.
-- Subscriptions mit letztem Zahlungs-/Bestellkontext anreichern:
-  - letzter paid Order-Zeitpunkt je `onboarding_id + produkt_key`
-  - letzter Order-Status je Produkt
-  - letzter Rechnungsstatus aus `contractor_subscriptions.latest_invoice_status`
-- Risiko/Health-Einstufung in der View berechnen:
-  - `ok`
-  - `attention`
-  - `action_required`
-- Nur Techniker berücksichtigen, die im Feinaufmaß-Hub existieren und nicht `gefeuert`, `abgelehnt`, `ausgestiegen`, `deaktiviert`, `inaktiv` sind.
+**RPC `thermocheck.get_contractor_step_timeline(_onboarding_id uuid)`**
+- SECURITY DEFINER, Zugriff nur für `is_innendienst()`
+- Liefert: aktuelle Step + Sekunden darin, plus Array aller Steps mit Dauer
 
-### 2. Hook sauber typisieren
+### 2. Hook `useContractorStepTimeline(onboardingId)`
+- React Query gegen die RPC, `staleTime: 30s`
 
-`useAdminSubscriptionHealth` bekommt neue Felder:
+### 3. UI in `ContractorDetailView.tsx`
+- Neuer Apple-minimaler Block „Onboarding-Verlauf" (kollabierbar, direkt unter dem Status-Header):
+  - **Aktueller Schritt** prominent: „Equipment · seit 12 Tagen 4 Std" mit Ampel-Farbe (grün <3 d, amber 3–7 d, rot >7 d — konfigurierbar pro Step)
+  - **Timeline** der abgeschlossenen Schritte: Step-Label · Dauer (z.B. „Profil — 2 d 4 h"), mit dezenter Trennlinie. Nutze `STEP_LABELS` aus `useAdminContractorList`.
+  - Gesamtdauer seit `erstellt_am` als Footer-Zeile.
 
-- `effective_onboarding_status`
-- `is_trainer`
-- `latest_invoice_status`
-- `last_paid_order_at`
-- `last_order_status`
-- `health_level`
-- `health_reason`
+### 4. Kompakt in `ContractorListView` (optional, gleiche PR)
+- Neben dem `current_step`-Badge eine kleine Zeit-Chip: „seit 12 d" — nutzt `v_contractor_step_summary` (eine Query für alle Techniker, im bestehenden `useAdminContractorList` als Join).
 
-Der Hook lädt nicht mehr einfach `access_state != ok`, sondern nur relevante Risiken:
+## Technische Notizen
+- Keine Daten-Backfill nötig: Audit-Log existiert seit Projektstart und enthält alle relevanten Updates.
+- Ampel-Schwellenwerte pro Step als Konstante im Frontend (`src/features/contractors/lib/step-thresholds.ts`).
+- Edge Case: Wenn `current_step` mehrfach hin- und herwechselt, summiert die View alle Aufenthalte und zeigt den letzten Eintritt als „aktuell".
 
-- `health_level in ('attention', 'action_required')`
-
-Damit erscheinen z. B. Brian nicht im Problem-Panel, weil er ok ist — aber Torsten kann als „Hinweis" statt als harter Fehler erscheinen.
-
-### 3. UI von Subscription-Zeilen auf Techniker-Gruppen umbauen
-
-`SubscriptionHealthPanel.tsx`:
-
-- Gruppierung nach Techniker (`onboarding_id`).
-- Eine Karte pro Techniker mit:
-  - Name, E-Mail, effektiver Status (`Einsatzbereit`, `Onboarding`, `Trainer`)
-  - Worst-Case-Badge: `Aktion nötig` oder `Hinweis`
-  - kompakte Produktchips für Google Workspace und Scanner-Lizenz
-- Dialog zeigt dann beide Lizenzen eines Technikers untereinander:
-  - Produkt
-  - Stripe-Status
-  - Rechnungsstatus
-  - letzte bezahlte Bestellung
-  - Kündigungs-/Periodeninfo nur als Detail, nicht als Hauptaussage
-  - Handlungstext, z. B. „Stripe prüfen: Subscription gekündigt, letzte Rechnung bezahlt" oder „Zahlung offen/fehlgeschlagen".
-
-### 4. Navigation korrekt machen
-
-Der aktuelle Link `/admin/contractors/:id` passt nicht zur App-Struktur. Stattdessen:
-
-- `AdminDashboardView` bekommt `onSelectContractor` in das Subscription-Panel durchgereicht.
-- Klick im Dialog/Button ruft `onSelectContractor(onboarding_id)` auf.
-- Dadurch öffnet sich die bestehende Contractor-Detailansicht sauber über den vorhandenen Admin-State.
-
-### 5. Validierung
-
-Nach Umsetzung prüfe ich per DB-Read:
-
-- Torsten erscheint nicht mehr als harter „Aktion nötig"-Fall, sondern höchstens als Hinweis mit „letzte Rechnung paid".
-- Vincent wird als `Einsatzbereit/Trainer` angezeigt, nicht als Onboarding.
-- Brian bleibt aus dem Problem-Panel raus, weil beide Abos `active/paid/ok` sind.
-- Christian bleibt als echter Problemfall sichtbar.
+## Validierung
+- RPC für Dennis Capell aufrufen, Ergebnis gegen sichtbare Timestamps in `contractor_onboarding` (`erstellt_am`, `praxistest_eingereicht_am`, `trainer_freigabe_am`) plausibilisieren.
+- UI in der Detailansicht von Dennis Capell und 2 weiteren Technikern prüfen.
