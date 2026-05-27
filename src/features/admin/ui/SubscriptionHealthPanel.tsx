@@ -203,10 +203,25 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
               </Tooltip>
             </CardTitle>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing}>
-            <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            <span className="ml-1 hidden sm:inline">Abgleich</span>
-          </Button>
+          <div className="flex items-center gap-1">
+            {groups.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={handleLiveSyncAll} disabled={liveSyncing || syncing}>
+                    <Zap className={`h-4 w-4 ${liveSyncing ? "animate-pulse text-amber-500" : ""}`} />
+                    <span className="ml-1 hidden sm:inline">Live-Sync</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  Pullt für jeden hier gelisteten Techniker direkt aus Stripe alle Subscriptions & letzten Rechnungen (auch unbekannte Customer-Records via E-Mail-Match). Dauert ein paar Sekunden pro Techniker.
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing || liveSyncing}>
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              <span className="ml-1 hidden sm:inline">Abgleich</span>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
