@@ -2,6 +2,7 @@ import { ArrowLeft, User, FileText, ShoppingBag, Wrench, GraduationCap, Car, Shi
 import { AdminCoachingAssignment } from './AdminCoachingAssignment';
 import { AdminStepOverride } from './AdminStepOverride';
 import { AdminPraxistestActions } from './AdminPraxistestActions';
+import { ContractorStepTimeline } from './ContractorStepTimeline';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
