@@ -314,7 +314,7 @@ export function AdminDashboardView({ onSelectContractor }: AdminDashboardViewPro
 
       {/* Subscription Health */}
       <div className="mb-6">
-        <SubscriptionHealthPanel />
+        <SubscriptionHealthPanel onSelectContractor={onSelectContractor} />
       </div>
 
       {/* In Verzug Dialog */}
