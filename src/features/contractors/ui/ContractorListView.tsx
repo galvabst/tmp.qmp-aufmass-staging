@@ -311,7 +311,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
             })}
           </div>
 
-          {(viewMode === 'onboarding' || viewMode === 'alle') && (
+          {viewMode === 'onboarding' && (
             <PipelineCards stats={pipelineStats} activeFilter={statusFilter} onFilterChange={setStatusFilter} />
           )}
 
@@ -326,11 +326,6 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
             onReset={() => { setSearchQuery(''); setStatusFilter(null); }}
           />
 
-          {hasSearch && viewMode === 'alle' && ehemaligeInResults > 0 && (
-            <div className="text-[11px] text-muted-foreground px-3 py-2 rounded-lg bg-muted/50 border border-border">
-              Suche enthält auch {ehemaligeInResults} ehemalige Techniker (ausgestiegen / gefeuert).
-            </div>
-          )}
 
           <div className="space-y-2">
             {filtered.length === 0 ? (
