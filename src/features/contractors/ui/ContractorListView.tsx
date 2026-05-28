@@ -153,54 +153,45 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     handleStatusChange(confirmDialog.id, newStatus as any, reasonText.trim() || null);
     setConfirmDialog(null);
     setReasonText('');
-  }, [confirmDialog, reasonText, handleStatusChange]);
-
   // KPIs (immer Gesamtbild, unabhängig vom Modus)
   const kpis = useMemo(() => {
-    if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0, inaktiv: 0, ehemalige: 0 };
+    if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0, ehemalige: 0 };
     const isEhemalig = (s: OnboardingStatusEnum) => EHEMALIGE_STATUSES.includes(s);
     return {
-      total: contractors.filter(c => c.onboardingStatus !== 'inaktiv' && !isEhemalig(c.onboardingStatus)).length,
+      total: contractors.filter(c => !isEhemalig(c.onboardingStatus)).length,
       ready: contractors.filter(c => c.onboardingStatus === 'ready').length,
       onboarding: contractors.filter(c => isOnboardingStatus(c.onboardingStatus) && !c.isTrainer).length,
       trainers: contractors.filter(c => c.isTrainer).length,
-      inaktiv: contractors.filter(c => c.onboardingStatus === 'inaktiv').length,
       ehemalige: contractors.filter(c => isEhemalig(c.onboardingStatus)).length,
     };
   }, [contractors]);
 
-  // Counts pro Tab (Sichtbarkeits-Counts ohne Suche/Status-Chip)
+  // Counts pro Tab
   const tabCounts = useMemo<Record<ViewMode, number>>(() => {
-    if (!contractors?.length) return { onboarding: 0, aktiv: 0, alle: 0, inaktiv: 0 };
-    let onboarding = 0, aktiv = 0, alle = 0, inaktiv = 0;
+    if (!contractors?.length) return { onboarding: 0, aktiv: 0, ehemalige: 0 };
+    let onboarding = 0, aktiv = 0, ehemalige = 0;
     for (const c of contractors) {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
-      if (c.onboardingStatus === 'inaktiv') inaktiv++;
-      else if (!ehemalig) alle++;
-      if (!ehemalig && c.onboardingStatus !== 'inaktiv') {
-        if (c.onboardingStatus === 'ready' || c.isTrainer) aktiv++;
-        else if (isOnboardingStatus(c.onboardingStatus)) onboarding++;
+      if (ehemalig) {
+        ehemalige++;
+      } else if (c.onboardingStatus === 'ready' || c.isTrainer || c.onboardingStatus === 'inaktiv') {
+        aktiv++;
+      } else if (isOnboardingStatus(c.onboardingStatus)) {
+        onboarding++;
       }
     }
-    return { onboarding, aktiv, alle, inaktiv };
+    return { onboarding, aktiv, ehemalige };
   }, [contractors]);
 
-  // Pipeline-Stats nur sinnvoll für Onboarding/Alle
+  // Pipeline-Stats nur sinnvoll für Onboarding-Tab
   const pipelineStats: PipelineStat[] = useMemo(() => {
-    if (!contractors?.length) return [];
-    let source: AdminContractor[];
-    if (viewMode === 'onboarding') {
-      source = contractors.filter(c => !c.isTrainer && isOnboardingStatus(c.onboardingStatus));
-    } else if (viewMode === 'alle') {
-      source = contractors.filter(c => c.onboardingStatus !== 'inaktiv' && !EHEMALIGE_STATUSES.includes(c.onboardingStatus));
-    } else {
-      return [];
-    }
+    if (!contractors?.length || viewMode !== 'onboarding') return [];
+    const source = contractors.filter(c => !c.isTrainer && isOnboardingStatus(c.onboardingStatus));
     const total = source.length;
     if (total === 0) return [];
     const counts = new Map<OnboardingStatusEnum, number>();
     source.forEach(c => counts.set(c.onboardingStatus, (counts.get(c.onboardingStatus) || 0) + 1));
-    const order: OnboardingStatusEnum[] = ['angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'ready', 'blocked', 'deaktiviert', 'inaktiv', 'ausgestiegen', 'gefeuert'];
+    const order: OnboardingStatusEnum[] = ['angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'blocked'];
     return Array.from(counts.entries())
       .sort(([a], [b]) => order.indexOf(a) - order.indexOf(b))
       .map(([status, count]) => ({
@@ -219,7 +210,8 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   useEffect(() => {
     if (!statusFilter) return;
     if (viewMode === 'onboarding' && !ONBOARDING_STATUSES.includes(statusFilter as OnboardingStatusEnum)) setStatusFilter(null);
-    if (viewMode === 'aktiv' || viewMode === 'inaktiv') setStatusFilter(null);
+    if (viewMode === 'ehemalige' && !EHEMALIGE_STATUSES.includes(statusFilter as OnboardingStatusEnum)) setStatusFilter(null);
+    if (viewMode === 'aktiv') setStatusFilter(null);
   }, [viewMode, statusFilter]);
 
   const filtered = useMemo(() => {
@@ -227,22 +219,18 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     return contractors.filter(c => {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
 
-      // Modus-Filter
-      if (viewMode === 'inaktiv') {
-        if (c.onboardingStatus !== 'inaktiv') return false;
+      if (viewMode === 'ehemalige') {
+        if (!ehemalig) return false;
+        if (statusFilter && c.onboardingStatus !== statusFilter) return false;
       } else if (viewMode === 'onboarding') {
         if (ehemalig || c.onboardingStatus === 'inaktiv') return false;
         if (c.isTrainer) return false;
         if (!isOnboardingStatus(c.onboardingStatus)) return false;
         if (statusFilter && c.onboardingStatus !== statusFilter) return false;
-      } else if (viewMode === 'aktiv') {
-        if (ehemalig || c.onboardingStatus === 'inaktiv') return false;
-        if (!(c.onboardingStatus === 'ready' || c.isTrainer)) return false;
       } else {
-        // alle
-        if (c.onboardingStatus === 'inaktiv') return false;
-        if (ehemalig && !hasSearch) return false;
-        if (statusFilter && c.onboardingStatus !== statusFilter) return false;
+        // aktiv: ready, trainer, oder pausiert (inaktiv)
+        if (ehemalig) return false;
+        if (!(c.onboardingStatus === 'ready' || c.isTrainer || c.onboardingStatus === 'inaktiv')) return false;
       }
 
       if (hasSearch) {
@@ -254,45 +242,39 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     });
   }, [contractors, viewMode, statusFilter, searchQuery, hasSearch]);
 
-  const ehemaligeInResults = filtered.filter(c => EHEMALIGE_STATUSES.includes(c.onboardingStatus)).length;
-
   // Status-Chips: nur Stati mit echten Treffern im aktuellen Tab, mit Counts
   const statusOptions = useMemo(() => {
     if (!contractors?.length) return [];
-    if (viewMode === 'aktiv' || viewMode === 'inaktiv') return [];
+    if (viewMode === 'aktiv') return [];
 
-    // Basis-Set (vor statusFilter, aber nach Modus-Filter) für Counts
     const inMode = contractors.filter(c => {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
       if (viewMode === 'onboarding') {
         return !ehemalig && c.onboardingStatus !== 'inaktiv' && !c.isTrainer && isOnboardingStatus(c.onboardingStatus);
       }
-      // alle
-      if (c.onboardingStatus === 'inaktiv') return false;
-      if (ehemalig && !hasSearch) return false;
-      return true;
+      // ehemalige
+      return ehemalig;
     });
 
     const counts = new Map<OnboardingStatusEnum, number>();
     inMode.forEach(c => counts.set(c.onboardingStatus, (counts.get(c.onboardingStatus) || 0) + 1));
 
-    const base = Object.entries(ONBOARDING_STATUS_LABELS)
-      .filter(([k]) => k !== 'inaktiv' && k !== 'gefeuert' && k !== 'ausgestiegen' && k !== 'deaktiviert');
     const candidates = viewMode === 'onboarding'
-      ? base.filter(([k]) => ONBOARDING_STATUSES.includes(k as OnboardingStatusEnum))
-      : base;
+      ? (ONBOARDING_STATUSES.map(s => [s, ONBOARDING_STATUS_LABELS[s]] as const))
+      : (EHEMALIGE_STATUSES.map(s => [s, ONBOARDING_STATUS_LABELS[s]] as const));
 
     return candidates
       .map(([value, label]) => ({ value, label, count: counts.get(value as OnboardingStatusEnum) ?? 0 }))
       .filter(o => o.count > 0)
       .map(o => ({ value: o.value, label: `${o.label} (${o.count})` }));
-  }, [contractors, viewMode, hasSearch]);
+  }, [contractors, viewMode]);
 
   if (selectedContractor) {
     return <ContractorDetailView contractor={selectedContractor} onBack={() => { setSelectedContractor(null); onClearSelection?.(); }} />;
   }
 
-  const tabOrder: ViewMode[] = ['onboarding', 'aktiv', 'alle', 'inaktiv'];
+  const tabOrder: ViewMode[] = ['onboarding', 'aktiv', 'ehemalige'];
+
 
   return (
     <AdminLayout title="Auftragnehmer" subtitle={VIEW_MODE_SUBTITLE[viewMode]} count={isLoading ? undefined : filtered.length}>
