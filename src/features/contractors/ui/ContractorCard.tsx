@@ -53,9 +53,12 @@ export interface ContractorCardProps {
 
 export function ContractorCard({ contractor: c, onClick, onAction }: ContractorCardProps) {
   const displayName = [c.vorname, c.nachname].filter(Boolean).join(' ') || 'Kein Profil';
-  const initials = `${c.vorname?.[0] ?? ''}${c.nachname?.[0] ?? ''}`.toUpperCase() || '??';
-  const stepsProgress = Math.round((c.completedSteps.length / 7) * 100);
   const isInaktiv = c.onboardingStatus === 'inaktiv';
+  const isEhemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
+  const isAbgebrochen = c.onboardingStatus === 'onboarding_abgebrochen';
+  const isSynthetic = c.id.startsWith('potential:');
+  const isDimmed = isInaktiv || isEhemalig;
+
   const isEhemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
   const isDimmed = isInaktiv || isEhemalig;
   const isSuperadmin = useHasRole('superadmin');
