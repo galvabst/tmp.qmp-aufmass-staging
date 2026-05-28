@@ -224,7 +224,10 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     if (viewMode === 'aktiv' || viewMode === 'inaktiv') setStatusFilter(null);
   }, [viewMode, statusFilter]);
 
+  const hasSearch = searchQuery.trim().length > 0;
+
   const filtered = useMemo(() => {
+
     if (!contractors) return [];
     return contractors.filter(c => {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
