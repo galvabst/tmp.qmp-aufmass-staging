@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 // ── Types ──
 
-export type OnboardingStatusEnum = 'angelegt' | 'invited' | 'started' | 'in_progress' | 'blocked' | 'ready' | 'deaktiviert' | 'mitfahrt' | 'inaktiv' | 'ausgestiegen' | 'gefeuert';
+export type OnboardingStatusEnum = 'angelegt' | 'invited' | 'started' | 'in_progress' | 'blocked' | 'ready' | 'deaktiviert' | 'mitfahrt' | 'inaktiv' | 'ausgestiegen' | 'gefeuert' | 'onboarding_abgebrochen';
 
 export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatusEnum, string> = {
   angelegt: 'Angelegt',
@@ -15,13 +15,15 @@ export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatusEnum, string> = {
   ready: 'Einsatzbereit',
   deaktiviert: 'Deaktiviert',
   mitfahrt: 'Mitfahrt',
-  inaktiv: 'Inaktiv',
+  inaktiv: 'Pausiert',
   ausgestiegen: 'Ausgestiegen',
   gefeuert: 'Gefeuert',
+  onboarding_abgebrochen: 'Onboarding abgebrochen',
 };
 
 /** Status-Werte, die nicht mehr "aktiv im Onboarding" sind (Ex-Techniker). */
-export const EHEMALIGE_STATUSES: OnboardingStatusEnum[] = ['ausgestiegen', 'gefeuert', 'deaktiviert'];
+export const EHEMALIGE_STATUSES: OnboardingStatusEnum[] = ['ausgestiegen', 'gefeuert', 'deaktiviert', 'onboarding_abgebrochen'];
+
 
 export type OnboardingSubstatusEnum =
   | 'neu_angelegt' | 'vertrag_versendet' | 'vertrag_geprueft'
@@ -125,20 +127,25 @@ export interface AdminContractor {
   austrittsGrund: string | null;
 }
 
-// ── Fetcher ──
-
 async function fetchAdminContractors(): Promise<AdminContractor[]> {
-  // 1. Fetch all onboarding records
-  const { data: onboardings, error: onbErr } = await (supabaseTC
-    .from('contractor_onboarding')
-    .select('*')
-    .not('onboarding_status', 'in', '("deaktiviert")') as any);
-  if (onbErr) throw onbErr;
-  if (!onboardings?.length) return [];
+  // 1. Fetch all onboarding records + potential technicians (Galvanek-Profile ohne Onboarding) in parallel
+  const [onbRes, potentialRes] = await Promise.all([
+    (supabaseTC.from('contractor_onboarding').select('*') as any),
+    supabase.rpc('get_potential_technicians' as any),
+  ]);
+  const onboardings = onbRes.data as any[] | null;
+  if (onbRes.error) throw onbRes.error;
+  if (potentialRes.error) {
+    console.warn('[useAdminContractorList] get_potential_technicians failed:', potentialRes.error);
+  }
+  const potentials = (potentialRes.data as any[] | null) ?? [];
+  if (!onboardings?.length && !potentials.length) return [];
 
   // 2. Collect profile IDs and onboarding IDs
-  const profileIds = onboardings.map(o => o.profile_id).filter(Boolean) as string[];
-  const onboardingIds = onboardings.map(o => o.id);
+  const onbList = onboardings ?? [];
+  const profileIds = onbList.map(o => o.profile_id).filter(Boolean) as string[];
+  const onboardingIds = onbList.map(o => o.id);
+
 
   // 3. Parallel fetches
   const [profilesRes, lektionenRes, quizRes, bestellungenRes, lektionenCountRes, pflichtProdukteRes] = await Promise.all([
@@ -224,8 +231,8 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
     bestellMap.set(onbKey, entry);
   });
 
-  // 4. Build admin contractors
-  return onboardings.map((o): AdminContractor => {
+  // 4. Build admin contractors from onboarding records
+  const fromOnboarding: AdminContractor[] = onbList.map((o): AdminContractor => {
     const profile = o.profile_id ? profileMap.get(o.profile_id) : null;
     const lekt = lektionenMap.get(o.id) ?? null;
     const quiz = quizMap.get(o.id) ?? null;
@@ -244,7 +251,6 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       ort: o.anschrift_ort ?? '',
       onboardingStatus: (() => {
         const raw = (o.onboarding_status ?? 'angelegt') as OnboardingStatusEnum;
-        // Inaktiv/Ehemalig hat IMMER Vorrang vor is_trainer
         if (raw === 'inaktiv' || EHEMALIGE_STATUSES.includes(raw)) return raw;
         return (o.is_trainer ? 'ready' : raw) as OnboardingStatusEnum;
       })(),
@@ -267,11 +273,9 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       pflichtProdukteTotal: pflichtProdukteEffektiv,
       pflichtProdukteBezahlt: (() => {
         const paidKeys = best?.paidKeys ?? [];
-        // Count each non-oberteil pflicht key individually
         let count = [...pflichtProduktKeys]
           .filter(pk => !OBERTEIL_KEYS.includes(pk) && paidKeys.includes(pk))
           .length;
-        // Oberteil-Gruppe: gilt als bezahlt wenn mind. eins bezahlt
         if (hasOberteilGroup && OBERTEIL_KEYS.some(k => paidKeys.includes(k))) {
           count++;
         }
@@ -297,7 +301,59 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       austrittsGrund: (o as any).austritts_grund ?? null,
     };
   });
+
+  // 5. Synthetic entries for Galvanek-Profile ohne Onboarding (= Onboarding abgebrochen / nie gestartet)
+  const synthetic: AdminContractor[] = potentials.map((p: any): AdminContractor => ({
+    id: `potential:${p.id}`,
+    profileId: p.id,
+    vorname: p.vorname ?? '',
+    nachname: p.nachname ?? '',
+    email: p.email ?? '',
+    telefon: p.telefon ?? '',
+    avatarUrl: p.avatar_url ?? null,
+    ort: '',
+    onboardingStatus: 'onboarding_abgebrochen',
+    onboardingSubstatus: null,
+    currentStep: null,
+    completedSteps: [],
+    isTrainer: false,
+    erstelltAm: p.erstellt_am ?? new Date().toISOString(),
+    lektionenCompleted: 0,
+    lektionenInProgress: 0,
+    lektionenTotal: activeLektionenCount,
+    akademieTestBestanden: false,
+    quizVersuche: 0,
+    quizBestScore: 0,
+    quizBestanden: false,
+    bestellungenTotal: 0,
+    bestellungenBezahlt: 0,
+    bezahlteProdukte: [],
+    bestellungen: [],
+    pflichtProdukteTotal: 0,
+    pflichtProdukteBezahlt: 0,
+    equipmentStatus: {},
+    coachingBewertung: 'ausstehend',
+    coachingTermin: null,
+    coachName: null,
+    vertragGeprueft: false,
+    kleidungBestellt: false,
+    lizenzenBereitgestellt: false,
+    gewerbescheinUrl: null,
+    gewerbescheinSpaeter: false,
+    praxistestEingereicht: false,
+    praxistestFreigabe: false,
+    scanFreigegeben: false,
+    videoFreigegeben: false,
+    mitfahrtTermin: null,
+    mitfahrtBezahltAm: null,
+    einweisungFreigabe: false,
+    austrittsDatum: null,
+    austrittsGrund: null,
+  }));
+
+  return [...fromOnboarding, ...synthetic];
 }
+
 
 // ── Hook ──
 

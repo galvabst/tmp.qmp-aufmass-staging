@@ -26,10 +26,12 @@ function getStatusBadgeVariant(status: OnboardingStatusEnum): 'default' | 'secon
     case 'deaktiviert':
     case 'gefeuert': return 'destructive';
     case 'inaktiv':
-    case 'ausgestiegen': return 'outline';
+    case 'ausgestiegen':
+    case 'onboarding_abgebrochen': return 'outline';
     default: return 'outline';
   }
 }
+
 
 function formatRelativeDate(dateString: string): string {
   const date = new Date(dateString);
@@ -55,7 +57,10 @@ export function ContractorCard({ contractor: c, onClick, onAction }: ContractorC
   const stepsProgress = Math.round((c.completedSteps.length / 7) * 100);
   const isInaktiv = c.onboardingStatus === 'inaktiv';
   const isEhemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
+  const isAbgebrochen = c.onboardingStatus === 'onboarding_abgebrochen';
+  const isSynthetic = c.id.startsWith('potential:');
   const isDimmed = isInaktiv || isEhemalig;
+
   const isSuperadmin = useHasRole('superadmin');
   const { startImpersonation } = useImpersonation();
   const [impersonating, setImpersonating] = useState(false);
@@ -116,7 +121,11 @@ export function ContractorCard({ contractor: c, onClick, onAction }: ContractorC
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    {(isInaktiv || isEhemalig) ? (
+                    {isSynthetic ? (
+                      <DropdownMenuItem disabled>
+                        Kein Onboarding-Datensatz
+                      </DropdownMenuItem>
+                    ) : (isInaktiv || isEhemalig) ? (
                       <DropdownMenuItem onClick={() => onAction('reaktivieren')}>
                         <RotateCcw className="w-3.5 h-3.5 mr-2" /> Reaktivieren
                       </DropdownMenuItem>
@@ -136,6 +145,7 @@ export function ContractorCard({ contractor: c, onClick, onAction }: ContractorC
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
               </div>
             </div>
 
@@ -158,41 +168,51 @@ export function ContractorCard({ contractor: c, onClick, onAction }: ContractorC
               </span>
             </div>
 
-            <div className="mt-2">
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[10px] text-muted-foreground">{c.completedSteps.length}/7 Schritte</span>
-                <span className="text-[10px] font-medium text-foreground">{stepsProgress}%</span>
-              </div>
-              <Progress value={stepsProgress} className="h-1.5" />
-            </div>
+            {!isSynthetic && !isAbgebrochen && (
+              <>
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] text-muted-foreground">{c.completedSteps.length}/7 Schritte</span>
+                    <span className="text-[10px] font-medium text-foreground">{stepsProgress}%</span>
+                  </div>
+                  <Progress value={stepsProgress} className="h-1.5" />
+                </div>
 
-            <div className="flex gap-3 mt-1.5">
-              <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                <GraduationCap className="w-3 h-3" /> {c.lektionenCompleted}/{c.lektionenTotal} Lektionen
-              </span>
-              {c.pflichtProdukteTotal > 0 && (
-                <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                  <ShoppingBag className="w-3 h-3" /> {c.pflichtProdukteBezahlt}/{c.pflichtProdukteTotal} Produkte
-                </span>
-              )}
-            </div>
+                <div className="flex gap-3 mt-1.5">
+                  <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                    <GraduationCap className="w-3 h-3" /> {c.lektionenCompleted}/{c.lektionenTotal} Lektionen
+                  </span>
+                  {c.pflichtProdukteTotal > 0 && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                      <ShoppingBag className="w-3 h-3" /> {c.pflichtProdukteBezahlt}/{c.pflichtProdukteTotal} Produkte
+                    </span>
+                  )}
+                </div>
 
-            {c.coachingBewertung === 'bestanden' && c.onboardingStatus !== 'ready' && !c.isTrainer && (() => {
-              const gaps: string[] = [];
-              if (c.completedSteps.length < 7) {
-                const stepLabel = c.currentStep ? (STEP_LABELS[c.currentStep] ?? c.currentStep) : `${c.completedSteps.length}/7`;
-                gaps.push(`Step: ${stepLabel}`);
-              }
-              if (!c.vertragGeprueft) gaps.push('Vertrag');
-              if (!c.kleidungBestellt) gaps.push('Kleidung');
-              if (!c.lizenzenBereitgestellt) gaps.push('Lizenzen');
-              if (gaps.length === 0) return null;
-              return (
-                <p className="text-[10px] text-amber-600 mt-1 truncate" title={gaps.join(' · ')}>
-                  Fehlt für Einsatzbereit: {gaps.join(' · ')}
-                </p>
-              );
-            })()}
+                {c.coachingBewertung === 'bestanden' && c.onboardingStatus !== 'ready' && !c.isTrainer && (() => {
+                  const gaps: string[] = [];
+                  if (c.completedSteps.length < 7) {
+                    const stepLabel = c.currentStep ? (STEP_LABELS[c.currentStep] ?? c.currentStep) : `${c.completedSteps.length}/7`;
+                    gaps.push(`Step: ${stepLabel}`);
+                  }
+                  if (!c.vertragGeprueft) gaps.push('Vertrag');
+                  if (!c.kleidungBestellt) gaps.push('Kleidung');
+                  if (!c.lizenzenBereitgestellt) gaps.push('Lizenzen');
+                  if (gaps.length === 0) return null;
+                  return (
+                    <p className="text-[10px] text-amber-600 mt-1 truncate" title={gaps.join(' · ')}>
+                      Fehlt für Einsatzbereit: {gaps.join(' · ')}
+                    </p>
+                  );
+                })()}
+              </>
+            )}
+
+            {isSynthetic && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Hat Onboarding nie gestartet · {c.email}
+              </p>
+            )}
           </div>
         </div>
       </CardContent>
