@@ -121,7 +121,11 @@ export function ContractorCard({ contractor: c, onClick, onAction }: ContractorC
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    {(isInaktiv || isEhemalig) ? (
+                    {isSynthetic ? (
+                      <DropdownMenuItem disabled>
+                        Kein Onboarding-Datensatz
+                      </DropdownMenuItem>
+                    ) : (isInaktiv || isEhemalig) ? (
                       <DropdownMenuItem onClick={() => onAction('reaktivieren')}>
                         <RotateCcw className="w-3.5 h-3.5 mr-2" /> Reaktivieren
                       </DropdownMenuItem>
@@ -140,7 +144,7 @@ export function ContractorCard({ contractor: c, onClick, onAction }: ContractorC
                       </>
                     )}
                   </DropdownMenuContent>
-                </DropdownMenu>
+
               </div>
             </div>
 
