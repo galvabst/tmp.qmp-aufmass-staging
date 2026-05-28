@@ -144,6 +144,7 @@ export function ContractorCard({ contractor: c, onClick, onAction }: ContractorC
                       </>
                     )}
                   </DropdownMenuContent>
+                </DropdownMenu>
 
               </div>
             </div>
