@@ -231,18 +231,20 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
         if (!ehemalig) return false;
         if (statusFilter && c.onboardingStatus !== statusFilter) return false;
       } else if (viewMode === 'onboarding') {
-        if (ehemalig || c.onboardingStatus === 'inaktiv') return false;
+      if (viewMode === 'ehemalige') {
+        if (!ehemalig) return false;
+        if (statusFilter && c.onboardingStatus !== statusFilter) return false;
+      } else if (viewMode === 'onboarding') {
+        if (ehemalig) return false;
         if (c.isTrainer) return false;
         if (!isOnboardingStatus(c.onboardingStatus)) return false;
         if (statusFilter && c.onboardingStatus !== statusFilter) return false;
-      } else if (viewMode === 'inaktiv') {
-        if (c.onboardingStatus !== 'inaktiv') return false;
       } else {
-        // aktiv: ready oder Trainer (nicht pausiert, nicht ehemalig)
+        // aktiv: ready oder Trainer (nicht ehemalig/inaktiv)
         if (ehemalig) return false;
-        if (c.onboardingStatus === 'inaktiv') return false;
         if (!(c.onboardingStatus === 'ready' || c.isTrainer)) return false;
       }
+
 
       if (hasSearch) {
         const q = searchQuery.toLowerCase();
