@@ -50,19 +50,21 @@ const ONBOARDING_STATUSES: OnboardingStatusEnum[] = [
   'angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'blocked',
 ];
 
-type ViewMode = 'onboarding' | 'aktiv' | 'ehemalige';
+type ViewMode = 'onboarding' | 'aktiv' | 'inaktiv' | 'ehemalige';
 const VIEW_MODE_STORAGE_KEY = 'admin.contractorList.viewMode';
 
 const VIEW_MODE_LABEL: Record<ViewMode, string> = {
   onboarding: 'Im Onboarding',
   aktiv: 'Aktive',
+  inaktiv: 'Inaktiv',
   ehemalige: 'Ehemalige',
 };
 
 const VIEW_MODE_SUBTITLE: Record<ViewMode, string> = {
   onboarding: 'Im Onboarding',
-  aktiv: 'Aktive Thermotrackler (inkl. pausiert)',
-  ehemalige: 'Ehemalige & nie gestartet',
+  aktiv: 'Aktive Thermochecker & Trainer',
+  inaktiv: 'Pausiert (vorübergehend nicht aktiv)',
+  ehemalige: 'Ausgestiegen, gefeuert oder Onboarding abgebrochen',
 };
 
 function isOnboardingStatus(s: OnboardingStatusEnum): boolean {
@@ -72,9 +74,10 @@ function isOnboardingStatus(s: OnboardingStatusEnum): boolean {
 function loadViewMode(): ViewMode {
   if (typeof window === 'undefined') return 'aktiv';
   const v = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-  if (v === 'onboarding' || v === 'aktiv' || v === 'ehemalige') return v;
+  if (v === 'onboarding' || v === 'aktiv' || v === 'inaktiv' || v === 'ehemalige') return v;
   return 'aktiv';
 }
+
 
 
 // ── KPI Card ────────────────────────────────────────────────────────────────
@@ -167,24 +170,25 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       trainers: contractors.filter(c => c.isTrainer).length,
       ehemalige: contractors.filter(c => isEhemalig(c.onboardingStatus)).length,
     };
-  }, [contractors]);
-
-  // Counts pro Tab
   const tabCounts = useMemo<Record<ViewMode, number>>(() => {
-    if (!contractors?.length) return { onboarding: 0, aktiv: 0, ehemalige: 0 };
-    let onboarding = 0, aktiv = 0, ehemalige = 0;
+    if (!contractors?.length) return { onboarding: 0, aktiv: 0, inaktiv: 0, ehemalige: 0 };
+    let onboarding = 0, aktiv = 0, inaktiv = 0, ehemalige = 0;
     for (const c of contractors) {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
       if (ehemalig) {
         ehemalige++;
-      } else if (c.onboardingStatus === 'ready' || c.isTrainer || c.onboardingStatus === 'inaktiv') {
+      } else if (c.onboardingStatus === 'inaktiv') {
+        inaktiv++;
+      } else if (c.onboardingStatus === 'ready' || (c.isTrainer && c.onboardingStatus !== 'inaktiv')) {
         aktiv++;
       } else if (isOnboardingStatus(c.onboardingStatus)) {
         onboarding++;
       }
     }
-    return { onboarding, aktiv, ehemalige };
+    return { onboarding, aktiv, inaktiv, ehemalige };
   }, [contractors]);
+
+
 
   // Pipeline-Stats nur sinnvoll für Onboarding-Tab
   const pipelineStats: PipelineStat[] = useMemo(() => {
@@ -207,14 +211,12 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       }));
   }, [contractors, viewMode]);
 
-  const hasSearch = searchQuery.trim().length > 0;
-
   // Stelle sicher, dass ein veralteter statusFilter beim Modus-Wechsel weichen muss
   useEffect(() => {
     if (!statusFilter) return;
     if (viewMode === 'onboarding' && !ONBOARDING_STATUSES.includes(statusFilter as OnboardingStatusEnum)) setStatusFilter(null);
     if (viewMode === 'ehemalige' && !EHEMALIGE_STATUSES.includes(statusFilter as OnboardingStatusEnum)) setStatusFilter(null);
-    if (viewMode === 'aktiv') setStatusFilter(null);
+    if (viewMode === 'aktiv' || viewMode === 'inaktiv') setStatusFilter(null);
   }, [viewMode, statusFilter]);
 
   const filtered = useMemo(() => {
@@ -230,10 +232,13 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
         if (c.isTrainer) return false;
         if (!isOnboardingStatus(c.onboardingStatus)) return false;
         if (statusFilter && c.onboardingStatus !== statusFilter) return false;
+      } else if (viewMode === 'inaktiv') {
+        if (c.onboardingStatus !== 'inaktiv') return false;
       } else {
-        // aktiv: ready, trainer, oder pausiert (inaktiv)
+        // aktiv: ready oder Trainer (nicht pausiert, nicht ehemalig)
         if (ehemalig) return false;
-        if (!(c.onboardingStatus === 'ready' || c.isTrainer || c.onboardingStatus === 'inaktiv')) return false;
+        if (c.onboardingStatus === 'inaktiv') return false;
+        if (!(c.onboardingStatus === 'ready' || c.isTrainer)) return false;
       }
 
       if (hasSearch) {
@@ -245,10 +250,12 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     });
   }, [contractors, viewMode, statusFilter, searchQuery, hasSearch]);
 
+
+
   // Status-Chips: nur Stati mit echten Treffern im aktuellen Tab, mit Counts
   const statusOptions = useMemo(() => {
     if (!contractors?.length) return [];
-    if (viewMode === 'aktiv') return [];
+    if (viewMode === 'aktiv' || viewMode === 'inaktiv') return [];
 
     const inMode = contractors.filter(c => {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
@@ -276,7 +283,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     return <ContractorDetailView contractor={selectedContractor} onBack={() => { setSelectedContractor(null); onClearSelection?.(); }} />;
   }
 
-  const tabOrder: ViewMode[] = ['onboarding', 'aktiv', 'ehemalige'];
+  const tabOrder: ViewMode[] = ['onboarding', 'aktiv', 'inaktiv', 'ehemalige'];
 
 
   return (
