@@ -26,10 +26,12 @@ function getStatusBadgeVariant(status: OnboardingStatusEnum): 'default' | 'secon
     case 'deaktiviert':
     case 'gefeuert': return 'destructive';
     case 'inaktiv':
-    case 'ausgestiegen': return 'outline';
+    case 'ausgestiegen':
+    case 'onboarding_abgebrochen': return 'outline';
     default: return 'outline';
   }
 }
+
 
 function formatRelativeDate(dateString: string): string {
   const date = new Date(dateString);
