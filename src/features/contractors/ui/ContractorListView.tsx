@@ -231,10 +231,6 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
         if (!ehemalig) return false;
         if (statusFilter && c.onboardingStatus !== statusFilter) return false;
       } else if (viewMode === 'onboarding') {
-      if (viewMode === 'ehemalige') {
-        if (!ehemalig) return false;
-        if (statusFilter && c.onboardingStatus !== statusFilter) return false;
-      } else if (viewMode === 'onboarding') {
         if (ehemalig) return false;
         if (c.isTrainer) return false;
         if (!isOnboardingStatus(c.onboardingStatus)) return false;
