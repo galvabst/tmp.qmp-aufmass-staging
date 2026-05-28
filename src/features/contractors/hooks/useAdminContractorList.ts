@@ -141,12 +141,11 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
   const potentials = (potentialRes.data as any[] | null) ?? [];
   if (!onboardings?.length && !potentials.length) return [];
 
-  if (onbErr) throw onbErr;
-  if (!onboardings?.length) return [];
-
   // 2. Collect profile IDs and onboarding IDs
-  const profileIds = onboardings.map(o => o.profile_id).filter(Boolean) as string[];
-  const onboardingIds = onboardings.map(o => o.id);
+  const onbList = onboardings ?? [];
+  const profileIds = onbList.map(o => o.profile_id).filter(Boolean) as string[];
+  const onboardingIds = onbList.map(o => o.id);
+
 
   // 3. Parallel fetches
   const [profilesRes, lektionenRes, quizRes, bestellungenRes, lektionenCountRes, pflichtProdukteRes] = await Promise.all([
