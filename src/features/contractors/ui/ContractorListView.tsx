@@ -170,21 +170,24 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       trainers: contractors.filter(c => c.isTrainer).length,
       ehemalige: contractors.filter(c => isEhemalig(c.onboardingStatus)).length,
     };
-  }, [contractors]);
-
-  // Counts pro Tab
   const tabCounts = useMemo<Record<ViewMode, number>>(() => {
-    if (!contractors?.length) return { onboarding: 0, aktiv: 0, ehemalige: 0 };
-    let onboarding = 0, aktiv = 0, ehemalige = 0;
+    if (!contractors?.length) return { onboarding: 0, aktiv: 0, inaktiv: 0, ehemalige: 0 };
+    let onboarding = 0, aktiv = 0, inaktiv = 0, ehemalige = 0;
     for (const c of contractors) {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
       if (ehemalig) {
         ehemalige++;
-      } else if (c.onboardingStatus === 'ready' || c.isTrainer || c.onboardingStatus === 'inaktiv') {
+      } else if (c.onboardingStatus === 'inaktiv') {
+        inaktiv++;
+      } else if (c.onboardingStatus === 'ready' || (c.isTrainer && c.onboardingStatus !== 'inaktiv')) {
         aktiv++;
       } else if (isOnboardingStatus(c.onboardingStatus)) {
         onboarding++;
       }
+    }
+    return { onboarding, aktiv, inaktiv, ehemalige };
+  }, [contractors]);
+
     }
     return { onboarding, aktiv, ehemalige };
   }, [contractors]);
