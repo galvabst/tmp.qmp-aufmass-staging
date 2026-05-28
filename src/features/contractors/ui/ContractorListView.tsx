@@ -250,13 +250,12 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     });
   }, [contractors, viewMode, statusFilter, searchQuery, hasSearch]);
 
-    });
-  }, [contractors, viewMode, statusFilter, searchQuery, hasSearch]);
+
 
   // Status-Chips: nur Stati mit echten Treffern im aktuellen Tab, mit Counts
   const statusOptions = useMemo(() => {
     if (!contractors?.length) return [];
-    if (viewMode === 'aktiv') return [];
+    if (viewMode === 'aktiv' || viewMode === 'inaktiv') return [];
 
     const inMode = contractors.filter(c => {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
@@ -284,7 +283,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     return <ContractorDetailView contractor={selectedContractor} onBack={() => { setSelectedContractor(null); onClearSelection?.(); }} />;
   }
 
-  const tabOrder: ViewMode[] = ['onboarding', 'aktiv', 'ehemalige'];
+  const tabOrder: ViewMode[] = ['onboarding', 'aktiv', 'inaktiv', 'ehemalige'];
 
 
   return (
