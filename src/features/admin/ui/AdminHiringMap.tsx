@@ -282,11 +282,13 @@ export function AdminHiringMap({ onSelectContractor }: AdminHiringMapProps = {})
     if (!showActive && !showInaktiv && !showOnboarding && !showTrainers) return;
 
     const filteredContractors = contractors.filter(c => {
-      // Trainers always visible if showTrainers is on, regardless of status
+      // Inaktiv toggle wins: hide inactive contractors (including trainers) when off
+      if (c.status === 'inaktiv') return showInaktiv;
+      // Trainers visible if showTrainers is on (and not inaktiv, handled above)
       if (c.isTrainer && showTrainers) return true;
       if (c.status === 'active') return showActive;
-      if (c.status === 'inaktiv') return showInaktiv;
       return showOnboarding; // onboarding
+
     });
 
     const offsets = applySpiderOffset(filteredContractors.map(c => ({ lat: c.lat, lng: c.lng })));
