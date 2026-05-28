@@ -188,9 +188,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     return { onboarding, aktiv, inaktiv, ehemalige };
   }, [contractors]);
 
-    }
-    return { onboarding, aktiv, ehemalige };
-  }, [contractors]);
+
 
   // Pipeline-Stats nur sinnvoll für Onboarding-Tab
   const pipelineStats: PipelineStat[] = useMemo(() => {
@@ -213,14 +211,12 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       }));
   }, [contractors, viewMode]);
 
-  const hasSearch = searchQuery.trim().length > 0;
-
   // Stelle sicher, dass ein veralteter statusFilter beim Modus-Wechsel weichen muss
   useEffect(() => {
     if (!statusFilter) return;
     if (viewMode === 'onboarding' && !ONBOARDING_STATUSES.includes(statusFilter as OnboardingStatusEnum)) setStatusFilter(null);
     if (viewMode === 'ehemalige' && !EHEMALIGE_STATUSES.includes(statusFilter as OnboardingStatusEnum)) setStatusFilter(null);
-    if (viewMode === 'aktiv') setStatusFilter(null);
+    if (viewMode === 'aktiv' || viewMode === 'inaktiv') setStatusFilter(null);
   }, [viewMode, statusFilter]);
 
   const filtered = useMemo(() => {
@@ -236,10 +232,13 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
         if (c.isTrainer) return false;
         if (!isOnboardingStatus(c.onboardingStatus)) return false;
         if (statusFilter && c.onboardingStatus !== statusFilter) return false;
+      } else if (viewMode === 'inaktiv') {
+        if (c.onboardingStatus !== 'inaktiv') return false;
       } else {
-        // aktiv: ready, trainer, oder pausiert (inaktiv)
+        // aktiv: ready oder Trainer (nicht pausiert, nicht ehemalig)
         if (ehemalig) return false;
-        if (!(c.onboardingStatus === 'ready' || c.isTrainer || c.onboardingStatus === 'inaktiv')) return false;
+        if (c.onboardingStatus === 'inaktiv') return false;
+        if (!(c.onboardingStatus === 'ready' || c.isTrainer)) return false;
       }
 
       if (hasSearch) {
@@ -248,6 +247,9 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
         return name.includes(q) || c.email.toLowerCase().includes(q) || c.ort.toLowerCase().includes(q);
       }
       return true;
+    });
+  }, [contractors, viewMode, statusFilter, searchQuery, hasSearch]);
+
     });
   }, [contractors, viewMode, statusFilter, searchQuery, hasSearch]);
 
