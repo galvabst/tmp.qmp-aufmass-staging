@@ -216,7 +216,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     if (!statusFilter) return;
     if (viewMode === 'onboarding' && !ONBOARDING_STATUSES.includes(statusFilter as OnboardingStatusEnum)) setStatusFilter(null);
     if (viewMode === 'ehemalige' && !EHEMALIGE_STATUSES.includes(statusFilter as OnboardingStatusEnum)) setStatusFilter(null);
-    if (viewMode === 'aktiv' || viewMode === 'inaktiv') setStatusFilter(null);
+    if (viewMode === 'aktiv') setStatusFilter(null);
   }, [viewMode, statusFilter]);
 
   const hasSearch = searchQuery.trim().length > 0;
