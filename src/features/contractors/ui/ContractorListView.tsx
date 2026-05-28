@@ -156,10 +156,6 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   }, [confirmDialog, reasonText, handleStatusChange]);
 
   // KPIs (immer Gesamtbild, unabhängig vom Modus)
-  const kpis = useMemo(() => {
-    if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0, ehemalige: 0 };
-    const isEhemalig = (s: OnboardingStatusEnum) => EHEMALIGE_STATUSES.includes(s);
-    return {
 
   const kpis = useMemo(() => {
     if (!contractors?.length) return { total: 0, ready: 0, onboarding: 0, trainers: 0, ehemalige: 0 };
