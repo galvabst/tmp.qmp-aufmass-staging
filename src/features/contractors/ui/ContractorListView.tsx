@@ -50,19 +50,21 @@ const ONBOARDING_STATUSES: OnboardingStatusEnum[] = [
   'angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'blocked',
 ];
 
-type ViewMode = 'onboarding' | 'aktiv' | 'ehemalige';
+type ViewMode = 'onboarding' | 'aktiv' | 'inaktiv' | 'ehemalige';
 const VIEW_MODE_STORAGE_KEY = 'admin.contractorList.viewMode';
 
 const VIEW_MODE_LABEL: Record<ViewMode, string> = {
   onboarding: 'Im Onboarding',
   aktiv: 'Aktive',
+  inaktiv: 'Inaktiv',
   ehemalige: 'Ehemalige',
 };
 
 const VIEW_MODE_SUBTITLE: Record<ViewMode, string> = {
   onboarding: 'Im Onboarding',
-  aktiv: 'Aktive Thermotrackler (inkl. pausiert)',
-  ehemalige: 'Ehemalige & nie gestartet',
+  aktiv: 'Aktive Thermochecker & Trainer',
+  inaktiv: 'Pausiert (vorübergehend nicht aktiv)',
+  ehemalige: 'Ausgestiegen, gefeuert oder Onboarding abgebrochen',
 };
 
 function isOnboardingStatus(s: OnboardingStatusEnum): boolean {
@@ -72,9 +74,10 @@ function isOnboardingStatus(s: OnboardingStatusEnum): boolean {
 function loadViewMode(): ViewMode {
   if (typeof window === 'undefined') return 'aktiv';
   const v = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-  if (v === 'onboarding' || v === 'aktiv' || v === 'ehemalige') return v;
+  if (v === 'onboarding' || v === 'aktiv' || v === 'inaktiv' || v === 'ehemalige') return v;
   return 'aktiv';
 }
+
 
 
 // ── KPI Card ────────────────────────────────────────────────────────────────
