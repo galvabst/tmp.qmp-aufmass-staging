@@ -173,23 +173,19 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
 
   // Counts pro Tab
   const tabCounts = useMemo<Record<ViewMode, number>>(() => {
-
-    if (!contractors?.length) return { onboarding: 0, aktiv: 0, inaktiv: 0, ehemalige: 0 };
-    let onboarding = 0, aktiv = 0, inaktiv = 0, ehemalige = 0;
+    if (!contractors?.length) return { onboarding: 0, aktiv: 0, ehemalige: 0 };
+    let onboarding = 0, aktiv = 0, ehemalige = 0;
     for (const c of contractors) {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
       if (ehemalig) {
         ehemalige++;
-      } else if (c.onboardingStatus === 'inaktiv') {
-        inaktiv++;
       } else if (c.onboardingStatus === 'ready' || c.isTrainer) {
-
         aktiv++;
       } else if (isOnboardingStatus(c.onboardingStatus)) {
         onboarding++;
       }
     }
-    return { onboarding, aktiv, inaktiv, ehemalige };
+    return { onboarding, aktiv, ehemalige };
   }, [contractors]);
 
 
