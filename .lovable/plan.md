@@ -1,31 +1,68 @@
-## Problem
+## Ziel
 
-1. **Mark Röder** ist auf `onboarding_status = 'inaktiv'` gesetzt, taucht aber trotzdem in **Aktive** und **Einsatzbereit** auf. Grund: In `useAdminContractorList.ts` überschreibt `is_trainer` den echten Status (`is_trainer ? 'ready' : status`). Inaktive Trainer werden dadurch fälschlich als "Einsatzbereit" angezeigt.
-2. Die Status‑Chips (Angelegt, Blockiert, Gestartet …) zeigen oft **0 Treffer** und wirken wie tote Filter. Sie sind im aktuellen Tab nicht nützlich, weil die Hauptnavigation bereits über das Segmented Control (Onboarding / Aktive / Alle / Inaktiv) läuft.
+Drei klare Tabs in der Techniker-Liste, damit niemand mehr unsichtbar bleibt (Justin Balk, Jonas Magdeburg, Olaf Markmann etc.):
 
-## Lösung
-
-### 1. `inaktiv` hat Vorrang vor `is_trainer`
-In `useAdminContractorList.ts`:
-```ts
-onboardingStatus: o.onboarding_status === 'inaktiv'
-  ? 'inaktiv'
-  : (o.is_trainer ? 'ready' : (o.onboarding_status ?? 'angelegt'))
 ```
-Ehemalige Stati (`ausgestiegen`, `gefeuert`, `deaktiviert`) ebenfalls nicht durch Trainer‑Flag überschreiben.
+[ Onboarding ]   [ Aktive ]   [ Ehemalige ]
+```
 
-Effekt: Mark Röder verschwindet aus **Aktive** und erscheint korrekt in **Inaktiv**.
+Innerhalb von **Ehemalige** wird über Status-Chips weiter aufgedröselt:
 
-### 2. Status‑Chips ausblenden wenn leer
-In `ContractorListView.tsx` die `statusOptions` so filtern, dass nur Stati mit `count > 0` im aktuellen Tab erscheinen. Counts werden aus dem bereits gefilterten Datensatz (vor `statusFilter`) berechnet. So sieht der Nutzer nur Filter, die echte Treffer liefern.
+- **Onboarding abgebrochen** — hat nie einen Auftrag gefahren (nie gestartet ODER mittendrin raus)
+- **Freiwillig ausgestiegen** — war aktiv, hat selbst gekündigt
+- **Gefeuert** — war aktiv, wurde rausgeworfen
 
-Optional: Counts direkt in den Chip‑Labels einblenden (z. B. „In Bearbeitung (12)").
+## Datenquelle
 
-### 3. (Klein) Tab „Inaktiv" als Standard‑Sort
-Inaktive Techniker, deren `is_trainer = true`, zusätzlich mit Trainer‑Badge in der Karte zeigen, damit erkennbar bleibt, dass es ein pausierter Trainer ist.
+Heute liefert `useAdminContractorList` nur Datensätze aus `thermocheck.contractor_onboarding`. Ex-Techniker ohne Onboarding-Record fehlen komplett.
+
+Neue SECURITY-DEFINER-RPC `thermocheck.get_potential_technicians()`:
+- Liefert alle Profile mit `@galvanek-bau.de`-Mail
+- die **keinen** `contractor_onboarding`-Datensatz haben
+- und **keine** Admin-/Superadmin-/Manager-Rolle besitzen
+- geschützt durch `thermocheck.is_innendienst()`
+
+Diese Profile werden im Hook als synthetische Einträge mit Pseudo-Status `onboarding_abgebrochen` ergänzt (kein DB-Enum-Wert, nur UI).
+
+## Status-Mapping
+
+| Bucket | onboarding_status | Bedingung |
+|---|---|---|
+| Onboarding | `angelegt`, `invited`, `started`, `in_progress`, `blocked` | Kein Auftrag gefahren |
+| Aktive | `ready`, `mitfahrt` | Kann Aufträge annehmen |
+| Ehemalige → Onboarding abgebrochen | `inaktiv` ohne je gefahrenen Auftrag, plus synthetische „kein Datensatz" Einträge | Nie aktiv gewesen |
+| Ehemalige → Ausgestiegen | `ausgestiegen` | War aktiv, selbst raus |
+| Ehemalige → Gefeuert | `gefeuert` | War aktiv, rausgeworfen |
+
+`inaktiv` (pausiert) verschwindet als eigener Tab — wird je nach „je gefahren?" in **Aktive** (pausiert) oder **Ehemalige → abgebrochen** einsortiert. Falls das zu kompliziert wird: `inaktiv` immer unter Aktive mit Sub-Chip „Pausiert".
+
+## Änderungen
+
+### 1. DB-Migration
+- Neue Funktion `thermocheck.get_potential_technicians()` (SECURITY DEFINER, nur Innendienst)
+
+### 2. `useAdminContractorList.ts`
+- Filter `.not('onboarding_status', 'in', '("deaktiviert")')` entfernen — wir wollen alles sehen
+- Zusätzlich `get_potential_technicians()` aufrufen
+- Synthetische `AdminContractor`-Einträge bauen (`id = profile.id`, `onboardingStatus = 'onboarding_abgebrochen'`)
+- `OnboardingStatusEnum` um Pseudo-Werte `onboarding_abgebrochen` erweitern + Label
+
+### 3. `ContractorListView.tsx`
+- Tabs reduzieren auf **Onboarding | Aktive | Ehemalige**
+- Tab „Alle" und „Inaktiv" entfernen
+- Im Tab Ehemalige: Status-Chips „Onboarding abgebrochen | Ausgestiegen | Gefeuert" (nur sichtbar wenn count > 0)
+- Counts in Chip-Labels einbetten
+
+### 4. `ContractorCard.tsx`
+- Für synthetische „nie gestartet" Einträge: Badge „Nie angefangen", keine Onboarding-Progress-Bar, keine Akademie/Bestellungen-Stats (existieren nicht)
+- Für `gefeuert`/`ausgestiegen`: Austrittsdatum prominent zeigen (falls vorhanden)
+
+## Offene Detailfrage (im Bauen klärbar)
+
+Wie unterscheiden wir „inaktiv und nie gefahren" von „inaktiv und war aktiv"? Vorschlag: Wenn der Techniker je einen Auftrag mit Status `approved` hatte → war aktiv. Sonst → abgebrochen. Wird im Hook über einen leichten Count-Query gelöst.
 
 ## Geänderte Dateien
-- `src/features/contractors/hooks/useAdminContractorList.ts` — Status‑Mapping (Inaktiv/Ehemalig > Trainer > onboarding_status)
-- `src/features/contractors/ui/ContractorListView.tsx` — `statusOptions` nur mit `count > 0`, optional Counts im Label
-
-Keine DB‑Migration nötig.
+- DB: neue Funktion `thermocheck.get_potential_technicians`
+- `src/features/contractors/hooks/useAdminContractorList.ts`
+- `src/features/contractors/ui/ContractorListView.tsx`
+- `src/features/contractors/ui/ContractorCard.tsx`
