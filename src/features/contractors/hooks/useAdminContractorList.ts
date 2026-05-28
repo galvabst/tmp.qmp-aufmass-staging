@@ -242,7 +242,12 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       telefon: profile?.telefon ?? '',
       avatarUrl: profile?.avatar_url ?? null,
       ort: o.anschrift_ort ?? '',
-      onboardingStatus: o.is_trainer ? 'ready' as OnboardingStatusEnum : (o.onboarding_status ?? 'angelegt') as OnboardingStatusEnum,
+      onboardingStatus: (() => {
+        const raw = (o.onboarding_status ?? 'angelegt') as OnboardingStatusEnum;
+        // Inaktiv/Ehemalig hat IMMER Vorrang vor is_trainer
+        if (raw === 'inaktiv' || EHEMALIGE_STATUSES.includes(raw)) return raw;
+        return (o.is_trainer ? 'ready' : raw) as OnboardingStatusEnum;
+      })(),
       onboardingSubstatus: (o.onboarding_substatus ?? null) as OnboardingSubstatusEnum | null,
       currentStep: o.current_step ?? null,
       completedSteps: Array.isArray(o.completed_steps) ? o.completed_steps : [],

@@ -1,67 +1,31 @@
-# Onboarding vs. Aktive — Switch in der Techniker-Liste
+## Problem
 
-## Ziel
-Die beiden Innendienst-Personen (Onboarding-Manager und Aktiv-Manager) sollen in der Admin-Technikerliste oben einen klaren Switch haben, mit dem die Liste auf ihren Verantwortungsbereich gefiltert wird — ohne jedes Mal über Status-Chips fummeln zu müssen.
+1. **Mark Röder** ist auf `onboarding_status = 'inaktiv'` gesetzt, taucht aber trotzdem in **Aktive** und **Einsatzbereit** auf. Grund: In `useAdminContractorList.ts` überschreibt `is_trainer` den echten Status (`is_trainer ? 'ready' : status`). Inaktive Trainer werden dadurch fälschlich als "Einsatzbereit" angezeigt.
+2. Die Status‑Chips (Angelegt, Blockiert, Gestartet …) zeigen oft **0 Treffer** und wirken wie tote Filter. Sie sind im aktuellen Tab nicht nützlich, weil die Hauptnavigation bereits über das Segmented Control (Onboarding / Aktive / Alle / Inaktiv) läuft.
 
-## Scope
-Nur Frontend, eine Datei: `src/features/contractors/ui/ContractorListView.tsx`.
-Keine DB-, RPC- oder Hook-Änderungen.
+## Lösung
 
-## Änderungen
-
-### 1. Neuer Top-Switch (Segmented Control, Apple-Stil)
-Über der Suchleiste, prominent gerendert:
-
+### 1. `inaktiv` hat Vorrang vor `is_trainer`
+In `useAdminContractorList.ts`:
+```ts
+onboardingStatus: o.onboarding_status === 'inaktiv'
+  ? 'inaktiv'
+  : (o.is_trainer ? 'ready' : (o.onboarding_status ?? 'angelegt'))
 ```
-[ Im Onboarding (n) ] [ Aktive (n) ] [ Alle (n) ]
-```
+Ehemalige Stati (`ausgestiegen`, `gefeuert`, `deaktiviert`) ebenfalls nicht durch Trainer‑Flag überschreiben.
 
-Drei Modi:
-- **Onboarding** — `onboardingStatus ∈ { angelegt, invited, started, in_progress, mitfahrt, blocked }` (alles vor `ready`, ohne Ehemalige/Inaktiv)
-- **Aktive** — `onboardingStatus === 'ready'` **oder** `isTrainer === true`
-- **Alle** — heutige Default-Logik (aktive + ggf. Inaktive über separaten Toggle)
+Effekt: Mark Röder verschwindet aus **Aktive** und erscheint korrekt in **Inaktiv**.
 
-Counts pro Tab werden live aus `contractors` berechnet (analog zur bestehenden `kpis`-Memo).
+### 2. Status‑Chips ausblenden wenn leer
+In `ContractorListView.tsx` die `statusOptions` so filtern, dass nur Stati mit `count > 0` im aktuellen Tab erscheinen. Counts werden aus dem bereits gefilterten Datensatz (vor `statusFilter`) berechnet. So sieht der Nutzer nur Filter, die echte Treffer liefern.
 
-### 2. Persistenz
-Auswahl wird in `localStorage` unter `admin.contractorList.viewMode` gespeichert, damit der Reload den Tab nicht verliert. Default beim ersten Besuch: **Alle** (um keine Regression für bestehende Nutzer zu erzeugen).
+Optional: Counts direkt in den Chip‑Labels einblenden (z. B. „In Bearbeitung (12)").
 
-### 3. Wechselwirkung mit bestehenden Filtern
-- **Suche** (`searchQuery`) bleibt, wirkt zusätzlich.
-- **Status-Chips** (`statusFilter`) werden modus-sensitiv:
-  - Im **Onboarding**-Modus: nur Onboarding-Statuses als Chips.
-  - Im **Aktive**-Modus: Chip-Leiste ausgeblendet (es gibt effektiv nur einen Status).
-  - Im **Alle**-Modus: heutiges Verhalten.
-  - Beim Modus-Wechsel wird `statusFilter` zurückgesetzt, wenn die gewählte Status nicht zum neuen Modus passt.
-- **Inaktiv-Toggle** (`showInaktiv`) bleibt nur im **Alle**-Modus sichtbar.
-- **KPI-Cards** oberhalb bleiben unverändert (zeigen weiterhin Gesamtbild).
+### 3. (Klein) Tab „Inaktiv" als Standard‑Sort
+Inaktive Techniker, deren `is_trainer = true`, zusätzlich mit Trainer‑Badge in der Karte zeigen, damit erkennbar bleibt, dass es ein pausierter Trainer ist.
 
-### 4. Filter-Logik
-`filtered = useMemo` bekommt einen zusätzlichen Vorschritt:
-```
-mode === 'onboarding' → activeNonReady && !isTrainer
-mode === 'aktiv'      → onboardingStatus === 'ready' || isTrainer
-mode === 'alle'       → bestehende Logik
-```
-Danach laufen Suche/Status-Chip/Inaktiv-Toggle wie heute.
+## Geänderte Dateien
+- `src/features/contractors/hooks/useAdminContractorList.ts` — Status‑Mapping (Inaktiv/Ehemalig > Trainer > onboarding_status)
+- `src/features/contractors/ui/ContractorListView.tsx` — `statusOptions` nur mit `count > 0`, optional Counts im Label
 
-### 5. Subtitle des `AdminLayout`
-Anpassen je nach Modus: „Onboarding" / „Aktive Thermotrackler" / „Alle Techniker" — damit der Header sofort signalisiert, in welcher Sicht man steht.
-
-## Technische Notizen
-- Komponente: `Tabs` aus `@/components/ui/tabs` (shadcn) — passt visuell, hat A11y eingebaut.
-- LOC-Budget: aktuell 505 LOC, das Limit ist 350 für Components. Da wir ohnehin anpacken, bei der Gelegenheit `ContractorRow` in eine eigene Datei `ContractorRow.tsx` auslagern (~150 LOC), damit `ContractorListView.tsx` unter dem Cap bleibt.
-- Kein neuer Datenfetch, keine neue Query-Invalidierung nötig.
-
-## Validierung
-1. Switch auf **Onboarding** → nur Techniker mit Status `angelegt`/`invited`/`started`/`in_progress`/`mitfahrt`/`blocked` sichtbar; `ready` und Trainer ausgeblendet; Counts in Tabs stimmen mit Filterergebnis überein.
-2. Switch auf **Aktive** → nur `ready` und `isTrainer === true`; Status-Chips weg; Subtitle = „Aktive Thermotrackler".
-3. Switch auf **Alle** → identisches Verhalten zu heute, inkl. Inaktiv-Toggle und Ehemalige-Logik.
-4. Reload nach Modus-Wahl → gleicher Modus wieder aktiv (localStorage).
-5. Suche + Modus kombinieren → korrekte Schnittmenge.
-6. `wc -l` für die zerlegten Dateien bestätigt LOC-Cap eingehalten.
-
-## Out of scope
-- Keine Änderungen am `AdminDashboardView` oder am `SubscriptionHealthPanel` (die haben eigene Funnel-Logik).
-- Keine Server-seitige Filterung (Datenmenge ist klein, Client-Filter reicht und ist konsistent mit heutigem Pattern).
-- Kein Rollen-basiertes Default (kein automatisches „Onboarding-Manager sieht zuerst Onboarding") — der User-Wunsch ist ein manueller Switch, das halten wir explizit.
+Keine DB‑Migration nötig.

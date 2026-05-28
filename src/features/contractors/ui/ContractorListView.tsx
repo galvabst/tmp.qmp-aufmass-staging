@@ -256,18 +256,37 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
 
   const ehemaligeInResults = filtered.filter(c => EHEMALIGE_STATUSES.includes(c.onboardingStatus)).length;
 
-  // Status-Chips nur sinnvoll bei Onboarding (eingeschränkt) und Alle
+  // Status-Chips: nur Stati mit echten Treffern im aktuellen Tab, mit Counts
   const statusOptions = useMemo(() => {
+    if (!contractors?.length) return [];
     if (viewMode === 'aktiv' || viewMode === 'inaktiv') return [];
+
+    // Basis-Set (vor statusFilter, aber nach Modus-Filter) für Counts
+    const inMode = contractors.filter(c => {
+      const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
+      if (viewMode === 'onboarding') {
+        return !ehemalig && c.onboardingStatus !== 'inaktiv' && !c.isTrainer && isOnboardingStatus(c.onboardingStatus);
+      }
+      // alle
+      if (c.onboardingStatus === 'inaktiv') return false;
+      if (ehemalig && !hasSearch) return false;
+      return true;
+    });
+
+    const counts = new Map<OnboardingStatusEnum, number>();
+    inMode.forEach(c => counts.set(c.onboardingStatus, (counts.get(c.onboardingStatus) || 0) + 1));
+
     const base = Object.entries(ONBOARDING_STATUS_LABELS)
       .filter(([k]) => k !== 'inaktiv' && k !== 'gefeuert' && k !== 'ausgestiegen' && k !== 'deaktiviert');
-    if (viewMode === 'onboarding') {
-      return base
-        .filter(([k]) => ONBOARDING_STATUSES.includes(k as OnboardingStatusEnum))
-        .map(([value, label]) => ({ value, label }));
-    }
-    return base.map(([value, label]) => ({ value, label }));
-  }, [viewMode]);
+    const candidates = viewMode === 'onboarding'
+      ? base.filter(([k]) => ONBOARDING_STATUSES.includes(k as OnboardingStatusEnum))
+      : base;
+
+    return candidates
+      .map(([value, label]) => ({ value, label, count: counts.get(value as OnboardingStatusEnum) ?? 0 }))
+      .filter(o => o.count > 0)
+      .map(o => ({ value: o.value, label: `${o.label} (${o.count})` }));
+  }, [contractors, viewMode, hasSearch]);
 
   if (selectedContractor) {
     return <ContractorDetailView contractor={selectedContractor} onBack={() => { setSelectedContractor(null); onClearSelection?.(); }} />;
