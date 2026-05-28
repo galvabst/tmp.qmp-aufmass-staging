@@ -170,7 +170,11 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       trainers: contractors.filter(c => c.isTrainer).length,
       ehemalige: contractors.filter(c => isEhemalig(c.onboardingStatus)).length,
     };
+  }, [contractors]);
+
+  // Counts pro Tab
   const tabCounts = useMemo<Record<ViewMode, number>>(() => {
+
     if (!contractors?.length) return { onboarding: 0, aktiv: 0, inaktiv: 0, ehemalige: 0 };
     let onboarding = 0, aktiv = 0, inaktiv = 0, ehemalige = 0;
     for (const c of contractors) {
