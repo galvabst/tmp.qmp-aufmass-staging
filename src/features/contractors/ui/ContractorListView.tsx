@@ -170,7 +170,11 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
       trainers: contractors.filter(c => c.isTrainer).length,
       ehemalige: contractors.filter(c => isEhemalig(c.onboardingStatus)).length,
     };
+  }, [contractors]);
+
+  // Counts pro Tab
   const tabCounts = useMemo<Record<ViewMode, number>>(() => {
+
     if (!contractors?.length) return { onboarding: 0, aktiv: 0, inaktiv: 0, ehemalige: 0 };
     let onboarding = 0, aktiv = 0, inaktiv = 0, ehemalige = 0;
     for (const c of contractors) {
@@ -179,7 +183,8 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
         ehemalige++;
       } else if (c.onboardingStatus === 'inaktiv') {
         inaktiv++;
-      } else if (c.onboardingStatus === 'ready' || (c.isTrainer && c.onboardingStatus !== 'inaktiv')) {
+      } else if (c.onboardingStatus === 'ready' || c.isTrainer) {
+
         aktiv++;
       } else if (isOnboardingStatus(c.onboardingStatus)) {
         onboarding++;
@@ -219,7 +224,10 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     if (viewMode === 'aktiv' || viewMode === 'inaktiv') setStatusFilter(null);
   }, [viewMode, statusFilter]);
 
+  const hasSearch = searchQuery.trim().length > 0;
+
   const filtered = useMemo(() => {
+
     if (!contractors) return [];
     return contractors.filter(c => {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
