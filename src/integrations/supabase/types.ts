@@ -13613,6 +13613,18 @@ export type Database = {
           vorname: string
         }[]
       }
+      get_potential_technicians: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          email: string
+          erstellt_am: string
+          id: string
+          nachname: string
+          telefon: string
+          vorname: string
+        }[]
+      }
       get_produkt_recht_dokument_by_slug: {
         Args: { p_slug: string }
         Returns: {
