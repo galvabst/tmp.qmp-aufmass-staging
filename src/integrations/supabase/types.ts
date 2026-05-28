@@ -12901,6 +12901,12 @@ export type Database = {
           }
         | { Args: { schema_name: string; table_name: string }; Returns: string }
         | { Args: { table_name: string }; Returns: string }
+      elektro_pruefung_watchdog: {
+        Args: never
+        Returns: {
+          reaped_count: number
+        }[]
+      }
       emergency_delete_pdf: {
         Args: { p_admin_reason: string; p_pdf_id: string }
         Returns: boolean
@@ -13657,6 +13663,16 @@ export type Database = {
         Args: { user_id?: string }
         Returns: string
       }
+      get_quality_funnel_metrics:
+        | { Args: { p_salesperson_id?: string }; Returns: Json }
+        | {
+            Args: {
+              p_end_date: string
+              p_salesperson_id?: string
+              p_start_date: string
+            }
+            Returns: Json
+          }
       get_regionale_terminvorschlaege: {
         Args: { p_auftrag_id: string }
         Returns: {
