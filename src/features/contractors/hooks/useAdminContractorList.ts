@@ -127,14 +127,20 @@ export interface AdminContractor {
   austrittsGrund: string | null;
 }
 
-// ── Fetcher ──
-
 async function fetchAdminContractors(): Promise<AdminContractor[]> {
-  // 1. Fetch all onboarding records
-  const { data: onboardings, error: onbErr } = await (supabaseTC
-    .from('contractor_onboarding')
-    .select('*')
-    .not('onboarding_status', 'in', '("deaktiviert")') as any);
+  // 1. Fetch all onboarding records + potential technicians (Galvanek-Profile ohne Onboarding) in parallel
+  const [onbRes, potentialRes] = await Promise.all([
+    (supabaseTC.from('contractor_onboarding').select('*') as any),
+    supabase.rpc('get_potential_technicians' as any),
+  ]);
+  const onboardings = onbRes.data as any[] | null;
+  if (onbRes.error) throw onbRes.error;
+  if (potentialRes.error) {
+    console.warn('[useAdminContractorList] get_potential_technicians failed:', potentialRes.error);
+  }
+  const potentials = (potentialRes.data as any[] | null) ?? [];
+  if (!onboardings?.length && !potentials.length) return [];
+
   if (onbErr) throw onbErr;
   if (!onboardings?.length) return [];
 
