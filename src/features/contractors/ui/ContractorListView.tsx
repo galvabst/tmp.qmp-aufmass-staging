@@ -27,7 +27,7 @@ import {
 const STATUS_ICON_MAP: Record<OnboardingStatusEnum, LucideIcon> = {
   angelegt: Clock, invited: Clock, started: Clock, in_progress: Clock,
   blocked: AlertTriangle, ready: UserCheck, deaktiviert: UserX, mitfahrt: Car,
-  inaktiv: UserX, ausgestiegen: LogOut, gefeuert: UserX,
+  inaktiv: UserX, ausgestiegen: LogOut, gefeuert: UserX, onboarding_abgebrochen: UserX,
 };
 
 const STATUS_BG_MAP: Record<OnboardingStatusEnum, string> = {
@@ -42,6 +42,7 @@ const STATUS_BG_MAP: Record<OnboardingStatusEnum, string> = {
   inaktiv: 'bg-gray-50 dark:bg-gray-900/30',
   ausgestiegen: 'bg-gray-50 dark:bg-gray-900/30',
   gefeuert: 'bg-red-50 dark:bg-red-950/30',
+  onboarding_abgebrochen: 'bg-gray-50 dark:bg-gray-900/30',
 };
 
 // Onboarding-Statuses (alles vor 'ready', ohne 'inaktiv'/'ehemalige')
@@ -49,21 +50,19 @@ const ONBOARDING_STATUSES: OnboardingStatusEnum[] = [
   'angelegt', 'invited', 'started', 'in_progress', 'mitfahrt', 'blocked',
 ];
 
-type ViewMode = 'onboarding' | 'aktiv' | 'alle' | 'inaktiv';
+type ViewMode = 'onboarding' | 'aktiv' | 'ehemalige';
 const VIEW_MODE_STORAGE_KEY = 'admin.contractorList.viewMode';
 
 const VIEW_MODE_LABEL: Record<ViewMode, string> = {
   onboarding: 'Im Onboarding',
   aktiv: 'Aktive',
-  alle: 'Alle',
-  inaktiv: 'Inaktiv',
+  ehemalige: 'Ehemalige',
 };
 
 const VIEW_MODE_SUBTITLE: Record<ViewMode, string> = {
   onboarding: 'Im Onboarding',
-  aktiv: 'Aktive Thermotrackler',
-  alle: 'Alle Techniker',
-  inaktiv: 'Pausiert',
+  aktiv: 'Aktive Thermotrackler (inkl. pausiert)',
+  ehemalige: 'Ehemalige & nie gestartet',
 };
 
 function isOnboardingStatus(s: OnboardingStatusEnum): boolean {
@@ -71,11 +70,12 @@ function isOnboardingStatus(s: OnboardingStatusEnum): boolean {
 }
 
 function loadViewMode(): ViewMode {
-  if (typeof window === 'undefined') return 'alle';
+  if (typeof window === 'undefined') return 'aktiv';
   const v = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-  if (v === 'onboarding' || v === 'aktiv' || v === 'alle' || v === 'inaktiv') return v;
-  return 'alle';
+  if (v === 'onboarding' || v === 'aktiv' || v === 'ehemalige') return v;
+  return 'aktiv';
 }
+
 
 // ── KPI Card ────────────────────────────────────────────────────────────────
 
