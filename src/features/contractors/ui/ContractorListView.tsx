@@ -284,7 +284,7 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
     return <ContractorDetailView contractor={selectedContractor} onBack={() => { setSelectedContractor(null); onClearSelection?.(); }} />;
   }
 
-  const tabOrder: ViewMode[] = ['onboarding', 'aktiv', 'inaktiv', 'ehemalige'];
+  const tabOrder: ViewMode[] = ['onboarding', 'aktiv', 'ehemalige'];
 
 
   return (
