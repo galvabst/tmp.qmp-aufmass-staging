@@ -183,7 +183,8 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
         ehemalige++;
       } else if (c.onboardingStatus === 'inaktiv') {
         inaktiv++;
-      } else if (c.onboardingStatus === 'ready' || (c.isTrainer && c.onboardingStatus !== 'inaktiv')) {
+      } else if (c.onboardingStatus === 'ready' || c.isTrainer) {
+
         aktiv++;
       } else if (isOnboardingStatus(c.onboardingStatus)) {
         onboarding++;
