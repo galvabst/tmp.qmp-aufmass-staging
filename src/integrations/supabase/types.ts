@@ -13664,12 +13664,20 @@ export type Database = {
         Returns: string
       }
       get_quality_funnel_metrics:
-        | { Args: { p_salesperson_id?: string }; Returns: Json }
         | {
             Args: {
-              p_end_date: string
+              p_end_date?: string
               p_salesperson_id?: string
-              p_start_date: string
+              p_start_date?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_app_flavor?: string
+              p_end_date?: string
+              p_salesperson_id?: string
+              p_start_date?: string
             }
             Returns: Json
           }
