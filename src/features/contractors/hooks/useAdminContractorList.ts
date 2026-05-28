@@ -19,7 +19,7 @@ export const ONBOARDING_STATUS_LABELS: Record<OnboardingStatusEnum, string> = {
   ausgestiegen: 'Ausgestiegen',
   gefeuert: 'Gefeuert',
   onboarding_abgebrochen: 'Onboarding abgebrochen',
-};
+export const EHEMALIGE_STATUSES: OnboardingStatusEnum[] = ['inaktiv', 'ausgestiegen', 'gefeuert', 'deaktiviert', 'onboarding_abgebrochen'];
 
 /** Status-Werte, die nicht mehr "aktiv im Onboarding" sind (Ex-Techniker). */
 export const EHEMALIGE_STATUSES: OnboardingStatusEnum[] = ['ausgestiegen', 'gefeuert', 'deaktiviert', 'onboarding_abgebrochen'];
