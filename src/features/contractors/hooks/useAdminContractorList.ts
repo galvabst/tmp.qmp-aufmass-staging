@@ -231,8 +231,8 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
     bestellMap.set(onbKey, entry);
   });
 
-  // 4. Build admin contractors
-  return onboardings.map((o): AdminContractor => {
+  // 4. Build admin contractors from onboarding records
+  const fromOnboarding: AdminContractor[] = onbList.map((o): AdminContractor => {
     const profile = o.profile_id ? profileMap.get(o.profile_id) : null;
     const lekt = lektionenMap.get(o.id) ?? null;
     const quiz = quizMap.get(o.id) ?? null;
@@ -251,7 +251,6 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       ort: o.anschrift_ort ?? '',
       onboardingStatus: (() => {
         const raw = (o.onboarding_status ?? 'angelegt') as OnboardingStatusEnum;
-        // Inaktiv/Ehemalig hat IMMER Vorrang vor is_trainer
         if (raw === 'inaktiv' || EHEMALIGE_STATUSES.includes(raw)) return raw;
         return (o.is_trainer ? 'ready' : raw) as OnboardingStatusEnum;
       })(),
@@ -274,11 +273,9 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       pflichtProdukteTotal: pflichtProdukteEffektiv,
       pflichtProdukteBezahlt: (() => {
         const paidKeys = best?.paidKeys ?? [];
-        // Count each non-oberteil pflicht key individually
         let count = [...pflichtProduktKeys]
           .filter(pk => !OBERTEIL_KEYS.includes(pk) && paidKeys.includes(pk))
           .length;
-        // Oberteil-Gruppe: gilt als bezahlt wenn mind. eins bezahlt
         if (hasOberteilGroup && OBERTEIL_KEYS.some(k => paidKeys.includes(k))) {
           count++;
         }
@@ -304,7 +301,59 @@ async function fetchAdminContractors(): Promise<AdminContractor[]> {
       austrittsGrund: (o as any).austritts_grund ?? null,
     };
   });
+
+  // 5. Synthetic entries for Galvanek-Profile ohne Onboarding (= Onboarding abgebrochen / nie gestartet)
+  const synthetic: AdminContractor[] = potentials.map((p: any): AdminContractor => ({
+    id: `potential:${p.id}`,
+    profileId: p.id,
+    vorname: p.vorname ?? '',
+    nachname: p.nachname ?? '',
+    email: p.email ?? '',
+    telefon: p.telefon ?? '',
+    avatarUrl: p.avatar_url ?? null,
+    ort: '',
+    onboardingStatus: 'onboarding_abgebrochen',
+    onboardingSubstatus: null,
+    currentStep: null,
+    completedSteps: [],
+    isTrainer: false,
+    erstelltAm: p.erstellt_am ?? new Date().toISOString(),
+    lektionenCompleted: 0,
+    lektionenInProgress: 0,
+    lektionenTotal: activeLektionenCount,
+    akademieTestBestanden: false,
+    quizVersuche: 0,
+    quizBestScore: 0,
+    quizBestanden: false,
+    bestellungenTotal: 0,
+    bestellungenBezahlt: 0,
+    bezahlteProdukte: [],
+    bestellungen: [],
+    pflichtProdukteTotal: 0,
+    pflichtProdukteBezahlt: 0,
+    equipmentStatus: {},
+    coachingBewertung: 'ausstehend',
+    coachingTermin: null,
+    coachName: null,
+    vertragGeprueft: false,
+    kleidungBestellt: false,
+    lizenzenBereitgestellt: false,
+    gewerbescheinUrl: null,
+    gewerbescheinSpaeter: false,
+    praxistestEingereicht: false,
+    praxistestFreigabe: false,
+    scanFreigegeben: false,
+    videoFreigegeben: false,
+    mitfahrtTermin: null,
+    mitfahrtBezahltAm: null,
+    einweisungFreigabe: false,
+    austrittsDatum: null,
+    austrittsGrund: null,
+  }));
+
+  return [...fromOnboarding, ...synthetic];
 }
+
 
 // ── Hook ──
 
