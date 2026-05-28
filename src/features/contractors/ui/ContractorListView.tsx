@@ -256,14 +256,14 @@ export function ContractorListView({ initialSelectedId, onClearSelection }: Cont
   // Status-Chips: nur Stati mit echten Treffern im aktuellen Tab, mit Counts
   const statusOptions = useMemo(() => {
     if (!contractors?.length) return [];
-    if (viewMode === 'aktiv' || viewMode === 'inaktiv') return [];
+    if (viewMode === 'aktiv') return [];
 
     const inMode = contractors.filter(c => {
       const ehemalig = EHEMALIGE_STATUSES.includes(c.onboardingStatus);
       if (viewMode === 'onboarding') {
-        return !ehemalig && c.onboardingStatus !== 'inaktiv' && !c.isTrainer && isOnboardingStatus(c.onboardingStatus);
+        return !ehemalig && !c.isTrainer && isOnboardingStatus(c.onboardingStatus);
       }
-      // ehemalige
+
       return ehemalig;
     });
 
