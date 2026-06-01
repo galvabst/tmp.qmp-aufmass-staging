@@ -897,6 +897,11 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
             onStartTest={handleStartTest}
             isPreview={isPreview}
             isTrainer={dbStatus?.isTrainer}
+            akademieErstdurchlaufAbgeschlossen={
+              dbStatus?.onboardingStatus === 'ready' ||
+              (dbStatus?.completedSteps ?? []).includes('akademie') ||
+              dbStatus?.isTrainer === true
+            }
             praxistestScanUrl={state.praxistestScanUrl || ''}
             praxistestVideoUrl={state.praxistestVideoUrl || ''}
             praxistestEingereicht={state.praxistestEingereicht || false}
