@@ -195,6 +195,10 @@ export function AcademyStep({
   const totalProgress = getTotalAkademieProgress(hauptmodule);
   const allModulesComplete = totalProgress.completed === totalProgress.total;
   const testGateOpen = testBestanden || isPreview;
+  // Erstdurchlauf gilt auch dann als begonnen, wenn der Kandidat bereits irgendwo
+  // (z.B. in späteren Modulen) Fortschritt hat — dann greift die sequentielle
+  // Sperre nicht mehr, sonst sperren wir bestehende Kandidaten aus.
+  const hasAnyProgress = totalProgress.completed > 0;
 
   const handleStartUnterpunkt = (unterpunkt: AkademieUnterpunkt) => {
     navigate(`/akademie/modul/${unterpunkt.id}`);
@@ -251,7 +255,7 @@ export function AcademyStep({
         className="space-y-3"
       >
         {hauptmodule.map((hauptmodul, hauptmodulIndex) => {
-          const isUnlocked = isTrainer || isPreview || akademieErstdurchlaufAbgeschlossen || isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
+          const isUnlocked = isTrainer || isPreview || akademieErstdurchlaufAbgeschlossen || hasAnyProgress || isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
           const isComplete = isHauptmodulComplete(hauptmodul);
           const progress = countLeafUnterpunkte(hauptmodul.unterpunkte);
           

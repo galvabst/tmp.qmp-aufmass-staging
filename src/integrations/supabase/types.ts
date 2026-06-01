@@ -14040,99 +14040,57 @@ export type Database = {
       }
       get_thc_arbeitspaket: { Args: { p_auftrag_id: string }; Returns: Json }
       get_thc_terminierung_liste: { Args: never; Returns: Json }
-      get_thermocheck_auftraege:
-        | {
-            Args: {
-              p_limit?: number
-              p_offset?: number
-              p_search?: string
-              p_substatus_filter?: string
-            }
-            Returns: {
-              abgerechnet: boolean
-              ag_termin_datum: string
-              created_at: string
-              created_by: string
-              id: string
-              info_vertrieb_pv_aufmass: string
-              info_vertrieb_sonstiges: string
-              info_vertrieb_thc_aufmass: string
-              kunde_anrede: string
-              kunde_email: string
-              kunde_hausnummer: string
-              kunde_nachname: string
-              kunde_ort: string
-              kunde_plz: string
-              kunde_strasse: string
-              kunde_telefon: string
-              kunde_vorname: string
-              lead_id: string
-              lead_name: string
-              notizen: string
-              pipeline_status: string
-              rechnungsdatum: string
-              rechnungsnummer: string
-              referenz_nummer: string
-              signier_datum_thc: string
-              storno_datum: string
-              updated_at: string
-              widerrufsbelehrung_url: string
-              zugewiesener_techniker_id: string
-            }[]
-          }
-        | {
-            Args: {
-              p_limit?: number
-              p_offset?: number
-              p_search?: string
-              p_substatus_filter?: string
-              p_substatus_list?: string[]
-            }
-            Returns: {
-              abgerechnet: boolean
-              ag_termin_datum: string
-              created_at: string
-              created_by: string
-              id: string
-              info_vertrieb_pv_aufmass: string
-              info_vertrieb_sonstiges: string
-              info_vertrieb_thc_aufmass: string
-              kunde_anrede: string
-              kunde_email: string
-              kunde_hausnummer: string
-              kunde_nachname: string
-              kunde_ort: string
-              kunde_plz: string
-              kunde_strasse: string
-              kunde_telefon: string
-              kunde_vorname: string
-              lead_id: string
-              lead_name: string
-              notizen: string
-              pipeline_status: string
-              rechnungsdatum: string
-              rechnungsnummer: string
-              referenz_nummer: string
-              signier_datum_thc: string
-              storno_datum: string
-              updated_at: string
-              widerrufsbelehrung_url: string
-              zugewiesener_techniker_id: string
-            }[]
-          }
-      get_thermocheck_auftraege_count:
-        | {
-            Args: { p_search?: string; p_substatus_filter?: string }
-            Returns: number
-          }
-        | {
-            Args: {
-              p_search?: string
-              p_substatus_filter?: string
-              p_substatus_list?: string[]
-            }
-            Returns: number
-          }
+      get_thermocheck_auftraege: {
+        Args: {
+          p_include_flagged?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_substatus_filter?: string
+          p_substatus_list?: string[]
+        }
+        Returns: {
+          abgerechnet: boolean
+          ag_termin_datum: string
+          created_at: string
+          created_by: string
+          id: string
+          info_vertrieb_pv_aufmass: string
+          info_vertrieb_sonstiges: string
+          info_vertrieb_thc_aufmass: string
+          kunde_anrede: string
+          kunde_email: string
+          kunde_hausnummer: string
+          kunde_nachname: string
+          kunde_ort: string
+          kunde_plz: string
+          kunde_strasse: string
+          kunde_telefon: string
+          kunde_vorname: string
+          lead_id: string
+          lead_name: string
+          migration_unvollstaendig: boolean
+          notizen: string
+          pipeline_status: string
+          rechnungsdatum: string
+          rechnungsnummer: string
+          referenz_nummer: string
+          signier_datum_thc: string
+          storno_datum: string
+          updated_at: string
+          widerrufsbelehrung_url: string
+          zugewiesener_techniker_id: string
+        }[]
+      }
+      get_thermocheck_auftraege_count: {
+        Args: {
+          p_include_flagged?: boolean
+          p_search?: string
+          p_substatus_filter?: string
+          p_substatus_list?: string[]
+        }
+        Returns: number
+      }
       get_thermocheck_auftrag_detail: {
         Args: { p_auftrag_id: string }
         Returns: {
@@ -14183,6 +14141,7 @@ export type Database = {
           zugewiesener_techniker_id: string
         }[]
       }
+      get_thermocheck_flagged_count: { Args: never; Returns: number }
       get_thermocheck_ideen: {
         Args: never
         Returns: {
@@ -14198,13 +14157,21 @@ export type Database = {
           updated_at: string
         }[]
       }
-      get_thermocheck_substatus_counts: {
-        Args: never
-        Returns: {
-          count: number
-          substatus: string
-        }[]
-      }
+      get_thermocheck_substatus_counts:
+        | {
+            Args: never
+            Returns: {
+              count: number
+              substatus: string
+            }[]
+          }
+        | {
+            Args: { p_include_flagged?: boolean }
+            Returns: {
+              count: number
+              substatus: string
+            }[]
+          }
       get_thermocheck_terminvorschlaege: {
         Args: { p_auftrag_id: string }
         Returns: {
@@ -15921,6 +15888,10 @@ export type Database = {
       toggle_produkt_recht_dokument_status: {
         Args: { p_id: string; p_ist_aktiv: boolean }
         Returns: boolean
+      }
+      toggle_thermocheck_migration_flag: {
+        Args: { p_auftrag_id: string; p_flagged: boolean }
+        Returns: undefined
       }
       transition_contractor_to_mitfahrt: {
         Args: { p_contractor_id: string }
