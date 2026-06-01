@@ -20,6 +20,8 @@ interface AcademyStepProps {
   onStartTest: () => void;
   isPreview?: boolean;
   isTrainer?: boolean;
+  /** True once the contractor has completed the academy at least once (status=ready, akademie in completed_steps, or trainer). Disables sequential lock. */
+  akademieErstdurchlaufAbgeschlossen?: boolean;
   // Praxistest
   praxistestScanUrl?: string;
   praxistestVideoUrl?: string;
@@ -176,6 +178,7 @@ export function AcademyStep({
   onStartTest,
   isPreview = false,
   isTrainer = false,
+  akademieErstdurchlaufAbgeschlossen = false,
   praxistestScanUrl = '',
   praxistestVideoUrl = '',
   praxistestEingereicht = false,
@@ -248,7 +251,7 @@ export function AcademyStep({
         className="space-y-3"
       >
         {hauptmodule.map((hauptmodul, hauptmodulIndex) => {
-          const isUnlocked = isTrainer || isPreview || isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
+          const isUnlocked = isTrainer || isPreview || akademieErstdurchlaufAbgeschlossen || isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
           const isComplete = isHauptmodulComplete(hauptmodul);
           const progress = countLeafUnterpunkte(hauptmodul.unterpunkte);
           

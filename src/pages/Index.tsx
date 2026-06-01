@@ -389,6 +389,7 @@ const Index = () => {
           erstelltAm: onboardingRecord.erstellt_am || undefined,
           onboardingId: onboardingRecord.id || undefined,
           isTrainer: onboardingRecord.is_trainer || false,
+          completedSteps: ((onboardingRecord as any)?.completed_steps as string[] | undefined) ?? [],
         } : undefined}
         onComplete={() => {
           if (isPreviewMode) {

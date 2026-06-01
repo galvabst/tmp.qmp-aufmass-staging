@@ -1,68 +1,64 @@
 ## Ziel
+Sequentielle Modul-Sperre in der Akademie greift nur noch beim **Erstdurchlauf**. Sobald der Kandidat die Akademie einmal komplett abgeschlossen hat, sind ab dann **alle Module dauerhaft frei navigierbar** — auch neu hinzugefügte Module blockieren nicht mehr nachfolgende Inhalte. Erstes Anschauen jeder einzelnen Lektion bleibt unskippbar (bereits umgesetzt via `hideSeekbar`), wiederholtes Anschauen ist skippbar (bereits umgesetzt via DB-Check).
 
-Drei klare Tabs in der Techniker-Liste, damit niemand mehr unsichtbar bleibt (Justin Balk, Jonas Magdeburg, Olaf Markmann etc.):
+## Signal „Erstdurchlauf bereits abgeschlossen"
+Quelle der Wahrheit ist `thermocheck.contractor_onboarding`. Ein Kandidat gilt als „Akademie-Erstdurchlauf erledigt", wenn **mindestens eine** dieser Bedingungen zutrifft:
 
-```
-[ Onboarding ]   [ Aktive ]   [ Ehemalige ]
-```
+1. `onboarding_status = 'ready'` (Onboarding komplett abgeschlossen — Akademie war Pflichtschritt)
+2. `'akademie' = ANY(completed_steps)` (Akademie-Step explizit als erledigt markiert)
+3. `is_trainer = true` (Trainer haben grundsätzlich freien Zugang — bereits etablierte Regel)
 
-Innerhalb von **Ehemalige** wird über Status-Chips weiter aufgedröselt:
+Reicht für alle Bestandskunden plus zukünftige Kandidaten, ohne neue DB-Spalten oder Migrationen.
 
-- **Onboarding abgebrochen** — hat nie einen Auftrag gefahren (nie gestartet ODER mittendrin raus)
-- **Freiwillig ausgestiegen** — war aktiv, hat selbst gekündigt
-- **Gefeuert** — war aktiv, wurde rausgeworfen
+## Umsetzung
 
-## Datenquelle
+### 1) `AcademyStep.tsx`
+- Neuen Prop `akademieErstdurchlaufAbgeschlossen: boolean` annehmen.
+- Lock-Auswertung anpassen:
+  ```ts
+  const isUnlocked =
+    isTrainer ||
+    isPreview ||
+    akademieErstdurchlaufAbgeschlossen ||
+    isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
+  ```
+- Lock-Icon und `disabled`-State entfallen damit für Bestandskandidaten automatisch.
+- `LektionInnerRow` braucht keine Änderung — Lektionsstart innerhalb eines freigeschalteten Moduls funktioniert bereits ungehindert.
 
-Heute liefert `useAdminContractorList` nur Datensätze aus `thermocheck.contractor_onboarding`. Ex-Techniker ohne Onboarding-Record fehlen komplett.
+### 2) `OnboardingScreen.tsx`
+- Flag aus `dbStatus`/`onboardingRecord` ableiten:
+  ```ts
+  const akademieErstdurchlaufAbgeschlossen =
+    onboardingRecord?.onboarding_status === 'ready' ||
+    (onboardingRecord?.completed_steps ?? []).includes('akademie') ||
+    onboardingRecord?.is_trainer === true;
+  ```
+- An `AcademyStep` durchreichen.
 
-Neue SECURITY-DEFINER-RPC `thermocheck.get_potential_technicians()`:
-- Liefert alle Profile mit `@galvanek-bau.de`-Mail
-- die **keinen** `contractor_onboarding`-Datensatz haben
-- und **keine** Admin-/Superadmin-/Manager-Rolle besitzen
-- geschützt durch `thermocheck.is_innendienst()`
+### 3) `AkademieModul.tsx` (Detailseite einer Lektion)
+- Keine Änderung an Seekbar-Logik (bereits korrekt: `hideSeekbar={!isAlreadyCompleted}`).
+- Optional kleine Härtung: Wenn `akademieErstdurchlaufAbgeschlossen`, dann `allowSeeking = true` unabhängig von einzelner Lektion. **Wird nicht eingebaut**, da die DB-Logik (erstes Mal unskippbar pro einzelner Lektion) genau die vom User formulierte Regel ist: „1. mal anschauen → unskipable, danach skippbar".
 
-Diese Profile werden im Hook als synthetische Einträge mit Pseudo-Status `onboarding_abgebrochen` ergänzt (kein DB-Enum-Wert, nur UI).
+### 4) Optional: Sichtbarkeits-Hinweis
+Wenn `akademieErstdurchlaufAbgeschlossen`, kleinen Info-Banner über der Modulliste anzeigen:
+> „Du hast die Akademie abgeschlossen — alle Module sind frei zugänglich. Neue Lektionen erkennst du am Play-Icon."
 
-## Status-Mapping
+## Was sich NICHT ändert
+- Subscription-Overlay (bereits im letzten Schritt gefixt — Text + Gate via `onboarding_status === 'ready'`).
+- DB-Schema, RLS, Migrationen.
+- Erstdurchlauf-Erlebnis für komplett neue Kandidaten — Sperre greift weiterhin sequentiell, bis Step `akademie` in `completed_steps` landet.
+- Pflichtvideo-Overlay für neue Lektionen nach „ready" (`PflichtVideoOverlay`) — bleibt aktiv, damit Content-Updates trotzdem einmalig erzwungen werden.
 
-| Bucket | onboarding_status | Bedingung |
-|---|---|---|
-| Onboarding | `angelegt`, `invited`, `started`, `in_progress`, `blocked` | Kein Auftrag gefahren |
-| Aktive | `ready`, `mitfahrt` | Kann Aufträge annehmen |
-| Ehemalige → Onboarding abgebrochen | `inaktiv` ohne je gefahrenen Auftrag, plus synthetische „kein Datensatz" Einträge | Nie aktiv gewesen |
-| Ehemalige → Ausgestiegen | `ausgestiegen` | War aktiv, selbst raus |
-| Ehemalige → Gefeuert | `gefeuert` | War aktiv, rausgeworfen |
+## Technische Details
 
-`inaktiv` (pausiert) verschwindet als eigener Tab — wird je nach „je gefahren?" in **Aktive** (pausiert) oder **Ehemalige → abgebrochen** einsortiert. Falls das zu kompliziert wird: `inaktiv` immer unter Aktive mit Sub-Chip „Pausiert".
+| Datei | Änderung |
+|---|---|
+| `src/components/onboarding/steps/AcademyStep.tsx` | Prop `akademieErstdurchlaufAbgeschlossen` ergänzen, in `isUnlocked` einbinden |
+| `src/components/OnboardingScreen.tsx` | Flag berechnen, an `AcademyStep` weiterreichen |
+| `src/hooks/useContractorOnboardingStatus.ts` | Sicherstellen, dass `completed_steps` und `is_trainer` im Mapping enthalten sind (vermutlich schon) |
 
-## Änderungen
-
-### 1. DB-Migration
-- Neue Funktion `thermocheck.get_potential_technicians()` (SECURITY DEFINER, nur Innendienst)
-
-### 2. `useAdminContractorList.ts`
-- Filter `.not('onboarding_status', 'in', '("deaktiviert")')` entfernen — wir wollen alles sehen
-- Zusätzlich `get_potential_technicians()` aufrufen
-- Synthetische `AdminContractor`-Einträge bauen (`id = profile.id`, `onboardingStatus = 'onboarding_abgebrochen'`)
-- `OnboardingStatusEnum` um Pseudo-Werte `onboarding_abgebrochen` erweitern + Label
-
-### 3. `ContractorListView.tsx`
-- Tabs reduzieren auf **Onboarding | Aktive | Ehemalige**
-- Tab „Alle" und „Inaktiv" entfernen
-- Im Tab Ehemalige: Status-Chips „Onboarding abgebrochen | Ausgestiegen | Gefeuert" (nur sichtbar wenn count > 0)
-- Counts in Chip-Labels einbetten
-
-### 4. `ContractorCard.tsx`
-- Für synthetische „nie gestartet" Einträge: Badge „Nie angefangen", keine Onboarding-Progress-Bar, keine Akademie/Bestellungen-Stats (existieren nicht)
-- Für `gefeuert`/`ausgestiegen`: Austrittsdatum prominent zeigen (falls vorhanden)
-
-## Offene Detailfrage (im Bauen klärbar)
-
-Wie unterscheiden wir „inaktiv und nie gefahren" von „inaktiv und war aktiv"? Vorschlag: Wenn der Techniker je einen Auftrag mit Status `approved` hatte → war aktiv. Sonst → abgebrochen. Wird im Hook über einen leichten Count-Query gelöst.
-
-## Geänderte Dateien
-- DB: neue Funktion `thermocheck.get_potential_technicians`
-- `src/features/contractors/hooks/useAdminContractorList.ts`
-- `src/features/contractors/ui/ContractorListView.tsx`
-- `src/features/contractors/ui/ContractorCard.tsx`
+## Verifikation (nach Build-Mode)
+1. **Christian Born (impersonate):** Akademie öffnen → alle Module ohne Schloss-Icon, alle expandierbar, alle Lektionen klickbar.
+2. **Neuer Kandidat ohne Progress:** Modul 1 offen, Modul 2-N gesperrt — bisheriges Verhalten unverändert.
+3. **Bereits abgeschlossene Lektion öffnen:** Seekbar vorhanden, Skippen funktioniert.
+4. **Neue, noch nie geschaute Lektion öffnen:** Seekbar ausgeblendet, erst nach Komplett-Wiedergabe weiter.
