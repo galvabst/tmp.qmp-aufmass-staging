@@ -251,7 +251,7 @@ export function AcademyStep({
         className="space-y-3"
       >
         {hauptmodule.map((hauptmodul, hauptmodulIndex) => {
-          const isUnlocked = isTrainer || isPreview || isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
+          const isUnlocked = isTrainer || isPreview || akademieErstdurchlaufAbgeschlossen || isHauptmodulUnlocked(hauptmodulIndex, hauptmodule);
           const isComplete = isHauptmodulComplete(hauptmodul);
           const progress = countLeafUnterpunkte(hauptmodul.unterpunkte);
           
