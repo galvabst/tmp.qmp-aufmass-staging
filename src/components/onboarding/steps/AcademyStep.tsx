@@ -178,6 +178,7 @@ export function AcademyStep({
   onStartTest,
   isPreview = false,
   isTrainer = false,
+  akademieErstdurchlaufAbgeschlossen = false,
   praxistestScanUrl = '',
   praxistestVideoUrl = '',
   praxistestEingereicht = false,
