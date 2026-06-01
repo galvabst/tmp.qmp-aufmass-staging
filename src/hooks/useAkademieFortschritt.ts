@@ -96,12 +96,21 @@ export function useMyContractorOnboardingId() {
 
 /**
  * Check if a specific lektion has already been completed.
- * Checks both localStorage (onboarding state) and DB progress (via useAkademieFortschritt).
+ * Checks DB progress first (always — across devices/sessions), then localStorage as fallback.
+ * If `dbCompletedIds` is not provided, the hook fetches the current user's progress itself.
  */
 export function useIsLektionAlreadyCompleted(
   lektionId: string | undefined,
   dbCompletedIds?: Set<string>
 ): boolean {
+  // Auto-fetch DB completion set when caller didn't pass one in
+  const { data: onboardingId } = useMyContractorOnboardingId();
+  const shouldAutoFetch = dbCompletedIds === undefined;
+  const { data: autoFetchedIds } = useAkademieFortschritt(
+    shouldAutoFetch ? (onboardingId ?? null) : null
+  );
+  const effectiveDbIds = dbCompletedIds ?? autoFetchedIds;
+
   const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
@@ -110,20 +119,20 @@ export function useIsLektionAlreadyCompleted(
       return;
     }
 
-    // 1. Check DB fortschritt (passed in from parent)
-    if (dbCompletedIds?.has(lektionId)) {
+    // 1. DB fortschritt — authoritative source, works across devices
+    if (effectiveDbIds?.has(lektionId)) {
       setIsCompleted(true);
       return;
     }
 
-    // 2. Check localStorage onboarding state
+    // 2. localStorage onboarding state (legacy fallback)
     try {
       const keys = Object.keys(localStorage).filter(k => k.startsWith(ONBOARDING_STORAGE_KEY_PREFIX));
-      
+
       for (const key of keys) {
         const saved = localStorage.getItem(key);
         if (!saved) continue;
-        
+
         const state = JSON.parse(saved);
         const hauptmodule = state?.akademieHauptmodule;
         if (!Array.isArray(hauptmodule)) continue;
@@ -148,7 +157,8 @@ export function useIsLektionAlreadyCompleted(
     }
 
     setIsCompleted(false);
-  }, [lektionId, dbCompletedIds]);
+  }, [lektionId, effectiveDbIds]);
 
   return isCompleted;
 }
+
