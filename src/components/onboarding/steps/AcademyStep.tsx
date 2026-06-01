@@ -20,6 +20,8 @@ interface AcademyStepProps {
   onStartTest: () => void;
   isPreview?: boolean;
   isTrainer?: boolean;
+  /** True once the contractor has completed the academy at least once (status=ready, akademie in completed_steps, or trainer). Disables sequential lock. */
+  akademieErstdurchlaufAbgeschlossen?: boolean;
   // Praxistest
   praxistestScanUrl?: string;
   praxistestVideoUrl?: string;
