@@ -1,9 +1,9 @@
-import { AlertTriangle, Lock, ExternalLink } from "lucide-react";
+import { AlertTriangle, Lock } from "lucide-react";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
-import { Button } from "@/components/ui/button";
+import { useMyContractorOnboardingId } from "@/hooks/useAkademieFortschritt";
+import { useQuery } from "@tanstack/react-query";
+import { supabaseTC } from "@/integrations/supabase/thermocheck-client";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-
-const STRIPE_PORTAL_URL = "https://billing.stripe.com/p/login/test_xxx"; // Wird vom Innendienst ersetzt / per Edge Function dynamisiert.
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -17,11 +17,33 @@ function formatDate(iso: string | null): string {
 }
 
 /**
+ * Returns true only when the contractor has finished onboarding (onboarding_status = 'ready').
+ * Subscription warnings/blocks must NOT be shown during onboarding — at that point the
+ * Innendienst handles activation manually.
+ */
+function useIsReadyContractor(): boolean {
+  const { data: onboardingId } = useMyContractorOnboardingId();
+  const { data: status } = useQuery({
+    queryKey: ["my-onboarding-status-for-subscription-gate", onboardingId],
+    enabled: !!onboardingId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabaseTC.rpc("get_my_contractor_onboarding");
+      if (error) return null;
+      const row = Array.isArray(data) ? data[0] : data;
+      return (row?.onboarding_status as string | undefined) ?? null;
+    },
+  });
+  return status === "ready";
+}
+
+/**
  * Banner-Variante: für `access_state === 'warning'`.
- * Wird oben im Techniker-Hub eingeblendet.
  */
 export function SubscriptionWarningBanner() {
   const { data } = useSubscriptionAccess();
+  const isReady = useIsReadyContractor();
+  if (!isReady) return null;
   if (!data || data.access_state !== "warning") return null;
 
   const endsAt = formatDate(data.current_period_end);
@@ -37,18 +59,8 @@ export function SubscriptionWarningBanner() {
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-            {reason} Bitte verlängern, sonst wird dein Account gesperrt.
+            {reason} Bitte kontaktiere deine Ansprechperson im Innendienst, um dein Abonnement zu klären.
           </p>
-          <Button
-            asChild
-            variant="link"
-            size="sm"
-            className="h-auto p-0 text-amber-900 dark:text-amber-100"
-          >
-            <a href={STRIPE_PORTAL_URL} target="_blank" rel="noreferrer">
-              Zahlungsmethode aktualisieren <ExternalLink className="ml-1 h-3 w-3" />
-            </a>
-          </Button>
         </div>
       </div>
     </div>
@@ -57,10 +69,12 @@ export function SubscriptionWarningBanner() {
 
 /**
  * Blocking-Variante: für `access_state === 'blocked'`.
- * Vollbild-Modal, das den Techniker an der Nutzung hindert.
+ * Wird NICHT während dem Onboarding angezeigt — dort steuert der Innendienst die Aktivierung.
  */
 export function SubscriptionBlockedOverlay() {
   const { data } = useSubscriptionAccess();
+  const isReady = useIsReadyContractor();
+  if (!isReady) return null;
   if (!data || data.access_state !== "blocked") return null;
 
   return (
@@ -77,16 +91,11 @@ export function SubscriptionBlockedOverlay() {
           <h2 className="mb-2 text-xl font-semibold">
             Dein Abonnement ist nicht aktiv
           </h2>
-          <p className="mb-6 text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Deine Zahlung ist fehlgeschlagen oder dein Abo ist abgelaufen.
-            Bitte verlängere dein Abonnement, bevor du den nächsten Auftrag
-            annehmen oder bearbeiten kannst.
+            Bitte kontaktiere deine Ansprechperson im Innendienst, damit dein
+            Account wieder freigeschaltet werden kann.
           </p>
-          <Button asChild className="w-full">
-            <a href={STRIPE_PORTAL_URL} target="_blank" rel="noreferrer">
-              Jetzt verlängern <ExternalLink className="ml-2 h-4 w-4" />
-            </a>
-          </Button>
         </div>
       </DialogContent>
     </Dialog>
