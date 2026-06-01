@@ -44,6 +44,7 @@ interface OnboardingScreenProps {
     erstelltAm?: string;
     onboardingId?: string;
     isTrainer?: boolean;
+    completedSteps?: string[];
   };
 }
 
