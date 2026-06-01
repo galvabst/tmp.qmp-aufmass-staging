@@ -9,9 +9,11 @@ const OUTRO_VIDEO_URL = 'https://iframe.mediadelivery.net/embed/591760/37bee5ad-
 
 interface OutroVideoProps {
   onComplete: () => void;
+  /** Wenn true, kann der Button sofort geklickt werden (Bestandskandidaten / Wiederaufruf) */
+  allowSkip?: boolean;
 }
 
-export function OutroVideo({ onComplete }: OutroVideoProps) {
+export function OutroVideo({ onComplete, allowSkip = false }: OutroVideoProps) {
   const playerRef = useRef<VideoPlayerHandle>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
