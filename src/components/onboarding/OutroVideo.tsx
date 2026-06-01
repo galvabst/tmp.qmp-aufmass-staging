@@ -54,7 +54,7 @@ export function OutroVideo({ onComplete, allowSkip = false }: OutroVideoProps) {
 
       {/* Progress + Button */}
       <div className="px-6 pb-8 pt-4 space-y-4">
-        {!isVideoEnded && (
+        {!isVideoEnded && !allowSkip && (
           <div className="space-y-2">
             <Progress value={percentComplete} className="h-2 bg-white/20 [&>div]:bg-primary" />
             <p className="text-white/60 text-sm text-center">
@@ -65,7 +65,7 @@ export function OutroVideo({ onComplete, allowSkip = false }: OutroVideoProps) {
 
         <Button
           onClick={onComplete}
-          disabled={!isVideoEnded}
+          disabled={!isVideoEnded && !allowSkip}
           className="w-full h-12 text-base font-semibold disabled:opacity-30"
           size="lg"
         >
@@ -73,7 +73,7 @@ export function OutroVideo({ onComplete, allowSkip = false }: OutroVideoProps) {
           <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
 
-        {!isVideoEnded && (
+        {!isVideoEnded && !allowSkip && (
           <p className="text-white/40 text-xs text-center">
             Bitte schaue das Video vollständig an, um fortzufahren.
           </p>
