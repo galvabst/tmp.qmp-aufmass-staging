@@ -586,7 +586,11 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         console.warn('[Onboarding] Failed to save progress after outro:', error);
       }
     };
-    return <OutroVideo onComplete={handleOutroComplete} />;
+    const outroAllowSkip =
+      dbStatus?.onboardingStatus === 'ready' ||
+      (dbStatus?.completedSteps ?? []).includes('akademie') ||
+      dbStatus?.isTrainer === true;
+    return <OutroVideo onComplete={handleOutroComplete} allowSkip={outroAllowSkip} />;
   }
 
   if (isComplete) {
