@@ -586,10 +586,20 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         console.warn('[Onboarding] Failed to save progress after outro:', error);
       }
     };
+    // Skip erlauben für Bestandskandidaten: ready, akademie schon abgeschlossen,
+    // Trainer ODER bereits irgendein Akademie-Fortschritt vorhanden.
+    const hasAnyAkademieProgress = (state.akademieHauptmodule ?? []).some(m =>
+      m.unterpunkte.some(up =>
+        up.isGroup && up.children?.length
+          ? up.children.some(c => c.abgeschlossen)
+          : up.abgeschlossen
+      )
+    );
     const outroAllowSkip =
       dbStatus?.onboardingStatus === 'ready' ||
       (dbStatus?.completedSteps ?? []).includes('akademie') ||
-      dbStatus?.isTrainer === true;
+      dbStatus?.isTrainer === true ||
+      hasAnyAkademieProgress;
     return <OutroVideo onComplete={handleOutroComplete} allowSkip={outroAllowSkip} />;
   }
 
