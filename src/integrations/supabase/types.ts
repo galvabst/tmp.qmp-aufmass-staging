@@ -15494,6 +15494,10 @@ export type Database = {
         Args: { p_grund?: string; p_run_id: string }
         Returns: Json
       }
+      offboarding_apply_deactivation: {
+        Args: { _target_user_id: string }
+        Returns: Json
+      }
       offboarding_assign: {
         Args: {
           p_dry_run?: boolean
