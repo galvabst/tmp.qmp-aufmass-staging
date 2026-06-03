@@ -112,31 +112,57 @@ export function useImpersonation() {
 
   const stopImpersonation = useCallback(async () => {
     const raw = localStorage.getItem(BACKUP_KEY);
-    if (!raw) {
-      // Kein Backup -> einfach ausloggen
-      localStorage.removeItem(FLAG_KEY);
-      emitChange();
-      await supabase.auth.signOut();
-      window.location.href = '/admin';
-      return;
-    }
-    const backup = JSON.parse(raw) as AdminBackup;
+
+    // Flags IMMER zuerst löschen, damit der Banner verschwindet
     localStorage.removeItem(FLAG_KEY);
     localStorage.removeItem(BACKUP_KEY);
     emitChange();
 
-    const { error } = await supabase.auth.setSession({
-      access_token: backup.access_token,
-      refresh_token: backup.refresh_token,
-    });
-    if (error) {
-      // Backup-Token könnte abgelaufen sein → ausloggen
-      console.error('Restore admin session failed', error);
-      await supabase.auth.signOut();
-      window.location.href = '/login';
+    const forceLogout = async () => {
+      try {
+        await Promise.race([
+          supabase.auth.signOut(),
+          new Promise((resolve) => setTimeout(resolve, 2000)),
+        ]);
+      } catch (e) {
+        console.error('signOut failed', e);
+      }
+      window.location.replace('/login');
+    };
+
+    if (!raw) {
+      await forceLogout();
       return;
     }
-    window.location.href = '/admin';
+
+    let backup: AdminBackup;
+    try {
+      backup = JSON.parse(raw) as AdminBackup;
+    } catch {
+      await forceLogout();
+      return;
+    }
+
+    try {
+      const result = await Promise.race([
+        supabase.auth.setSession({
+          access_token: backup.access_token,
+          refresh_token: backup.refresh_token,
+        }),
+        new Promise<{ error: Error }>((resolve) =>
+          setTimeout(() => resolve({ error: new Error('setSession timeout') }), 3000),
+        ),
+      ]);
+      if ((result as any)?.error) {
+        console.error('Restore admin session failed', (result as any).error);
+        await forceLogout();
+        return;
+      }
+      window.location.replace('/admin');
+    } catch (e) {
+      console.error('Restore admin session threw', e);
+      await forceLogout();
+    }
   }, []);
 
   return { startImpersonation, stopImpersonation };
