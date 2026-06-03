@@ -406,8 +406,8 @@ const Index = () => {
     );
   }
 
-  // Pflicht-Video gate: block ready contractors who have unwatched mandatory videos
-  if (isDbReady && pflichtVideos && pflichtVideos.length > 0 && contractorOnboardingId) {
+  // Pflicht-Video gate: never block contractors whose academy step is already completed.
+  if (isDbReady && !hasCompletedAkademie && pflichtVideos && pflichtVideos.length > 0 && contractorOnboardingId) {
     return (
       <PflichtVideoOverlay
         videos={pflichtVideos}
