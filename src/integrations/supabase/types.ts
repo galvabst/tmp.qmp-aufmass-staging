@@ -89,308 +89,6 @@ export type Database = {
         }
         Relationships: []
       }
-      angebote: {
-        Row: {
-          angebots_datum: string | null
-          angebots_nummer: string
-          ausgewaehlte_konfiguration_id: string | null
-          brutto_summe: number | null
-          created_at: string | null
-          empfaenger_typ: string | null
-          erstellt_von: string | null
-          gueltig_bis: string | null
-          id: string
-          kunde_id: string | null
-          lead_id: string | null
-          lieferadresse_hausnummer: string | null
-          lieferadresse_name: string | null
-          lieferadresse_ort: string | null
-          lieferadresse_plz: string | null
-          lieferadresse_strasse: string | null
-          mwst_betrag: number | null
-          mwst_prozent: number | null
-          netto_summe: number | null
-          rechnungsadresse_hausnummer: string | null
-          rechnungsadresse_name: string | null
-          rechnungsadresse_ort: string | null
-          rechnungsadresse_plz: string | null
-          rechnungsadresse_strasse: string | null
-          status: string | null
-          titel: string
-          updated_at: string | null
-        }
-        Insert: {
-          angebots_datum?: string | null
-          angebots_nummer: string
-          ausgewaehlte_konfiguration_id?: string | null
-          brutto_summe?: number | null
-          created_at?: string | null
-          empfaenger_typ?: string | null
-          erstellt_von?: string | null
-          gueltig_bis?: string | null
-          id?: string
-          kunde_id?: string | null
-          lead_id?: string | null
-          lieferadresse_hausnummer?: string | null
-          lieferadresse_name?: string | null
-          lieferadresse_ort?: string | null
-          lieferadresse_plz?: string | null
-          lieferadresse_strasse?: string | null
-          mwst_betrag?: number | null
-          mwst_prozent?: number | null
-          netto_summe?: number | null
-          rechnungsadresse_hausnummer?: string | null
-          rechnungsadresse_name?: string | null
-          rechnungsadresse_ort?: string | null
-          rechnungsadresse_plz?: string | null
-          rechnungsadresse_strasse?: string | null
-          status?: string | null
-          titel: string
-          updated_at?: string | null
-        }
-        Update: {
-          angebots_datum?: string | null
-          angebots_nummer?: string
-          ausgewaehlte_konfiguration_id?: string | null
-          brutto_summe?: number | null
-          created_at?: string | null
-          empfaenger_typ?: string | null
-          erstellt_von?: string | null
-          gueltig_bis?: string | null
-          id?: string
-          kunde_id?: string | null
-          lead_id?: string | null
-          lieferadresse_hausnummer?: string | null
-          lieferadresse_name?: string | null
-          lieferadresse_ort?: string | null
-          lieferadresse_plz?: string | null
-          lieferadresse_strasse?: string | null
-          mwst_betrag?: number | null
-          mwst_prozent?: number | null
-          netto_summe?: number | null
-          rechnungsadresse_hausnummer?: string | null
-          rechnungsadresse_name?: string | null
-          rechnungsadresse_ort?: string | null
-          rechnungsadresse_plz?: string | null
-          rechnungsadresse_strasse?: string | null
-          status?: string | null
-          titel?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "angebote_ausgewaehlte_konfiguration_id_fkey"
-            columns: ["ausgewaehlte_konfiguration_id"]
-            isOneToOne: false
-            referencedRelation: "angebots_rechtstext_konfigurationen"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebote_erstellt_von_fkey"
-            columns: ["erstellt_von"]
-            isOneToOne: false
-            referencedRelation: "mitarbeiter"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebote_erstellt_von_fkey"
-            columns: ["erstellt_von"]
-            isOneToOne: false
-            referencedRelation: "vw_dialer_eligible_vertriebler"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebote_erstellt_von_fkey"
-            columns: ["erstellt_von"]
-            isOneToOne: false
-            referencedRelation: "vw_mitarbeiter_public"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebote_kunde_id_fkey"
-            columns: ["kunde_id"]
-            isOneToOne: false
-            referencedRelation: "kunden"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebote_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "leads"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebote_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "leads_with_details"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebote_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_field_sales_thc_audit"
-            referencedColumns: ["lead_id"]
-          },
-        ]
-      }
-      angebots_positionen: {
-        Row: {
-          angebot_id: string
-          beschreibung: string
-          created_at: string | null
-          einheit: string | null
-          einzelpreis: number
-          gesamt_preis: number
-          id: string
-          ist_optional: boolean | null
-          leistungsverzeichnis_position_id: string | null
-          menge: number
-          position_nr: number
-          produkt_id: string | null
-          rabatt_prozent: number | null
-        }
-        Insert: {
-          angebot_id: string
-          beschreibung: string
-          created_at?: string | null
-          einheit?: string | null
-          einzelpreis: number
-          gesamt_preis: number
-          id?: string
-          ist_optional?: boolean | null
-          leistungsverzeichnis_position_id?: string | null
-          menge?: number
-          position_nr: number
-          produkt_id?: string | null
-          rabatt_prozent?: number | null
-        }
-        Update: {
-          angebot_id?: string
-          beschreibung?: string
-          created_at?: string | null
-          einheit?: string | null
-          einzelpreis?: number
-          gesamt_preis?: number
-          id?: string
-          ist_optional?: boolean | null
-          leistungsverzeichnis_position_id?: string | null
-          menge?: number
-          position_nr?: number
-          produkt_id?: string | null
-          rabatt_prozent?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "angebots_positionen_angebot_id_fkey"
-            columns: ["angebot_id"]
-            isOneToOne: false
-            referencedRelation: "angebote"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebots_positionen_leistungsverzeichnis_position_id_fkey"
-            columns: ["leistungsverzeichnis_position_id"]
-            isOneToOne: false
-            referencedRelation: "leistungsverzeichnis_positionen"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebots_positionen_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "angebots_positionen_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      angebots_rechtstext_konfigurationen: {
-        Row: {
-          beschreibung: string | null
-          created_at: string
-          folgeblaetter_pdf_url: string | null
-          id: string
-          ist_aktiv: boolean
-          ist_standard: boolean
-          name: string
-          sortierung: number
-          titelblatt_pdf_url: string | null
-          updated_at: string
-        }
-        Insert: {
-          beschreibung?: string | null
-          created_at?: string
-          folgeblaetter_pdf_url?: string | null
-          id?: string
-          ist_aktiv?: boolean
-          ist_standard?: boolean
-          name: string
-          sortierung?: number
-          titelblatt_pdf_url?: string | null
-          updated_at?: string
-        }
-        Update: {
-          beschreibung?: string | null
-          created_at?: string
-          folgeblaetter_pdf_url?: string | null
-          id?: string
-          ist_aktiv?: boolean
-          ist_standard?: boolean
-          name?: string
-          sortierung?: number
-          titelblatt_pdf_url?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      angebots_vorlagen: {
-        Row: {
-          beschreibung: string | null
-          created_at: string | null
-          einleitung: string | null
-          id: string
-          ist_standard: boolean | null
-          lieferbedingungen: string | null
-          name: string
-          schlussbemerkung: string | null
-          updated_at: string | null
-          zahlungsbedingungen: string | null
-        }
-        Insert: {
-          beschreibung?: string | null
-          created_at?: string | null
-          einleitung?: string | null
-          id?: string
-          ist_standard?: boolean | null
-          lieferbedingungen?: string | null
-          name: string
-          schlussbemerkung?: string | null
-          updated_at?: string | null
-          zahlungsbedingungen?: string | null
-        }
-        Update: {
-          beschreibung?: string | null
-          created_at?: string | null
-          einleitung?: string | null
-          id?: string
-          ist_standard?: boolean | null
-          lieferbedingungen?: string | null
-          name?: string
-          schlussbemerkung?: string | null
-          updated_at?: string | null
-          zahlungsbedingungen?: string | null
-        }
-        Relationships: []
-      }
       arbeitspaket_fortschritt: {
         Row: {
           abgeschlossen: boolean
@@ -957,6 +655,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auftraege_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "auftraege_lead_id_fkey"
@@ -2376,6 +2081,13 @@ export type Database = {
             foreignKeyName: "form_submissions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -2489,42 +2201,6 @@ export type Database = {
           id?: string
           origin_hash?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      hersteller: {
-        Row: {
-          beschreibung: string | null
-          created_at: string | null
-          id: string
-          ist_aktiv: boolean | null
-          logo_url: string | null
-          name: string
-          sort_order: number | null
-          updated_at: string | null
-          website: string | null
-        }
-        Insert: {
-          beschreibung?: string | null
-          created_at?: string | null
-          id?: string
-          ist_aktiv?: boolean | null
-          logo_url?: string | null
-          name: string
-          sort_order?: number | null
-          updated_at?: string | null
-          website?: string | null
-        }
-        Update: {
-          beschreibung?: string | null
-          created_at?: string | null
-          id?: string
-          ist_aktiv?: boolean | null
-          logo_url?: string | null
-          name?: string
-          sort_order?: number | null
-          updated_at?: string | null
-          website?: string | null
         }
         Relationships: []
       }
@@ -2811,59 +2487,6 @@ export type Database = {
         }
         Relationships: []
       }
-      kombi_artikel_bestandteile: {
-        Row: {
-          bestandteil_id: string
-          created_at: string
-          id: string
-          kombi_artikel_id: string
-          menge: number
-        }
-        Insert: {
-          bestandteil_id: string
-          created_at?: string
-          id?: string
-          kombi_artikel_id: string
-          menge?: number
-        }
-        Update: {
-          bestandteil_id?: string
-          created_at?: string
-          id?: string
-          kombi_artikel_id?: string
-          menge?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "kombi_artikel_bestandteile_bestandteil_id_fkey"
-            columns: ["bestandteil_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kombi_artikel_bestandteile_bestandteil_id_fkey"
-            columns: ["bestandteil_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kombi_artikel_bestandteile_kombi_artikel_id_fkey"
-            columns: ["kombi_artikel_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kombi_artikel_bestandteile_kombi_artikel_id_fkey"
-            columns: ["kombi_artikel_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       kombiprojekt_tracking: {
         Row: {
           created_at: string
@@ -2905,6 +2528,13 @@ export type Database = {
             foreignKeyName: "kombiprojekt_tracking_kombiprojekt_lead_id_fkey"
             columns: ["kombiprojekt_lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "kombiprojekt_tracking_kombiprojekt_lead_id_fkey"
+            columns: ["kombiprojekt_lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -2921,6 +2551,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kombiprojekt_tracking_original_lead_id_fkey"
+            columns: ["original_lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "kombiprojekt_tracking_original_lead_id_fkey"
@@ -3104,134 +2741,6 @@ export type Database = {
           },
         ]
       }
-      lagerbestaende: {
-        Row: {
-          created_at: string | null
-          id: string
-          lagerort_id: string
-          letzte_inventur: string | null
-          menge: number | null
-          produkt_id: string
-          reserviert: number | null
-          updated_at: string | null
-          verfuegbar: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          lagerort_id: string
-          letzte_inventur?: string | null
-          menge?: number | null
-          produkt_id: string
-          reserviert?: number | null
-          updated_at?: string | null
-          verfuegbar?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          lagerort_id?: string
-          letzte_inventur?: string | null
-          menge?: number | null
-          produkt_id?: string
-          reserviert?: number | null
-          updated_at?: string | null
-          verfuegbar?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "lagerbestaende_lagerort_id_fkey"
-            columns: ["lagerort_id"]
-            isOneToOne: false
-            referencedRelation: "lagerorte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lagerbestaende_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lagerbestaende_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      lagerbewegungen: {
-        Row: {
-          bestand_nachher: number | null
-          bestand_vorher: number | null
-          bewegungstyp: string
-          created_at: string | null
-          durchgefuehrt_am: string | null
-          durchgefuehrt_von: string | null
-          grund: string | null
-          id: string
-          lagerort_id: string
-          menge: number
-          produkt_id: string
-          referenz_id: string | null
-          referenz_typ: string | null
-        }
-        Insert: {
-          bestand_nachher?: number | null
-          bestand_vorher?: number | null
-          bewegungstyp: string
-          created_at?: string | null
-          durchgefuehrt_am?: string | null
-          durchgefuehrt_von?: string | null
-          grund?: string | null
-          id?: string
-          lagerort_id: string
-          menge: number
-          produkt_id: string
-          referenz_id?: string | null
-          referenz_typ?: string | null
-        }
-        Update: {
-          bestand_nachher?: number | null
-          bestand_vorher?: number | null
-          bewegungstyp?: string
-          created_at?: string | null
-          durchgefuehrt_am?: string | null
-          durchgefuehrt_von?: string | null
-          grund?: string | null
-          id?: string
-          lagerort_id?: string
-          menge?: number
-          produkt_id?: string
-          referenz_id?: string | null
-          referenz_typ?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "lagerbewegungen_lagerort_id_fkey"
-            columns: ["lagerort_id"]
-            isOneToOne: false
-            referencedRelation: "lagerorte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lagerbewegungen_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lagerbewegungen_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       lagerorte: {
         Row: {
           adresse: string | null
@@ -3344,6 +2853,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_assignment_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_assignment_log_lead_id_fkey"
@@ -3620,6 +3136,13 @@ export type Database = {
             foreignKeyName: "lead_deal_calculations_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_deal_calculations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -3673,6 +3196,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_interactions_lead_id_fkey"
@@ -3850,6 +3380,13 @@ export type Database = {
             foreignKeyName: "lead_reklamationen_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_reklamationen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -3949,6 +3486,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_shares_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_shares_lead_id_fkey"
@@ -4076,6 +3620,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_status_history_lead_id_fkey"
@@ -4723,279 +4274,6 @@ export type Database = {
         }
         Relationships: []
       }
-      leistungen: {
-        Row: {
-          basispreis: number
-          bedingungen: Json | null
-          beschreibung: string | null
-          created_at: string
-          einheit: string
-          id: string
-          ist_aktiv: boolean
-          kategorie: string
-          name: string
-          notizen: string | null
-          sort_order: number | null
-          updated_at: string
-        }
-        Insert: {
-          basispreis?: number
-          bedingungen?: Json | null
-          beschreibung?: string | null
-          created_at?: string
-          einheit?: string
-          id?: string
-          ist_aktiv?: boolean
-          kategorie?: string
-          name: string
-          notizen?: string | null
-          sort_order?: number | null
-          updated_at?: string
-        }
-        Update: {
-          basispreis?: number
-          bedingungen?: Json | null
-          beschreibung?: string | null
-          created_at?: string
-          einheit?: string
-          id?: string
-          ist_aktiv?: boolean
-          kategorie?: string
-          name?: string
-          notizen?: string | null
-          sort_order?: number | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      leistungsverzeichnis_positionen: {
-        Row: {
-          bedingung_beschreibung: string | null
-          bedingung_einheit: string | null
-          bedingung_operator: string | null
-          bedingung_wert_bis: number | null
-          bedingung_wert_von: number | null
-          bedingungstyp: string | null
-          created_at: string
-          gewerk_id: string | null
-          id: string
-          ist_pflicht: boolean
-          kategorie: string
-          leistungsverzeichnis_id: string
-          menge_default: number | null
-          notizen: string | null
-          position_nr: number | null
-          preis_kunde: number | null
-          preis_subunternehmer: number | null
-          preis_template_basis: number | null
-          produkt_id: string
-          sort_order: number
-          template_position_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          bedingung_beschreibung?: string | null
-          bedingung_einheit?: string | null
-          bedingung_operator?: string | null
-          bedingung_wert_bis?: number | null
-          bedingung_wert_von?: number | null
-          bedingungstyp?: string | null
-          created_at?: string
-          gewerk_id?: string | null
-          id?: string
-          ist_pflicht?: boolean
-          kategorie?: string
-          leistungsverzeichnis_id: string
-          menge_default?: number | null
-          notizen?: string | null
-          position_nr?: number | null
-          preis_kunde?: number | null
-          preis_subunternehmer?: number | null
-          preis_template_basis?: number | null
-          produkt_id: string
-          sort_order?: number
-          template_position_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          bedingung_beschreibung?: string | null
-          bedingung_einheit?: string | null
-          bedingung_operator?: string | null
-          bedingung_wert_bis?: number | null
-          bedingung_wert_von?: number | null
-          bedingungstyp?: string | null
-          created_at?: string
-          gewerk_id?: string | null
-          id?: string
-          ist_pflicht?: boolean
-          kategorie?: string
-          leistungsverzeichnis_id?: string
-          menge_default?: number | null
-          notizen?: string | null
-          position_nr?: number | null
-          preis_kunde?: number | null
-          preis_subunternehmer?: number | null
-          preis_template_basis?: number | null
-          produkt_id?: string
-          sort_order?: number
-          template_position_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leistungsverzeichnis_positionen_gewerk_id_fkey"
-            columns: ["gewerk_id"]
-            isOneToOne: false
-            referencedRelation: "gewerke"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leistungsverzeichnis_positionen_leistungsverzeichnis_id_fkey"
-            columns: ["leistungsverzeichnis_id"]
-            isOneToOne: false
-            referencedRelation: "leistungsverzeichnisse"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leistungsverzeichnis_positionen_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leistungsverzeichnis_positionen_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leistungsverzeichnis_positionen_template_position_id_fkey"
-            columns: ["template_position_id"]
-            isOneToOne: false
-            referencedRelation: "leistungsverzeichnis_positionen"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      leistungsverzeichnisse: {
-        Row: {
-          beschreibung: string | null
-          created_at: string
-          created_by: string | null
-          gueltig_ab: string | null
-          gueltig_bis: string | null
-          id: string
-          ist_aktiv: boolean
-          ist_template: boolean
-          max_abweichung_prozent: number | null
-          subunternehmer_id: string | null
-          template_lv_id: string | null
-          titel: string
-          updated_at: string
-          version: string | null
-        }
-        Insert: {
-          beschreibung?: string | null
-          created_at?: string
-          created_by?: string | null
-          gueltig_ab?: string | null
-          gueltig_bis?: string | null
-          id?: string
-          ist_aktiv?: boolean
-          ist_template?: boolean
-          max_abweichung_prozent?: number | null
-          subunternehmer_id?: string | null
-          template_lv_id?: string | null
-          titel: string
-          updated_at?: string
-          version?: string | null
-        }
-        Update: {
-          beschreibung?: string | null
-          created_at?: string
-          created_by?: string | null
-          gueltig_ab?: string | null
-          gueltig_bis?: string | null
-          id?: string
-          ist_aktiv?: boolean
-          ist_template?: boolean
-          max_abweichung_prozent?: number | null
-          subunternehmer_id?: string | null
-          template_lv_id?: string | null
-          titel?: string
-          updated_at?: string
-          version?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leistungsverzeichnisse_subunternehmer_id_fkey"
-            columns: ["subunternehmer_id"]
-            isOneToOne: false
-            referencedRelation: "subunternehmer"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leistungsverzeichnisse_template_lv_id_fkey"
-            columns: ["template_lv_id"]
-            isOneToOne: false
-            referencedRelation: "leistungsverzeichnisse"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      lieferanten: {
-        Row: {
-          adresse: string | null
-          bewertung: number | null
-          created_at: string
-          email: string | null
-          id: string
-          ist_aktiv: boolean
-          kontaktperson: string | null
-          lieferzeit_tage: number | null
-          name: string
-          notizen: string | null
-          telefon: string | null
-          updated_at: string
-          website: string | null
-          zahlungsbedingungen: string | null
-        }
-        Insert: {
-          adresse?: string | null
-          bewertung?: number | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          ist_aktiv?: boolean
-          kontaktperson?: string | null
-          lieferzeit_tage?: number | null
-          name: string
-          notizen?: string | null
-          telefon?: string | null
-          updated_at?: string
-          website?: string | null
-          zahlungsbedingungen?: string | null
-        }
-        Update: {
-          adresse?: string | null
-          bewertung?: number | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          ist_aktiv?: boolean
-          kontaktperson?: string | null
-          lieferzeit_tage?: number | null
-          name?: string
-          notizen?: string | null
-          telefon?: string | null
-          updated_at?: string
-          website?: string | null
-          zahlungsbedingungen?: string | null
-        }
-        Relationships: []
-      }
       markenbotschafter_affiliates: {
         Row: {
           affiliate_code: string | null
@@ -5294,6 +4572,13 @@ export type Database = {
             foreignKeyName: "markenbotschafter_kontakte_empfehlung_lead_id_fkey"
             columns: ["empfehlung_lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "markenbotschafter_kontakte_empfehlung_lead_id_fkey"
+            columns: ["empfehlung_lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -5388,6 +4673,7 @@ export type Database = {
           justcall_campaign_id: number | null
           kann_auf_rechnung_kaufen: boolean | null
           krankenversicherung_prozent: number | null
+          letzter_aktiver_tag: string | null
           name: string
           ort: string | null
           pflegeversicherung_prozent: number | null
@@ -5445,6 +4731,7 @@ export type Database = {
           justcall_campaign_id?: number | null
           kann_auf_rechnung_kaufen?: boolean | null
           krankenversicherung_prozent?: number | null
+          letzter_aktiver_tag?: string | null
           name: string
           ort?: string | null
           pflegeversicherung_prozent?: number | null
@@ -5502,6 +4789,7 @@ export type Database = {
           justcall_campaign_id?: number | null
           kann_auf_rechnung_kaufen?: boolean | null
           krankenversicherung_prozent?: number | null
+          letzter_aktiver_tag?: string | null
           name?: string
           ort?: string | null
           pflegeversicherung_prozent?: number | null
@@ -6116,6 +5404,349 @@ export type Database = {
           },
         ]
       }
+      offboarding_audit_log: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          event: Database["public"]["Enums"]["offboarding_audit_event"]
+          from_mitarbeiter_id: string | null
+          id: string
+          provision_attributed_to: string | null
+          reason: string | null
+          run_id: string | null
+          snapshot: Json | null
+          statistik_attributed_to: string | null
+          to_mitarbeiter_id: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          event: Database["public"]["Enums"]["offboarding_audit_event"]
+          from_mitarbeiter_id?: string | null
+          id?: string
+          provision_attributed_to?: string | null
+          reason?: string | null
+          run_id?: string | null
+          snapshot?: Json | null
+          statistik_attributed_to?: string | null
+          to_mitarbeiter_id?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          event?: Database["public"]["Enums"]["offboarding_audit_event"]
+          from_mitarbeiter_id?: string | null
+          id?: string
+          provision_attributed_to?: string | null
+          reason?: string | null
+          run_id?: string | null
+          snapshot?: Json | null
+          statistik_attributed_to?: string | null
+          to_mitarbeiter_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offboarding_audit_log_from_mitarbeiter_id_fkey"
+            columns: ["from_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_from_mitarbeiter_id_fkey"
+            columns: ["from_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_from_mitarbeiter_id_fkey"
+            columns: ["from_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_provision_attributed_to_fkey"
+            columns: ["provision_attributed_to"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_provision_attributed_to_fkey"
+            columns: ["provision_attributed_to"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_provision_attributed_to_fkey"
+            columns: ["provision_attributed_to"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_statistik_attributed_to_fkey"
+            columns: ["statistik_attributed_to"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_statistik_attributed_to_fkey"
+            columns: ["statistik_attributed_to"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_statistik_attributed_to_fkey"
+            columns: ["statistik_attributed_to"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_to_mitarbeiter_id_fkey"
+            columns: ["to_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_to_mitarbeiter_id_fkey"
+            columns: ["to_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_audit_log_to_mitarbeiter_id_fkey"
+            columns: ["to_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offboarding_items: {
+        Row: {
+          alt_mitarbeiter_id: string | null
+          created_at: string
+          decision: Database["public"]["Enums"]["offboarding_item_decision"]
+          eimer: Database["public"]["Enums"]["offboarding_eimer"] | null
+          entity_id: string
+          id: string
+          item_typ: Database["public"]["Enums"]["offboarding_item_typ"]
+          neu_mitarbeiter_id: string | null
+          notiz: string | null
+          route_reason: string | null
+          run_id: string
+          score: number | null
+          uebernahme_erledigt_at: string | null
+          uebernahme_notiz: string | null
+          uebernahme_status: Database["public"]["Enums"]["offboarding_uebernahme_status"]
+          updated_at: string
+        }
+        Insert: {
+          alt_mitarbeiter_id?: string | null
+          created_at?: string
+          decision?: Database["public"]["Enums"]["offboarding_item_decision"]
+          eimer?: Database["public"]["Enums"]["offboarding_eimer"] | null
+          entity_id: string
+          id?: string
+          item_typ: Database["public"]["Enums"]["offboarding_item_typ"]
+          neu_mitarbeiter_id?: string | null
+          notiz?: string | null
+          route_reason?: string | null
+          run_id: string
+          score?: number | null
+          uebernahme_erledigt_at?: string | null
+          uebernahme_notiz?: string | null
+          uebernahme_status?: Database["public"]["Enums"]["offboarding_uebernahme_status"]
+          updated_at?: string
+        }
+        Update: {
+          alt_mitarbeiter_id?: string | null
+          created_at?: string
+          decision?: Database["public"]["Enums"]["offboarding_item_decision"]
+          eimer?: Database["public"]["Enums"]["offboarding_eimer"] | null
+          entity_id?: string
+          id?: string
+          item_typ?: Database["public"]["Enums"]["offboarding_item_typ"]
+          neu_mitarbeiter_id?: string | null
+          notiz?: string | null
+          route_reason?: string | null
+          run_id?: string
+          score?: number | null
+          uebernahme_erledigt_at?: string | null
+          uebernahme_notiz?: string | null
+          uebernahme_status?: Database["public"]["Enums"]["offboarding_uebernahme_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offboarding_items_alt_mitarbeiter_id_fkey"
+            columns: ["alt_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_items_alt_mitarbeiter_id_fkey"
+            columns: ["alt_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_items_alt_mitarbeiter_id_fkey"
+            columns: ["alt_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_items_neu_mitarbeiter_id_fkey"
+            columns: ["neu_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_items_neu_mitarbeiter_id_fkey"
+            columns: ["neu_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_items_neu_mitarbeiter_id_fkey"
+            columns: ["neu_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "offboarding_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offboarding_routing_metrics: {
+        Row: {
+          leads_termin: number
+          mitarbeiter_id: string
+          refreshed_at: string
+          total: number
+          won: number
+        }
+        Insert: {
+          leads_termin?: number
+          mitarbeiter_id: string
+          refreshed_at?: string
+          total?: number
+          won?: number
+        }
+        Update: {
+          leads_termin?: number
+          mitarbeiter_id?: string
+          refreshed_at?: string
+          total?: number
+          won?: number
+        }
+        Relationships: []
+      }
+      offboarding_runs: {
+        Row: {
+          abgeschlossen_at: string | null
+          aktueller_screen: number
+          austrittsdatum: string
+          bestandsaufnahme: Json | null
+          created_at: string
+          gestartet_von: string | null
+          grund: string | null
+          grund_kategorie:
+            | Database["public"]["Enums"]["offboarding_grund_enum"]
+            | null
+          id: string
+          ist_handelsvertreter: boolean
+          letzter_aktiver_tag: string | null
+          mitarbeiter_id: string
+          status: Database["public"]["Enums"]["offboarding_run_status"]
+          updated_at: string
+        }
+        Insert: {
+          abgeschlossen_at?: string | null
+          aktueller_screen?: number
+          austrittsdatum: string
+          bestandsaufnahme?: Json | null
+          created_at?: string
+          gestartet_von?: string | null
+          grund?: string | null
+          grund_kategorie?:
+            | Database["public"]["Enums"]["offboarding_grund_enum"]
+            | null
+          id?: string
+          ist_handelsvertreter?: boolean
+          letzter_aktiver_tag?: string | null
+          mitarbeiter_id: string
+          status?: Database["public"]["Enums"]["offboarding_run_status"]
+          updated_at?: string
+        }
+        Update: {
+          abgeschlossen_at?: string | null
+          aktueller_screen?: number
+          austrittsdatum?: string
+          bestandsaufnahme?: Json | null
+          created_at?: string
+          gestartet_von?: string | null
+          grund?: string | null
+          grund_kategorie?:
+            | Database["public"]["Enums"]["offboarding_grund_enum"]
+            | null
+          id?: string
+          ist_handelsvertreter?: boolean
+          letzter_aktiver_tag?: string | null
+          mitarbeiter_id?: string
+          status?: Database["public"]["Enums"]["offboarding_run_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offboarding_runs_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_runs_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offboarding_runs_mitarbeiter_id_fkey"
+            columns: ["mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orbit_backfill_progress: {
         Row: {
           completed_count: number
@@ -6342,475 +5973,6 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
-      }
-      produkt_bedingungen: {
-        Row: {
-          bedingungstyp: string
-          beschreibung: string
-          created_at: string | null
-          einheit: string | null
-          id: string
-          ist_aktiv: boolean | null
-          kinderartikel_id: string
-          operator: string
-          updated_at: string | null
-          wert_bis: number | null
-          wert_von: number | null
-        }
-        Insert: {
-          bedingungstyp: string
-          beschreibung: string
-          created_at?: string | null
-          einheit?: string | null
-          id?: string
-          ist_aktiv?: boolean | null
-          kinderartikel_id: string
-          operator: string
-          updated_at?: string | null
-          wert_bis?: number | null
-          wert_von?: number | null
-        }
-        Update: {
-          bedingungstyp?: string
-          beschreibung?: string
-          created_at?: string | null
-          einheit?: string | null
-          id?: string
-          ist_aktiv?: boolean | null
-          kinderartikel_id?: string
-          operator?: string
-          updated_at?: string | null
-          wert_bis?: number | null
-          wert_von?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "produkt_bedingungen_kinderartikel_id_fkey"
-            columns: ["kinderartikel_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkt_bedingungen_kinderartikel_id_fkey"
-            columns: ["kinderartikel_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      produkt_dokumente: {
-        Row: {
-          beschreibung: string | null
-          created_at: string | null
-          dateigroesse: number | null
-          dateiname: string
-          dateityp: string | null
-          hochgeladen_am: string | null
-          hochgeladen_von: string | null
-          id: string
-          produkt_id: string
-          storage_path: string
-        }
-        Insert: {
-          beschreibung?: string | null
-          created_at?: string | null
-          dateigroesse?: number | null
-          dateiname: string
-          dateityp?: string | null
-          hochgeladen_am?: string | null
-          hochgeladen_von?: string | null
-          id?: string
-          produkt_id: string
-          storage_path: string
-        }
-        Update: {
-          beschreibung?: string | null
-          created_at?: string | null
-          dateigroesse?: number | null
-          dateiname?: string
-          dateityp?: string | null
-          hochgeladen_am?: string | null
-          hochgeladen_von?: string | null
-          id?: string
-          produkt_id?: string
-          storage_path?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "produkt_dokumente_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkt_dokumente_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      produkt_lieferanten_preise: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          durchschnittliche_lieferzeit_tage: number | null
-          gueltig_ab: string
-          gueltig_bis: string | null
-          id: string
-          ist_aktuell: boolean
-          letzte_lieferung: string | null
-          lieferant_id: string
-          lieferanten_artikelnummer: string | null
-          lieferanten_bezeichnung: string | null
-          lieferzeit_tage: number | null
-          mindestbestellmenge: number | null
-          mindestmenge: number | null
-          preis: number
-          produkt_id: string
-          verpackungseinheit: number | null
-          waehrung: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          durchschnittliche_lieferzeit_tage?: number | null
-          gueltig_ab?: string
-          gueltig_bis?: string | null
-          id?: string
-          ist_aktuell?: boolean
-          letzte_lieferung?: string | null
-          lieferant_id: string
-          lieferanten_artikelnummer?: string | null
-          lieferanten_bezeichnung?: string | null
-          lieferzeit_tage?: number | null
-          mindestbestellmenge?: number | null
-          mindestmenge?: number | null
-          preis: number
-          produkt_id: string
-          verpackungseinheit?: number | null
-          waehrung?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          durchschnittliche_lieferzeit_tage?: number | null
-          gueltig_ab?: string
-          gueltig_bis?: string | null
-          id?: string
-          ist_aktuell?: boolean
-          letzte_lieferung?: string | null
-          lieferant_id?: string
-          lieferanten_artikelnummer?: string | null
-          lieferanten_bezeichnung?: string | null
-          lieferzeit_tage?: number | null
-          mindestbestellmenge?: number | null
-          mindestmenge?: number | null
-          preis?: number
-          produkt_id?: string
-          verpackungseinheit?: number | null
-          waehrung?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "produkt_lieferanten_preise_lieferant_id_fkey"
-            columns: ["lieferant_id"]
-            isOneToOne: false
-            referencedRelation: "lieferanten"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkt_lieferanten_preise_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkt_lieferanten_preise_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      produkt_preishistorie: {
-        Row: {
-          aenderungsdatum: string
-          aenderungsgrund: string | null
-          alter_preis: number
-          geaendert_von: string | null
-          id: string
-          lieferant_id: string | null
-          neuer_preis: number
-          preis_typ: string
-          produkt_id: string
-          waehrung: string
-        }
-        Insert: {
-          aenderungsdatum?: string
-          aenderungsgrund?: string | null
-          alter_preis: number
-          geaendert_von?: string | null
-          id?: string
-          lieferant_id?: string | null
-          neuer_preis: number
-          preis_typ: string
-          produkt_id: string
-          waehrung?: string
-        }
-        Update: {
-          aenderungsdatum?: string
-          aenderungsgrund?: string | null
-          alter_preis?: number
-          geaendert_von?: string | null
-          id?: string
-          lieferant_id?: string | null
-          neuer_preis?: number
-          preis_typ?: string
-          produkt_id?: string
-          waehrung?: string
-        }
-        Relationships: []
-      }
-      produkt_preiskonfiguration: {
-        Row: {
-          automatische_preisanpassung: boolean | null
-          created_at: string
-          id: string
-          letzte_preispruefung: string | null
-          mindestmarge_prozent: number | null
-          preistyp: string
-          produkt_id: string
-          standardmarge_prozent: number | null
-          updated_at: string
-        }
-        Insert: {
-          automatische_preisanpassung?: boolean | null
-          created_at?: string
-          id?: string
-          letzte_preispruefung?: string | null
-          mindestmarge_prozent?: number | null
-          preistyp?: string
-          produkt_id: string
-          standardmarge_prozent?: number | null
-          updated_at?: string
-        }
-        Update: {
-          automatische_preisanpassung?: boolean | null
-          created_at?: string
-          id?: string
-          letzte_preispruefung?: string | null
-          mindestmarge_prozent?: number | null
-          preistyp?: string
-          produkt_id?: string
-          standardmarge_prozent?: number | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      produkt_verkaufspreise: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          gueltig_ab: string
-          gueltig_bis: string | null
-          id: string
-          ist_aktuell: boolean
-          mindestmenge: number | null
-          notizen: string | null
-          preis: number
-          produkt_id: string
-          waehrung: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          gueltig_ab?: string
-          gueltig_bis?: string | null
-          id?: string
-          ist_aktuell?: boolean
-          mindestmenge?: number | null
-          notizen?: string | null
-          preis: number
-          produkt_id: string
-          waehrung?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          gueltig_ab?: string
-          gueltig_bis?: string | null
-          id?: string
-          ist_aktuell?: boolean
-          mindestmenge?: number | null
-          notizen?: string | null
-          preis?: number
-          produkt_id?: string
-          waehrung?: string
-        }
-        Relationships: []
-      }
-      produkte: {
-        Row: {
-          artikelnummer: string | null
-          artikelnummer_hersteller: string | null
-          beschreibung: string | null
-          chargen_pflicht: boolean | null
-          created_at: string
-          ean_code: string | null
-          einheit: string | null
-          gewerk_id: string | null
-          gewicht_kg: number | null
-          hersteller: string | null
-          hersteller_id: string | null
-          id: string
-          ist_aktiv: boolean
-          ist_dienstleistung: boolean | null
-          ist_mischposition: boolean | null
-          ist_optional: boolean | null
-          kalkulationsart:
-            | Database["public"]["Enums"]["kalkulationsart_enum"]
-            | null
-          katalog_sichtbar: boolean | null
-          lagerplatz: string | null
-          leistungseinheit:
-            | Database["public"]["Enums"]["leistungseinheit_enum"]
-            | null
-          mindestbestand: number | null
-          mindestverkaufspreis: number | null
-          name: string
-          notizen_intern: string | null
-          parent_produkt_id: string | null
-          produkttyp: Database["public"]["Enums"]["produkttyp"]
-          seriennummer_pflicht: boolean | null
-          tags: string[] | null
-          updated_at: string
-          verkaufspreis_empfohlen: number | null
-          volumen_m3: number | null
-          warengruppe_id: string | null
-          zuletzt_verwendet_am: string | null
-        }
-        Insert: {
-          artikelnummer?: string | null
-          artikelnummer_hersteller?: string | null
-          beschreibung?: string | null
-          chargen_pflicht?: boolean | null
-          created_at?: string
-          ean_code?: string | null
-          einheit?: string | null
-          gewerk_id?: string | null
-          gewicht_kg?: number | null
-          hersteller?: string | null
-          hersteller_id?: string | null
-          id?: string
-          ist_aktiv?: boolean
-          ist_dienstleistung?: boolean | null
-          ist_mischposition?: boolean | null
-          ist_optional?: boolean | null
-          kalkulationsart?:
-            | Database["public"]["Enums"]["kalkulationsart_enum"]
-            | null
-          katalog_sichtbar?: boolean | null
-          lagerplatz?: string | null
-          leistungseinheit?:
-            | Database["public"]["Enums"]["leistungseinheit_enum"]
-            | null
-          mindestbestand?: number | null
-          mindestverkaufspreis?: number | null
-          name: string
-          notizen_intern?: string | null
-          parent_produkt_id?: string | null
-          produkttyp?: Database["public"]["Enums"]["produkttyp"]
-          seriennummer_pflicht?: boolean | null
-          tags?: string[] | null
-          updated_at?: string
-          verkaufspreis_empfohlen?: number | null
-          volumen_m3?: number | null
-          warengruppe_id?: string | null
-          zuletzt_verwendet_am?: string | null
-        }
-        Update: {
-          artikelnummer?: string | null
-          artikelnummer_hersteller?: string | null
-          beschreibung?: string | null
-          chargen_pflicht?: boolean | null
-          created_at?: string
-          ean_code?: string | null
-          einheit?: string | null
-          gewerk_id?: string | null
-          gewicht_kg?: number | null
-          hersteller?: string | null
-          hersteller_id?: string | null
-          id?: string
-          ist_aktiv?: boolean
-          ist_dienstleistung?: boolean | null
-          ist_mischposition?: boolean | null
-          ist_optional?: boolean | null
-          kalkulationsart?:
-            | Database["public"]["Enums"]["kalkulationsart_enum"]
-            | null
-          katalog_sichtbar?: boolean | null
-          lagerplatz?: string | null
-          leistungseinheit?:
-            | Database["public"]["Enums"]["leistungseinheit_enum"]
-            | null
-          mindestbestand?: number | null
-          mindestverkaufspreis?: number | null
-          name?: string
-          notizen_intern?: string | null
-          parent_produkt_id?: string | null
-          produkttyp?: Database["public"]["Enums"]["produkttyp"]
-          seriennummer_pflicht?: boolean | null
-          tags?: string[] | null
-          updated_at?: string
-          verkaufspreis_empfohlen?: number | null
-          volumen_m3?: number | null
-          warengruppe_id?: string | null
-          zuletzt_verwendet_am?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "produkte_gewerk_id_fkey"
-            columns: ["gewerk_id"]
-            isOneToOne: false
-            referencedRelation: "gewerke"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkte_hersteller_id_fkey"
-            columns: ["hersteller_id"]
-            isOneToOne: false
-            referencedRelation: "hersteller"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkte_parent_produkt_id_fkey"
-            columns: ["parent_produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkte_parent_produkt_id_fkey"
-            columns: ["parent_produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkte_warengruppe_id_fkey"
-            columns: ["warengruppe_id"]
-            isOneToOne: false
-            referencedRelation: "warengruppen"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       profiles: {
         Row: {
@@ -7912,6 +7074,13 @@ export type Database = {
             foreignKeyName: "sales_ag_vergleich_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleich_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -8178,6 +7347,13 @@ export type Database = {
             foreignKeyName: "sales_ag_vergleiche_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "sales_ag_vergleiche_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -8407,6 +7583,13 @@ export type Database = {
             foreignKeyName: "sales_auftrag_dokumente_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "sales_auftrag_dokumente_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -8439,6 +7622,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sales_clickup_vot_outbox: {
+        Row: {
+          enqueued_at: string
+          kunde_email: string | null
+          kunde_ort: string | null
+          kunde_plz: string | null
+          kunde_strasse: string | null
+          lead_id: string
+          lead_name: string | null
+          referenz_nummer: string | null
+          status: string
+          synced_at: string | null
+        }
+        Insert: {
+          enqueued_at?: string
+          kunde_email?: string | null
+          kunde_ort?: string | null
+          kunde_plz?: string | null
+          kunde_strasse?: string | null
+          lead_id: string
+          lead_name?: string | null
+          referenz_nummer?: string | null
+          status?: string
+          synced_at?: string | null
+        }
+        Update: {
+          enqueued_at?: string
+          kunde_email?: string | null
+          kunde_ort?: string | null
+          kunde_plz?: string | null
+          kunde_strasse?: string | null
+          lead_id?: string
+          lead_name?: string | null
+          referenz_nummer?: string | null
+          status?: string
+          synced_at?: string | null
+        }
+        Relationships: []
       }
       sales_dokument_analysen: {
         Row: {
@@ -9041,6 +8263,13 @@ export type Database = {
             foreignKeyName: "sales_zaehlerschrank_pruefungen_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "sales_zaehlerschrank_pruefungen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -9161,73 +8390,6 @@ export type Database = {
           srtext?: string | null
         }
         Relationships: []
-      }
-      staffelpreise: {
-        Row: {
-          ab_menge: number
-          created_at: string | null
-          gueltig_bis: string | null
-          gueltig_von: string | null
-          id: string
-          ist_aktiv: boolean | null
-          lieferant_id: string | null
-          preis: number
-          preis_typ: string
-          produkt_id: string
-          updated_at: string | null
-          waehrung: string | null
-        }
-        Insert: {
-          ab_menge: number
-          created_at?: string | null
-          gueltig_bis?: string | null
-          gueltig_von?: string | null
-          id?: string
-          ist_aktiv?: boolean | null
-          lieferant_id?: string | null
-          preis: number
-          preis_typ: string
-          produkt_id: string
-          updated_at?: string | null
-          waehrung?: string | null
-        }
-        Update: {
-          ab_menge?: number
-          created_at?: string | null
-          gueltig_bis?: string | null
-          gueltig_von?: string | null
-          id?: string
-          ist_aktiv?: boolean | null
-          lieferant_id?: string | null
-          preis?: number
-          preis_typ?: string
-          produkt_id?: string
-          updated_at?: string | null
-          waehrung?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staffelpreise_lieferant_id_fkey"
-            columns: ["lieferant_id"]
-            isOneToOne: false
-            referencedRelation: "lieferanten"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staffelpreise_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staffelpreise_produkt_id_fkey"
-            columns: ["produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       storage_upload_audit: {
         Row: {
@@ -9852,6 +9014,13 @@ export type Database = {
             foreignKeyName: "termine_historic_lead_id_fkey"
             columns: ["historic_lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "termine_historic_lead_id_fkey"
+            columns: ["historic_lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -9868,6 +9037,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "termine_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "termine_lead_id_fkey"
@@ -9986,7 +9162,7 @@ export type Database = {
         }
         Relationships: []
       }
-      TMP_JustCall_Campaign_Settings: {
+      tmp_JustCall_Campaign_Settings: {
         Row: {
           campaign_name: string
           id: string
@@ -10446,6 +9622,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transcripts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "transcripts_lead_id_fkey"
@@ -11025,56 +10208,6 @@ export type Database = {
           },
         ]
       }
-      warengruppen: {
-        Row: {
-          beschreibung: string | null
-          created_at: string | null
-          farbe: string | null
-          icon_name: string | null
-          id: string
-          ist_aktiv: boolean | null
-          katalog_beschreibung: string | null
-          name: string
-          parent_id: string | null
-          sort_order: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          beschreibung?: string | null
-          created_at?: string | null
-          farbe?: string | null
-          icon_name?: string | null
-          id?: string
-          ist_aktiv?: boolean | null
-          katalog_beschreibung?: string | null
-          name: string
-          parent_id?: string | null
-          sort_order?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          beschreibung?: string | null
-          created_at?: string | null
-          farbe?: string | null
-          icon_name?: string | null
-          id?: string
-          ist_aktiv?: boolean | null
-          katalog_beschreibung?: string | null
-          name?: string
-          parent_id?: string | null
-          sort_order?: number | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "warengruppen_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "warengruppen"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       webhooks: {
         Row: {
           auth_header: string | null
@@ -11299,6 +10432,13 @@ export type Database = {
             foreignKeyName: "wp_wirtschaftlichkeitsanalysen_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wp_wirtschaftlichkeitsanalysen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -11375,6 +10515,13 @@ export type Database = {
             foreignKeyName: "zoho_sync_audit_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "zoho_sync_audit_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_field_sales_thc_audit"
             referencedColumns: ["lead_id"]
           },
@@ -11442,6 +10589,222 @@ export type Database = {
       }
     }
     Views: {
+      angebote: {
+        Row: {
+          angebots_datum: string | null
+          angebots_nummer: string | null
+          ausgewaehlte_konfiguration_id: string | null
+          brutto_summe: number | null
+          created_at: string | null
+          empfaenger_typ: string | null
+          erstellt_von: string | null
+          gueltig_bis: string | null
+          id: string | null
+          kunde_id: string | null
+          lead_id: string | null
+          lieferadresse_hausnummer: string | null
+          lieferadresse_name: string | null
+          lieferadresse_ort: string | null
+          lieferadresse_plz: string | null
+          lieferadresse_strasse: string | null
+          mwst_betrag: number | null
+          mwst_prozent: number | null
+          netto_summe: number | null
+          rechnungsadresse_hausnummer: string | null
+          rechnungsadresse_name: string | null
+          rechnungsadresse_ort: string | null
+          rechnungsadresse_plz: string | null
+          rechnungsadresse_strasse: string | null
+          status: string | null
+          titel: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          angebots_datum?: string | null
+          angebots_nummer?: string | null
+          ausgewaehlte_konfiguration_id?: string | null
+          brutto_summe?: number | null
+          created_at?: string | null
+          empfaenger_typ?: string | null
+          erstellt_von?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          kunde_id?: string | null
+          lead_id?: string | null
+          lieferadresse_hausnummer?: string | null
+          lieferadresse_name?: string | null
+          lieferadresse_ort?: string | null
+          lieferadresse_plz?: string | null
+          lieferadresse_strasse?: string | null
+          mwst_betrag?: number | null
+          mwst_prozent?: number | null
+          netto_summe?: number | null
+          rechnungsadresse_hausnummer?: string | null
+          rechnungsadresse_name?: string | null
+          rechnungsadresse_ort?: string | null
+          rechnungsadresse_plz?: string | null
+          rechnungsadresse_strasse?: string | null
+          status?: string | null
+          titel?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          angebots_datum?: string | null
+          angebots_nummer?: string | null
+          ausgewaehlte_konfiguration_id?: string | null
+          brutto_summe?: number | null
+          created_at?: string | null
+          empfaenger_typ?: string | null
+          erstellt_von?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          kunde_id?: string | null
+          lead_id?: string | null
+          lieferadresse_hausnummer?: string | null
+          lieferadresse_name?: string | null
+          lieferadresse_ort?: string | null
+          lieferadresse_plz?: string | null
+          lieferadresse_strasse?: string | null
+          mwst_betrag?: number | null
+          mwst_prozent?: number | null
+          netto_summe?: number | null
+          rechnungsadresse_hausnummer?: string | null
+          rechnungsadresse_name?: string | null
+          rechnungsadresse_ort?: string | null
+          rechnungsadresse_plz?: string | null
+          rechnungsadresse_strasse?: string | null
+          status?: string | null
+          titel?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      angebots_positionen: {
+        Row: {
+          angebot_id: string | null
+          beschreibung: string | null
+          created_at: string | null
+          einheit: string | null
+          einzelpreis: number | null
+          gesamt_preis: number | null
+          id: string | null
+          ist_optional: boolean | null
+          leistungsverzeichnis_position_id: string | null
+          menge: number | null
+          position_nr: number | null
+          produkt_id: string | null
+          rabatt_prozent: number | null
+        }
+        Insert: {
+          angebot_id?: string | null
+          beschreibung?: string | null
+          created_at?: string | null
+          einheit?: string | null
+          einzelpreis?: number | null
+          gesamt_preis?: number | null
+          id?: string | null
+          ist_optional?: boolean | null
+          leistungsverzeichnis_position_id?: string | null
+          menge?: number | null
+          position_nr?: number | null
+          produkt_id?: string | null
+          rabatt_prozent?: number | null
+        }
+        Update: {
+          angebot_id?: string | null
+          beschreibung?: string | null
+          created_at?: string | null
+          einheit?: string | null
+          einzelpreis?: number | null
+          gesamt_preis?: number | null
+          id?: string | null
+          ist_optional?: boolean | null
+          leistungsverzeichnis_position_id?: string | null
+          menge?: number | null
+          position_nr?: number | null
+          produkt_id?: string | null
+          rabatt_prozent?: number | null
+        }
+        Relationships: []
+      }
+      angebots_rechtstext_konfigurationen: {
+        Row: {
+          beschreibung: string | null
+          created_at: string | null
+          folgeblaetter_pdf_url: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          ist_standard: boolean | null
+          name: string | null
+          sortierung: number | null
+          titelblatt_pdf_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          created_at?: string | null
+          folgeblaetter_pdf_url?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          ist_standard?: boolean | null
+          name?: string | null
+          sortierung?: number | null
+          titelblatt_pdf_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          created_at?: string | null
+          folgeblaetter_pdf_url?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          ist_standard?: boolean | null
+          name?: string | null
+          sortierung?: number | null
+          titelblatt_pdf_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      angebots_vorlagen: {
+        Row: {
+          beschreibung: string | null
+          created_at: string | null
+          einleitung: string | null
+          id: string | null
+          ist_standard: boolean | null
+          lieferbedingungen: string | null
+          name: string | null
+          schlussbemerkung: string | null
+          updated_at: string | null
+          zahlungsbedingungen: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          created_at?: string | null
+          einleitung?: string | null
+          id?: string | null
+          ist_standard?: boolean | null
+          lieferbedingungen?: string | null
+          name?: string | null
+          schlussbemerkung?: string | null
+          updated_at?: string | null
+          zahlungsbedingungen?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          created_at?: string | null
+          einleitung?: string | null
+          id?: string | null
+          ist_standard?: boolean | null
+          lieferbedingungen?: string | null
+          name?: string | null
+          schlussbemerkung?: string | null
+          updated_at?: string | null
+          zahlungsbedingungen?: string | null
+        }
+        Relationships: []
+      }
       city_day_clusters: {
         Row: {
           avg_probability: number | null
@@ -11578,6 +10941,150 @@ export type Database = {
         }
         Relationships: []
       }
+      hersteller: {
+        Row: {
+          beschreibung: string | null
+          created_at: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          logo_url: string | null
+          name: string | null
+          sort_order: number | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          created_at?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          logo_url?: string | null
+          name?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          created_at?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          logo_url?: string | null
+          name?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      kombi_artikel_bestandteile: {
+        Row: {
+          bestandteil_id: string | null
+          created_at: string | null
+          id: string | null
+          kombi_artikel_id: string | null
+          menge: number | null
+        }
+        Insert: {
+          bestandteil_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          kombi_artikel_id?: string | null
+          menge?: number | null
+        }
+        Update: {
+          bestandteil_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          kombi_artikel_id?: string | null
+          menge?: number | null
+        }
+        Relationships: []
+      }
+      lagerbestaende: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          lagerort_id: string | null
+          letzte_inventur: string | null
+          menge: number | null
+          produkt_id: string | null
+          reserviert: number | null
+          updated_at: string | null
+          verfuegbar: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          lagerort_id?: string | null
+          letzte_inventur?: string | null
+          menge?: number | null
+          produkt_id?: string | null
+          reserviert?: number | null
+          updated_at?: string | null
+          verfuegbar?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          lagerort_id?: string | null
+          letzte_inventur?: string | null
+          menge?: number | null
+          produkt_id?: string | null
+          reserviert?: number | null
+          updated_at?: string | null
+          verfuegbar?: number | null
+        }
+        Relationships: []
+      }
+      lagerbewegungen: {
+        Row: {
+          bestand_nachher: number | null
+          bestand_vorher: number | null
+          bewegungstyp: string | null
+          created_at: string | null
+          durchgefuehrt_am: string | null
+          durchgefuehrt_von: string | null
+          grund: string | null
+          id: string | null
+          lagerort_id: string | null
+          menge: number | null
+          produkt_id: string | null
+          referenz_id: string | null
+          referenz_typ: string | null
+        }
+        Insert: {
+          bestand_nachher?: number | null
+          bestand_vorher?: number | null
+          bewegungstyp?: string | null
+          created_at?: string | null
+          durchgefuehrt_am?: string | null
+          durchgefuehrt_von?: string | null
+          grund?: string | null
+          id?: string | null
+          lagerort_id?: string | null
+          menge?: number | null
+          produkt_id?: string | null
+          referenz_id?: string | null
+          referenz_typ?: string | null
+        }
+        Update: {
+          bestand_nachher?: number | null
+          bestand_vorher?: number | null
+          bewegungstyp?: string | null
+          created_at?: string | null
+          durchgefuehrt_am?: string | null
+          durchgefuehrt_von?: string | null
+          grund?: string | null
+          id?: string | null
+          lagerort_id?: string | null
+          menge?: number | null
+          produkt_id?: string | null
+          referenz_id?: string | null
+          referenz_typ?: string | null
+        }
+        Relationships: []
+      }
       leads_with_details: {
         Row: {
           abschluss_datum: string | null
@@ -11681,6 +11188,609 @@ export type Database = {
           },
         ]
       }
+      leistungen: {
+        Row: {
+          basispreis: number | null
+          bedingungen: Json | null
+          beschreibung: string | null
+          created_at: string | null
+          einheit: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          kategorie: string | null
+          name: string | null
+          notizen: string | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          basispreis?: number | null
+          bedingungen?: Json | null
+          beschreibung?: string | null
+          created_at?: string | null
+          einheit?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          kategorie?: string | null
+          name?: string | null
+          notizen?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          basispreis?: number | null
+          bedingungen?: Json | null
+          beschreibung?: string | null
+          created_at?: string | null
+          einheit?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          kategorie?: string | null
+          name?: string | null
+          notizen?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      leistungsverzeichnis_positionen: {
+        Row: {
+          bedingung_beschreibung: string | null
+          bedingung_einheit: string | null
+          bedingung_operator: string | null
+          bedingung_wert_bis: number | null
+          bedingung_wert_von: number | null
+          bedingungstyp: string | null
+          created_at: string | null
+          gewerk_id: string | null
+          id: string | null
+          ist_pflicht: boolean | null
+          kategorie: string | null
+          leistungsverzeichnis_id: string | null
+          menge_default: number | null
+          notizen: string | null
+          position_nr: number | null
+          preis_kunde: number | null
+          preis_subunternehmer: number | null
+          preis_template_basis: number | null
+          produkt_id: string | null
+          sort_order: number | null
+          template_position_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bedingung_beschreibung?: string | null
+          bedingung_einheit?: string | null
+          bedingung_operator?: string | null
+          bedingung_wert_bis?: number | null
+          bedingung_wert_von?: number | null
+          bedingungstyp?: string | null
+          created_at?: string | null
+          gewerk_id?: string | null
+          id?: string | null
+          ist_pflicht?: boolean | null
+          kategorie?: string | null
+          leistungsverzeichnis_id?: string | null
+          menge_default?: number | null
+          notizen?: string | null
+          position_nr?: number | null
+          preis_kunde?: number | null
+          preis_subunternehmer?: number | null
+          preis_template_basis?: number | null
+          produkt_id?: string | null
+          sort_order?: number | null
+          template_position_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bedingung_beschreibung?: string | null
+          bedingung_einheit?: string | null
+          bedingung_operator?: string | null
+          bedingung_wert_bis?: number | null
+          bedingung_wert_von?: number | null
+          bedingungstyp?: string | null
+          created_at?: string | null
+          gewerk_id?: string | null
+          id?: string | null
+          ist_pflicht?: boolean | null
+          kategorie?: string | null
+          leistungsverzeichnis_id?: string | null
+          menge_default?: number | null
+          notizen?: string | null
+          position_nr?: number | null
+          preis_kunde?: number | null
+          preis_subunternehmer?: number | null
+          preis_template_basis?: number | null
+          produkt_id?: string | null
+          sort_order?: number | null
+          template_position_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      leistungsverzeichnisse: {
+        Row: {
+          beschreibung: string | null
+          created_at: string | null
+          created_by: string | null
+          gueltig_ab: string | null
+          gueltig_bis: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          ist_template: boolean | null
+          max_abweichung_prozent: number | null
+          subunternehmer_id: string | null
+          template_lv_id: string | null
+          titel: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          ist_template?: boolean | null
+          max_abweichung_prozent?: number | null
+          subunternehmer_id?: string | null
+          template_lv_id?: string | null
+          titel?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          ist_template?: boolean | null
+          max_abweichung_prozent?: number | null
+          subunternehmer_id?: string | null
+          template_lv_id?: string | null
+          titel?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: []
+      }
+      lieferanten: {
+        Row: {
+          adresse: string | null
+          bewertung: number | null
+          created_at: string | null
+          email: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          kontaktperson: string | null
+          lieferzeit_tage: number | null
+          name: string | null
+          notizen: string | null
+          telefon: string | null
+          updated_at: string | null
+          website: string | null
+          zahlungsbedingungen: string | null
+        }
+        Insert: {
+          adresse?: string | null
+          bewertung?: number | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          kontaktperson?: string | null
+          lieferzeit_tage?: number | null
+          name?: string | null
+          notizen?: string | null
+          telefon?: string | null
+          updated_at?: string | null
+          website?: string | null
+          zahlungsbedingungen?: string | null
+        }
+        Update: {
+          adresse?: string | null
+          bewertung?: number | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          kontaktperson?: string | null
+          lieferzeit_tage?: number | null
+          name?: string | null
+          notizen?: string | null
+          telefon?: string | null
+          updated_at?: string | null
+          website?: string | null
+          zahlungsbedingungen?: string | null
+        }
+        Relationships: []
+      }
+      produkt_bedingungen: {
+        Row: {
+          bedingungstyp: string | null
+          beschreibung: string | null
+          created_at: string | null
+          einheit: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          kinderartikel_id: string | null
+          operator: string | null
+          updated_at: string | null
+          wert_bis: number | null
+          wert_von: number | null
+        }
+        Insert: {
+          bedingungstyp?: string | null
+          beschreibung?: string | null
+          created_at?: string | null
+          einheit?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          kinderartikel_id?: string | null
+          operator?: string | null
+          updated_at?: string | null
+          wert_bis?: number | null
+          wert_von?: number | null
+        }
+        Update: {
+          bedingungstyp?: string | null
+          beschreibung?: string | null
+          created_at?: string | null
+          einheit?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          kinderartikel_id?: string | null
+          operator?: string | null
+          updated_at?: string | null
+          wert_bis?: number | null
+          wert_von?: number | null
+        }
+        Relationships: []
+      }
+      produkt_dokumente: {
+        Row: {
+          beschreibung: string | null
+          created_at: string | null
+          dateigroesse: number | null
+          dateiname: string | null
+          dateityp: string | null
+          hochgeladen_am: string | null
+          hochgeladen_von: string | null
+          id: string | null
+          produkt_id: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          created_at?: string | null
+          dateigroesse?: number | null
+          dateiname?: string | null
+          dateityp?: string | null
+          hochgeladen_am?: string | null
+          hochgeladen_von?: string | null
+          id?: string | null
+          produkt_id?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          created_at?: string | null
+          dateigroesse?: number | null
+          dateiname?: string | null
+          dateityp?: string | null
+          hochgeladen_am?: string | null
+          hochgeladen_von?: string | null
+          id?: string | null
+          produkt_id?: string | null
+          storage_path?: string | null
+        }
+        Relationships: []
+      }
+      produkt_lieferanten_preise: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          durchschnittliche_lieferzeit_tage: number | null
+          gueltig_ab: string | null
+          gueltig_bis: string | null
+          id: string | null
+          ist_aktuell: boolean | null
+          letzte_lieferung: string | null
+          lieferant_id: string | null
+          lieferanten_artikelnummer: string | null
+          lieferanten_bezeichnung: string | null
+          lieferzeit_tage: number | null
+          mindestbestellmenge: number | null
+          mindestmenge: number | null
+          preis: number | null
+          produkt_id: string | null
+          verpackungseinheit: number | null
+          waehrung: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          durchschnittliche_lieferzeit_tage?: number | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          ist_aktuell?: boolean | null
+          letzte_lieferung?: string | null
+          lieferant_id?: string | null
+          lieferanten_artikelnummer?: string | null
+          lieferanten_bezeichnung?: string | null
+          lieferzeit_tage?: number | null
+          mindestbestellmenge?: number | null
+          mindestmenge?: number | null
+          preis?: number | null
+          produkt_id?: string | null
+          verpackungseinheit?: number | null
+          waehrung?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          durchschnittliche_lieferzeit_tage?: number | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          ist_aktuell?: boolean | null
+          letzte_lieferung?: string | null
+          lieferant_id?: string | null
+          lieferanten_artikelnummer?: string | null
+          lieferanten_bezeichnung?: string | null
+          lieferzeit_tage?: number | null
+          mindestbestellmenge?: number | null
+          mindestmenge?: number | null
+          preis?: number | null
+          produkt_id?: string | null
+          verpackungseinheit?: number | null
+          waehrung?: string | null
+        }
+        Relationships: []
+      }
+      produkt_preishistorie: {
+        Row: {
+          aenderungsdatum: string | null
+          aenderungsgrund: string | null
+          alter_preis: number | null
+          geaendert_von: string | null
+          id: string | null
+          lieferant_id: string | null
+          neuer_preis: number | null
+          preis_typ: string | null
+          produkt_id: string | null
+          waehrung: string | null
+        }
+        Insert: {
+          aenderungsdatum?: string | null
+          aenderungsgrund?: string | null
+          alter_preis?: number | null
+          geaendert_von?: string | null
+          id?: string | null
+          lieferant_id?: string | null
+          neuer_preis?: number | null
+          preis_typ?: string | null
+          produkt_id?: string | null
+          waehrung?: string | null
+        }
+        Update: {
+          aenderungsdatum?: string | null
+          aenderungsgrund?: string | null
+          alter_preis?: number | null
+          geaendert_von?: string | null
+          id?: string | null
+          lieferant_id?: string | null
+          neuer_preis?: number | null
+          preis_typ?: string | null
+          produkt_id?: string | null
+          waehrung?: string | null
+        }
+        Relationships: []
+      }
+      produkt_preiskonfiguration: {
+        Row: {
+          automatische_preisanpassung: boolean | null
+          created_at: string | null
+          id: string | null
+          letzte_preispruefung: string | null
+          mindestmarge_prozent: number | null
+          preistyp: string | null
+          produkt_id: string | null
+          standardmarge_prozent: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          automatische_preisanpassung?: boolean | null
+          created_at?: string | null
+          id?: string | null
+          letzte_preispruefung?: string | null
+          mindestmarge_prozent?: number | null
+          preistyp?: string | null
+          produkt_id?: string | null
+          standardmarge_prozent?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          automatische_preisanpassung?: boolean | null
+          created_at?: string | null
+          id?: string | null
+          letzte_preispruefung?: string | null
+          mindestmarge_prozent?: number | null
+          preistyp?: string | null
+          produkt_id?: string | null
+          standardmarge_prozent?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      produkt_verkaufspreise: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          gueltig_ab: string | null
+          gueltig_bis: string | null
+          id: string | null
+          ist_aktuell: boolean | null
+          mindestmenge: number | null
+          notizen: string | null
+          preis: number | null
+          produkt_id: string | null
+          waehrung: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          ist_aktuell?: boolean | null
+          mindestmenge?: number | null
+          notizen?: string | null
+          preis?: number | null
+          produkt_id?: string | null
+          waehrung?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          gueltig_ab?: string | null
+          gueltig_bis?: string | null
+          id?: string | null
+          ist_aktuell?: boolean | null
+          mindestmenge?: number | null
+          notizen?: string | null
+          preis?: number | null
+          produkt_id?: string | null
+          waehrung?: string | null
+        }
+        Relationships: []
+      }
+      produkte: {
+        Row: {
+          artikelnummer: string | null
+          artikelnummer_hersteller: string | null
+          beschreibung: string | null
+          chargen_pflicht: boolean | null
+          created_at: string | null
+          ean_code: string | null
+          einheit: string | null
+          gewerk_id: string | null
+          gewicht_kg: number | null
+          hersteller: string | null
+          hersteller_id: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          ist_dienstleistung: boolean | null
+          ist_mischposition: boolean | null
+          ist_optional: boolean | null
+          kalkulationsart:
+            | Database["public"]["Enums"]["kalkulationsart_enum"]
+            | null
+          katalog_sichtbar: boolean | null
+          lagerplatz: string | null
+          leistungseinheit:
+            | Database["public"]["Enums"]["leistungseinheit_enum"]
+            | null
+          mindestbestand: number | null
+          mindestverkaufspreis: number | null
+          name: string | null
+          notizen_intern: string | null
+          parent_produkt_id: string | null
+          produkttyp: Database["public"]["Enums"]["produkttyp"] | null
+          seriennummer_pflicht: boolean | null
+          tags: string[] | null
+          updated_at: string | null
+          verkaufspreis_empfohlen: number | null
+          volumen_m3: number | null
+          warengruppe_id: string | null
+          zuletzt_verwendet_am: string | null
+        }
+        Insert: {
+          artikelnummer?: string | null
+          artikelnummer_hersteller?: string | null
+          beschreibung?: string | null
+          chargen_pflicht?: boolean | null
+          created_at?: string | null
+          ean_code?: string | null
+          einheit?: string | null
+          gewerk_id?: string | null
+          gewicht_kg?: number | null
+          hersteller?: string | null
+          hersteller_id?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          ist_dienstleistung?: boolean | null
+          ist_mischposition?: boolean | null
+          ist_optional?: boolean | null
+          kalkulationsart?:
+            | Database["public"]["Enums"]["kalkulationsart_enum"]
+            | null
+          katalog_sichtbar?: boolean | null
+          lagerplatz?: string | null
+          leistungseinheit?:
+            | Database["public"]["Enums"]["leistungseinheit_enum"]
+            | null
+          mindestbestand?: number | null
+          mindestverkaufspreis?: number | null
+          name?: string | null
+          notizen_intern?: string | null
+          parent_produkt_id?: string | null
+          produkttyp?: Database["public"]["Enums"]["produkttyp"] | null
+          seriennummer_pflicht?: boolean | null
+          tags?: string[] | null
+          updated_at?: string | null
+          verkaufspreis_empfohlen?: number | null
+          volumen_m3?: number | null
+          warengruppe_id?: string | null
+          zuletzt_verwendet_am?: string | null
+        }
+        Update: {
+          artikelnummer?: string | null
+          artikelnummer_hersteller?: string | null
+          beschreibung?: string | null
+          chargen_pflicht?: boolean | null
+          created_at?: string | null
+          ean_code?: string | null
+          einheit?: string | null
+          gewerk_id?: string | null
+          gewicht_kg?: number | null
+          hersteller?: string | null
+          hersteller_id?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          ist_dienstleistung?: boolean | null
+          ist_mischposition?: boolean | null
+          ist_optional?: boolean | null
+          kalkulationsart?:
+            | Database["public"]["Enums"]["kalkulationsart_enum"]
+            | null
+          katalog_sichtbar?: boolean | null
+          lagerplatz?: string | null
+          leistungseinheit?:
+            | Database["public"]["Enums"]["leistungseinheit_enum"]
+            | null
+          mindestbestand?: number | null
+          mindestverkaufspreis?: number | null
+          name?: string | null
+          notizen_intern?: string | null
+          parent_produkt_id?: string | null
+          produkttyp?: Database["public"]["Enums"]["produkttyp"] | null
+          seriennummer_pflicht?: boolean | null
+          tags?: string[] | null
+          updated_at?: string | null
+          verkaufspreis_empfohlen?: number | null
+          volumen_m3?: number | null
+          warengruppe_id?: string | null
+          zuletzt_verwendet_am?: string | null
+        }
+        Relationships: []
+      }
       produkte_katalog_view: {
         Row: {
           anzahl_varianten: number | null
@@ -11706,43 +11816,7 @@ export type Database = {
           warengruppe_name: string | null
           warengruppe_parent_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "produkte_hersteller_id_fkey"
-            columns: ["hersteller_id"]
-            isOneToOne: false
-            referencedRelation: "hersteller"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkte_parent_produkt_id_fkey"
-            columns: ["parent_produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkte_parent_produkt_id_fkey"
-            columns: ["parent_produkt_id"]
-            isOneToOne: false
-            referencedRelation: "produkte_katalog_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "produkte_warengruppe_id_fkey"
-            columns: ["warengruppe_id"]
-            isOneToOne: false
-            referencedRelation: "warengruppen"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "warengruppen_parent_id_fkey"
-            columns: ["warengruppe_parent_id"]
-            isOneToOne: false
-            referencedRelation: "warengruppen"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles_public: {
         Row: {
@@ -11768,6 +11842,76 @@ export type Database = {
           nachname?: string | null
           name?: string | null
           vorname?: string | null
+        }
+        Relationships: []
+      }
+      sales_clickup_vot_gap_report: {
+        Row: {
+          alters_bucket: string | null
+          kunde_email: string | null
+          kunde_ort: string | null
+          kunde_plz: string | null
+          kunde_strasse: string | null
+          lead_id: string | null
+          lead_name: string | null
+          referenz_nummer: string | null
+          signier_datum_thc: string | null
+          such_hinweis: string | null
+        }
+        Relationships: []
+      }
+      sales_clickup_vot_gap_summary: {
+        Row: {
+          aeltester_win: string | null
+          alters_bucket: string | null
+          gap_leads: number | null
+          juengster_win: string | null
+          mit_email: number | null
+        }
+        Relationships: []
+      }
+      staffelpreise: {
+        Row: {
+          ab_menge: number | null
+          created_at: string | null
+          gueltig_bis: string | null
+          gueltig_von: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          lieferant_id: string | null
+          preis: number | null
+          preis_typ: string | null
+          produkt_id: string | null
+          updated_at: string | null
+          waehrung: string | null
+        }
+        Insert: {
+          ab_menge?: number | null
+          created_at?: string | null
+          gueltig_bis?: string | null
+          gueltig_von?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          lieferant_id?: string | null
+          preis?: number | null
+          preis_typ?: string | null
+          produkt_id?: string | null
+          updated_at?: string | null
+          waehrung?: string | null
+        }
+        Update: {
+          ab_menge?: number | null
+          created_at?: string | null
+          gueltig_bis?: string | null
+          gueltig_von?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          lieferant_id?: string | null
+          preis?: number | null
+          preis_typ?: string | null
+          produkt_id?: string | null
+          updated_at?: string | null
+          waehrung?: string | null
         }
         Relationships: []
       }
@@ -11831,6 +11975,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads_with_details"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "termine_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "termine_lead_id_fkey"
@@ -12296,6 +12447,48 @@ export type Database = {
           taetigkeit?:
             | Database["public"]["Enums"]["verkaeufer_taetigkeit_enum"]
             | null
+        }
+        Relationships: []
+      }
+      warengruppen: {
+        Row: {
+          beschreibung: string | null
+          created_at: string | null
+          farbe: string | null
+          icon_name: string | null
+          id: string | null
+          ist_aktiv: boolean | null
+          katalog_beschreibung: string | null
+          name: string | null
+          parent_id: string | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          created_at?: string | null
+          farbe?: string | null
+          icon_name?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          katalog_beschreibung?: string | null
+          name?: string | null
+          parent_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          created_at?: string | null
+          farbe?: string | null
+          icon_name?: string | null
+          id?: string | null
+          ist_aktiv?: boolean | null
+          katalog_beschreibung?: string | null
+          name?: string | null
+          parent_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -12915,6 +13108,290 @@ export type Database = {
         Args: { p_auftrag_id: string; p_current_status: string }
         Returns: number
       }
+      comms_add_participant: {
+        Args: {
+          _conversation_id: string
+          _role?: string
+          _user_kind: string
+          _user_ref: string
+        }
+        Returns: string
+      }
+      comms_escalation_recipients: {
+        Args: { _escalation_id: string }
+        Returns: {
+          app: string
+          email: string
+          label: string
+          level: string
+          subject_id: string
+          subject_type: string
+          user_kind: string
+          user_ref: string
+        }[]
+      }
+      comms_get_flag: {
+        Args: { _conversation_id: string }
+        Returns: {
+          created_at: string
+          flag_id: string
+          flagged_by_label: string
+          reason: string
+          severity: string
+        }[]
+      }
+      comms_get_notification_prefs: {
+        Args: never
+        Returns: {
+          added_to_thread_enabled: boolean
+          digest_mode: boolean
+          email_enabled: boolean
+          flag_enabled: boolean
+          mention_enabled: boolean
+          sla_enabled: boolean
+        }[]
+      }
+      comms_get_thread: {
+        Args: { _conversation_id: string }
+        Returns: {
+          author_kind: string
+          author_label: string
+          author_ref: string
+          author_typ: string
+          body: string
+          created_at: string
+          is_mine: boolean
+          is_note: boolean
+          message_id: string
+          parent_message_id: string
+          requires_response: boolean
+          responded_at: string
+          sla_due_at: string
+        }[]
+      }
+      comms_has_access: { Args: never; Returns: boolean }
+      comms_inbox_counts: {
+        Args: { _search?: string }
+        Returns: {
+          phase: string
+          total: number
+        }[]
+      }
+      comms_inbox_phase: {
+        Args: {
+          _limit?: number
+          _offset?: number
+          _phase: string
+          _search?: string
+        }
+        Returns: {
+          conversation_id: string
+          flagged: boolean
+          kunde: string
+          last_author: string
+          last_message_at: string
+          last_snippet: string
+          ort: string
+          status_label: string
+          subject_id: string
+          subject_type: string
+          unread: number
+        }[]
+      }
+      comms_is_global: { Args: never; Returns: boolean }
+      comms_leave_conversation: {
+        Args: { _conversation_id: string }
+        Returns: undefined
+      }
+      comms_list_participants: {
+        Args: { _conversation_id: string }
+        Returns: {
+          is_me: boolean
+          label: string
+          muted: boolean
+          role: string
+          source: string
+          user_kind: string
+          user_ref: string
+        }[]
+      }
+      comms_mark_conversation_read: {
+        Args: { _conversation_id: string }
+        Returns: undefined
+      }
+      comms_mark_read: { Args: { _message_id: string }; Returns: undefined }
+      comms_my_threads: {
+        Args: { _limit?: number; _offset?: number; _search?: string }
+        Returns: {
+          conversation_id: string
+          flagged: boolean
+          kunde: string
+          last_author: string
+          last_message_at: string
+          last_snippet: string
+          ort: string
+          phase: string
+          status_label: string
+          subject_id: string
+          subject_type: string
+          unread: number
+        }[]
+      }
+      comms_notification_due: {
+        Args: { _limit?: number }
+        Returns: {
+          app: string
+          conversation_id: string
+          id: string
+          occurred_at: string
+          recipient_email: string
+          recipient_kind: string
+          recipient_ref: string
+          severity: string
+          subject_id: string
+          subject_type: string
+          type: string
+        }[]
+      }
+      comms_notification_mark_failed: {
+        Args: { _error: string; _id: string }
+        Returns: undefined
+      }
+      comms_notification_mark_sent: {
+        Args: { _id: string }
+        Returns: undefined
+      }
+      comms_notification_mark_superseded: {
+        Args: { _id: string }
+        Returns: number
+      }
+      comms_post_message: {
+        Args: {
+          _body: string
+          _conversation_id: string
+          _is_note?: boolean
+          _mention_tokens?: string[]
+          _parent_message_id?: string
+          _requires_response?: boolean
+        }
+        Returns: string
+      }
+      comms_remove_participant: {
+        Args: {
+          _conversation_id: string
+          _user_kind: string
+          _user_ref: string
+        }
+        Returns: undefined
+      }
+      comms_resolve_flag: {
+        Args: { _conversation_id: string }
+        Returns: undefined
+      }
+      comms_resolve_mention: {
+        Args: { _subject_id?: string; _subject_type?: string; _token: string }
+        Returns: {
+          label: string
+          mention_kind: string
+          user_kind: string
+          user_ref: string
+        }[]
+      }
+      comms_set_flag: {
+        Args: { _conversation_id: string; _reason: string; _severity?: string }
+        Returns: string
+      }
+      comms_set_muted: {
+        Args: { _conversation_id: string; _muted: boolean }
+        Returns: undefined
+      }
+      comms_set_notification_prefs: {
+        Args: {
+          _added_to_thread_enabled?: boolean
+          _digest_mode?: boolean
+          _email_enabled?: boolean
+          _flag_enabled?: boolean
+          _mention_enabled?: boolean
+          _sla_enabled?: boolean
+        }
+        Returns: undefined
+      }
+      comms_sla_due: {
+        Args: { _limit?: number }
+        Returns: {
+          app: string
+          attempts: number
+          conversation_id: string
+          escalation_id: string
+          fire_at: string
+          level: string
+          message_id: string
+          subject_id: string
+          subject_type: string
+        }[]
+      }
+      comms_sla_enqueue: { Args: { _escalation_id: string }; Returns: number }
+      comms_sla_ladder: {
+        Args: { _conversation_id: string }
+        Returns: {
+          author_label: string
+          awaiting_me: boolean
+          body_preview: string
+          created_at: string
+          fire_at: string
+          fired: boolean
+          level: string
+          message_id: string
+          sla_due_at: string
+        }[]
+      }
+      comms_sla_mark_failed: {
+        Args: { _error: string; _escalation_id: string }
+        Returns: undefined
+      }
+      comms_sla_mark_fired: {
+        Args: { _escalation_id: string }
+        Returns: undefined
+      }
+      comms_start_conversation: {
+        Args: {
+          _app: string
+          _phase: string
+          _subject_id: string
+          _subject_type: string
+          _title?: string
+        }
+        Returns: string
+      }
+      comms_subject_notes: {
+        Args: { _subject_id: string; _subject_type: string }
+        Returns: {
+          author_kind: string
+          author_label: string
+          body: string
+          category: string
+          created_at: string
+          is_private: boolean
+          note_id: string
+          title: string
+        }[]
+      }
+      comms_thread_read_status: {
+        Args: { _conversation_id: string }
+        Returns: {
+          message_created_at: string
+          message_excerpt: string
+          message_id: string
+          read_at: string
+          recipient_kind: string
+          recipient_label: string
+          recipient_ref: string
+          requires_response: boolean
+          responded: boolean
+          responded_at: string
+        }[]
+      }
+      comms_unread_total: { Args: never; Returns: number }
       complete_app_onboarding: {
         Args: { _app_code: string }
         Returns: undefined
@@ -14848,6 +15325,177 @@ export type Database = {
           }
       merge_duplicate_lead_status_entries: { Args: never; Returns: Json }
       normalize_phone_de: { Args: { p_phone: string }; Returns: string }
+      offboarding_abort_run: {
+        Args: { p_grund?: string; p_run_id: string }
+        Returns: Json
+      }
+      offboarding_assign: {
+        Args: {
+          p_dry_run?: boolean
+          p_item_ids: string[]
+          p_neu_mitarbeiter_id: string
+          p_notiz?: string
+        }
+        Returns: Json
+      }
+      offboarding_bestandsaufnahme: {
+        Args: { p_run_id: string }
+        Returns: Json
+      }
+      offboarding_collect_assets: { Args: { p_run_id: string }; Returns: Json }
+      offboarding_complete_run: { Args: { p_run_id: string }; Returns: Json }
+      offboarding_count_assets: { Args: { p_ma: string }; Returns: Json }
+      offboarding_deactivate: {
+        Args: { p_dry_run?: boolean; p_run_id: string; p_steps?: Json }
+        Returns: Json
+      }
+      offboarding_delete_run: { Args: { p_run_id: string }; Returns: Json }
+      offboarding_handover_summary: {
+        Args: { p_neu_mitarbeiter_id: string; p_run_id: string }
+        Returns: Json
+      }
+      offboarding_items_for_run: {
+        Args: { p_item_typ: string; p_run_id: string }
+        Returns: {
+          alt_mitarbeiter_id: string
+          decision: string
+          eimer: string
+          entity_id: string
+          item_id: string
+          label: string
+          link_lead_id: string
+          neu_mitarbeiter_id: string
+          neu_name: string
+          route_reason: string
+          score: number
+          stage: string
+          sublabel: string
+        }[]
+      }
+      offboarding_mark_handover_done: {
+        Args: { p_done?: boolean; p_item_id: string }
+        Returns: {
+          item_id: string
+          uebernahme_erledigt_at: string
+          uebernahme_status: string
+        }[]
+      }
+      offboarding_mark_provision: {
+        Args: {
+          p_auftrag_id: string
+          p_decision: string
+          p_notiz?: string
+          p_run_id: string
+        }
+        Returns: Json
+      }
+      offboarding_mitarbeiter_list: {
+        Args: never
+        Returns: {
+          auftraege: number
+          austrittsdatum: string
+          eintrittsdatum: string
+          id: string
+          ist_handelsvertreter: boolean
+          kunden: number
+          leads_total: number
+          name: string
+          status: string
+          thc: number
+        }[]
+      }
+      offboarding_my_handover_lead_ids: {
+        Args: never
+        Returns: {
+          lead_id: string
+        }[]
+      }
+      offboarding_my_handovers: {
+        Args: never
+        Returns: {
+          alt_mitarbeiter_id: string
+          ausscheidender_name: string
+          austrittsdatum: string
+          created_at: string
+          decision: string
+          eimer: string
+          entity_id: string
+          is_orphan_termin: boolean
+          item_id: string
+          label: string
+          link_lead_id: string
+          neu_mitarbeiter_id: string
+          notiz: string
+          referenz_nummer: string
+          run_id: string
+          score: number
+          sublabel: string
+          termin_ort: string
+          termin_start: string
+          typ: string
+          uebernahme_erledigt_at: string
+          uebernahme_notiz: string
+          uebernahme_status: string
+        }[]
+      }
+      offboarding_my_handovers_count: {
+        Args: never
+        Returns: {
+          offen: number
+          termine_offen: number
+          von_anzahl: number
+          von_namen: string[]
+        }[]
+      }
+      offboarding_preview: { Args: { p_mitarbeiter_id: string }; Returns: Json }
+      offboarding_protokoll: { Args: { p_run_id: string }; Returns: Json }
+      offboarding_provision_list: {
+        Args: { p_run_id: string }
+        Returns: {
+          auftrag_id: string
+          baustellenstatus: string
+          ist_final: boolean
+          label: string
+          provisions_status: string
+          widerruf_bis_datum: string
+          widerruf_status: string
+        }[]
+      }
+      offboarding_refresh_routing_metrics: { Args: never; Returns: undefined }
+      offboarding_route_lead: {
+        Args: { p_lead_id: string }
+        Returns: {
+          neu_mitarbeiter_id: string
+          neu_name: string
+          route_reason: string
+          score: number
+        }[]
+      }
+      offboarding_runs_overview: {
+        Args: never
+        Returns: {
+          aktueller_screen: number
+          austrittsdatum: string
+          created_at: string
+          deletable: boolean
+          grund: string
+          id: string
+          ist_handelsvertreter: boolean
+          mitarbeiter_id: string
+          mitarbeiter_name: string
+          status: string
+        }[]
+      }
+      offboarding_start_run: {
+        Args: {
+          p_austrittsdatum: string
+          p_grund?: string
+          p_grund_kategorie?: string
+          p_letzter_aktiver_tag?: string
+          p_mitarbeiter_id: string
+        }
+        Returns: string
+      }
       orbit_is_verkaeufer_locked: {
         Args: { _user_id?: string }
         Returns: boolean
@@ -16631,6 +17279,57 @@ export type Database = {
         | "mitarbeiter"
         | "autargy_kunde"
         | "thermocheck_auftrag"
+      offboarding_audit_event:
+        | "run_started"
+        | "lead_transfer"
+        | "thc_handover"
+        | "final_offer_logged"
+        | "provision_attributed"
+        | "termin_reassigned"
+        | "kunde_transferred"
+        | "share_transferred"
+        | "deactivation"
+        | "run_completed"
+        | "run_aborted"
+      offboarding_eimer:
+        | "A_offene_leads"
+        | "B_thc_vorvertrag"
+        | "C_gewonnen_auftrag"
+        | "D_verloren"
+      offboarding_grund_enum:
+        | "Eigenkuendigung"
+        | "Arbeitgeberkuendigung"
+        | "Kuendigung in Probezeit"
+        | "Aufhebungsvertrag"
+        | "Befristung ausgelaufen"
+        | "Renteneintritt"
+        | "HV-Vertragsende"
+        | "Sonstiges"
+      offboarding_item_decision:
+        | "vorgeschlagen"
+        | "zugewiesen"
+        | "abgesagt"
+        | "uebertragen"
+        | "behalten"
+        | "individuell_pruefen"
+        | "leadpilot_uebergabe"
+        | "auszahlen"
+        | "blockiert_widerruf"
+        | "blockiert_storno_pending"
+        | "storniert"
+      offboarding_item_typ:
+        | "lead"
+        | "termin"
+        | "lead_share"
+        | "kunde"
+        | "auftrag"
+        | "markenbotschafter"
+      offboarding_run_status:
+        | "offen"
+        | "in_bearbeitung"
+        | "abgeschlossen"
+        | "abgebrochen"
+      offboarding_uebernahme_status: "offen" | "erledigt"
       pdf_bereich_enum:
         | "markenbotschafter"
         | "marketing"
@@ -17304,6 +18003,63 @@ export const Constants = {
         "autargy_kunde",
         "thermocheck_auftrag",
       ],
+      offboarding_audit_event: [
+        "run_started",
+        "lead_transfer",
+        "thc_handover",
+        "final_offer_logged",
+        "provision_attributed",
+        "termin_reassigned",
+        "kunde_transferred",
+        "share_transferred",
+        "deactivation",
+        "run_completed",
+        "run_aborted",
+      ],
+      offboarding_eimer: [
+        "A_offene_leads",
+        "B_thc_vorvertrag",
+        "C_gewonnen_auftrag",
+        "D_verloren",
+      ],
+      offboarding_grund_enum: [
+        "Eigenkuendigung",
+        "Arbeitgeberkuendigung",
+        "Kuendigung in Probezeit",
+        "Aufhebungsvertrag",
+        "Befristung ausgelaufen",
+        "Renteneintritt",
+        "HV-Vertragsende",
+        "Sonstiges",
+      ],
+      offboarding_item_decision: [
+        "vorgeschlagen",
+        "zugewiesen",
+        "abgesagt",
+        "uebertragen",
+        "behalten",
+        "individuell_pruefen",
+        "leadpilot_uebergabe",
+        "auszahlen",
+        "blockiert_widerruf",
+        "blockiert_storno_pending",
+        "storniert",
+      ],
+      offboarding_item_typ: [
+        "lead",
+        "termin",
+        "lead_share",
+        "kunde",
+        "auftrag",
+        "markenbotschafter",
+      ],
+      offboarding_run_status: [
+        "offen",
+        "in_bearbeitung",
+        "abgeschlossen",
+        "abgebrochen",
+      ],
+      offboarding_uebernahme_status: ["offen", "erledigt"],
       pdf_bereich_enum: [
         "markenbotschafter",
         "marketing",
