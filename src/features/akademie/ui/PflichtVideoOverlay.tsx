@@ -4,6 +4,8 @@ import { PflichtVideo } from '@/hooks/usePflichtVideos';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 import { GraduationCap } from 'lucide-react';
 
+const PLAYER_EVENT_FALLBACK_MS = 90_000;
+
 interface PflichtVideoOverlayProps {
   videos: PflichtVideo[];
   contractorId: string;
@@ -18,11 +20,23 @@ interface PflichtVideoOverlayProps {
 export function PflichtVideoOverlay({ videos, contractorId, onAllCompleted }: PflichtVideoOverlayProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVideoComplete, setIsVideoComplete] = useState(false);
+  const [isFallbackUnlocked, setIsFallbackUnlocked] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const playerRef = useRef<VideoPlayerHandle>(null);
 
   const current = videos[currentIndex];
   const total = videos.length;
+
+  useEffect(() => {
+    setIsVideoComplete(false);
+    setIsFallbackUnlocked(false);
+    const timer = window.setTimeout(() => {
+      console.warn('[PflichtVideo] Player end event fallback unlocked for lektion:', current?.id);
+      setIsFallbackUnlocked(true);
+    }, PLAYER_EVENT_FALLBACK_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [current?.id]);
 
   // Listen for Player.js 'ended' event from the iframe
   useEffect(() => {
@@ -75,7 +89,6 @@ export function PflichtVideoOverlay({ videos, contractorId, onAllCompleted }: Pf
 
       if (currentIndex < total - 1) {
         setCurrentIndex(prev => prev + 1);
-        setIsVideoComplete(false);
       } else {
         onAllCompleted();
       }
@@ -117,7 +130,7 @@ export function PflichtVideoOverlay({ videos, contractorId, onAllCompleted }: Pf
 
       {/* Bottom action */}
       <div className="px-4 py-4 border-t bg-background">
-        {isVideoComplete ? (
+        {isVideoComplete || isFallbackUnlocked ? (
           <button
             onClick={markCompletedAndNext}
             disabled={isSaving}

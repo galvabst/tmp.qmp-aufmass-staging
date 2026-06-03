@@ -12,14 +12,19 @@ export interface PflichtVideo {
 
 /**
  * Fetches mandatory videos that a "ready" contractor has not yet watched.
- * Only returns lessons where nur_fuer_neue = false, ist_aktiv = true, and video_url is set.
- * Compares against contractor_akademie_lektions_fortschritt to find unfinished ones.
+ * Contractors who already completed the academy must not be blocked again at app entry.
  */
-export function usePflichtVideos(contractorId: string | null | undefined, onboardingStatus: string | null | undefined, isTrainer: boolean = false) {
+export function usePflichtVideos(
+  contractorId: string | null | undefined,
+  onboardingStatus: string | null | undefined,
+  isTrainer: boolean = false,
+  hasCompletedAkademie: boolean = false
+) {
   return useQuery<PflichtVideo[]>({
-    queryKey: ['pflicht-videos', contractorId, onboardingStatus, isTrainer],
+    queryKey: ['pflicht-videos', contractorId, onboardingStatus, isTrainer, hasCompletedAkademie],
     queryFn: async () => {
       if (!contractorId || onboardingStatus !== 'ready') return [];
+      if (hasCompletedAkademie) return [];
 
       // 1. Fetch all active, mandatory-for-all lessons with video
       let query = supabaseTC
@@ -82,7 +87,7 @@ export function usePflichtVideos(contractorId: string | null | undefined, onboar
         }))
         .sort((a, b) => a.reihenfolge - b.reihenfolge);
     },
-    enabled: !!contractorId && onboardingStatus === 'ready',
+    enabled: !!contractorId && onboardingStatus === 'ready' && !hasCompletedAkademie,
     staleTime: 2 * 60 * 1000,
   });
 }
