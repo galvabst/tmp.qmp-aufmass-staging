@@ -13036,6 +13036,7 @@ export type Database = {
         Args: { _lead_id: string; _user_id?: string }
         Returns: boolean
       }
+      can_offboarding: { Args: { _uid?: string }; Returns: boolean }
       can_upload_transcript_audio: {
         Args: { object_name: string }
         Returns: boolean
@@ -17291,6 +17292,7 @@ export type Database = {
         | "deactivation"
         | "run_completed"
         | "run_aborted"
+        | "handover_acknowledged"
       offboarding_eimer:
         | "A_offene_leads"
         | "B_thc_vorvertrag"
@@ -18015,6 +18017,7 @@ export const Constants = {
         "deactivation",
         "run_completed",
         "run_aborted",
+        "handover_acknowledged",
       ],
       offboarding_eimer: [
         "A_offene_leads",
