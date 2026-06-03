@@ -19,6 +19,9 @@ export interface ContractorOnboardingRecord {
   lizenzen_bereitgestellt_intern: boolean | null;
   // Trainer flag
   is_trainer: boolean;
+  // Step tracking
+  completed_steps: string[];
+  current_step: string | null;
 }
 
 interface UseContractorOnboardingStatusResult {
@@ -105,6 +108,8 @@ async function fetchDirectOnboarding(userId: string, accessToken: string): Promi
       'kleidung_bestellt_intern',
       'lizenzen_bereitgestellt_intern',
       'is_trainer',
+      'completed_steps',
+      'current_step',
     ].join(','),
     limit: '1',
   });
@@ -138,6 +143,8 @@ function mapOnboardingRecord(record: any): ContractorOnboardingRecord {
     kleidung_bestellt_intern: record.kleidung_bestellt_intern ?? null,
     lizenzen_bereitgestellt_intern: record.lizenzen_bereitgestellt_intern ?? null,
     is_trainer: record.is_trainer ?? false,
+    completed_steps: Array.isArray(record.completed_steps) ? record.completed_steps : [],
+    current_step: record.current_step ?? null,
   };
 }
 
