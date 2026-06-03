@@ -5644,6 +5644,48 @@ export type Database = {
           },
         ]
       }
+      offboarding_mail_alert_log: {
+        Row: {
+          alerted_at: string
+          email_log_id: string
+          neu_mitarbeiter_id: string | null
+          run_id: string | null
+        }
+        Insert: {
+          alerted_at?: string
+          email_log_id: string
+          neu_mitarbeiter_id?: string | null
+          run_id?: string | null
+        }
+        Update: {
+          alerted_at?: string
+          email_log_id?: string
+          neu_mitarbeiter_id?: string | null
+          run_id?: string | null
+        }
+        Relationships: []
+      }
+      offboarding_notify_dedup: {
+        Row: {
+          last_sent_at: string
+          neu_mitarbeiter_id: string
+          run_id: string
+          send_count: number
+        }
+        Insert: {
+          last_sent_at?: string
+          neu_mitarbeiter_id: string
+          run_id: string
+          send_count?: number
+        }
+        Update: {
+          last_sent_at?: string
+          neu_mitarbeiter_id?: string
+          run_id?: string
+          send_count?: number
+        }
+        Relationships: []
+      }
       offboarding_routing_metrics: {
         Row: {
           leads_termin: number
@@ -8590,6 +8632,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      suppressed_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          payload: Json | null
+          provider: string
+          provider_event_id: string | null
+          reason: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          payload?: Json | null
+          provider?: string
+          provider_event_id?: string | null
+          reason: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          payload?: Json | null
+          provider?: string
+          provider_event_id?: string | null
+          reason?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       system_email_logs: {
         Row: {
@@ -13037,6 +13112,10 @@ export type Database = {
         Returns: boolean
       }
       can_offboarding: { Args: { _uid?: string }; Returns: boolean }
+      can_offboarding_admin: { Args: { _uid?: string }; Returns: boolean }
+      can_offboarding_deactivate: { Args: { _uid?: string }; Returns: boolean }
+      can_offboarding_operate: { Args: { _uid?: string }; Returns: boolean }
+      can_offboarding_read: { Args: { _uid?: string }; Returns: boolean }
       can_upload_transcript_audio: {
         Args: { object_name: string }
         Returns: boolean
@@ -13118,6 +13197,26 @@ export type Database = {
         }
         Returns: string
       }
+      comms_archive_conversation: {
+        Args: { _archive: boolean; _conversation_id: string }
+        Returns: undefined
+      }
+      comms_defer_mandatory: {
+        Args: { _message_id: string; _reason: string }
+        Returns: undefined
+      }
+      comms_delete_message: {
+        Args: { _message_id: string }
+        Returns: undefined
+      }
+      comms_edit_message: {
+        Args: {
+          _body: string
+          _expected_edited_at?: string
+          _message_id: string
+        }
+        Returns: string
+      }
       comms_escalation_recipients: {
         Args: { _escalation_id: string }
         Returns: {
@@ -13161,10 +13260,14 @@ export type Database = {
           author_typ: string
           body: string
           created_at: string
+          deleted_at: string
+          edited_at: string
           is_mine: boolean
           is_note: boolean
           message_id: string
+          parent_author_label: string
           parent_message_id: string
+          parent_snippet: string
           requires_response: boolean
           responded_at: string
           sla_due_at: string
@@ -13222,7 +13325,12 @@ export type Database = {
       }
       comms_mark_read: { Args: { _message_id: string }; Returns: undefined }
       comms_my_threads: {
-        Args: { _limit?: number; _offset?: number; _search?: string }
+        Args: {
+          _limit?: number
+          _offset?: number
+          _search?: string
+          _status?: string
+        }
         Returns: {
           conversation_id: string
           flagged: boolean
@@ -13238,21 +13346,45 @@ export type Database = {
           unread: number
         }[]
       }
-      comms_notification_due: {
+      comms_notification_dead_letters: {
         Args: { _limit?: number }
         Returns: {
           app: string
-          conversation_id: string
+          attempts: number
+          created_at: string
           id: string
-          occurred_at: string
+          last_error: string
           recipient_email: string
-          recipient_kind: string
-          recipient_ref: string
-          severity: string
           subject_id: string
           subject_type: string
           type: string
         }[]
+      }
+      comms_notification_due: {
+        Args: { _limit?: number }
+        Returns: {
+          app: string
+          author: string
+          conversation_id: string
+          flag_reason: string
+          id: string
+          kunde: string
+          occurred_at: string
+          ort: string
+          phase_label: string
+          recipient_email: string
+          recipient_kind: string
+          recipient_ref: string
+          severity: string
+          status_label: string
+          subject_id: string
+          subject_type: string
+          type: string
+        }[]
+      }
+      comms_notification_mark_alerted: {
+        Args: { _ids: string[] }
+        Returns: number
       }
       comms_notification_mark_failed: {
         Args: { _error: string; _id: string }
@@ -13261,6 +13393,10 @@ export type Database = {
       comms_notification_mark_sent: {
         Args: { _id: string }
         Returns: undefined
+      }
+      comms_notification_mark_sent_batch: {
+        Args: { _ids: string[] }
+        Returns: number
       }
       comms_notification_mark_superseded: {
         Args: { _id: string }
@@ -13294,6 +13430,34 @@ export type Database = {
         Returns: {
           label: string
           mention_kind: string
+          user_kind: string
+          user_ref: string
+        }[]
+      }
+      comms_search_messages: {
+        Args: { _limit?: number; _offset?: number; _query: string }
+        Returns: {
+          author_label: string
+          author_typ: string
+          conversation_id: string
+          created_at: string
+          headline: string
+          is_note: boolean
+          kunde: string
+          message_id: string
+          ort: string
+          phase: string
+          rank: number
+          subject_id: string
+          subject_type: string
+        }[]
+      }
+      comms_search_people: {
+        Args: { _conversation_id?: string; _query: string }
+        Returns: {
+          hint: string
+          label: string
+          source: string
           user_kind: string
           user_ref: string
         }[]
@@ -15343,9 +15507,22 @@ export type Database = {
         Args: { p_run_id: string }
         Returns: Json
       }
+      offboarding_claim_handover_notify: {
+        Args: { p_neu: string; p_run_id: string; p_window?: string }
+        Returns: boolean
+      }
       offboarding_collect_assets: { Args: { p_run_id: string }; Returns: Json }
       offboarding_complete_run: { Args: { p_run_id: string }; Returns: Json }
       offboarding_count_assets: { Args: { p_ma: string }; Returns: Json }
+      offboarding_dashboard_kpis: {
+        Args: never
+        Returns: {
+          gekuendigte_mit_bestand: number
+          laufende_offboardings: number
+          offene_stornos: number
+          verwaiste_leads: number
+        }[]
+      }
       offboarding_deactivate: {
         Args: { p_dry_run?: boolean; p_run_id: string; p_steps?: Json }
         Returns: Json
@@ -15463,6 +15640,10 @@ export type Database = {
         }[]
       }
       offboarding_refresh_routing_metrics: { Args: never; Returns: undefined }
+      offboarding_release_handover_notify: {
+        Args: { p_neu: string; p_run_id: string }
+        Returns: undefined
+      }
       offboarding_route_lead: {
         Args: { p_lead_id: string }
         Returns: {
@@ -15486,6 +15667,10 @@ export type Database = {
           mitarbeiter_name: string
           status: string
         }[]
+      }
+      offboarding_set_screen: {
+        Args: { p_run_id: string; p_screen: number }
+        Returns: number
       }
       offboarding_start_run: {
         Args: {
