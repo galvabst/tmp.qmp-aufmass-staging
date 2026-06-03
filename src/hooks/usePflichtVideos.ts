@@ -88,6 +88,7 @@ export function usePflichtVideos(
         .sort((a, b) => a.reihenfolge - b.reihenfolge);
     },
     enabled: !!contractorId && onboardingStatus === 'ready' && !hasCompletedAkademie,
+    initialData: [],
     staleTime: 2 * 60 * 1000,
   });
 }
