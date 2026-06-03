@@ -14477,6 +14477,8 @@ export type Database = {
         Returns: {
           ag_domain_email: string
           bestellungen_bezahlt: number
+          completed_steps: string[]
+          current_step: string
           erstellt_am: string
           id: string
           is_trainer: boolean
