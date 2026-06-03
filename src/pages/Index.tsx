@@ -83,12 +83,15 @@ const Index = () => {
   const { data: dbProfile } = useContractorProfile(profileId);
   const contractorOnboardingId = onboardingRecord?.id || null;
   const { data: bewertungStats } = useTechnikerBewertungStats(contractorOnboardingId);
+  const completedSteps = ((onboardingRecord as any)?.completed_steps as string[] | undefined) ?? [];
+  const hasCompletedAkademie = completedSteps.includes('akademie');
   
   // Pflicht-Videos for ready contractors (trainers only see lessons marked "auch_fuer_trainer")
   const { data: pflichtVideos, refetch: refetchPflichtVideos } = usePflichtVideos(
     contractorOnboardingId,
     onboardingRecord?.onboarding_status,
-    onboardingRecord?.is_trainer === true
+    onboardingRecord?.is_trainer === true,
+    hasCompletedAkademie
   );
 
   const [activeTab, setActiveTab] = useState<Tab>('pool');
@@ -389,7 +392,7 @@ const Index = () => {
           erstelltAm: onboardingRecord.erstellt_am || undefined,
           onboardingId: onboardingRecord.id || undefined,
           isTrainer: onboardingRecord.is_trainer || false,
-          completedSteps: ((onboardingRecord as any)?.completed_steps as string[] | undefined) ?? [],
+          completedSteps,
         } : undefined}
         onComplete={() => {
           if (isPreviewMode) {
