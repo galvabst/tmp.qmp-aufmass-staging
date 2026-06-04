@@ -544,7 +544,7 @@ function ManualConfirmBlock({ row }: { row: SubscriptionHealthRow }) {
       <Input
         value={notiz}
         onChange={(e) => setNotiz(e.target.value)}
-        placeholder="Notiz (z.B. „Zahlt per Überweisung – Beleg im Drive")"
+        placeholder="Notiz (z.B. Zahlt per Überweisung – Beleg im Drive)"
         className="h-8 text-xs"
         disabled={busy}
       />
