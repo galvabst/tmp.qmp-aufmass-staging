@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { AlertTriangle, RefreshCw, Info, ExternalLink, ShieldCheck, AlertCircle, CircleAlert, Zap } from "lucide-react";
+import { AlertTriangle, RefreshCw, Info, ExternalLink, ShieldCheck, AlertCircle, CircleAlert, Zap, CheckCircle2, Undo2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -13,6 +14,7 @@ import {
 } from "@/features/admin/hooks/useAdminSubscriptionHealth";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseTC } from "@/integrations/supabase/thermocheck-client";
 import { toast } from "sonner";
 
 function fmtDate(iso: string | null): string {
