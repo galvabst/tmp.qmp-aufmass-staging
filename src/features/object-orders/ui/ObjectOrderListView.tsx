@@ -16,6 +16,7 @@ import { de } from 'date-fns/locale';
 
 type AgingFilter = 'alle' | 'gt2' | 'gt5';
 type TypFilter = 'alle' | 'thermocheck' | 'einweisung' | 'pv';
+type ZeitFilter = 'alle' | 'zukunft' | 'vergangen';
 
 const PIPELINE_LABELS: Record<string, string> = {
   termin_abwarten: 'Termin abwarten',
