@@ -245,6 +245,17 @@ export function ObjectOrderListView() {
                 </SelectContent>
               </Select>
 
+              {kategorieFilter === 'angenommen' && (
+                <Select value={zeitFilter} onValueChange={(v) => setZeitFilter(v as ZeitFilter)}>
+                  <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Zeitraum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="alle">Alle Termine</SelectItem>
+                    <SelectItem value="zukunft">Zukünftig</SelectItem>
+                    <SelectItem value="vergangen">Vergangen</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
               <Button
                 variant={showMap ? 'default' : 'outline'}
                 size="sm"
