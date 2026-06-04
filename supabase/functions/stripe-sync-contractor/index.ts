@@ -7,7 +7,29 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const VERSION = "2026-05-27-v1";
+const VERSION = "2026-06-04-v2-price-lookup";
+
+// In-memory price→produkt_key map, loaded lazily once per request
+let PRICE_TO_KEY: Map<string, string> | null = null;
+
+async function loadPriceToKeyMap(supabase: any): Promise<Map<string, string>> {
+  if (PRICE_TO_KEY) return PRICE_TO_KEY;
+  const map = new Map<string, string>();
+  const { data, error } = await supabase
+    .schema("thermocheck")
+    .from("contractor_produkte")
+    .select("produkt_key, stripe_price_id, stripe_test_price_id");
+  if (error) {
+    console.warn("[stripe-sync] price map load failed:", error.message);
+    return map;
+  }
+  for (const row of data ?? []) {
+    if (row.stripe_price_id) map.set(row.stripe_price_id, row.produkt_key);
+    if (row.stripe_test_price_id) map.set(row.stripe_test_price_id, row.produkt_key);
+  }
+  PRICE_TO_KEY = map;
+  return map;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
