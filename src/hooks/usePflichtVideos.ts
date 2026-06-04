@@ -24,6 +24,9 @@ export function usePflichtVideos(
     queryKey: ['pflicht-videos', contractorId, onboardingStatus, isTrainer, hasCompletedAkademie],
     queryFn: async () => {
       if (!contractorId || onboardingStatus !== 'ready') return [];
+      // Einsatzbereite Techniker werden NICHT mehr durch nachträglich hinzugefügte
+      // Pflicht-Lektionen blockiert. Pflicht-Videos gelten nur im Onboarding.
+      return [];
       if (hasCompletedAkademie) return [];
 
       // 1. Fetch all active, mandatory-for-all lessons with video
