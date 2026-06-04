@@ -177,7 +177,16 @@ async function syncOneContractor(
           produkt_key = existing?.produkt_key ?? null;
         }
         if (!produkt_key) {
-          // Letzte Notbremse: aus Price/Product-Name raten (überspringen wenn unmöglich)
+          // Deterministic mapping via DB price-id lookup (live + test)
+          const priceId = sub.items?.data?.[0]?.price?.id ?? null;
+          if (priceId) {
+            const map = await loadPriceToKeyMap(supabase);
+            const mapped = map.get(priceId);
+            if (mapped) produkt_key = mapped;
+          }
+        }
+        if (!produkt_key) {
+          // Last resort: nickname heuristic
           const priceNick = sub.items?.data?.[0]?.price?.nickname?.toLowerCase() ?? "";
           if (priceNick.includes("scanner")) produkt_key = "scanner-lizenz";
           else if (priceNick.includes("workspace") || priceNick.includes("google")) produkt_key = "google-workspace";
