@@ -211,7 +211,7 @@ export function ObjectOrderListView() {
               searchValue={searchQuery}
               onSearchChange={setSearchQuery}
               searchPlaceholder="Name, Adresse, PLZ, Stadt, Techniker..."
-              onReset={() => { setSearchQuery(''); setTypFilter('alle'); setTechnikerFilter('alle'); setAgingFilter('alle'); }}
+              onReset={() => { setSearchQuery(''); setTypFilter('alle'); setTechnikerFilter('alle'); setAgingFilter('alle'); setZeitFilter('alle'); }}
             />
             <div className="flex flex-wrap gap-2 items-center">
               <Select value={typFilter} onValueChange={(v) => setTypFilter(v as TypFilter)}>
