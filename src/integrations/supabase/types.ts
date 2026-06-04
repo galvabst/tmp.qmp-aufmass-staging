@@ -17679,6 +17679,8 @@ export type Database = {
         | "Verloren Thermo-Check"
         | "Gewonnen Final"
         | "Nicht relevant"
+        | "Widerruf"
+        | "Storno"
       upsales_status_enum:
         | "Neu"
         | "Kontaktaufnahme"
@@ -18429,6 +18431,8 @@ export const Constants = {
         "Verloren Thermo-Check",
         "Gewonnen Final",
         "Nicht relevant",
+        "Widerruf",
+        "Storno",
       ],
       upsales_status_enum: [
         "Neu",
