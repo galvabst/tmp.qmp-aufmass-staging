@@ -16,6 +16,7 @@ import { de } from 'date-fns/locale';
 
 type AgingFilter = 'alle' | 'gt2' | 'gt5';
 type TypFilter = 'alle' | 'thermocheck' | 'einweisung' | 'pv';
+type ZeitFilter = 'alle' | 'zukunft' | 'vergangen';
 
 const PIPELINE_LABELS: Record<string, string> = {
   termin_abwarten: 'Termin abwarten',
@@ -56,46 +57,51 @@ export function ObjectOrderListView() {
   const [typFilter, setTypFilter] = useState<TypFilter>('alle');
   const [technikerFilter, setTechnikerFilter] = useState<string>('alle');
   const [agingFilter, setAgingFilter] = useState<AgingFilter>('alle');
+  const [zeitFilter, setZeitFilter] = useState<ZeitFilter>('alle');
+
+  // Frei = Pool-Aufträge ohne Techniker UND mit mindestens einem Terminvorschlag.
+  // Aufträge ohne Vorschlag (z. B. wc1_durchfuehren ohne Termin) sind Orphans und
+  // gehören nicht in die Kommandozentrale → werden ausgeblendet.
+  const visible = useMemo(() => {
+    if (!auftraege) return [];
+    return auftraege.filter(a => {
+      if (a.kategorie === 'frei') return a.hasVorschlag;
+      return true;
+    });
+  }, [auftraege]);
 
   // KPIs
   const kpis = useMemo(() => {
-    if (!auftraege) return { frei: 0, freiMitVorschlag: 0, angenommen: 0, neubuchung: 0, oldestDays: 0 };
-    const frei = auftraege.filter(a => a.kategorie === 'frei');
+    const frei = visible.filter(a => a.kategorie === 'frei');
     const oldestDays = frei.reduce((max, a) => Math.max(max, a.ageDays ?? 0), 0);
     return {
       frei: frei.length,
-      freiMitVorschlag: frei.filter(a => a.hasVorschlag).length,
-      angenommen: auftraege.filter(a => a.kategorie === 'angenommen').length,
-      neubuchung: auftraege.filter(a => a.kategorie === 'neubuchung').length,
+      angenommen: visible.filter(a => a.kategorie === 'angenommen').length,
+      neubuchung: visible.filter(a => a.kategorie === 'neubuchung').length,
       oldestDays,
     };
-  }, [auftraege]);
+  }, [visible]);
 
-  const counts = useMemo(() => {
-    if (!auftraege) return { alle: 0, frei: 0, angenommen: 0, neubuchung: 0 };
-    return {
-      alle: auftraege.length,
-      frei: auftraege.filter(a => a.kategorie === 'frei').length,
-      angenommen: auftraege.filter(a => a.kategorie === 'angenommen').length,
-      neubuchung: auftraege.filter(a => a.kategorie === 'neubuchung').length,
-    };
-  }, [auftraege]);
+  const counts = useMemo(() => ({
+    alle: visible.length,
+    frei: visible.filter(a => a.kategorie === 'frei').length,
+    angenommen: visible.filter(a => a.kategorie === 'angenommen').length,
+    neubuchung: visible.filter(a => a.kategorie === 'neubuchung').length,
+  }), [visible]);
 
   // Techniker-Dropdown source (alle eindeutig)
   const technikerOptions = useMemo(() => {
-    if (!auftraege) return [] as { id: string; name: string }[];
     const map = new Map<string, string>();
-    auftraege.forEach(a => {
+    visible.forEach(a => {
       if (a.technikerId && a.technikerName) map.set(a.technikerId, a.technikerName);
     });
     return Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((x, y) => x.name.localeCompare(y.name));
-  }, [auftraege]);
+  }, [visible]);
 
   const filtered = useMemo(() => {
-    if (!auftraege) return [];
-    let result = auftraege;
+    let result = visible;
     if (kategorieFilter !== 'alle') {
       result = result.filter(a => a.kategorie === kategorieFilter);
     }
@@ -108,6 +114,16 @@ export function ObjectOrderListView() {
     if (agingFilter === 'gt2') result = result.filter(a => (a.ageDays ?? 0) >= 2);
     if (agingFilter === 'gt5') result = result.filter(a => (a.ageDays ?? 0) >= 5);
 
+    // Zeit-Filter (nur sinnvoll für Angenommen-Tab)
+    if (kategorieFilter === 'angenommen' && zeitFilter !== 'alle') {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      result = result.filter(a => {
+        if (!a.naechsterTermin) return false;
+        const d = new Date(a.naechsterTermin);
+        return zeitFilter === 'zukunft' ? d >= today : d < today;
+      });
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(a =>
@@ -118,9 +134,12 @@ export function ObjectOrderListView() {
         (a.technikerName?.toLowerCase().includes(q) ?? false)
       );
     }
-    // Älteste Frei-Aufträge zuerst
+    // Älteste Frei-Aufträge zuerst; Angenommene nach Termin
+    if (kategorieFilter === 'angenommen') {
+      return [...result].sort((x, y) => (x.naechsterTermin || '').localeCompare(y.naechsterTermin || ''));
+    }
     return [...result].sort((x, y) => (y.ageDays ?? 0) - (x.ageDays ?? 0));
-  }, [auftraege, searchQuery, kategorieFilter, typFilter, technikerFilter, agingFilter]);
+  }, [visible, searchQuery, kategorieFilter, typFilter, technikerFilter, agingFilter, zeitFilter]);
 
   const showTechnikerFilter = kategorieFilter === 'angenommen' || kategorieFilter === 'alle';
 
@@ -140,9 +159,7 @@ export function ObjectOrderListView() {
                   <Inbox className="w-3.5 h-3.5" /> Frei im Pool
                 </div>
                 <div className="text-2xl font-semibold tabular-nums">{kpis.frei}</div>
-                <div className="text-[10px] text-muted-foreground mt-0.5">
-                  {kpis.freiMitVorschlag} mit Vorschlag · {kpis.frei - kpis.freiMitVorschlag} ohne
-                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Mit Terminvorschlag</div>
               </CardContent>
             </Card>
             <Card>
@@ -194,7 +211,7 @@ export function ObjectOrderListView() {
               searchValue={searchQuery}
               onSearchChange={setSearchQuery}
               searchPlaceholder="Name, Adresse, PLZ, Stadt, Techniker..."
-              onReset={() => { setSearchQuery(''); setTypFilter('alle'); setTechnikerFilter('alle'); setAgingFilter('alle'); }}
+              onReset={() => { setSearchQuery(''); setTypFilter('alle'); setTechnikerFilter('alle'); setAgingFilter('alle'); setZeitFilter('alle'); }}
             />
             <div className="flex flex-wrap gap-2 items-center">
               <Select value={typFilter} onValueChange={(v) => setTypFilter(v as TypFilter)}>
@@ -227,6 +244,17 @@ export function ObjectOrderListView() {
                   <SelectItem value="gt5">≥ 5 Tage offen</SelectItem>
                 </SelectContent>
               </Select>
+
+              {kategorieFilter === 'angenommen' && (
+                <Select value={zeitFilter} onValueChange={(v) => setZeitFilter(v as ZeitFilter)}>
+                  <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Zeitraum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="alle">Alle Termine</SelectItem>
+                    <SelectItem value="zukunft">Zukünftig</SelectItem>
+                    <SelectItem value="vergangen">Vergangen</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
 
               <Button
                 variant={showMap ? 'default' : 'outline'}

@@ -4,11 +4,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileCheck, Clock, CheckCircle2, User, MapPin, Video, Link as LinkIcon, Loader2, Receipt, Search, Banknote, ArrowRight } from 'lucide-react';
+import { FileCheck, Clock, CheckCircle2, Video, Link as LinkIcon, Loader2, Receipt, Search, Banknote, ArrowRight } from 'lucide-react';
 import { ListSkeleton } from '@/components/ListSkeleton';
-import { useAdminQGQueue, useAdminQGPraxistests, useApprovePraxistest } from '../hooks/useAdminQGQueue';
+import { useAdminQGPraxistests, useApprovePraxistest } from '../hooks/useAdminQGQueue';
 import { useAdminAbrechnungen, useUpdateAbrechnungStatus } from '@/hooks/useAdminAbrechnung';
-import { AUFTRAGSTYP_LABELS } from '@/lib/enums';
 import { ABRECHNUNG_STATUS_LABELS, AbrechnungStatusEnum } from '@/hooks/useAbrechnungStatus';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -35,15 +34,16 @@ const STATUS_BADGE_VARIANT: Record<AbrechnungStatusEnum, 'secondary' | 'default'
 };
 
 export function QGQueueView() {
-  const { data: items, isLoading } = useAdminQGQueue();
   const { data: praxistests, isLoading: praxisLoading } = useAdminQGPraxistests();
   const { data: abrechnungen, isLoading: abrLoading } = useAdminAbrechnungen();
   const approveMutation = useApprovePraxistest();
   const updateAbrStatus = useUpdateAbrechnungStatus();
-  
-  const pendingCount = useMemo(() => items?.filter(i => !i.hasBewertung).length ?? 0, [items]);
+
   const praxisCount = praxistests?.length ?? 0;
-  const abrPendingCount = useMemo(() => abrechnungen?.filter(a => a.status !== 'offen' && a.status !== 'bezahlt').length ?? 0, [abrechnungen]);
+  const abrPendingCount = useMemo(
+    () => abrechnungen?.filter(a => a.status !== 'bezahlt').length ?? 0,
+    [abrechnungen]
+  );
 
   const handleApprove = async (onboardingId: string, name: string) => {
     try {
@@ -66,12 +66,35 @@ export function QGQueueView() {
   };
 
   return (
-    <AdminLayout title="Quality Gate" subtitle={isLoading ? undefined : `${pendingCount} zur Prüfung`} count={isLoading ? undefined : (items?.length ?? 0) + praxisCount}>
-      <Tabs defaultValue="auftraege" className="w-full">
+    <AdminLayout
+      title="Abnahme"
+      subtitle={`${praxisCount} Praxistests · ${abrPendingCount} offene Abrechnungen`}
+      count={praxisCount + abrPendingCount}
+    >
+      {/* Hero KPIs */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <Card className="border-l-4 border-l-accent shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+              <FileCheck className="w-3.5 h-3.5" /> Praxistests
+            </div>
+            <div className="text-3xl font-bold tabular-nums text-foreground">{praxisCount}</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">Ausstehend</div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-primary shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+              <Receipt className="w-3.5 h-3.5" /> Abrechnungen
+            </div>
+            <div className="text-3xl font-bold tabular-nums text-foreground">{abrPendingCount}</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">Offen</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="praxistests" className="w-full">
         <TabsList className="w-full mb-4">
-          <TabsTrigger value="auftraege" className="flex-1 text-xs">
-            Aufträge {pendingCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px]">{pendingCount}</Badge>}
-          </TabsTrigger>
           <TabsTrigger value="praxistests" className="flex-1 text-xs">
             Praxistests {praxisCount > 0 && <Badge variant="destructive" className="ml-1 text-[10px]">{praxisCount}</Badge>}
           </TabsTrigger>
@@ -80,51 +103,6 @@ export function QGQueueView() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="auftraege">
-          {isLoading ? <ListSkeleton count={4} showAvatar showBadge /> : (
-            <div className="space-y-3">
-              {!items?.length ? (
-                <div className="text-center py-8 text-muted-foreground">Keine eingereichten Aufträge</div>
-              ) : items.map((item) => (
-                <Card key={item.id} className="shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="w-4 h-4 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm text-foreground">{item.customerName}</p>
-                          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />{item.address}
-                          </p>
-                        </div>
-                      </div>
-                      {item.hasBewertung ? (
-                        <Badge variant="default" className="text-[10px]"><CheckCircle2 className="w-3 h-3 mr-0.5" />Bewertet</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-[10px]"><Clock className="w-3 h-3 mr-0.5" />Zur Prüfung</Badge>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
-                      <span>Eingereicht: {format(parseISO(item.eingereichtAm), 'd. MMM yyyy', { locale: de })}</span>
-                      <Badge variant="outline" className="text-[10px]">{AUFTRAGSTYP_LABELS[item.auftragstyp as keyof typeof AUFTRAGSTYP_LABELS] ?? item.auftragstyp}</Badge>
-                    </div>
-
-                    {!item.hasBewertung && (
-                      <div className="mt-3">
-                        <Button size="sm" className="w-full gap-1.5">
-                          <FileCheck className="w-4 h-4" />Prüfen
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
 
         <TabsContent value="praxistests">
           {praxisLoading ? <ListSkeleton count={3} showAvatar showBadge /> : (
@@ -198,9 +176,7 @@ export function QGQueueView() {
             <div className="space-y-3">
               {!abrechnungen?.length ? (
                 <div className="text-center py-8 text-muted-foreground">Keine abgenommenen Aufträge</div>
-              ) : abrechnungen.filter(a => a.status !== 'offen').length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">Keine offenen Rechnungen</div>
-              ) : abrechnungen.filter(a => a.status !== 'offen').map((item) => {
+              ) : abrechnungen.map((item) => {
                 const next = NEXT_STATUS[item.status];
                 return (
                   <Card key={item.auftragId} className="shadow-sm">
