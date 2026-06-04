@@ -35,15 +35,16 @@ const STATUS_BADGE_VARIANT: Record<AbrechnungStatusEnum, 'secondary' | 'default'
 };
 
 export function QGQueueView() {
-  const { data: items, isLoading } = useAdminQGQueue();
   const { data: praxistests, isLoading: praxisLoading } = useAdminQGPraxistests();
   const { data: abrechnungen, isLoading: abrLoading } = useAdminAbrechnungen();
   const approveMutation = useApprovePraxistest();
   const updateAbrStatus = useUpdateAbrechnungStatus();
-  
-  const pendingCount = useMemo(() => items?.filter(i => !i.hasBewertung).length ?? 0, [items]);
+
   const praxisCount = praxistests?.length ?? 0;
-  const abrPendingCount = useMemo(() => abrechnungen?.filter(a => a.status !== 'offen' && a.status !== 'bezahlt').length ?? 0, [abrechnungen]);
+  const abrPendingCount = useMemo(
+    () => abrechnungen?.filter(a => a.status !== 'bezahlt').length ?? 0,
+    [abrechnungen]
+  );
 
   const handleApprove = async (onboardingId: string, name: string) => {
     try {
@@ -66,12 +67,35 @@ export function QGQueueView() {
   };
 
   return (
-    <AdminLayout title="Quality Gate" subtitle={isLoading ? undefined : `${pendingCount} zur Prüfung`} count={isLoading ? undefined : (items?.length ?? 0) + praxisCount}>
-      <Tabs defaultValue="auftraege" className="w-full">
+    <AdminLayout
+      title="Abnahme"
+      subtitle={`${praxisCount} Praxistests · ${abrPendingCount} offene Abrechnungen`}
+      count={praxisCount + abrPendingCount}
+    >
+      {/* Hero KPIs */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <Card className="border-l-4 border-l-accent shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+              <FileCheck className="w-3.5 h-3.5" /> Praxistests
+            </div>
+            <div className="text-3xl font-bold tabular-nums text-foreground">{praxisCount}</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">Ausstehend</div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-primary shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+              <Receipt className="w-3.5 h-3.5" /> Abrechnungen
+            </div>
+            <div className="text-3xl font-bold tabular-nums text-foreground">{abrPendingCount}</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">Offen</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="praxistests" className="w-full">
         <TabsList className="w-full mb-4">
-          <TabsTrigger value="auftraege" className="flex-1 text-xs">
-            Aufträge {pendingCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px]">{pendingCount}</Badge>}
-          </TabsTrigger>
           <TabsTrigger value="praxistests" className="flex-1 text-xs">
             Praxistests {praxisCount > 0 && <Badge variant="destructive" className="ml-1 text-[10px]">{praxisCount}</Badge>}
           </TabsTrigger>
