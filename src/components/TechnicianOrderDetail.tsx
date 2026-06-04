@@ -128,6 +128,25 @@ function AbrechnungStepper({ status, approvedAt, rechnungEingegangenAm, geprueft
           );
         })}
       </div>
+      {status === 'offen' && auftragId && (
+        <button
+          onClick={() => markMutation.mutate(auftragId)}
+          disabled={markMutation.isPending}
+          className="mt-4 w-full h-10 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+        >
+          {markMutation.isPending ? 'Wird gesendet…' : 'Rechnung gestellt'}
+        </button>
+      )}
+      {status === 'rechnung_eingegangen' && (
+        <p className="mt-3 text-xs text-center text-muted-foreground">
+          Rechnung übermittelt — geht automatisch in Prüfung.
+        </p>
+      )}
+      {status === 'bezahlt' && (
+        <p className="mt-3 text-xs text-center text-green-600 dark:text-green-400 font-medium">
+          ✓ Bezahlt — Auftrag abgeschlossen
+        </p>
+      )}
     </div>
   );
 }
