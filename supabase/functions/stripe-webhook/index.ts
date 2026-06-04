@@ -21,8 +21,10 @@ function mapStripeStatus(s: string | undefined | null): SubStatus {
 async function resolveOnboardingIdForSubscription(
   supabase: ReturnType<typeof createClient>,
   subscriptionId: string,
+  customerId?: string | null,
 ): Promise<string | null> {
-  const { data } = await supabase
+  // 1) Previously seen bestellung for this subscription
+  const { data: byOrder } = await supabase
     .schema("thermocheck")
     .from("contractor_bestellungen")
     .select("onboarding_id")
@@ -31,27 +33,93 @@ async function resolveOnboardingIdForSubscription(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return (data as any)?.onboarding_id ?? null;
+  if ((byOrder as any)?.onboarding_id) return (byOrder as any).onboarding_id;
+
+  // 2) Existing subscription row (e.g. created earlier with onboarding_id resolved)
+  const { data: bySub } = await supabase
+    .schema("thermocheck")
+    .from("contractor_subscriptions")
+    .select("onboarding_id")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+  if ((bySub as any)?.onboarding_id) return (bySub as any).onboarding_id;
+
+  if (!customerId) return null;
+
+  // 3) Any other subscription/bestellung on the same Stripe customer
+  const { data: byCustSub } = await supabase
+    .schema("thermocheck")
+    .from("contractor_subscriptions")
+    .select("onboarding_id")
+    .eq("stripe_customer_id", customerId)
+    .not("onboarding_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if ((byCustSub as any)?.onboarding_id) return (byCustSub as any).onboarding_id;
+
+  const { data: byCustOrder } = await supabase
+    .schema("thermocheck")
+    .from("contractor_bestellungen")
+    .select("onboarding_id")
+    .eq("stripe_customer_id", customerId)
+    .not("onboarding_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if ((byCustOrder as any)?.onboarding_id) return (byCustOrder as any).onboarding_id;
+
+  // 4) Customer pinned on onboarding (stripe_customer_ids array)
+  const { data: byPin } = await supabase
+    .schema("thermocheck")
+    .from("contractor_onboarding")
+    .select("id")
+    .contains("stripe_customer_ids", [customerId])
+    .limit(1)
+    .maybeSingle();
+  if ((byPin as any)?.id) return (byPin as any).id;
+
+  return null;
+}
+
+async function resolveProduktKeyForSubscription(
+  supabase: ReturnType<typeof createClient>,
+  sub: Stripe.Subscription,
+): Promise<string | null> {
+  const metaKey = (sub.metadata as any)?.produkt_key as string | undefined;
+  if (metaKey) return metaKey;
+  const lookupKey = sub.items?.data?.[0]?.price?.lookup_key as string | undefined;
+  if (lookupKey) return lookupKey;
+  const priceId = sub.items?.data?.[0]?.price?.id ?? null;
+  if (priceId) {
+    const { data } = await supabase
+      .schema("thermocheck")
+      .from("contractor_produkte")
+      .select("produkt_key")
+      .or(`stripe_price_id.eq.${priceId},stripe_test_price_id.eq.${priceId}`)
+      .limit(1)
+      .maybeSingle();
+    if ((data as any)?.produkt_key) return (data as any).produkt_key;
+  }
+  return null;
 }
 
 async function upsertSubscription(
   supabase: ReturnType<typeof createClient>,
   sub: Stripe.Subscription,
 ): Promise<string | null> {
-  const onboardingId = await resolveOnboardingIdForSubscription(supabase, sub.id);
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null;
+  const onboardingId = await resolveOnboardingIdForSubscription(supabase, sub.id, customerId);
   if (!onboardingId) {
-    console.warn(`[stripe-webhook] No onboarding_id resolvable for subscription ${sub.id}`);
+    console.warn(`[stripe-webhook] No onboarding_id resolvable for subscription ${sub.id} (customer ${customerId})`);
     return null;
   }
 
-  const produktKey = (sub.metadata as any)?.produkt_key
-    ?? (sub.items?.data?.[0]?.price?.lookup_key as string | undefined)
-    ?? null;
+  const produktKey = await resolveProduktKeyForSubscription(supabase, sub);
+
 
   const payload = {
     onboarding_id: onboardingId,
     stripe_subscription_id: sub.id,
-    stripe_customer_id: typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
+    stripe_customer_id: customerId,
     produkt_key: produktKey,
     status: mapStripeStatus(sub.status),
     current_period_start: sub.current_period_start
