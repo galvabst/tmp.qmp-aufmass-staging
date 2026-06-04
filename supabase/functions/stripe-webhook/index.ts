@@ -80,19 +80,41 @@ async function resolveOnboardingIdForSubscription(
   return null;
 }
 
+async function resolveProduktKeyForSubscription(
+  supabase: ReturnType<typeof createClient>,
+  sub: Stripe.Subscription,
+): Promise<string | null> {
+  const metaKey = (sub.metadata as any)?.produkt_key as string | undefined;
+  if (metaKey) return metaKey;
+  const lookupKey = sub.items?.data?.[0]?.price?.lookup_key as string | undefined;
+  if (lookupKey) return lookupKey;
+  const priceId = sub.items?.data?.[0]?.price?.id ?? null;
+  if (priceId) {
+    const { data } = await supabase
+      .schema("thermocheck")
+      .from("contractor_produkte")
+      .select("produkt_key")
+      .or(`stripe_price_id.eq.${priceId},stripe_test_price_id.eq.${priceId}`)
+      .limit(1)
+      .maybeSingle();
+    if ((data as any)?.produkt_key) return (data as any).produkt_key;
+  }
+  return null;
+}
+
 async function upsertSubscription(
   supabase: ReturnType<typeof createClient>,
   sub: Stripe.Subscription,
 ): Promise<string | null> {
-  const onboardingId = await resolveOnboardingIdForSubscription(supabase, sub.id);
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null;
+  const onboardingId = await resolveOnboardingIdForSubscription(supabase, sub.id, customerId);
   if (!onboardingId) {
-    console.warn(`[stripe-webhook] No onboarding_id resolvable for subscription ${sub.id}`);
+    console.warn(`[stripe-webhook] No onboarding_id resolvable for subscription ${sub.id} (customer ${customerId})`);
     return null;
   }
 
-  const produktKey = (sub.metadata as any)?.produkt_key
-    ?? (sub.items?.data?.[0]?.price?.lookup_key as string | undefined)
-    ?? null;
+  const produktKey = await resolveProduktKeyForSubscription(supabase, sub);
+
 
   const payload = {
     onboarding_id: onboardingId,
