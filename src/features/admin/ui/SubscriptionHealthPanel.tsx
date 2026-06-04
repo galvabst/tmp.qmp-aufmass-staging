@@ -410,6 +410,7 @@ function TechnicianDetailDialog({
                     </div>
                   )}
                 </div>
+                <ManualConfirmBlock row={r} />
               </div>
             );
           })}
