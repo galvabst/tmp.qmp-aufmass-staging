@@ -33,6 +33,9 @@ export interface SubscriptionHealthRow {
   aktualisiert_am: string;
   health_level: HealthLevel;
   health_reason: string | null;
+  manuell_bestaetigt_am: string | null;
+  manuell_bestaetigt_von: string | null;
+  manuell_bestaetigt_notiz: string | null;
 }
 
 /**
