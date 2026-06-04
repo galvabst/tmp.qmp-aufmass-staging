@@ -30,8 +30,6 @@ import { NoContractorAccessScreen } from '@/components/ui/NoContractorAccessScre
 import { AuthRequiredScreen } from '@/components/ui/AuthRequiredScreen';
 import { TechnicalErrorScreen } from '@/components/ui/TechnicalErrorScreen';
 import { ONBOARDING_STEPS } from '@/lib/onboarding-config';
-import { usePflichtVideos } from '@/hooks/usePflichtVideos';
-import { PflichtVideoOverlay } from '@/features/akademie/ui/PflichtVideoOverlay';
 import { TechnikerBenachrichtigungenBanner } from '@/components/TechnikerBenachrichtigungenBanner';
 import { SubscriptionWarningBanner } from '@/components/subscription/SubscriptionAccessGate';
 
@@ -85,14 +83,8 @@ const Index = () => {
   const { data: bewertungStats } = useTechnikerBewertungStats(contractorOnboardingId);
   const completedSteps = ((onboardingRecord as any)?.completed_steps as string[] | undefined) ?? [];
   const hasCompletedAkademie = completedSteps.includes('akademie');
-  
-  // Pflicht-Videos for ready contractors (trainers only see lessons marked "auch_fuer_trainer")
-  const { data: pflichtVideos, refetch: refetchPflichtVideos } = usePflichtVideos(
-    contractorOnboardingId,
-    onboardingRecord?.onboarding_status,
-    onboardingRecord?.is_trainer === true,
-    hasCompletedAkademie
-  );
+  // Pflicht-Video-Gate komplett entfernt: Pflicht-Videos werden ausschließlich
+  // im Onboarding-Flow (Akademie-Schritt) erzwungen, niemals im laufenden Betrieb.
 
   const [activeTab, setActiveTab] = useState<Tab>('pool');
   const [selectedOrder, setSelectedOrder] = useState<TechnicianOrder | null>(null);
@@ -406,10 +398,6 @@ const Index = () => {
     );
   }
 
-  // Pflicht-Video-Gate komplett deaktiviert: Pflicht-Videos werden ausschließlich
-  // im Onboarding-Flow (Akademie-Schritt) erzwungen, niemals im laufenden Betrieb.
-  // Hardcoded false, damit auch bei stale Caches kein Overlay erscheinen kann.
-  void pflichtVideos; void refetchPflichtVideos;
 
   const handleStartRework = async (orderId: string) => {
     const order = orders.find(o => o.id === orderId);

@@ -1,28 +1,31 @@
+
 ## Problem
 
-Bereits einsatzbereite Techniker (Thorsten u.a.) werden vom `PflichtVideoOverlay` blockiert, sobald im Akademie-Backend eine neue Lektion als Pflicht („nur_fuer_neue=false") markiert wird. Sie können die App nicht mehr nutzen, bis sie das Video gesehen haben.
+Die **veröffentlichte** App (quick-measure-pro.lovable.app) läuft noch mit dem **alten** JavaScript-Bundle, in dem das Video-Gate aktiv war. Der Code im Projekt ist zwar schon gefixt (Hook gibt `[]` zurück, Gate ist deaktiviert), aber die Änderungen wurden **nie erfolgreich publiziert** — wahrscheinlich wegen der 43 Security Findings, die den Update-Button blockieren.
 
-Das Overlay greift aktuell für jeden `onboarding_status='ready'`-Techniker, dessen `completed_steps` den Eintrag `'akademie'` nicht enthält oder der die spezifische Lektion noch nicht abgeschlossen hat.
+## Plan
 
-## Lösung (Frontend only)
+### Schritt 1: Video-Gate komplett entfernen (nicht nur deaktivieren)
 
-Pflicht-Video-Gating komplett deaktivieren, sobald ein Techniker `einsatzbereit` ist. Pflichtvideos sind dann ein reines Onboarding-Konstrukt; nachträglich hinzugefügte Pflicht-Lektionen blockieren niemanden mehr.
+Aktuell ist der Import von `PflichtVideoOverlay` und `usePflichtVideos` noch in `Index.tsx` vorhanden, nur der Render-Pfad ist auskommentiert. Das ist halbherzig — komplett entfernen:
 
-### Änderung
+- **Index.tsx**: Import von `PflichtVideoOverlay` und `usePflichtVideos` entfernen, sowie die `void`-Zeilen und den gesamten Hook-Aufruf
+- Dateien `PflichtVideoOverlay.tsx` und `usePflichtVideos.ts` bleiben bestehen (könnten im Onboarding noch referenziert werden), aber der Gate in Index.tsx wird restlos entfernt
 
-**`src/hooks/usePflichtVideos.ts`**
-- Hook gibt sofort `[]` zurück, sobald `onboardingStatus === 'ready'` ist – unabhängig von `completed_steps` oder `contractor_akademie_lektions_fortschritt`.
-- `enabled` entsprechend angepasst: Query nur noch laufen lassen, wenn Status ≠ `'ready'` (de facto deaktiviert sie sich, weil das Overlay ohnehin nur bei `'ready'` getriggert würde → effektiv kein Overlay mehr).
+### Schritt 2: Build validieren
 
-Da das Overlay in `src/pages/Index.tsx` nur rendert, wenn `pflichtVideos.length > 0`, verschwindet der Block automatisch. Keine weiteren Aufruferänderungen nötig.
+- Sicherstellen, dass der Build nach dem Entfernen sauber durchläuft (keine toten Imports)
 
-### Was bleibt unverändert
+### Schritt 3: Publish ermöglichen
 
-- Onboarding-Flow (Academy als Schritt) – funktioniert weiter, weil dort Status noch nicht `'ready'` ist.
-- Admin kann weiter Lektionen als Pflicht markieren – sie gelten nur für neue Techniker im Onboarding.
-- DB-Schema, RPCs, RLS: keine Änderungen.
+- Nach Implementierung: Du klickst auf **Publish > Update** im Lovable-Editor
+- Falls der Button weiterhin blockiert ist wegen Security Findings: diese müssen im Security-Panel reviewed/dismissed werden
 
-### Validierung
+## Technische Details
 
-- `Index.tsx` reload: Thorsten (ready, ohne Lektionsfortschritt) sieht kein Overlay.
-- Neuer Techniker (Status `onboarding`) sieht weiterhin Pflicht-Videos im Onboarding-Schritt.
+Betroffene Datei: `src/pages/Index.tsx`
+- Zeile 33-34: Imports entfernen (`usePflichtVideos`, `PflichtVideoOverlay`)  
+- Zeile ~100-110: Hook-Aufruf `usePflichtVideos(...)` entfernen
+- Zeile 409-412: Kommentar und `void`-Zeilen entfernen
+
+Keine DB-Migration nötig. Keine neuen Dateien.
