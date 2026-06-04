@@ -159,9 +159,7 @@ export function ObjectOrderListView() {
                   <Inbox className="w-3.5 h-3.5" /> Frei im Pool
                 </div>
                 <div className="text-2xl font-semibold tabular-nums">{kpis.frei}</div>
-                <div className="text-[10px] text-muted-foreground mt-0.5">
-                  {kpis.freiMitVorschlag} mit Vorschlag · {kpis.frei - kpis.freiMitVorschlag} ohne
-                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">Mit Terminvorschlag</div>
               </CardContent>
             </Card>
             <Card>
