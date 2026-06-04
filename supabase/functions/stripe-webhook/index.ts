@@ -21,8 +21,10 @@ function mapStripeStatus(s: string | undefined | null): SubStatus {
 async function resolveOnboardingIdForSubscription(
   supabase: ReturnType<typeof createClient>,
   subscriptionId: string,
+  customerId?: string | null,
 ): Promise<string | null> {
-  const { data } = await supabase
+  // 1) Previously seen bestellung for this subscription
+  const { data: byOrder } = await supabase
     .schema("thermocheck")
     .from("contractor_bestellungen")
     .select("onboarding_id")
@@ -31,7 +33,51 @@ async function resolveOnboardingIdForSubscription(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return (data as any)?.onboarding_id ?? null;
+  if ((byOrder as any)?.onboarding_id) return (byOrder as any).onboarding_id;
+
+  // 2) Existing subscription row (e.g. created earlier with onboarding_id resolved)
+  const { data: bySub } = await supabase
+    .schema("thermocheck")
+    .from("contractor_subscriptions")
+    .select("onboarding_id")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+  if ((bySub as any)?.onboarding_id) return (bySub as any).onboarding_id;
+
+  if (!customerId) return null;
+
+  // 3) Any other subscription/bestellung on the same Stripe customer
+  const { data: byCustSub } = await supabase
+    .schema("thermocheck")
+    .from("contractor_subscriptions")
+    .select("onboarding_id")
+    .eq("stripe_customer_id", customerId)
+    .not("onboarding_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if ((byCustSub as any)?.onboarding_id) return (byCustSub as any).onboarding_id;
+
+  const { data: byCustOrder } = await supabase
+    .schema("thermocheck")
+    .from("contractor_bestellungen")
+    .select("onboarding_id")
+    .eq("stripe_customer_id", customerId)
+    .not("onboarding_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if ((byCustOrder as any)?.onboarding_id) return (byCustOrder as any).onboarding_id;
+
+  // 4) Customer pinned on onboarding (stripe_customer_ids array)
+  const { data: byPin } = await supabase
+    .schema("thermocheck")
+    .from("contractor_onboarding")
+    .select("id")
+    .contains("stripe_customer_ids", [customerId])
+    .limit(1)
+    .maybeSingle();
+  if ((byPin as any)?.id) return (byPin as any).id;
+
+  return null;
 }
 
 async function upsertSubscription(
