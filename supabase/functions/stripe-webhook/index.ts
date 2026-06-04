@@ -119,7 +119,7 @@ async function upsertSubscription(
   const payload = {
     onboarding_id: onboardingId,
     stripe_subscription_id: sub.id,
-    stripe_customer_id: typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
+    stripe_customer_id: customerId,
     produkt_key: produktKey,
     status: mapStripeStatus(sub.status),
     current_period_start: sub.current_period_start
