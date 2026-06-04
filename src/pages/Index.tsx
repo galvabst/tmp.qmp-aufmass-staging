@@ -406,19 +406,10 @@ const Index = () => {
     );
   }
 
-  // Pflicht-Video gate: never block contractors whose academy step is already completed.
-  if (isDbReady && !hasCompletedAkademie && pflichtVideos && pflichtVideos.length > 0 && contractorOnboardingId) {
-    return (
-      <PflichtVideoOverlay
-        videos={pflichtVideos}
-        contractorId={contractorOnboardingId}
-        onAllCompleted={() => {
-          refetchPflichtVideos();
-          toast.success('Alle Pflicht-Videos abgeschlossen! ✓');
-        }}
-      />
-    );
-  }
+  // Pflicht-Video-Gate komplett deaktiviert: Pflicht-Videos werden ausschließlich
+  // im Onboarding-Flow (Akademie-Schritt) erzwungen, niemals im laufenden Betrieb.
+  // Hardcoded false, damit auch bei stale Caches kein Overlay erscheinen kann.
+  void pflichtVideos; void refetchPflichtVideos;
 
   const handleStartRework = async (orderId: string) => {
     const order = orders.find(o => o.id === orderId);
