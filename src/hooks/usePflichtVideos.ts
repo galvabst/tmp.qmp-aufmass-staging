@@ -23,74 +23,12 @@ export function usePflichtVideos(
   return useQuery<PflichtVideo[]>({
     queryKey: ['pflicht-videos', contractorId, onboardingStatus, isTrainer, hasCompletedAkademie],
     queryFn: async () => {
-      if (!contractorId || onboardingStatus !== 'ready') return [];
-      // Einsatzbereite Techniker werden NICHT mehr durch nachträglich hinzugefügte
-      // Pflicht-Lektionen blockiert. Pflicht-Videos gelten nur im Onboarding.
+      // Einsatzbereite Techniker werden NICHT mehr durch nachträglich als Pflicht
+      // markierte Akademie-Lektionen blockiert. Pflicht-Videos sind ausschließlich
+      // ein Onboarding-Konstrukt und gelten für ready-Techniker nicht mehr.
       return [];
-      if (hasCompletedAkademie) return [];
-
-      // 1. Fetch all active, mandatory-for-all lessons with video
-      let query = supabaseTC
-        .from('contractor_akademie_lektionen')
-        .select('id, titel, video_url, code, reihenfolge, modul_id, nur_fuer_neue, auch_fuer_trainer')
-        .eq('ist_aktiv', true)
-        .eq('nur_fuer_neue', false)
-        .not('video_url', 'is', null);
-
-      // Trainers only see lessons explicitly marked for them
-      if (isTrainer) {
-        query = query.eq('auch_fuer_trainer', true);
-      }
-
-      const { data: lektionen, error: lekErr } = await query;
-
-      if (lekErr) {
-        console.warn('[PflichtVideos] Error fetching lektionen:', lekErr);
-        return [];
-      }
-
-      if (!lektionen || lektionen.length === 0) return [];
-
-      // 2. Fetch completed lektion IDs for this contractor
-      const { data: fortschritt, error: fortErr } = await supabaseTC
-        .from('contractor_akademie_lektions_fortschritt')
-        .select('lektion_id')
-        .eq('contractor_id', contractorId)
-        .eq('status', 'completed');
-
-      if (fortErr) {
-        console.warn('[PflichtVideos] Error fetching fortschritt:', fortErr);
-        return [];
-      }
-
-      const completedIds = new Set((fortschritt || []).map((f: any) => f.lektion_id));
-
-      // 3. Filter out completed ones
-      const pending = lektionen.filter((l: any) => !completedIds.has(l.id) && l.video_url);
-
-      if (pending.length === 0) return [];
-
-      // 4. Fetch module titles for display
-      const modulIds = [...new Set(pending.map((l: any) => l.modul_id))];
-      const { data: module } = await supabaseTC
-        .from('contractor_akademie_module')
-        .select('id, titel')
-        .in('id', modulIds);
-
-      const modulMap = new Map((module || []).map((m: any) => [m.id, m.titel]));
-
-      return pending
-        .map((l: any) => ({
-          id: l.id,
-          titel: l.titel,
-          video_url: l.video_url!,
-          code: l.code,
-          reihenfolge: l.reihenfolge,
-          modul_titel: modulMap.get(l.modul_id) || '',
-        }))
-        .sort((a, b) => a.reihenfolge - b.reihenfolge);
     },
-    enabled: !!contractorId && onboardingStatus === 'ready' && !hasCompletedAkademie,
+    enabled: false,
     initialData: [],
     staleTime: 2 * 60 * 1000,
   });
