@@ -1,5 +1,6 @@
 import { AlertTriangle, Lock } from "lucide-react";
 import { useSubscriptionAccess } from "@/hooks/useSubscriptionAccess";
+import { useImpersonationState } from "@/hooks/useImpersonation";
 import { useMyContractorOnboardingId } from "@/hooks/useAkademieFortschritt";
 import { useQuery } from "@tanstack/react-query";
 import { supabaseTC } from "@/integrations/supabase/thermocheck-client";
@@ -42,7 +43,9 @@ function useIsReadyContractor(): boolean {
  */
 export function SubscriptionWarningBanner() {
   const { data } = useSubscriptionAccess();
+  const impersonation = useImpersonationState();
   const isReady = useIsReadyContractor();
+  if (impersonation) return null;
   if (!isReady) return null;
   if (!data || data.access_state !== "warning") return null;
 
@@ -73,7 +76,9 @@ export function SubscriptionWarningBanner() {
  */
 export function SubscriptionBlockedOverlay() {
   const { data } = useSubscriptionAccess();
+  const impersonation = useImpersonationState();
   const isReady = useIsReadyContractor();
+  if (impersonation) return null;
   if (!isReady) return null;
   if (!data || data.access_state !== "blocked") return null;
 

@@ -144,17 +144,18 @@ export function useImpersonation() {
     }
 
     try {
-      const result = await Promise.race([
+      type RestoreResult = Awaited<ReturnType<typeof supabase.auth.setSession>> | { error: Error };
+      const result: RestoreResult = await Promise.race([
         supabase.auth.setSession({
           access_token: backup.access_token,
           refresh_token: backup.refresh_token,
         }),
-        new Promise<{ error: Error }>((resolve) =>
+        new Promise<RestoreResult>((resolve) =>
           setTimeout(() => resolve({ error: new Error('setSession timeout') }), 3000),
         ),
       ]);
-      if ((result as any)?.error) {
-        console.error('Restore admin session failed', (result as any).error);
+      if (result.error) {
+        console.error('Restore admin session failed', result.error);
         await forceLogout();
         return;
       }
