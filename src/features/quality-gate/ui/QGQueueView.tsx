@@ -177,9 +177,7 @@ export function QGQueueView() {
             <div className="space-y-3">
               {!abrechnungen?.length ? (
                 <div className="text-center py-8 text-muted-foreground">Keine abgenommenen Aufträge</div>
-              ) : abrechnungen.filter(a => a.status !== 'offen').length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">Keine offenen Rechnungen</div>
-              ) : abrechnungen.filter(a => a.status !== 'offen').map((item) => {
+              ) : abrechnungen.map((item) => {
                 const next = NEXT_STATUS[item.status];
                 return (
                   <Card key={item.auftragId} className="shadow-sm">
