@@ -480,3 +480,78 @@ function TechnicianDetailDialog({
     </Dialog>
   );
 }
+
+function ManualConfirmBlock({ row }: { row: SubscriptionHealthRow }) {
+  const queryClient = useQueryClient();
+  const [notiz, setNotiz] = useState("");
+  const [busy, setBusy] = useState(false);
+  const confirmed = !!row.manuell_bestaetigt_am;
+
+  const confirm = async () => {
+    setBusy(true);
+    const { error } = await supabaseTC.rpc("subscription_manuell_bestaetigen", {
+      p_subscription_id: row.subscription_id,
+      p_notiz: notiz || null,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(`Bestätigen fehlgeschlagen: ${error.message}`);
+      return;
+    }
+    toast.success("Abo manuell als bezahlt bestätigt.");
+    setNotiz("");
+    await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+  };
+
+  const reset = async () => {
+    setBusy(true);
+    const { error } = await supabaseTC.rpc("subscription_manuell_zuruecksetzen", {
+      p_subscription_id: row.subscription_id,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(`Zurücksetzen fehlgeschlagen: ${error.message}`);
+      return;
+    }
+    toast.success("Manuelle Bestätigung zurückgenommen.");
+    await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+  };
+
+  if (confirmed) {
+    return (
+      <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/60 p-2 text-xs">
+        <div className="flex items-start justify-between gap-2">
+          <div className="text-emerald-800">
+            <div className="flex items-center gap-1 font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Manuell bestätigt am {fmtDate(row.manuell_bestaetigt_am)}
+            </div>
+            {row.manuell_bestaetigt_notiz && (
+              <p className="mt-0.5 text-emerald-700">{row.manuell_bestaetigt_notiz}</p>
+            )}
+          </div>
+          <Button size="sm" variant="ghost" onClick={reset} disabled={busy}>
+            <Undo2 className="mr-1 h-3.5 w-3.5" />
+            Zurücknehmen
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-1.5 sm:flex-row">
+      <Input
+        value={notiz}
+        onChange={(e) => setNotiz(e.target.value)}
+        placeholder="Notiz (z.B. „Zahlt per Überweisung – Beleg im Drive")"
+        className="h-8 text-xs"
+        disabled={busy}
+      />
+      <Button size="sm" variant="secondary" onClick={confirm} disabled={busy}>
+        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+        Als bezahlt markieren
+      </Button>
+    </div>
+  );
+}
