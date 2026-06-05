@@ -12,10 +12,27 @@ import {
 import {
   useAdminSubscriptionHealth, SubscriptionHealthRow, HealthLevel,
 } from "@/features/admin/hooks/useAdminSubscriptionHealth";
+import {
+  useAdminEinmaligeOrderHealth, EinmaligeOrderHealthRow,
+} from "@/features/admin/hooks/useAdminEinmaligeOrderHealth";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseTC } from "@/integrations/supabase/thermocheck-client";
 import { toast } from "sonner";
+
+type PipelineFilter = "all" | "onboarding" | "active";
+type TypFilter = "all" | "abo" | "einmalig";
+
+const PRODUKT_LABEL_EINMALIG: Record<string, string> = {
+  "ausweiskarte": "Ausweiskarte",
+  "pullover": "Pullover",
+  "schlappen": "Schlappen",
+  "arbeitsschuhe": "Arbeitsschuhe",
+};
+
+function isActiveContractor(row: { effective_onboarding_status: string | null; is_trainer: boolean }) {
+  return row.is_trainer || row.effective_onboarding_status === "ready";
+}
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
