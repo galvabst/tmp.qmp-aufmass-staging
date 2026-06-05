@@ -13,6 +13,7 @@ import {
 import {
   createInitialOnboardingState,
   calculateOnboardingProgress,
+  getRequiredOrderCount,
 } from '@/lib/onboarding-config';
 import { getOnboardingStorageKey, ONBOARDING_STORAGE_KEY_PREFIX } from '@/lib/onboarding-storage';
 import { isUuid } from '@/lib/utils';
@@ -28,8 +29,6 @@ export function clearOnboardingLocalStorage(profileId?: string) {
   if (profileId) {
     localStorage.removeItem(ONBOARDING_STORAGE_KEY_PREFIX);
   }
-
-  console.log('[Onboarding] localStorage cleared due to DB sync', { key });
 }
 
 /**
@@ -62,7 +61,6 @@ const loadPersistedState = (initialProfile: ApplicantProfile, storageKey: string
             saved = legacy;
             localStorage.setItem(storageKey, legacy);
             localStorage.removeItem(ONBOARDING_STORAGE_KEY_PREFIX);
-            console.log('[Onboarding] Migrated legacy localStorage state to user key');
           }
         } catch {
           // Ignore legacy parse errors here; normal load flow will handle invalid JSON.
@@ -77,10 +75,6 @@ const loadPersistedState = (initialProfile: ApplicantProfile, storageKey: string
       // Check if akademie data has valid UUIDs - if not, reset it
       const hasValidAkademie = hasValidAkademieIds(parsed.akademieHauptmodule);
 
-      if (!hasValidAkademie && parsed.akademieHauptmodule?.length) {
-        console.log('[Onboarding] Legacy akademie IDs detected, resetting akademie data...');
-      }
-
       // Merge mit initialem State um fehlende Felder zu ergänzen
       return {
         ...initial,
@@ -93,8 +87,8 @@ const loadPersistedState = (initialProfile: ApplicantProfile, storageKey: string
         akademieModule: [],
       };
     }
-  } catch (e) {
-    console.warn('Failed to load onboarding state from localStorage', e);
+  } catch {
+    // localStorage nicht lesbar/ungültig – mit frischem State fortfahren
   }
   return createInitialOnboardingState(initialProfile);
 };
@@ -110,7 +104,6 @@ export function useOnboardingState(
   const [state, setState] = useState<OnboardingState>(() => {
     // Bei forceReset: frischer State ohne localStorage
     if (forceReset) {
-      console.log('[Onboarding] Force reset triggered - starting fresh');
       return createInitialOnboardingState(initialProfile);
     }
     return isPreview
@@ -123,8 +116,8 @@ export function useOnboardingState(
     if (isPreview || forceReset) return; // Don't persist in preview or force-reset mode
     try {
       localStorage.setItem(storageKey, JSON.stringify(state));
-    } catch (e) {
-      console.warn('Failed to save onboarding state to localStorage', e);
+    } catch {
+      // localStorage nicht beschreibbar (z.B. voll/privat) – Persist ist best-effort
     }
   }, [state, isPreview, forceReset, storageKey]);
 
@@ -159,8 +152,6 @@ export function useOnboardingState(
       const stateIds = collectLeafIds(currentHauptmodule);
       
       if (currentHauptmodule.length === 0 || !hasValidIds || dbIds !== stateIds) {
-        console.log('[Onboarding] Hydrating akademie from database...');
-        
         // Build a flat lookup of existing progress by ID
         const progressMap = new Map<string, { abgeschlossen: boolean; abgeschlossenAt?: string }>();
         for (const hm of currentHauptmodule) {
@@ -463,7 +454,6 @@ export function useOnboardingState(
       praxistestEingereicht: dbState.praxistestEingereicht ?? prev.praxistestEingereicht,
       praxistestFreigabe: dbState.praxistestFreigabe ?? prev.praxistestFreigabe,
     }));
-    console.log('[Onboarding] Atomic DB hydration complete:', dbState);
   }, []);
 
   // Berechnete Werte
@@ -494,8 +484,7 @@ export function useOnboardingState(
         // Preview-Modus: Bestellungen-Validierung überspringen (für Development)
         if (isPreview) return true;
         if (isTrainer) return true;
-        const requiredCount = state.oberteilAuswahl === 'beides' ? 7 : 6;
-        return state.bestellungenBestaetigt.length >= requiredCount;
+        return state.bestellungenBestaetigt.length >= getRequiredOrderCount(state.oberteilAuswahl);
       case 'equipment':
         if (isPreview) return true;
         if (isTrainer) return true;

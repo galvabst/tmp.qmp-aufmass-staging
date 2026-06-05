@@ -23,7 +23,6 @@ export function useOnboardingSizes() {
       
       const spaltenName = GROESSEN_SPALTEN_MAP[produktId];
       if (!spaltenName) {
-        console.warn(`[useOnboardingSizes] Keine Größen-Spalte für Produkt: ${produktId}`);
         return;
       }
       
@@ -41,7 +40,6 @@ export function useOnboardingSizes() {
         throw error;
       }
       
-      console.log(`[useOnboardingSizes] Größe gespeichert: ${produktId} = ${groesse}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contractor-profile'] });

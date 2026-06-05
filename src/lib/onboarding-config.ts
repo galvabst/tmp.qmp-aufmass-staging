@@ -6,6 +6,7 @@ import {
   AkademieHauptmodul,
   ApplicantProfile,
   OnboardingState,
+  OberteilAuswahl,
   STEP_ORDER,
 } from '@/types/onboarding';
 
@@ -231,4 +232,12 @@ export function calculateOnboardingProgress(state: OnboardingState): number {
   const totalSteps = STEP_ORDER.length;
   const completedSteps = state.completedSteps.length;
   return Math.round((completedSteps / totalSteps) * 100);
+}
+
+// Anzahl der Pflicht-Bestellungen im Bestellungen-Schritt. Bei Oberteil-Auswahl
+// "beides" zählen T-Shirt UND Poloshirt separat → eine Bestellung mehr.
+export const PFLICHT_BESTELLUNGEN_ANZAHL = 6;
+
+export function getRequiredOrderCount(oberteilAuswahl: OberteilAuswahl): number {
+  return PFLICHT_BESTELLUNGEN_ANZAHL + (oberteilAuswahl === 'beides' ? 1 : 0);
 }

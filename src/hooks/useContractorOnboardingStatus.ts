@@ -183,12 +183,6 @@ export function useContractorOnboardingStatus(
       if (!record) {
         try {
           record = await fetchDirectOnboarding(userId, accessToken);
-          if (record) {
-            console.log('[ContractorOnboardingStatus] Loaded record via direct fallback:', {
-              id: record.id,
-              status: record.onboarding_status,
-            });
-          }
         } catch (fallbackError) {
           console.error('[ContractorOnboardingStatus] Direct fallback failed:', fallbackError);
           if (rpcError) {
@@ -205,18 +199,8 @@ export function useContractorOnboardingStatus(
       }
 
       if (!record) {
-        console.log('[ContractorOnboardingStatus] No onboarding record found for user:', userId);
         return { record: null, errorMessage: null };
       }
-      
-      console.log('[ContractorOnboardingStatus] Loaded record:', {
-        id: record.id,
-        status: record.onboarding_status,
-        substatus: record.onboarding_substatus,
-        trainer_freigabe: record.trainer_freigabe,
-        lektionen: record.lektionen_abgeschlossen,
-        bestellungen: record.bestellungen_bezahlt,
-      });
 
       return {
         record: mapOnboardingRecord(record),

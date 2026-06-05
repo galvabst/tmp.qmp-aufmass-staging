@@ -55,7 +55,6 @@ export function useContractorOrders(profileId: string | null) {
 
       const onboardingData = await onboardingResponse.json();
       if (!onboardingData || onboardingData.length === 0) {
-        console.log("[useContractorOrders] No onboarding record found for profile:", profileId);
         return [];
       }
 
@@ -80,7 +79,6 @@ export function useContractorOrders(profileId: string | null) {
       }
 
       const data = await response.json();
-      console.log("[useContractorOrders] Loaded orders:", data?.length || 0);
       return (data || []) as ContractorBestellung[];
     },
     enabled: !!profileId,

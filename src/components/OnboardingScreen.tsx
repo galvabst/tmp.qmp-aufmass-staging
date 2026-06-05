@@ -27,8 +27,9 @@ import {
   MOCK_EQUIPMENT,
   ONBOARDING_STEPS,
   createInitialOnboardingState,
+  getRequiredOrderCount,
 } from '@/lib/onboarding-config';
-import { CoachingSlot, ApplicantProfile, OnboardingStepId } from '@/types/onboarding';
+import { CoachingSlot, ApplicantProfile, OnboardingStepId, STEP_ORDER } from '@/types/onboarding';
 import { Button } from '@/components/ui/button';
 import { getOnboardingStorageKey } from '@/lib/onboarding-storage';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
@@ -154,8 +155,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     if (isPreview || hasHydratedOnboardingStateRef.current || !isOnboardingStateLoaded || !dbOnboardingState) return;
     hasHydratedOnboardingStateRef.current = true;
 
-    console.log('[Onboarding] Hydrating onboarding state from DB (atomic):', dbOnboardingState);
-
     hydrateFromDb({
       gewerbescheinUrl: dbOnboardingState.gewerbescheinUrl,
       gewerbescheinSpaeter: dbOnboardingState.gewerbescheinSpaeter,
@@ -186,7 +185,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         (dbOnboardingState.completedSteps && dbOnboardingState.completedSteps.length > 0) ||
         dbOnboardingState.introVideoWatched === true;
       if (dbHasRealProgress) {
-        console.log('[Onboarding] DB shows real progress, skipping forceReset');
         return;
       }
     }
@@ -204,7 +202,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         (Array.isArray(parsed.completedSteps) && parsed.completedSteps.length > 0);
 
       if (isDefinitelyStale) {
-        console.warn('[Onboarding] Stale localStorage detected - forcing reset');
         clearOnboardingLocalStorage(profileId);
         setForceReset(true);
       }
@@ -310,7 +307,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     const dbKeysStr = paidKeys.slice().sort().join(',');
     
     if (currentKeys !== dbKeysStr) {
-      console.log('[Onboarding] Replacing bestellungenBestaetigt with DB values:', paidKeys);
       setBestellungenFromDb(paidKeys);
     }
 
@@ -319,25 +315,21 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       const hasTshirt = paidKeys.includes('tshirt');
       const hasPoloshirt = paidKeys.includes('poloshirt');
       if (hasTshirt && hasPoloshirt) {
-        console.log('[Onboarding] Auto-detected oberteilAuswahl: beides (from paid orders)');
         setOberteilAuswahl('beides');
       } else if (hasTshirt) {
-        console.log('[Onboarding] Auto-detected oberteilAuswahl: tshirt (from paid orders)');
         setOberteilAuswahl('tshirt');
       } else if (hasPoloshirt) {
-        console.log('[Onboarding] Auto-detected oberteilAuswahl: poloshirt (from paid orders)');
         setOberteilAuswahl('poloshirt');
       }
     }
 
     // Bereinigung: Wenn Zahlungen fehlschlagen und "bestellungen" in completedSteps ist,
     // aber nicht mehr genug bezahlte Produkte vorhanden → completedSteps bereinigen
-    const requiredCount = state.oberteilAuswahl === 'beides' ? 7 : 6;
+    const requiredCount = getRequiredOrderCount(state.oberteilAuswahl);
     if (paidKeys.length < requiredCount && state.completedSteps.includes('bestellungen')) {
-      console.log('[Onboarding] Removing bestellungen from completedSteps – paid products dropped below required count');
       const cleanedSteps = state.completedSteps.filter(s => s !== 'bestellungen');
       // Auch nachfolgende Schritte entfernen, da Bestellungen Voraussetzung ist
-      const stepOrder = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+      const stepOrder = STEP_ORDER;
       const bestellungenIndex = stepOrder.indexOf('bestellungen');
       const finalSteps = cleanedSteps.filter(s => stepOrder.indexOf(s) < bestellungenIndex);
       
@@ -347,7 +339,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
           completedSteps: finalSteps,
         });
       } catch (e) {
-        console.warn('[Onboarding] Failed to clean completedSteps in DB:', e);
+        console.error('[Onboarding] Failed to clean completedSteps in DB:', e);
       }
     }
   }, [ordersLoaded, dbOrders, state.bestellungenBestaetigt, setBestellungenFromDb, state.oberteilAuswahl, setOberteilAuswahl]);
@@ -367,8 +359,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
 
     if (!hasPendingOrders) return;
 
-    console.log('[Onboarding] Starting payment polling (pending orders detected)');
-    
     pollingRef.current = setInterval(() => {
       refetchOrders();
     }, 3000);
@@ -390,8 +380,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     
     if (paymentStatus === 'success' && sessionId) {
       paymentHandledRef.current = true;
-      console.log('[Onboarding] Payment success detected, session:', sessionId);
-      
       toast.success('Zahlung erfolgreich! 🎉');
       refetchOrders();
       
@@ -424,7 +412,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
           .select('profile_id, contractors(vorname, nachname)')
           .not('profile_id', 'is', null);
         if (error) {
-          console.warn('[OnboardingPreview] Failed to load contractors:', error);
           return;
         }
         const list = (data || [])
@@ -435,7 +422,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
           }));
         setPreviewContractors(list);
       } catch (e) {
-        console.warn('[OnboardingPreview] Failed to load contractors:', e);
+        console.error('[OnboardingPreview] Failed to load contractors:', e);
       }
     })();
   }, [isPreview]);
@@ -523,8 +510,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
           started_at: new Date().toISOString(),
           video_progress_seconds: 0,
         }, { onConflict: 'contractor_id,lektion_id' }).then(({ error }) => {
-          if (error) console.warn('[AkademieComplete] DB upsert failed:', error.message);
-          else console.log('[AkademieComplete] Lektion', lId, 'marked completed in DB');
+          if (error) console.error('[AkademieComplete] DB upsert failed:', error.message);
         });
       }
       
@@ -658,14 +644,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     toast.success('Produkt als bestellt markiert');
   };
 
-  const handleStartModule = (moduleId: string) => {
-    toast.info('Video wird gestartet...');
-    setTimeout(() => {
-      completeAkademieModul(moduleId);
-      toast.success('Modul abgeschlossen!');
-    }, 2000);
-  };
-
   const handleStartTest = () => {
     setQuizOpen(true);
   };
@@ -679,7 +657,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       await saveAkademieTestBestanden();
       setAkademieTestBestanden(true);
       toast.success('Abschlusstest bestanden! 🎉');
-      console.log('[Onboarding] akademie_test_bestanden saved to DB');
     } catch (error: any) {
       console.error('[Onboarding] Failed to save akademie_test_bestanden:', error);
       toast.error(error?.message || 'Konnte den Abschlusstest nicht speichern. Bitte erneut versuchen.');
@@ -725,7 +702,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         try {
           await (supabaseTC.from('contractor_onboarding' as any).update({ wunsch_radius_km: wunschRadiusKm } as any).eq('profile_id', dbStatus?.profileId || '') as any);
         } catch (e) {
-          console.warn('[Onboarding] Failed to save wunsch_radius_km:', e);
+          console.error('[Onboarding] Failed to save wunsch_radius_km:', e);
         }
         toast.success('Profildaten gespeichert');
       } catch (error) {
@@ -769,7 +746,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     // Nachweise ist der letzte Schritt – Onboarding abschließen
     if (state.currentStep === 'nachweise') {
       // Alle Schritte als abgeschlossen markieren
-      const allSteps = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+      const allSteps = [...STEP_ORDER];
       try {
         await saveProgress({
           currentStep: 'nachweise',
@@ -812,7 +789,7 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
         ? state.completedSteps
         : [...state.completedSteps, state.currentStep];
 
-      const stepOrder = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
+      const stepOrder = STEP_ORDER;
       const nextStepIndex = stepOrder.indexOf(state.currentStep);
       const nextStep = stepOrder[nextStepIndex + 1];
 

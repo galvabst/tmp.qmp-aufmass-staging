@@ -23,7 +23,6 @@ export function useStripeCheckout() {
     setError(null);
 
     try {
-      console.log(`[useStripeCheckout] Single checkout: ${produktKey}, groesse: ${groesse}, menge: ${menge || 1}`);
 
       const { data, error: invokeError } = await supabase.functions.invoke<CheckoutResult>(
         "create-checkout-session",
@@ -50,7 +49,6 @@ export function useStripeCheckout() {
         return false;
       }
 
-      console.log(`[useStripeCheckout] Redirecting: ${data.checkout_url}`);
       window.location.href = data.checkout_url;
       return true;
 
@@ -76,7 +74,6 @@ export function useStripeCheckout() {
     setError(null);
 
     try {
-      console.log(`[useStripeCheckout] Multi checkout: ${items.map(i => i.produktKey).join(", ")}`);
 
       const { data, error: invokeError } = await supabase.functions.invoke<CheckoutResult>(
         "create-checkout-session",
@@ -105,7 +102,6 @@ export function useStripeCheckout() {
         return false;
       }
 
-      console.log(`[useStripeCheckout] Multi redirect: ${data.checkout_url}`);
       window.location.href = data.checkout_url;
       return true;
 
