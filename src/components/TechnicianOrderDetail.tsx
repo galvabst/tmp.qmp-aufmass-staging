@@ -184,7 +184,9 @@ export function TechnicianOrderDetail({
     adresseVerifiziert: false,
     raumzugangBestaetigt: false,
   });
+  const [agreedTime, setAgreedTime] = useState<string>(order.scheduledTime?.slice(0, 5) ?? '');
   const allChecked = checklist.terminAbgesprochen && checklist.adresseVerifiziert && checklist.raumzugangBestaetigt;
+  const canSubmitBooking = allChecked && /^\d{2}:\d{2}$/.test(agreedTime);
 
   const formattedDate = format(parseISO(order.scheduledDate), 'EEEE, d. MMMM yyyy', { locale: de });
   const shortDate = format(parseISO(order.scheduledDate), 'd. MMMM yyyy', { locale: de });
@@ -246,9 +248,16 @@ Mit freundlichen Grüßen`;
 
   const handleConfirmBooking = async () => {
     if (!order.auftragId) return;
+    if (!/^\d{2}:\d{2}$/.test(agreedTime)) {
+      toast.error('Bitte exakte Uhrzeit angeben');
+      return;
+    }
     setConfirmingBooking(true);
     try {
-      const { error } = await supabase.rpc('confirm_thermocheck_booking', { p_auftrag_id: order.auftragId } as any);
+      const { error } = await supabase.rpc('confirm_thermocheck_booking', {
+        p_auftrag_id: order.auftragId,
+        p_uhrzeit: `${agreedTime}:00`,
+      } as any);
       if (error) throw error;
       toast.success('Anruf als erledigt markiert');
       queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
@@ -478,9 +487,23 @@ Mit freundlichen Grüßen`;
                           ))}
                         </div>
                       </div>
-                      <Button size="sm" className="w-full" onClick={handleConfirmBooking} disabled={confirmingBooking || !allChecked}>
+                      <div>
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                          Exakt abgesprochene Uhrzeit
+                        </p>
+                        <input
+                          type="time"
+                          value={agreedTime}
+                          onChange={(e) => setAgreedTime(e.target.value)}
+                          className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Diese Uhrzeit wird gespeichert. Der Auftragsstatus bleibt unverändert.
+                        </p>
+                      </div>
+                      <Button size="sm" className="w-full" onClick={handleConfirmBooking} disabled={confirmingBooking || !canSubmitBooking}>
                         {confirmingBooking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                        {allChecked ? 'Als erledigt markieren' : 'Bitte alle Punkte abhaken'}
+                        {!allChecked ? 'Bitte alle Punkte abhaken' : !/^\d{2}:\d{2}$/.test(agreedTime) ? 'Uhrzeit angeben' : 'Als erledigt markieren'}
                       </Button>
                     </div>
                   )}
