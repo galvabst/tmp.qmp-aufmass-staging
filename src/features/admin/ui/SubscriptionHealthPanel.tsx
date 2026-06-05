@@ -98,7 +98,11 @@ const LEVEL_META: Record<HealthLevel, { label: string; className: string; icon: 
   },
 };
 
-function onboardingBadge(row: SubscriptionHealthRow) {
+function onboardingBadge(row: {
+  effective_onboarding_status: string | null;
+  current_step: string | null;
+  is_trainer: boolean;
+}) {
   const eff = row.effective_onboarding_status;
   if (row.is_trainer) return { label: "Trainer · Einsatzbereit", className: "bg-emerald-100 text-emerald-700 border-emerald-200" };
   if (eff === "ready") return { label: "Einsatzbereit", className: "bg-emerald-100 text-emerald-700 border-emerald-200" };
