@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno&no-check";
 
-const WEBHOOK_VERSION = "2026-05-26-v6-subscription-tracker";
+const WEBHOOK_VERSION = "2026-06-05-v7-unpaid-link-fix";
 
 // ---------------------------------------------------------------
 // Subscription-Tracker Helpers
@@ -346,14 +346,21 @@ Deno.serve(async (req) => {
           console.warn(`[stripe-webhook] Payment NOT successful (status: ${session.payment_status}), NOT marking as paid`);
           actionType = "checkout_completed_unpaid";
 
-          // Still link session_id to orders for future lookup
+          // Still link session_id + subscription/customer/PI to orders so a later
+          // invoice.paid / payment_intent.succeeded event can find this row.
           const unpaidResult = await findOrdersForSession(supabase, session);
           if (unpaidResult.orders.length > 0) {
             for (const order of unpaidResult.orders) {
               await supabase
                 .schema("thermocheck")
                 .from("contractor_bestellungen")
-                .update({ stripe_session_id: session.id })
+                .update({
+                  stripe_session_id: session.id,
+                  stripe_subscription_id: (session.subscription as string) || null,
+                  stripe_customer_id: (session.customer as string) || null,
+                  stripe_payment_intent_id: (session.payment_intent as string) || null,
+                  webhook_received_at: new Date().toISOString(),
+                })
                 .eq("id", order.id);
               orderIds.push(order.id);
             }
@@ -506,7 +513,8 @@ Deno.serve(async (req) => {
         break;
       }
 
-      case "invoice.paid": {
+      case "invoice.paid":
+      case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
         console.log(`[stripe-webhook] invoice.paid: ${invoice.id}, subscription: ${invoice.subscription}`);
         actionType = "subscription_renewed";
@@ -514,11 +522,33 @@ Deno.serve(async (req) => {
 
         if (invoice.subscription) {
           // Update legacy contractor_bestellungen
-          const { data: bestellungen } = await supabase
+          let { data: bestellungen } = await supabase
             .schema("thermocheck")
             .from("contractor_bestellungen")
             .select("id, stripe_payment_status")
             .eq("stripe_subscription_id", invoice.subscription as string);
+
+          // Fallback: link by customer_id when subscription_id was never persisted
+          // (e.g. row was created via unpaid checkout before v7 fix shipped)
+          if ((!bestellungen || bestellungen.length === 0) && invoice.customer) {
+            const { data: byCustomer } = await supabase
+              .schema("thermocheck")
+              .from("contractor_bestellungen")
+              .select("id, stripe_payment_status")
+              .eq("stripe_customer_id", invoice.customer as string)
+              .in("stripe_payment_status", ["pending", "failed"]);
+            if (byCustomer && byCustomer.length > 0) {
+              // Backfill subscription_id for the future
+              for (const o of byCustomer) {
+                await supabase
+                  .schema("thermocheck")
+                  .from("contractor_bestellungen")
+                  .update({ stripe_subscription_id: invoice.subscription as string })
+                  .eq("id", o.id);
+              }
+              bestellungen = byCustomer;
+            }
+          }
 
           if (bestellungen && bestellungen.length > 0) {
             for (const bestellung of bestellungen) {
@@ -628,6 +658,53 @@ Deno.serve(async (req) => {
             event_type: event.type,
             raw_payload: sub,
           });
+        }
+        break;
+      }
+
+      case "payment_intent.succeeded": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        console.log(`[stripe-webhook] payment_intent.succeeded: ${pi.id}, customer: ${pi.customer}`);
+        actionType = "payment_intent_succeeded";
+        lookupMethod = "payment_intent_id";
+
+        // Match either by PI directly or via customer for one-time orders that
+        // stayed pending because checkout.session.completed didn't arrive paid.
+        let { data: matched } = await supabase
+          .schema("thermocheck")
+          .from("contractor_bestellungen")
+          .select("id, stripe_payment_status")
+          .eq("stripe_payment_intent_id", pi.id);
+
+        if ((!matched || matched.length === 0) && pi.customer) {
+          const { data: byCustomer } = await supabase
+            .schema("thermocheck")
+            .from("contractor_bestellungen")
+            .select("id, stripe_payment_status")
+            .eq("stripe_customer_id", pi.customer as string)
+            .in("stripe_payment_status", ["pending", "failed"]);
+          matched = byCustomer ?? [];
+          lookupMethod = "customer_id_fallback";
+        }
+
+        if (matched && matched.length > 0) {
+          for (const order of matched) {
+            if (order.stripe_payment_status !== "paid") {
+              await supabase
+                .schema("thermocheck")
+                .from("contractor_bestellungen")
+                .update({
+                  stripe_payment_status: "paid",
+                  paid_at: new Date().toISOString(),
+                  stripe_payment_intent_id: pi.id,
+                  webhook_received_at: new Date().toISOString(),
+                  idempotency_key: event.id,
+                })
+                .eq("id", order.id);
+              ordersUpdated++;
+              orderIds.push(order.id);
+            }
+          }
         }
         break;
       }
