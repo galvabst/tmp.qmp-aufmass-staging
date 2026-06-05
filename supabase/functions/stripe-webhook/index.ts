@@ -662,6 +662,53 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "payment_intent.succeeded": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        console.log(`[stripe-webhook] payment_intent.succeeded: ${pi.id}, customer: ${pi.customer}`);
+        actionType = "payment_intent_succeeded";
+        lookupMethod = "payment_intent_id";
+
+        // Match either by PI directly or via customer for one-time orders that
+        // stayed pending because checkout.session.completed didn't arrive paid.
+        let { data: matched } = await supabase
+          .schema("thermocheck")
+          .from("contractor_bestellungen")
+          .select("id, stripe_payment_status")
+          .eq("stripe_payment_intent_id", pi.id);
+
+        if ((!matched || matched.length === 0) && pi.customer) {
+          const { data: byCustomer } = await supabase
+            .schema("thermocheck")
+            .from("contractor_bestellungen")
+            .select("id, stripe_payment_status")
+            .eq("stripe_customer_id", pi.customer as string)
+            .in("stripe_payment_status", ["pending", "failed"]);
+          matched = byCustomer ?? [];
+          lookupMethod = "customer_id_fallback";
+        }
+
+        if (matched && matched.length > 0) {
+          for (const order of matched) {
+            if (order.stripe_payment_status !== "paid") {
+              await supabase
+                .schema("thermocheck")
+                .from("contractor_bestellungen")
+                .update({
+                  stripe_payment_status: "paid",
+                  paid_at: new Date().toISOString(),
+                  stripe_payment_intent_id: pi.id,
+                  webhook_received_at: new Date().toISOString(),
+                  idempotency_key: event.id,
+                })
+                .eq("id", order.id);
+              ordersUpdated++;
+              orderIds.push(order.id);
+            }
+          }
+        }
+        break;
+      }
+
       default:
         console.log(`[stripe-webhook] Unhandled event: ${event.type}`);
     }
