@@ -30,6 +30,7 @@ export function StripeReconcileButton() {
 
 
   const runReconcile = async (mode: 'recent' | 'backfill', days = 90) => {
+    launchKittens();
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('reconcile-stripe-orders', {
