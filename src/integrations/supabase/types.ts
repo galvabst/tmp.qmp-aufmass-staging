@@ -13771,10 +13771,9 @@ export type Database = {
         }
         Returns: string
       }
-      confirm_thermocheck_booking: {
-        Args: { p_auftrag_id: string }
-        Returns: Json
-      }
+      confirm_thermocheck_booking:
+        | { Args: { p_auftrag_id: string }; Returns: Json }
+        | { Args: { p_auftrag_id: string; p_uhrzeit?: string }; Returns: Json }
       confirm_thermocheck_vortag: {
         Args: { p_auftrag_id: string }
         Returns: Json

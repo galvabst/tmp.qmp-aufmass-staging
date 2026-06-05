@@ -184,7 +184,9 @@ export function TechnicianOrderDetail({
     adresseVerifiziert: false,
     raumzugangBestaetigt: false,
   });
+  const [agreedTime, setAgreedTime] = useState<string>(order.scheduledTime?.slice(0, 5) ?? '');
   const allChecked = checklist.terminAbgesprochen && checklist.adresseVerifiziert && checklist.raumzugangBestaetigt;
+  const canSubmitBooking = allChecked && /^\d{2}:\d{2}$/.test(agreedTime);
 
   const formattedDate = format(parseISO(order.scheduledDate), 'EEEE, d. MMMM yyyy', { locale: de });
   const shortDate = format(parseISO(order.scheduledDate), 'd. MMMM yyyy', { locale: de });
