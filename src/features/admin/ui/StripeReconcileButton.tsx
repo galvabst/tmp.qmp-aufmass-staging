@@ -98,6 +98,7 @@ export function StripeReconcileButton() {
             disabled={loading}
             title="Stripe-Bestellungen abgleichen"
             className="text-muted-foreground hover:text-primary"
+            onClick={launchKittens}
           >
             <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
