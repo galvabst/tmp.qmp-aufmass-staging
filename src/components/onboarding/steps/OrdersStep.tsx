@@ -11,6 +11,7 @@ import { QuantitySelector } from '../QuantitySelector';
 import { useOnboardingSizes } from '@/hooks/useOnboardingSizes';
 import { brauchtGroessenauswahl } from '@/lib/onboarding-sizes';
 import { useStripeCheckout } from '@/hooks/useStripeCheckout';
+import { toast } from 'sonner';
 
 // Import Kleidungsbilder
 import tshirtVorne from '@/assets/onboarding/kleidung/tshirt-vorne.png';
@@ -149,13 +150,25 @@ export function OrdersStep({
   };
 
   const handleSizeSelect = async (produktId: string, size: string) => {
+    const previous = selectedSizes[produktId];
     setSelectedSizes(prev => ({ ...prev, [produktId]: size }));
     // Größe direkt in DB speichern
     try {
       await updateSize({ produktId, groesse: size });
     } catch (error) {
       console.error('[OrdersStep] Failed to save size:', error);
-      // Trotzdem lokal speichern für UX
+      toast.error('Größe konnte nicht gespeichert werden. Bitte erneut versuchen.');
+      // Rollback: Auswahl NICHT behalten, sonst startet der Checkout mit einer
+      // Größe, die nie in der DB ankam (stille Divergenz).
+      setSelectedSizes(prev => {
+        const next = { ...prev };
+        if (previous === undefined) {
+          delete next[produktId];
+        } else {
+          next[produktId] = previous;
+        }
+        return next;
+      });
     }
   };
 

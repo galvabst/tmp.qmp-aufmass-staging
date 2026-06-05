@@ -553,13 +553,15 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   // Intro-Video Gate: Zeige das unskippable Video BEVOR das Onboarding startet
   if (!state.introVideoWatched && !isPreview && !paymentRedirectRef.current) {
     const handleIntroComplete = async () => {
-      setIntroVideoWatched(true);
+      // Erst persistieren, dann Gate freigeben – sonst kann der Status still divergieren.
       try {
         await saveIntroVideoWatched();
-        console.log('[Onboarding] Intro video marked as watched in DB');
       } catch (error) {
-        console.warn('[Onboarding] Failed to save intro video status to DB:', error);
+        console.error('[Onboarding] Failed to save intro video status to DB:', error);
+        toast.error('Konnte den Fortschritt nicht speichern. Bitte erneut versuchen.');
+        return;
       }
+      setIntroVideoWatched(true);
     };
     return <IntroVideo onComplete={handleIntroComplete} />;
   }
@@ -568,10 +570,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   // Nur zeigen wenn showOutroVideo UND noch nicht persistent als gesehen markiert
   if (showOutroVideo && !state.outroVideoWatched) {
     const handleOutroComplete = async () => {
-      setShowOutroVideo(false);
-      setOutroVideoWatched(true);
-      goToNextStep();
-      // Fortschritt + Outro-Flag speichern
+      // Erst Fortschritt + Outro-Flag persistieren, DANN navigieren – kein
+      // optimistischer Sprung, wenn das Speichern fehlschlägt (vgl. A1).
       try {
         await saveOutroVideoWatched();
         const nextCompletedSteps = state.completedSteps.includes('akademie')
@@ -581,10 +581,14 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
           currentStep: 'coaching',
           completedSteps: nextCompletedSteps,
         });
-        console.log('[Onboarding] Outro video complete, progress saved');
       } catch (error) {
-        console.warn('[Onboarding] Failed to save progress after outro:', error);
+        console.error('[Onboarding] Failed to save progress after outro:', error);
+        toast.error('Fortschritt konnte nicht gespeichert werden. Bitte erneut versuchen.');
+        return;
       }
+      setShowOutroVideo(false);
+      setOutroVideoWatched(true);
+      goToNextStep();
     };
     // Skip erlauben für Bestandskandidaten: ready, akademie schon abgeschlossen,
     // Trainer ODER bereits irgendein Akademie-Fortschritt vorhanden.
@@ -740,9 +744,12 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
           url: state.gewerbescheinUrl || undefined,
           spaeter: state.gewerbescheinSpaeter || false,
         });
-        console.log('[Onboarding] Gewerbeschein data saved to DB');
       } catch (error) {
-        console.warn('[Onboarding] Failed to save Gewerbeschein data:', error);
+        console.error('[Onboarding] Failed to save Gewerbeschein data:', error);
+        toast.error('Dokumente konnten nicht gespeichert werden. Bitte erneut versuchen.');
+        nextClickLockRef.current = false;
+        setIsAdvancing(false);
+        return;
       }
     }
 
@@ -750,9 +757,12 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     if (state.currentStep === 'equipment') {
       try {
         await saveEquipmentStatus(state.equipmentStatus);
-        console.log('[Onboarding] Equipment status saved to DB:', state.equipmentStatus);
       } catch (error) {
-        console.warn('[Onboarding] Failed to save equipment status:', error);
+        console.error('[Onboarding] Failed to save equipment status:', error);
+        toast.error('Equipment-Status konnte nicht gespeichert werden. Bitte erneut versuchen.');
+        nextClickLockRef.current = false;
+        setIsAdvancing(false);
+        return;
       }
     }
 
@@ -766,7 +776,11 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
           completedSteps: allSteps,
         });
       } catch (error) {
-        console.warn('[Onboarding] Failed to save final progress:', error);
+        console.error('[Onboarding] Failed to save final progress:', error);
+        toast.error('Abschluss konnte nicht gespeichert werden. Bitte erneut versuchen.');
+        nextClickLockRef.current = false;
+        setIsAdvancing(false);
+        return;
       }
       setAllStepsCompleted();          // lokalen State synchronisieren
       setCoachingAbgeschlossen(true); // triggers isComplete
@@ -791,28 +805,32 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       return;
     }
 
-    goToNextStep();
-
-    // Fortschritt in DB speichern (async, non-blocking)
+    // Fortschritt erst in DB speichern, DANN navigieren – kein optimistischer
+    // Schrittwechsel, wenn das Speichern fehlschlägt (sonst Divergenz DB ↔ UI).
     try {
       const nextCompletedSteps = state.completedSteps.includes(state.currentStep)
         ? state.completedSteps
         : [...state.completedSteps, state.currentStep];
-      
+
       const stepOrder = ['profil', 'dokumente', 'bestellungen', 'equipment', 'akademie', 'coaching', 'nachweise'];
       const nextStepIndex = stepOrder.indexOf(state.currentStep);
       const nextStep = stepOrder[nextStepIndex + 1];
-      
+
       if (nextStep) {
         await saveProgress({
           currentStep: nextStep,
           completedSteps: nextCompletedSteps,
         });
-        console.log('[Onboarding] Progress saved to DB:', nextStep);
       }
     } catch (error) {
-      console.warn('[Onboarding] Failed to save progress to DB:', error);
+      console.error('[Onboarding] Failed to save progress to DB:', error);
+      toast.error('Fortschritt konnte nicht gespeichert werden. Bitte erneut versuchen.');
+      nextClickLockRef.current = false;
+      setIsAdvancing(false);
+      return;
     }
+
+    goToNextStep();
   };
 
   const getNextLabel = () => {

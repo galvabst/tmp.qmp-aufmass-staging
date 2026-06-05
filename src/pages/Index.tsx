@@ -173,7 +173,7 @@ const Index = () => {
       certificates: [],
       onboarding: {
         isCompleted: isOnboardingCompleted,
-        currentStep: (currentStep as any) || 'gewerbeschein',
+        currentStep: (currentStep as any) || 'profil',
         steps: onboardingSteps,
         progressPercent: isOnboardingCompleted ? 100 : progressPercent,
       },

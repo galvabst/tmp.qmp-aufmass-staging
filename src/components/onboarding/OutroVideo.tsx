@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { MultiSourceVideoPlayer, VideoPlayerHandle } from '@/components/akademie/MultiSourceVideoPlayer';
 import { useBunnyPlayerProgress } from '@/hooks/useVideoProgress';
 import { Button } from '@/components/ui/button';
@@ -23,14 +23,17 @@ export function OutroVideo({ onComplete, allowSkip = false }: OutroVideoProps) {
     isVideoEnded,
   } = useBunnyPlayerProgress(30, iframeRef, { lessonId: 'outro-video' });
 
-  const syncIframeRef = () => {
-    const iframe = playerRef.current?.getIframeRef();
-    if (iframe && iframe !== iframeRef.current) {
-      iframeRef.current = iframe;
-    }
-  };
-
-  requestAnimationFrame(syncIframeRef);
+  // iframe-Ref einfangen, sobald der Player sie bereitstellt – als Effekt,
+  // nicht als Seiteneffekt im Render-Body (React-Render-Purity).
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      const iframe = playerRef.current?.getIframeRef();
+      if (iframe && iframe !== iframeRef.current) {
+        iframeRef.current = iframe;
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">

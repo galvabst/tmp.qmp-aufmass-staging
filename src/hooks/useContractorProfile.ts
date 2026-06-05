@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicantProfile, OnboardingStepId } from '@/types/onboarding';
+import { parseStrasseHausnummer, joinStrasseHausnummer } from '@/lib/parse-adresse';
 
 interface ContractorOnboardingData {
   anschrift_strasse?: string | null;
@@ -101,10 +102,7 @@ export function useContractorProfile(profileId: string | null) {
         console.warn('[useContractorProfile] Failed to call onboarding state RPC:', e);
       }
       
-      const anschriftStrasse = onboardingData?.anschrift_strasse || '';
-      const strasseMatch = anschriftStrasse.match(/^(.+?)\s+(\d+\s*\w*)$/);
-      const strasse = strasseMatch ? strasseMatch[1] : anschriftStrasse;
-      const hausnummer = strasseMatch ? strasseMatch[2] : '';
+      const { strasse, hausnummer } = parseStrasseHausnummer(onboardingData?.anschrift_strasse);
       
       return {
         id: profileData?.id || profileId,
@@ -187,10 +185,7 @@ export function useContractorProfile(profileId: string | null) {
       
       if (profile.strasse !== undefined || profile.hausnummer !== undefined || 
           profile.plz !== undefined || profile.ort !== undefined) {
-        const anschriftStrasse = [profile.strasse, profile.hausnummer]
-          .filter(Boolean)
-          .join(' ')
-          .trim();
+        const anschriftStrasse = joinStrasseHausnummer(profile.strasse ?? '', profile.hausnummer ?? '');
         
         const { error } = await (supabase.rpc as unknown as (
           fn: string, 
@@ -300,13 +295,14 @@ export function useContractorProfile(profileId: string | null) {
   // Gewerbeschein-Daten in DB speichern
   const saveGewerbescheinMutation = useMutation({
     mutationFn: async (params: { url?: string; spaeter: boolean }) => {
-      await (supabase.rpc as unknown as (
+      const { error } = await (supabase.rpc as unknown as (
         fn: string,
         params: Record<string, unknown>
       ) => Promise<{ error: Error | null }>)('update_contractor_gewerbeschein', {
         p_gewerbeschein_url: params.url || null,
         p_gewerbeschein_spaeter: params.spaeter,
       });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
@@ -316,25 +312,27 @@ export function useContractorProfile(profileId: string | null) {
   // Fortschritt in DB speichern
   const saveProgressMutation = useMutation({
     mutationFn: async (params: { currentStep: string; completedSteps: string[] }) => {
-      await (supabase.rpc as unknown as (
+      const { error } = await (supabase.rpc as unknown as (
         fn: string,
         params: Record<string, unknown>
       ) => Promise<{ error: Error | null }>)('update_contractor_onboarding_progress', {
         p_current_step: params.currentStep,
         p_completed_steps: params.completedSteps,
       });
+      if (error) throw error;
     },
   });
 
   // Equipment-Status in DB speichern
   const saveEquipmentStatusMutation = useMutation({
     mutationFn: async (equipmentStatus: Record<string, EquipmentItemStatus>) => {
-      await (supabase.rpc as unknown as (
+      const { error } = await (supabase.rpc as unknown as (
         fn: string,
         params: Record<string, unknown>
       ) => Promise<{ error: Error | null }>)('update_contractor_equipment_status', {
         p_equipment: equipmentStatus,
       });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
@@ -344,10 +342,11 @@ export function useContractorProfile(profileId: string | null) {
   // Intro-Video als gesehen markieren
   const saveIntroVideoWatchedMutation = useMutation({
     mutationFn: async () => {
-      await (supabase.rpc as unknown as (
+      const { error } = await (supabase.rpc as unknown as (
         fn: string,
         params?: Record<string, unknown>
       ) => Promise<{ error: Error | null }>)('update_contractor_intro_video_watched');
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
@@ -357,10 +356,11 @@ export function useContractorProfile(profileId: string | null) {
   // Outro-Video als gesehen markieren
   const saveOutroVideoWatchedMutation = useMutation({
     mutationFn: async () => {
-      await (supabase.rpc as unknown as (
+      const { error } = await (supabase.rpc as unknown as (
         fn: string,
         params?: Record<string, unknown>
       ) => Promise<{ error: Error | null }>)('update_contractor_outro_video_watched');
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contractor-onboarding-state'] });
