@@ -178,12 +178,52 @@ interface SubscriptionHealthPanelProps {
 }
 
 export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHealthPanelProps) {
-  const { data: rows, isLoading } = useAdminSubscriptionHealth();
+  const { data: aboRows, isLoading: aboLoading } = useAdminSubscriptionHealth();
+  const { data: einmaligRows, isLoading: einmaligLoading } = useAdminEinmaligeOrderHealth();
   const [detail, setDetail] = useState<TechnicianGroup | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [pipelineFilter, setPipelineFilter] = useState<PipelineFilter>("all");
+  const [typFilter, setTypFilter] = useState<TypFilter>("all");
   const queryClient = useQueryClient();
 
-  const groups = useMemo(() => groupByTechnician(rows ?? []), [rows]);
+  const isLoading = aboLoading || einmaligLoading;
+
+  const allGroups = useMemo(
+    () => groupByTechnician(aboRows ?? [], einmaligRows ?? []),
+    [aboRows, einmaligRows],
+  );
+
+  // Filter anwenden — Pipeline + Typ. Wenn ein Typ leer wird, fällt die Gruppe weg.
+  const groups = useMemo(() => {
+    return allGroups
+      .map((g) => {
+        const keepAbo = typFilter === "all" || typFilter === "abo";
+        const keepEinmalig = typFilter === "all" || typFilter === "einmalig";
+        return {
+          ...g,
+          rows: keepAbo ? g.rows : [],
+          einmalig_rows: keepEinmalig ? g.einmalig_rows : [],
+        };
+      })
+      .filter((g) => g.rows.length + g.einmalig_rows.length > 0)
+      .filter((g) => {
+        if (pipelineFilter === "all") return true;
+        const active = isActiveContractor(g.identity);
+        return pipelineFilter === "active" ? active : !active;
+      })
+      .map((g) => {
+        // worst neu berechnen nach Filter
+        const all: HealthLevel[] = [
+          ...g.rows.map((r) => r.health_level),
+          ...g.einmalig_rows.map((r) => r.health_level),
+        ];
+        const worst = all.reduce<HealthLevel>(
+          (acc, lvl) => (LEVEL_RANK[lvl] < LEVEL_RANK[acc] ? lvl : acc),
+          "ok",
+        );
+        return { ...g, worst };
+      });
+  }, [allGroups, pipelineFilter, typFilter]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -194,6 +234,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
       if (error) throw error;
       toast.success("Subscription-Abgleich gestartet.");
       await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-einmalige-order-health"] });
     } catch (err) {
       toast.error(`Abgleich fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -208,7 +249,6 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
     const ids = groups.map((g) => g.onboarding_id);
     let done = 0; let newSubs = 0; let warns = 0;
     const errs: string[] = [];
-    // Sequenziell — Stripe-API-Limit + bessere Toast-Progression
     for (const id of ids) {
       try {
         const { data, error } = await supabase.functions.invoke("stripe-sync-contractor", {
@@ -231,11 +271,13 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
     }
     setLiveSyncing(false);
     await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+    await queryClient.invalidateQueries({ queryKey: ["admin-einmalige-order-health"] });
     if (errs.length === 0) toast.success(`Live-Abgleich fertig: ${ids.length} Techniker, ${newSubs} neue Subs erkannt.`);
     else toast.error(`Live-Abgleich mit Fehlern: ${errs.length} / ${ids.length}. Siehe Konsole.`);
     if (errs.length > 0) console.error("[live-sync-all] errors:", errs);
   };
 
+  const totalUnfilteredCount = allGroups.length;
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -245,8 +287,8 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             <CardTitle className="text-base flex items-center gap-2">
               Lizenz- & Abo-Check
-              {groups.length > 0 && (
-                <Badge variant="destructive">{groups.length}</Badge>
+              {totalUnfilteredCount > 0 && (
+                <Badge variant="destructive">{totalUnfilteredCount}</Badge>
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -255,8 +297,8 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-sm">
-                  Aktive Feinaufmaß-Techniker mit auffälligem Stripe-Status für Scanner-Lizenz oder Google Workspace.
-                  „Aktion nötig" = echte Zahlungsprobleme. „Hinweis" = z. B. gekündigt, aber letzte Rechnung bezahlt.
+                  Techniker mit auffälligem Stripe-Status für Abos (Scanner-Lizenz, Google Workspace) oder einmalige Bestellungen (z. B. Pullover, Ausweiskarte).
+                  Filter darunter trennen Pipeline (Onboarding / Aktiv) und Bestelltyp.
                   Trainer werden als einsatzbereit erkannt; gefeuerte/inaktive Techniker sind ausgeblendet.
                 </TooltipContent>
               </Tooltip>
@@ -272,7 +314,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
-                  Pullt für jeden hier gelisteten Techniker direkt aus Stripe alle Subscriptions & letzten Rechnungen (auch unbekannte Customer-Records via E-Mail-Match). Dauert ein paar Sekunden pro Techniker.
+                  Pullt für jeden gefilterten Techniker direkt aus Stripe alle Subscriptions & letzten Rechnungen.
                 </TooltipContent>
               </Tooltip>
             )}
@@ -283,19 +325,46 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
           </div>
         </CardHeader>
         <CardContent>
+          {/* Filterzeile */}
+          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+            <FilterChips
+              label="Pipeline"
+              value={pipelineFilter}
+              onChange={setPipelineFilter}
+              options={[
+                { value: "all", label: "Alle" },
+                { value: "onboarding", label: "Onboarding" },
+                { value: "active", label: "Aktiv (THC)" },
+              ]}
+            />
+            <FilterChips
+              label="Typ"
+              value={typFilter}
+              onChange={setTypFilter}
+              options={[
+                { value: "all", label: "Alle" },
+                { value: "abo", label: "Abos" },
+                { value: "einmalig", label: "Einmalig" },
+              ]}
+            />
+            <span className="ml-auto text-muted-foreground">
+              {groups.length} / {totalUnfilteredCount}
+            </span>
+          </div>
+
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Lade …</p>
           ) : groups.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Alle aktiven Techniker haben gültige Scanner- und Workspace-Abos. ✓
+              Keine Treffer für die aktuelle Filterauswahl. ✓
             </p>
           ) : (
             <ScrollArea className="max-h-[420px]">
               <div className="space-y-2">
                 {groups.map((g) => {
-                  const first = g.rows[0];
-                  const fullName = `${first.vorname ?? ""} ${first.nachname ?? ""}`.trim() || "Unbenannter Techniker";
-                  const ob = onboardingBadge(first);
+                  const id = g.identity;
+                  const fullName = `${id.vorname ?? ""} ${id.nachname ?? ""}`.trim() || "Unbenannter Techniker";
+                  const ob = onboardingBadge(id);
                   const meta = LEVEL_META[g.worst];
                   const Icon = meta.icon;
                   return (
@@ -316,7 +385,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                           </span>
                         </div>
                         <p className="truncate text-xs text-muted-foreground">
-                          {first.email ?? "—"}
+                          {id.email ?? "—"}
                         </p>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {g.rows.map((r) => {
@@ -327,7 +396,20 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                                 key={r.subscription_id}
                                 className={`rounded-md border px-1.5 py-0.5 text-[10px] ${rmeta.className}`}
                               >
-                                {label} · {STATUS_LABEL[r.status] ?? r.status}
+                                Abo · {label} · {STATUS_LABEL[r.status] ?? r.status}
+                              </span>
+                            );
+                          })}
+                          {g.einmalig_rows.map((r) => {
+                            const label = PRODUKT_LABEL_EINMALIG[r.produkt_key] ?? PRODUKT_LABEL[r.produkt_key] ?? r.produkt_key;
+                            const rmeta = LEVEL_META[r.health_level];
+                            const statusLabel = r.stripe_payment_status === "failed" ? "Fehlgeschlagen" : "Offen";
+                            return (
+                              <span
+                                key={r.order_id}
+                                className={`rounded-md border px-1.5 py-0.5 text-[10px] ${rmeta.className}`}
+                              >
+                                Einmalig · {label} · {statusLabel}
                               </span>
                             );
                           })}
@@ -348,6 +430,40 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
         />
       </Card>
     </TooltipProvider>
+  );
+}
+
+function FilterChips<T extends string>({
+  label, value, onChange, options,
+}: {
+  label: string;
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-muted-foreground">{label}:</span>
+      <div className="flex items-center gap-1 rounded-md border bg-muted/30 p-0.5">
+        {options.map((o) => {
+          const active = o.value === value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => onChange(o.value)}
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
+                active
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
