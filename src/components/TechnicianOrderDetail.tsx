@@ -248,9 +248,16 @@ Mit freundlichen Grüßen`;
 
   const handleConfirmBooking = async () => {
     if (!order.auftragId) return;
+    if (!/^\d{2}:\d{2}$/.test(agreedTime)) {
+      toast.error('Bitte exakte Uhrzeit angeben');
+      return;
+    }
     setConfirmingBooking(true);
     try {
-      const { error } = await supabase.rpc('confirm_thermocheck_booking', { p_auftrag_id: order.auftragId } as any);
+      const { error } = await supabase.rpc('confirm_thermocheck_booking', {
+        p_auftrag_id: order.auftragId,
+        p_uhrzeit: `${agreedTime}:00`,
+      } as any);
       if (error) throw error;
       toast.success('Anruf als erledigt markiert');
       queryClient.invalidateQueries({ queryKey: ['my-assigned-orders'] });
