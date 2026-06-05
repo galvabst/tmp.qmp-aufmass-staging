@@ -111,21 +111,57 @@ function onboardingBadge(row: SubscriptionHealthRow) {
 
 interface TechnicianGroup {
   onboarding_id: string;
-  rows: SubscriptionHealthRow[];
+  rows: SubscriptionHealthRow[];          // Abos
+  einmalig_rows: EinmaligeOrderHealthRow[]; // Einmal-Bestellungen
   worst: HealthLevel;
+  // Erstes Identitäts-Row (Name/E-Mail/Onboarding-Status) — bevorzugt aus Abos, sonst Einmalig
+  identity: {
+    vorname: string | null;
+    nachname: string | null;
+    email: string | null;
+    effective_onboarding_status: string | null;
+    current_step: string | null;
+    is_trainer: boolean;
+    onboarding_status: string | null;
+    stripe_customer_id: string | null;
+  };
 }
 
 const LEVEL_RANK: Record<HealthLevel, number> = { action_required: 0, attention: 1, ok: 2 };
 
-function groupByTechnician(rows: SubscriptionHealthRow[]): TechnicianGroup[] {
+function groupByTechnician(
+  aboRows: SubscriptionHealthRow[],
+  einmaligRows: EinmaligeOrderHealthRow[],
+): TechnicianGroup[] {
   const map = new Map<string, TechnicianGroup>();
-  for (const r of rows) {
-    let g = map.get(r.onboarding_id);
+  const ensure = (id: string, identity: TechnicianGroup["identity"]): TechnicianGroup => {
+    let g = map.get(id);
     if (!g) {
-      g = { onboarding_id: r.onboarding_id, rows: [], worst: r.health_level };
-      map.set(r.onboarding_id, g);
+      g = { onboarding_id: id, rows: [], einmalig_rows: [], worst: "ok", identity };
+      map.set(id, g);
     }
+    return g;
+  };
+  for (const r of aboRows) {
+    const g = ensure(r.onboarding_id, {
+      vorname: r.vorname, nachname: r.nachname, email: r.email,
+      effective_onboarding_status: r.effective_onboarding_status,
+      current_step: r.current_step, is_trainer: r.is_trainer,
+      onboarding_status: r.onboarding_status,
+      stripe_customer_id: r.stripe_customer_id,
+    });
     g.rows.push(r);
+    if (LEVEL_RANK[r.health_level] < LEVEL_RANK[g.worst]) g.worst = r.health_level;
+  }
+  for (const r of einmaligRows) {
+    const g = ensure(r.onboarding_id, {
+      vorname: r.vorname, nachname: r.nachname, email: r.email,
+      effective_onboarding_status: r.effective_onboarding_status,
+      current_step: r.current_step, is_trainer: r.is_trainer,
+      onboarding_status: r.onboarding_status,
+      stripe_customer_id: r.stripe_customer_id,
+    });
+    g.einmalig_rows.push(r);
     if (LEVEL_RANK[r.health_level] < LEVEL_RANK[g.worst]) g.worst = r.health_level;
   }
   return Array.from(map.values()).sort(
