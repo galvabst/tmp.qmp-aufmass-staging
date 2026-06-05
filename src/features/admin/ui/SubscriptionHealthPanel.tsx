@@ -534,7 +534,7 @@ function TechnicianDetailDialog({
             <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${ob.className}`}>
               {ob.label}
             </span>
-            {first.email && <span className="text-xs text-muted-foreground">{first.email}</span>}
+            {id.email && <span className="text-xs text-muted-foreground">{id.email}</span>}
           </div>
         </DialogHeader>
 
