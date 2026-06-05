@@ -12,10 +12,27 @@ import {
 import {
   useAdminSubscriptionHealth, SubscriptionHealthRow, HealthLevel,
 } from "@/features/admin/hooks/useAdminSubscriptionHealth";
+import {
+  useAdminEinmaligeOrderHealth, EinmaligeOrderHealthRow,
+} from "@/features/admin/hooks/useAdminEinmaligeOrderHealth";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseTC } from "@/integrations/supabase/thermocheck-client";
 import { toast } from "sonner";
+
+type PipelineFilter = "all" | "onboarding" | "active";
+type TypFilter = "all" | "abo" | "einmalig";
+
+const PRODUKT_LABEL_EINMALIG: Record<string, string> = {
+  "ausweiskarte": "Ausweiskarte",
+  "pullover": "Pullover",
+  "schlappen": "Schlappen",
+  "arbeitsschuhe": "Arbeitsschuhe",
+};
+
+function isActiveContractor(row: { effective_onboarding_status: string | null; is_trainer: boolean }) {
+  return row.is_trainer || row.effective_onboarding_status === "ready";
+}
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -81,7 +98,11 @@ const LEVEL_META: Record<HealthLevel, { label: string; className: string; icon: 
   },
 };
 
-function onboardingBadge(row: SubscriptionHealthRow) {
+function onboardingBadge(row: {
+  effective_onboarding_status: string | null;
+  current_step: string | null;
+  is_trainer: boolean;
+}) {
   const eff = row.effective_onboarding_status;
   if (row.is_trainer) return { label: "Trainer · Einsatzbereit", className: "bg-emerald-100 text-emerald-700 border-emerald-200" };
   if (eff === "ready") return { label: "Einsatzbereit", className: "bg-emerald-100 text-emerald-700 border-emerald-200" };
@@ -94,21 +115,57 @@ function onboardingBadge(row: SubscriptionHealthRow) {
 
 interface TechnicianGroup {
   onboarding_id: string;
-  rows: SubscriptionHealthRow[];
+  rows: SubscriptionHealthRow[];          // Abos
+  einmalig_rows: EinmaligeOrderHealthRow[]; // Einmal-Bestellungen
   worst: HealthLevel;
+  // Erstes Identitäts-Row (Name/E-Mail/Onboarding-Status) — bevorzugt aus Abos, sonst Einmalig
+  identity: {
+    vorname: string | null;
+    nachname: string | null;
+    email: string | null;
+    effective_onboarding_status: string | null;
+    current_step: string | null;
+    is_trainer: boolean;
+    onboarding_status: string | null;
+    stripe_customer_id: string | null;
+  };
 }
 
 const LEVEL_RANK: Record<HealthLevel, number> = { action_required: 0, attention: 1, ok: 2 };
 
-function groupByTechnician(rows: SubscriptionHealthRow[]): TechnicianGroup[] {
+function groupByTechnician(
+  aboRows: SubscriptionHealthRow[],
+  einmaligRows: EinmaligeOrderHealthRow[],
+): TechnicianGroup[] {
   const map = new Map<string, TechnicianGroup>();
-  for (const r of rows) {
-    let g = map.get(r.onboarding_id);
+  const ensure = (id: string, identity: TechnicianGroup["identity"]): TechnicianGroup => {
+    let g = map.get(id);
     if (!g) {
-      g = { onboarding_id: r.onboarding_id, rows: [], worst: r.health_level };
-      map.set(r.onboarding_id, g);
+      g = { onboarding_id: id, rows: [], einmalig_rows: [], worst: "ok", identity };
+      map.set(id, g);
     }
+    return g;
+  };
+  for (const r of aboRows) {
+    const g = ensure(r.onboarding_id, {
+      vorname: r.vorname, nachname: r.nachname, email: r.email,
+      effective_onboarding_status: r.effective_onboarding_status,
+      current_step: r.current_step, is_trainer: r.is_trainer,
+      onboarding_status: r.onboarding_status,
+      stripe_customer_id: r.stripe_customer_id,
+    });
     g.rows.push(r);
+    if (LEVEL_RANK[r.health_level] < LEVEL_RANK[g.worst]) g.worst = r.health_level;
+  }
+  for (const r of einmaligRows) {
+    const g = ensure(r.onboarding_id, {
+      vorname: r.vorname, nachname: r.nachname, email: r.email,
+      effective_onboarding_status: r.effective_onboarding_status,
+      current_step: r.current_step, is_trainer: r.is_trainer,
+      onboarding_status: r.onboarding_status,
+      stripe_customer_id: r.stripe_customer_id,
+    });
+    g.einmalig_rows.push(r);
     if (LEVEL_RANK[r.health_level] < LEVEL_RANK[g.worst]) g.worst = r.health_level;
   }
   return Array.from(map.values()).sort(
@@ -121,12 +178,52 @@ interface SubscriptionHealthPanelProps {
 }
 
 export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHealthPanelProps) {
-  const { data: rows, isLoading } = useAdminSubscriptionHealth();
+  const { data: aboRows, isLoading: aboLoading } = useAdminSubscriptionHealth();
+  const { data: einmaligRows, isLoading: einmaligLoading } = useAdminEinmaligeOrderHealth();
   const [detail, setDetail] = useState<TechnicianGroup | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [pipelineFilter, setPipelineFilter] = useState<PipelineFilter>("all");
+  const [typFilter, setTypFilter] = useState<TypFilter>("all");
   const queryClient = useQueryClient();
 
-  const groups = useMemo(() => groupByTechnician(rows ?? []), [rows]);
+  const isLoading = aboLoading || einmaligLoading;
+
+  const allGroups = useMemo(
+    () => groupByTechnician(aboRows ?? [], einmaligRows ?? []),
+    [aboRows, einmaligRows],
+  );
+
+  // Filter anwenden — Pipeline + Typ. Wenn ein Typ leer wird, fällt die Gruppe weg.
+  const groups = useMemo(() => {
+    return allGroups
+      .map((g) => {
+        const keepAbo = typFilter === "all" || typFilter === "abo";
+        const keepEinmalig = typFilter === "all" || typFilter === "einmalig";
+        return {
+          ...g,
+          rows: keepAbo ? g.rows : [],
+          einmalig_rows: keepEinmalig ? g.einmalig_rows : [],
+        };
+      })
+      .filter((g) => g.rows.length + g.einmalig_rows.length > 0)
+      .filter((g) => {
+        if (pipelineFilter === "all") return true;
+        const active = isActiveContractor(g.identity);
+        return pipelineFilter === "active" ? active : !active;
+      })
+      .map((g) => {
+        // worst neu berechnen nach Filter
+        const all: HealthLevel[] = [
+          ...g.rows.map((r) => r.health_level),
+          ...g.einmalig_rows.map((r) => r.health_level),
+        ];
+        const worst = all.reduce<HealthLevel>(
+          (acc, lvl) => (LEVEL_RANK[lvl] < LEVEL_RANK[acc] ? lvl : acc),
+          "ok",
+        );
+        return { ...g, worst };
+      });
+  }, [allGroups, pipelineFilter, typFilter]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -137,6 +234,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
       if (error) throw error;
       toast.success("Subscription-Abgleich gestartet.");
       await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-einmalige-order-health"] });
     } catch (err) {
       toast.error(`Abgleich fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -151,7 +249,6 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
     const ids = groups.map((g) => g.onboarding_id);
     let done = 0; let newSubs = 0; let warns = 0;
     const errs: string[] = [];
-    // Sequenziell — Stripe-API-Limit + bessere Toast-Progression
     for (const id of ids) {
       try {
         const { data, error } = await supabase.functions.invoke("stripe-sync-contractor", {
@@ -174,11 +271,13 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
     }
     setLiveSyncing(false);
     await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+    await queryClient.invalidateQueries({ queryKey: ["admin-einmalige-order-health"] });
     if (errs.length === 0) toast.success(`Live-Abgleich fertig: ${ids.length} Techniker, ${newSubs} neue Subs erkannt.`);
     else toast.error(`Live-Abgleich mit Fehlern: ${errs.length} / ${ids.length}. Siehe Konsole.`);
     if (errs.length > 0) console.error("[live-sync-all] errors:", errs);
   };
 
+  const totalUnfilteredCount = allGroups.length;
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -188,8 +287,8 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             <CardTitle className="text-base flex items-center gap-2">
               Lizenz- & Abo-Check
-              {groups.length > 0 && (
-                <Badge variant="destructive">{groups.length}</Badge>
+              {totalUnfilteredCount > 0 && (
+                <Badge variant="destructive">{totalUnfilteredCount}</Badge>
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -198,8 +297,8 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-sm">
-                  Aktive Feinaufmaß-Techniker mit auffälligem Stripe-Status für Scanner-Lizenz oder Google Workspace.
-                  „Aktion nötig" = echte Zahlungsprobleme. „Hinweis" = z. B. gekündigt, aber letzte Rechnung bezahlt.
+                  Techniker mit auffälligem Stripe-Status für Abos (Scanner-Lizenz, Google Workspace) oder einmalige Bestellungen (z. B. Pullover, Ausweiskarte).
+                  Filter darunter trennen Pipeline (Onboarding / Aktiv) und Bestelltyp.
                   Trainer werden als einsatzbereit erkannt; gefeuerte/inaktive Techniker sind ausgeblendet.
                 </TooltipContent>
               </Tooltip>
@@ -215,7 +314,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
-                  Pullt für jeden hier gelisteten Techniker direkt aus Stripe alle Subscriptions & letzten Rechnungen (auch unbekannte Customer-Records via E-Mail-Match). Dauert ein paar Sekunden pro Techniker.
+                  Pullt für jeden gefilterten Techniker direkt aus Stripe alle Subscriptions & letzten Rechnungen.
                 </TooltipContent>
               </Tooltip>
             )}
@@ -226,19 +325,46 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
           </div>
         </CardHeader>
         <CardContent>
+          {/* Filterzeile */}
+          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+            <FilterChips<PipelineFilter>
+              label="Pipeline"
+              value={pipelineFilter}
+              onChange={setPipelineFilter}
+              options={[
+                { value: "all", label: "Alle" },
+                { value: "onboarding", label: "Onboarding" },
+                { value: "active", label: "Aktiv (THC)" },
+              ]}
+            />
+            <FilterChips<TypFilter>
+              label="Typ"
+              value={typFilter}
+              onChange={setTypFilter}
+              options={[
+                { value: "all", label: "Alle" },
+                { value: "abo", label: "Abos" },
+                { value: "einmalig", label: "Einmalig" },
+              ]}
+            />
+            <span className="ml-auto text-muted-foreground">
+              {groups.length} / {totalUnfilteredCount}
+            </span>
+          </div>
+
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Lade …</p>
           ) : groups.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Alle aktiven Techniker haben gültige Scanner- und Workspace-Abos. ✓
+              Keine Treffer für die aktuelle Filterauswahl. ✓
             </p>
           ) : (
             <ScrollArea className="max-h-[420px]">
               <div className="space-y-2">
                 {groups.map((g) => {
-                  const first = g.rows[0];
-                  const fullName = `${first.vorname ?? ""} ${first.nachname ?? ""}`.trim() || "Unbenannter Techniker";
-                  const ob = onboardingBadge(first);
+                  const id = g.identity;
+                  const fullName = `${id.vorname ?? ""} ${id.nachname ?? ""}`.trim() || "Unbenannter Techniker";
+                  const ob = onboardingBadge(id);
                   const meta = LEVEL_META[g.worst];
                   const Icon = meta.icon;
                   return (
@@ -259,7 +385,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                           </span>
                         </div>
                         <p className="truncate text-xs text-muted-foreground">
-                          {first.email ?? "—"}
+                          {id.email ?? "—"}
                         </p>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {g.rows.map((r) => {
@@ -270,7 +396,20 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                                 key={r.subscription_id}
                                 className={`rounded-md border px-1.5 py-0.5 text-[10px] ${rmeta.className}`}
                               >
-                                {label} · {STATUS_LABEL[r.status] ?? r.status}
+                                Abo · {label} · {STATUS_LABEL[r.status] ?? r.status}
+                              </span>
+                            );
+                          })}
+                          {g.einmalig_rows.map((r) => {
+                            const label = PRODUKT_LABEL_EINMALIG[r.produkt_key] ?? PRODUKT_LABEL[r.produkt_key] ?? r.produkt_key;
+                            const rmeta = LEVEL_META[r.health_level];
+                            const statusLabel = r.stripe_payment_status === "failed" ? "Fehlgeschlagen" : "Offen";
+                            return (
+                              <span
+                                key={r.order_id}
+                                className={`rounded-md border px-1.5 py-0.5 text-[10px] ${rmeta.className}`}
+                              >
+                                Einmalig · {label} · {statusLabel}
                               </span>
                             );
                           })}
@@ -294,6 +433,40 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
   );
 }
 
+function FilterChips<T extends string>({
+  label, value, onChange, options,
+}: {
+  label: string;
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-muted-foreground">{label}:</span>
+      <div className="flex items-center gap-1 rounded-md border bg-muted/30 p-0.5">
+        {options.map((o) => {
+          const active = o.value === value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => onChange(o.value)}
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
+                active
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TechnicianDetailDialog({
   group, onClose, onOpenContractor,
 }: {
@@ -314,9 +487,9 @@ function TechnicianDetailDialog({
   }>(null);
 
   if (!group) return null;
-  const first = group.rows[0];
-  const fullName = `${first.vorname ?? ""} ${first.nachname ?? ""}`.trim() || "Unbenannter Techniker";
-  const ob = onboardingBadge(first);
+  const id = group.identity;
+  const fullName = `${id.vorname ?? ""} ${id.nachname ?? ""}`.trim() || "Unbenannter Techniker";
+  const ob = onboardingBadge(id);
 
   const handleLiveSync = async () => {
     setSyncing(true);
@@ -361,7 +534,7 @@ function TechnicianDetailDialog({
             <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${ob.className}`}>
               {ob.label}
             </span>
-            {first.email && <span className="text-xs text-muted-foreground">{first.email}</span>}
+            {id.email && <span className="text-xs text-muted-foreground">{id.email}</span>}
           </div>
         </DialogHeader>
 
@@ -415,6 +588,38 @@ function TechnicianDetailDialog({
             );
           })}
 
+          {group.einmalig_rows.map((r) => {
+            const meta = LEVEL_META[r.health_level];
+            const label = PRODUKT_LABEL_EINMALIG[r.produkt_key] ?? PRODUKT_LABEL[r.produkt_key] ?? r.produkt_key;
+            return (
+              <div key={r.order_id} className="rounded-lg border bg-card/40 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Einmalig · {label}</p>
+                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${meta.className}`}>
+                    {meta.label}
+                  </span>
+                </div>
+                {r.health_reason && (
+                  <p className="mt-1 text-xs text-muted-foreground">{r.health_reason}</p>
+                )}
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Zahlung:</span>{" "}
+                    {r.stripe_payment_status === "failed" ? "Fehlgeschlagen" : "Offen (pending)"}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Betrag:</span>{" "}
+                    {r.betrag_brutto != null ? `${Number(r.betrag_brutto).toFixed(2)} €` : "—"}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Erstellt:</span>{" "}
+                    {fmtDate(r.created_at)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
           {lastSync && (
             <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs">
               <div className="flex items-center gap-1.5 font-medium text-amber-800">
@@ -463,10 +668,10 @@ function TechnicianDetailDialog({
                 Im Feinaufmaß-Hub öffnen
               </Button>
             )}
-            {first.stripe_customer_id && (
+            {id.stripe_customer_id && (
               <Button asChild variant="outline" className="flex-1">
                 <a
-                  href={`https://dashboard.stripe.com/customers/${first.stripe_customer_id}`}
+                  href={`https://dashboard.stripe.com/customers/${id.stripe_customer_id}`}
                   target="_blank"
                   rel="noreferrer"
                 >
