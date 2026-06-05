@@ -609,7 +609,7 @@ function TechnicianDetailDialog({
                   </div>
                   <div>
                     <span className="text-muted-foreground">Betrag:</span>{" "}
-                    {r.betrag_brutto != null ? `${(r.betrag_brutto / 100).toFixed(2)} €` : "—"}
+                    {r.betrag_brutto != null ? `${Number(r.betrag_brutto).toFixed(2)} €` : "—"}
                   </div>
                   <div className="col-span-2">
                     <span className="text-muted-foreground">Erstellt:</span>{" "}
