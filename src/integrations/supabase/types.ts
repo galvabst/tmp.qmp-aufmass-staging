@@ -13576,6 +13576,17 @@ export type Database = {
         Args: { _id: string }
         Returns: number
       }
+      comms_person_card: {
+        Args: { _kind: string; _ref: string }
+        Returns: {
+          email: string
+          employment: string
+          is_active: boolean
+          label: string
+          role_label: string
+          standort: string
+        }[]
+      }
       comms_post_message: {
         Args: {
           _body: string
