@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -275,6 +276,42 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
     if (errs.length === 0) toast.success(`Live-Abgleich fertig: ${ids.length} Techniker, ${newSubs} neue Subs erkannt.`);
     else toast.error(`Live-Abgleich mit Fehlern: ${errs.length} / ${ids.length}. Siehe Konsole.`);
     if (errs.length > 0) console.error("[live-sync-all] errors:", errs);
+  };
+
+  const [stripeLiveSyncing, setStripeLiveSyncing] = useState(false);
+  const handleStripeLiveSync = async (hours: 24 | 48) => {
+    setStripeLiveSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("stripe-live-sync", {
+        body: { hours },
+      });
+      if (error) throw error;
+      const updated = data?.updated ?? 0;
+      const inserted = data?.inserted ?? 0;
+      const unmatched = (data?.unmatched ?? []) as Array<{ stripe_id: string; customer_email: string | null; amount: number | null; reason: string }>;
+      const errs = (data?.errors ?? []) as Array<{ stripe_id: string; error: string }>;
+      const checked = (data?.checked_subscriptions ?? 0) + (data?.checked_payment_intents ?? 0);
+
+      if (updated + inserted > 0) {
+        toast.success(`Stripe Live-Sync (${hours}h): ${inserted} neu angelegt, ${updated} aktualisiert (${checked} Stripe-Objekte geprüft).`);
+      } else {
+        toast.success(`Stripe Live-Sync (${hours}h): keine Änderungen nötig (${checked} Stripe-Objekte geprüft).`);
+      }
+      if (unmatched.length > 0) {
+        console.warn("[stripe-live-sync] unmatched:", unmatched);
+        toast.warning(`${unmatched.length} Stripe-Zahlung(en) ohne Zuordnung — siehe Konsole für Details.`);
+      }
+      if (errs.length > 0) {
+        console.error("[stripe-live-sync] errors:", errs);
+        toast.error(`${errs.length} Fehler beim Sync — siehe Konsole.`);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-subscription-health"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-einmalige-order-health"] });
+    } catch (err) {
+      toast.error(`Stripe Live-Sync fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setStripeLiveSyncing(false);
+    }
   };
 
   const totalUnfilteredCount = allGroups.length;
