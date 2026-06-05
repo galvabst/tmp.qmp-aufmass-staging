@@ -7775,6 +7775,42 @@ export type Database = {
           },
         ]
       }
+      sales_focus_thresholds: {
+        Row: {
+          bucket: string
+          is_active: boolean
+          label: string
+          naechster_schritt: string
+          pipeline: string
+          schwelle_tage: number
+          sort_order: number
+          status_code: string
+          updated_at: string
+        }
+        Insert: {
+          bucket: string
+          is_active?: boolean
+          label: string
+          naechster_schritt: string
+          pipeline: string
+          schwelle_tage: number
+          sort_order?: number
+          status_code: string
+          updated_at?: string
+        }
+        Update: {
+          bucket?: string
+          is_active?: boolean
+          label?: string
+          naechster_schritt?: string
+          pipeline?: string
+          schwelle_tage?: number
+          sort_order?: number
+          status_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sales_heizungscheck_assessments: {
         Row: {
           ai_model: string | null
@@ -7878,6 +7914,92 @@ export type Database = {
             columns: ["assessment_id"]
             isOneToOne: false
             referencedRelation: "sales_heizungscheck_assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_lead_wiedervorlagen: {
+        Row: {
+          beschreibung: string | null
+          created_at: string
+          erledigt_am: string | null
+          erstellt_von: string | null
+          faellig_am: string
+          id: string
+          lead_id: string
+          updated_at: string
+          zugewiesen_an: string | null
+        }
+        Insert: {
+          beschreibung?: string | null
+          created_at?: string
+          erledigt_am?: string | null
+          erstellt_von?: string | null
+          faellig_am: string
+          id?: string
+          lead_id: string
+          updated_at?: string
+          zugewiesen_an?: string | null
+        }
+        Update: {
+          beschreibung?: string | null
+          created_at?: string
+          erledigt_am?: string | null
+          erstellt_von?: string | null
+          faellig_am?: string
+          id?: string
+          lead_id?: string
+          updated_at?: string
+          zugewiesen_an?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_lead_wiedervorlagen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_lead_wiedervorlagen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_lead_wiedervorlagen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "sales_lead_wiedervorlagen_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "sales_lead_wiedervorlagen_zugewiesen_an_fkey"
+            columns: ["zugewiesen_an"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_lead_wiedervorlagen_zugewiesen_an_fkey"
+            columns: ["zugewiesen_an"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_lead_wiedervorlagen_zugewiesen_an_fkey"
+            columns: ["zugewiesen_an"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
             referencedColumns: ["id"]
           },
         ]
@@ -13765,6 +13887,10 @@ export type Database = {
         Args: { p_contractor_arbeitspaket_id: string }
         Returns: boolean
       }
+      complete_focus_wiedervorlage: {
+        Args: { p_wv_id: string }
+        Returns: undefined
+      }
       complete_thc_arbeitspaket: {
         Args: {
           p_auftrag_arbeitspaket_id: string
@@ -14602,6 +14728,38 @@ export type Database = {
           thc_termine_gesamt: number
           thc_verloren_lead: number
           weekly_termine: Json
+        }[]
+      }
+      get_focus_leads: {
+        Args: { p_mitarbeiter_id?: string }
+        Returns: {
+          bucket: string
+          days_since_activity: number
+          deal_status: string
+          has_future_visit: boolean
+          has_pending_backfill: boolean
+          is_due: boolean
+          is_karteileiche: boolean
+          ist_firmenkunde: boolean
+          kunde_ort: string
+          kunde_plz: string
+          kunde_telefon: string
+          last_activity: string
+          lead_id: string
+          lead_name: string
+          naechster_schritt: string
+          nettoangebotssumme: number
+          next_visit_at: string
+          open_deal: boolean
+          open_thc: boolean
+          pending_backfill_termin_id: string
+          projektart: string
+          schwelle_tage: number
+          score: number
+          thc_status: string
+          wv_beschreibung: string
+          wv_faellig_am: string
+          wv_id: string
         }[]
       }
       get_group_permissions: { Args: { _group_id: string }; Returns: Json }
@@ -16176,6 +16334,10 @@ export type Database = {
       set_contractor_austritt: {
         Args: { p_grund?: string; p_onboarding_id: string; p_status: string }
         Returns: Json
+      }
+      set_focus_wiedervorlage: {
+        Args: { p_faellig_am: string; p_lead_id: string; p_notiz: string }
+        Returns: string
       }
       set_kunde_coordinates: {
         Args: {
