@@ -636,10 +636,10 @@ function TechnicianDetailDialog({
                 Im Feinaufmaß-Hub öffnen
               </Button>
             )}
-            {first.stripe_customer_id && (
+            {id.stripe_customer_id && (
               <Button asChild variant="outline" className="flex-1">
                 <a
-                  href={`https://dashboard.stripe.com/customers/${first.stripe_customer_id}`}
+                  href={`https://dashboard.stripe.com/customers/${id.stripe_customer_id}`}
                   target="_blank"
                   rel="noreferrer"
                 >
