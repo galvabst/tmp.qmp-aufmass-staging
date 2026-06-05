@@ -513,7 +513,8 @@ Deno.serve(async (req) => {
         break;
       }
 
-      case "invoice.paid": {
+      case "invoice.paid":
+      case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
         console.log(`[stripe-webhook] invoice.paid: ${invoice.id}, subscription: ${invoice.subscription}`);
         actionType = "subscription_renewed";
