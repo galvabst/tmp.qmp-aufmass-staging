@@ -588,6 +588,38 @@ function TechnicianDetailDialog({
             );
           })}
 
+          {group.einmalig_rows.map((r) => {
+            const meta = LEVEL_META[r.health_level];
+            const label = PRODUKT_LABEL_EINMALIG[r.produkt_key] ?? PRODUKT_LABEL[r.produkt_key] ?? r.produkt_key;
+            return (
+              <div key={r.order_id} className="rounded-lg border bg-card/40 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Einmalig · {label}</p>
+                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${meta.className}`}>
+                    {meta.label}
+                  </span>
+                </div>
+                {r.health_reason && (
+                  <p className="mt-1 text-xs text-muted-foreground">{r.health_reason}</p>
+                )}
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Zahlung:</span>{" "}
+                    {r.stripe_payment_status === "failed" ? "Fehlgeschlagen" : "Offen (pending)"}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Betrag:</span>{" "}
+                    {r.betrag_brutto != null ? `${(r.betrag_brutto / 100).toFixed(2)} €` : "—"}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Erstellt:</span>{" "}
+                    {fmtDate(r.created_at)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
           {lastSync && (
             <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs">
               <div className="flex items-center gap-1.5 font-medium text-amber-800">
