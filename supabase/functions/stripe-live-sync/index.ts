@@ -1,11 +1,11 @@
-// Stripe → DB Live-Sync (Fallback für ausgefallene Webhooks)
-// Pullt Subscriptions + PaymentIntents der letzten N Stunden aus Stripe
-// und ordnet sie über stripe_customer_id / email passenden Onboardings zu.
-// Schreibt via SECURITY DEFINER RPC `thermocheck.sync_stripe_payment_from_live`.
+// Stripe ↔ DB Live-Sync (Customer-getrieben)
+// Strategie: Für jeden Onboarding mit pending/failed Bestellungen pullen wir
+// die Subscriptions + PaymentIntents dieses Stripe-Customers und gleichen ab.
+// Findet auch Subscriptions, die NACH dem ursprünglichen Fehlversuch erstellt wurden.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const VERSION = "live-sync-v1";
+const VERSION = "live-sync-v2-customer-driven";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,29 +21,13 @@ async function stripeGet(stripeKey: string, path: string): Promise<any> {
   return JSON.parse(text);
 }
 
-async function stripeList(stripeKey: string, basePath: string, maxPages = 5): Promise<any[]> {
-  const out: any[] = [];
-  let starting_after: string | null = null;
-  for (let i = 0; i < maxPages; i++) {
-    const sep = basePath.includes("?") ? "&" : "?";
-    const url = `${basePath}${sep}limit=100${starting_after ? `&starting_after=${starting_after}` : ""}`;
-    const page = await stripeGet(stripeKey, url);
-    const data: any[] = Array.isArray(page.data) ? page.data : [];
-    out.push(...data);
-    if (!page.has_more || data.length === 0) break;
-    starting_after = data[data.length - 1].id;
-  }
-  return out;
-}
-
 type Unmatched = {
-  kind: "subscription" | "payment_intent";
+  kind: string;
   stripe_id: string;
   customer_id: string | null;
-  customer_email: string | null;
+  onboarding_id: string | null;
   amount: number | null;
   reason: string;
-  produkt_key: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -59,26 +43,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    let hours = 24;
+    // hours: optionales Zeitfenster für die DB-Vorauswahl. 0 = "alle in_progress Onboardings".
+    let hours = 48;
     if (req.method === "POST") {
       try {
         const body = await req.json();
         const h = Number(body?.hours);
-        if (Number.isFinite(h) && h > 0 && h <= 168) hours = Math.round(h);
+        if (Number.isFinite(h) && h >= 0 && h <= 720) hours = Math.round(h);
       } catch (_) { /* default */ }
     }
 
-    const cutoff = Math.floor(Date.now() / 1000) - hours * 3600;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // --- Produkt-Mapping aus DB (Stripe Price-ID → produkt_key) ---
+    // --- Produkt-Mapping ---
     const { data: produkte, error: prodErr } = await supabase
       .schema("thermocheck")
       .from("contractor_produkte")
       .select("produkt_key, stripe_price_id, preis_brutto");
     if (prodErr) throw new Error(`load contractor_produkte: ${prodErr.message}`);
     const priceToKey = new Map<string, string>();
-    const amountToKey = new Map<number, string>(); // cents brutto → key (Fallback)
+    const amountToKey = new Map<number, string>();
     for (const p of produkte ?? []) {
       if (p.stripe_price_id) priceToKey.set(p.stripe_price_id, p.produkt_key);
       if (p.preis_brutto != null) {
@@ -87,186 +71,154 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- Stripe pull ---
-    const subs = await stripeList(stripeKey, `subscriptions?created[gte]=${cutoff}&expand[]=data.latest_invoice`);
-    const pis = await stripeList(stripeKey, `payment_intents?created[gte]=${cutoff}`);
+    // --- DB: alle pending/failed Bestellungen aus in_progress Onboardings ---
+    // hours=0 → keine Zeitschranke; sonst nur Bestellungen jünger als <hours>h.
+    let q = supabase
+      .schema("thermocheck")
+      .from("contractor_bestellungen")
+      .select("id, onboarding_id, produkt_key, stripe_customer_id, stripe_subscription_id, stripe_payment_intent_id, stripe_payment_status, created_at, contractor_onboarding!inner(id, onboarding_status, profile_id)")
+      .in("stripe_payment_status", ["pending", "failed"])
+      .eq("contractor_onboarding.onboarding_status", "in_progress")
+      .not("stripe_customer_id", "is", null);
 
-    console.log(`[${VERSION}] hours=${hours} cutoff=${cutoff} subs=${subs.length} pis=${pis.length}`);
+    if (hours > 0) {
+      const cutoff = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+      q = q.gte("created_at", cutoff);
+    }
+
+    const { data: candidates, error: candErr } = await q;
+    if (candErr) throw new Error(`load candidates: ${candErr.message}`);
+
+    // Gruppieren per stripe_customer_id
+    const byCustomer = new Map<string, Array<typeof candidates[number]>>();
+    for (const c of candidates ?? []) {
+      const cid = c.stripe_customer_id!;
+      if (!byCustomer.has(cid)) byCustomer.set(cid, []);
+      byCustomer.get(cid)!.push(c);
+    }
+
+    console.log(`[${VERSION}] hours=${hours} candidates=${candidates?.length ?? 0} customers=${byCustomer.size}`);
 
     let updated = 0, inserted = 0, skipped = 0;
     const unmatched: Unmatched[] = [];
     const errors: Array<{ stripe_id: string; error: string }> = [];
+    const matched_details: Array<{ customer_id: string; produkt_key: string; action: string; onboarding_id: string }> = [];
 
-    // Helper: customer → onboarding_id
-    async function findOnboarding(customerId: string | null, email: string | null): Promise<string | null> {
-      if (customerId) {
-        const { data } = await supabase
-          .schema("thermocheck")
-          .from("contractor_bestellungen")
-          .select("onboarding_id, created_at")
-          .eq("stripe_customer_id", customerId)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        if (data && data[0]?.onboarding_id) return data[0].onboarding_id;
-      }
-      if (email) {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("id")
-          .ilike("email", email)
-          .limit(1);
-        const profileId = prof?.[0]?.id;
-        if (profileId) {
-          const { data: ob } = await supabase
+    for (const [customerId, orders] of byCustomer.entries()) {
+      const onboardingId = orders[0].onboarding_id;
+      const failedKeys = new Set(orders.map((o) => o.produkt_key));
+
+      try {
+        // 1) Subscriptions des Customers (alle Stati, expand latest_invoice)
+        const subsResp = await stripeGet(
+          stripeKey,
+          `subscriptions?customer=${customerId}&status=all&limit=100&expand[]=data.latest_invoice`,
+        );
+        const subs: any[] = Array.isArray(subsResp.data) ? subsResp.data : [];
+
+        for (const sub of subs) {
+          const inv = sub.latest_invoice;
+          const isPaid = inv && typeof inv === "object" && (inv.status === "paid" || Number(inv.amount_paid ?? 0) > 0);
+          if (!isPaid) continue;
+
+          const priceId: string | null = sub.items?.data?.[0]?.price?.id ?? null;
+          const produktKey = priceId ? priceToKey.get(priceId) ?? null : null;
+          if (!produktKey) {
+            unmatched.push({
+              kind: "subscription", stripe_id: sub.id, customer_id: customerId,
+              onboarding_id: onboardingId, amount: Number(inv.amount_paid ?? 0) / 100,
+              reason: `unknown price_id ${priceId}`,
+            });
+            continue;
+          }
+          // Nur abgleichen wenn dieses Produkt für den Customer offen ist
+          if (!failedKeys.has(produktKey)) continue;
+
+          const piId: string | null = typeof inv.payment_intent === "string"
+            ? inv.payment_intent
+            : (inv.payment_intent?.id ?? null);
+          const amount = Number(inv.amount_paid ?? 0) / 100;
+          const paidAt = inv.status_transitions?.paid_at
+            ? new Date(inv.status_transitions.paid_at * 1000).toISOString()
+            : new Date().toISOString();
+
+          const { data: rpcResult, error: rpcErr } = await supabase
             .schema("thermocheck")
-            .from("contractor_onboarding")
-            .select("id, erstellt_am")
-            .eq("profile_id", profileId)
-            .order("erstellt_am", { ascending: false })
-            .limit(1);
-          if (ob && ob[0]?.id) return ob[0].id;
-        }
-      }
-      return null;
-    }
-
-    async function fetchCustomerEmail(customerId: string | null): Promise<string | null> {
-      if (!customerId) return null;
-      try {
-        const cust = await stripeGet(stripeKey, `customers/${customerId}`);
-        return typeof cust.email === "string" ? cust.email : null;
-      } catch {
-        return null;
-      }
-    }
-
-    // ---- Subscriptions ----
-    for (const sub of subs) {
-      const subId = sub.id as string;
-      try {
-        const inv = sub.latest_invoice;
-        const isPaid = inv && typeof inv === "object" && (inv.status === "paid" || inv.amount_paid > 0);
-        if (!isPaid) { skipped++; continue; }
-
-        const customerId: string | null = typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null;
-        const priceId: string | null = sub.items?.data?.[0]?.price?.id ?? null;
-        const produktKey = priceId ? priceToKey.get(priceId) ?? null : null;
-        const piId: string | null = typeof inv.payment_intent === "string" ? inv.payment_intent : (inv.payment_intent?.id ?? null);
-        const amountCents: number = Number(inv.amount_paid ?? 0);
-        const betragBrutto = amountCents > 0 ? amountCents / 100 : null;
-        const paidAt = inv.status_transitions?.paid_at ? new Date(inv.status_transitions.paid_at * 1000).toISOString() : new Date().toISOString();
-
-        const email = await fetchCustomerEmail(customerId);
-        const onboardingId = await findOnboarding(customerId, email);
-
-        if (!onboardingId) {
-          unmatched.push({
-            kind: "subscription", stripe_id: subId, customer_id: customerId, customer_email: email,
-            amount: betragBrutto, reason: "no matching onboarding", produkt_key: produktKey,
-          });
-          continue;
-        }
-        if (!produktKey) {
-          unmatched.push({
-            kind: "subscription", stripe_id: subId, customer_id: customerId, customer_email: email,
-            amount: betragBrutto, reason: `unknown price_id ${priceId}`, produkt_key: null,
-          });
-          continue;
+            .rpc("sync_stripe_payment_from_live", {
+              p_onboarding_id: onboardingId,
+              p_produkt_key: produktKey,
+              p_stripe_customer_id: customerId,
+              p_stripe_subscription_id: sub.id,
+              p_stripe_payment_intent_id: piId,
+              p_betrag_brutto: amount,
+              p_paid_at: paidAt,
+            });
+          if (rpcErr) { errors.push({ stripe_id: sub.id, error: rpcErr.message }); continue; }
+          const action = (rpcResult as any)?.action;
+          if (action === "inserted") inserted++;
+          else if (action === "updated") updated++;
+          else skipped++;
+          matched_details.push({ customer_id: customerId, produkt_key: produktKey, action, onboarding_id: onboardingId });
+          console.log(`[${VERSION}] cust ${customerId} sub ${sub.id} → ${action} (${produktKey})`);
         }
 
-        const { data: rpcResult, error: rpcErr } = await supabase
-          .schema("thermocheck")
-          .rpc("sync_stripe_payment_from_live", {
-            p_onboarding_id: onboardingId,
-            p_produkt_key: produktKey,
-            p_stripe_customer_id: customerId,
-            p_stripe_subscription_id: subId,
-            p_stripe_payment_intent_id: piId,
-            p_betrag_brutto: betragBrutto,
-            p_paid_at: paidAt,
-          });
-        if (rpcErr) { errors.push({ stripe_id: subId, error: rpcErr.message }); continue; }
-        const action = (rpcResult as any)?.action;
-        if (action === "inserted") inserted++;
-        else if (action === "updated") updated++;
-        else skipped++;
-        console.log(`[${VERSION}] sub ${subId} → ${action} (${produktKey}, onb ${onboardingId})`);
+        // 2) PaymentIntents des Customers (succeeded, ohne invoice = Einmal-Käufe)
+        const pisResp = await stripeGet(
+          stripeKey,
+          `payment_intents?customer=${customerId}&limit=50`,
+        );
+        const pis: any[] = Array.isArray(pisResp.data) ? pisResp.data : [];
+
+        for (const pi of pis) {
+          if (pi.status !== "succeeded") continue;
+          if (pi.invoice) continue; // gehört zu Subscription
+          const amountCents = Number(pi.amount_received ?? pi.amount ?? 0);
+          if (amountCents <= 0) continue;
+
+          let produktKey: string | null = pi.metadata?.produkt_key ?? null;
+          if (!produktKey) produktKey = amountToKey.get(amountCents) ?? null;
+          if (!produktKey) {
+            unmatched.push({
+              kind: "payment_intent", stripe_id: pi.id, customer_id: customerId,
+              onboarding_id: onboardingId, amount: amountCents / 100,
+              reason: "unknown product (no metadata + no amount match)",
+            });
+            continue;
+          }
+          if (!failedKeys.has(produktKey)) continue;
+
+          const paidAt = pi.created ? new Date(pi.created * 1000).toISOString() : new Date().toISOString();
+
+          const { data: rpcResult, error: rpcErr } = await supabase
+            .schema("thermocheck")
+            .rpc("sync_stripe_payment_from_live", {
+              p_onboarding_id: onboardingId,
+              p_produkt_key: produktKey,
+              p_stripe_customer_id: customerId,
+              p_stripe_subscription_id: null,
+              p_stripe_payment_intent_id: pi.id,
+              p_betrag_brutto: amountCents / 100,
+              p_paid_at: paidAt,
+            });
+          if (rpcErr) { errors.push({ stripe_id: pi.id, error: rpcErr.message }); continue; }
+          const action = (rpcResult as any)?.action;
+          if (action === "inserted") inserted++;
+          else if (action === "updated") updated++;
+          else skipped++;
+          matched_details.push({ customer_id: customerId, produkt_key: produktKey, action, onboarding_id: onboardingId });
+          console.log(`[${VERSION}] cust ${customerId} pi ${pi.id} → ${action} (${produktKey})`);
+        }
       } catch (e) {
-        errors.push({ stripe_id: subId, error: e instanceof Error ? e.message : String(e) });
-      }
-    }
-
-    // ---- Einmal-PaymentIntents ----
-    // Skip PIs die zu einer der oben verarbeiteten Subscription-Invoices gehören.
-    const subInvoicePis = new Set<string>();
-    for (const sub of subs) {
-      const inv = sub.latest_invoice;
-      const piId = inv && typeof inv === "object" && typeof inv.payment_intent === "string" ? inv.payment_intent : null;
-      if (piId) subInvoicePis.add(piId);
-    }
-
-    for (const pi of pis) {
-      const piId = pi.id as string;
-      try {
-        if (pi.status !== "succeeded") { skipped++; continue; }
-        if (subInvoicePis.has(piId)) { skipped++; continue; }
-        if (pi.invoice) { skipped++; continue; } // gehört zu Subscription, separat behandelt
-
-        const customerId: string | null = typeof pi.customer === "string" ? pi.customer : null;
-        const amountCents: number = Number(pi.amount_received ?? pi.amount ?? 0);
-        const betragBrutto = amountCents > 0 ? amountCents / 100 : null;
-        const paidAt = pi.created ? new Date(pi.created * 1000).toISOString() : new Date().toISOString();
-
-        // Produkt-Key: zuerst aus metadata, sonst über Betrag
-        let produktKey: string | null = pi.metadata?.produkt_key ?? null;
-        if (!produktKey && amountCents > 0) produktKey = amountToKey.get(amountCents) ?? null;
-
-        const email = await fetchCustomerEmail(customerId);
-        const onboardingId = await findOnboarding(customerId, email);
-
-        if (!onboardingId) {
-          unmatched.push({
-            kind: "payment_intent", stripe_id: piId, customer_id: customerId, customer_email: email,
-            amount: betragBrutto, reason: "no matching onboarding", produkt_key: produktKey,
-          });
-          continue;
-        }
-        if (!produktKey) {
-          unmatched.push({
-            kind: "payment_intent", stripe_id: piId, customer_id: customerId, customer_email: email,
-            amount: betragBrutto, reason: "unknown product (no metadata + no amount match)", produkt_key: null,
-          });
-          continue;
-        }
-
-        const { data: rpcResult, error: rpcErr } = await supabase
-          .schema("thermocheck")
-          .rpc("sync_stripe_payment_from_live", {
-            p_onboarding_id: onboardingId,
-            p_produkt_key: produktKey,
-            p_stripe_customer_id: customerId,
-            p_stripe_subscription_id: null,
-            p_stripe_payment_intent_id: piId,
-            p_betrag_brutto: betragBrutto,
-            p_paid_at: paidAt,
-          });
-        if (rpcErr) { errors.push({ stripe_id: piId, error: rpcErr.message }); continue; }
-        const action = (rpcResult as any)?.action;
-        if (action === "inserted") inserted++;
-        else if (action === "updated") updated++;
-        else skipped++;
-        console.log(`[${VERSION}] pi ${piId} → ${action} (${produktKey}, onb ${onboardingId})`);
-      } catch (e) {
-        errors.push({ stripe_id: piId, error: e instanceof Error ? e.message : String(e) });
+        errors.push({ stripe_id: customerId, error: e instanceof Error ? e.message : String(e) });
       }
     }
 
     return new Response(JSON.stringify({
       version: VERSION, hours,
-      checked_subscriptions: subs.length,
-      checked_payment_intents: pis.length,
+      customers_checked: byCustomer.size,
+      candidates_in_db: candidates?.length ?? 0,
       updated, inserted, skipped,
-      unmatched, errors,
+      matched_details, unmatched, errors,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (err) {
