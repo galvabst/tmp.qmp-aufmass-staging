@@ -23,7 +23,6 @@ function handleResetAkademieCache() {
       const state = JSON.parse(saved);
       // Only reset akademie fields, keep other onboarding progress
       state.akademieHauptmodule = [];
-      state.akademieModule = [];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
   } catch (e) {

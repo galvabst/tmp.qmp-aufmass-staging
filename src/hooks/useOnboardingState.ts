@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   OnboardingState, 
-  OnboardingStepId, 
+  OnboardingStepId,
   ApplicantProfile,
-  AkademieModul,
   AkademieHauptmodul,
   OberteilAuswahl,
   STEP_ORDER,
@@ -83,8 +82,6 @@ const loadPersistedState = (initialProfile: ApplicantProfile, storageKey: string
         akademieHauptmodule: hasValidAkademie
           ? parsed.akademieHauptmodule!
           : [], // Empty array triggers DB hydration
-        // Legacy akademieModule - also reset if needed
-        akademieModule: [],
       };
     }
   } catch {
@@ -306,19 +303,7 @@ export function useOnboardingState(
     }));
   }, []);
 
-  // Schritt 5: Akademie (Legacy)
-  const completeAkademieModul = useCallback((modulId: string) => {
-    setState(prev => ({
-      ...prev,
-      akademieModule: prev.akademieModule.map(m =>
-        m.id === modulId
-          ? { ...m, abgeschlossen: true, abgeschlossenAt: new Date().toISOString() }
-          : m
-      ),
-    }));
-  }, []);
-
-  // Schritt 5: Akademie (NEU: Hierarchische Struktur)
+  // Schritt 5: Akademie (Hierarchische Struktur)
   const completeAkademieUnterpunkt = useCallback((hauptmodulId: string, unterpunktId: string) => {
     setState(prev => ({
       ...prev,
@@ -564,7 +549,6 @@ export function useOnboardingState(
     
     // Schritt 5 (NEU)
     completeAkademieUnterpunkt,
-    completeAkademieModul,
     setAkademieTestBestanden,
     hydrateAkademieFromDb,
     

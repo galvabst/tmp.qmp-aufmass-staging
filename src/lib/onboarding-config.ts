@@ -1,8 +1,7 @@
 import { 
-  OnboardingStepConfig, 
-  OnboardingProduct, 
-  EquipmentItem, 
-  AkademieModul,
+  OnboardingStepConfig,
+  OnboardingProduct,
+  EquipmentItem,
   AkademieHauptmodul,
   ApplicantProfile,
   OnboardingState,
@@ -169,9 +168,6 @@ export const MOCK_EQUIPMENT: EquipmentItem[] = [
   },
 ];
 
-// Mock-Akademie Module (Legacy - für Abwärtskompatibilität)
-export const MOCK_AKADEMIE_MODULE: AkademieModul[] = [];
-
 // Akademie-Struktur wird jetzt aus der DB geladen (thermocheck.techniker_akademie_module/lektionen)
 // Mock-Daten entfernt - thermocheck Schema ist SSOT
 export const MOCK_AKADEMIE_HAUPTMODULE: AkademieHauptmodul[] = [];
@@ -208,7 +204,6 @@ export function createInitialOnboardingState(profile: ApplicantProfile): Onboard
     
     equipmentStatus: {},
     
-    akademieModule: MOCK_AKADEMIE_MODULE,
     akademieHauptmodule: MOCK_AKADEMIE_HAUPTMODULE,
     akademieTestBestanden: false,
     

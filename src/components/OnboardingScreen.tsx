@@ -29,9 +29,10 @@ import {
   createInitialOnboardingState,
   getRequiredOrderCount,
 } from '@/lib/onboarding-config';
-import { CoachingSlot, ApplicantProfile, OnboardingStepId, STEP_ORDER } from '@/types/onboarding';
+import { ApplicantProfile, OnboardingStepId, STEP_ORDER } from '@/types/onboarding';
 import { Button } from '@/components/ui/button';
 import { getOnboardingStorageKey } from '@/lib/onboarding-storage';
+import { mapRidesToSlots } from '@/lib/coaching-slots';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
 
 interface OnboardingScreenProps {
@@ -125,7 +126,6 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
     setBestellungenFromDb,
     setOberteilAuswahl,
     updateEquipmentStatus,
-    completeAkademieModul,
     completeAkademieUnterpunkt,
     setAkademieTestBestanden,
     updateCheckliste,
@@ -432,67 +432,14 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
   const { data: myBookedRide } = useMyBookedRide(dbStatus?.profileId || null);
   const bookCoachingRideMutation = useBookCoachingRide();
 
-  // DB-Rides → CoachingSlot[] Format für CoachingStep
-  const coachingSlots: CoachingSlot[] = (() => {
-    const slots: CoachingSlot[] = [];
-    
-    // Gebuchter Ride zuerst
-    if (myBookedRide) {
-      slots.push({
-        id: myBookedRide.auftrag_id,
-        coachName: `${myBookedRide.trainer_vorname || ''} ${myBookedRide.trainer_nachname || ''}`.trim() || 'Trainer',
-        coachAvatarUrl: myBookedRide.trainer_avatar_url,
-        coachVideoUrl: myBookedRide.trainer_video_url,
-        coachBio: myBookedRide.trainer_bio,
-        coachTelefon: myBookedRide.trainer_telefon,
-        coachEmail: myBookedRide.trainer_email,
-        coachOrt: myBookedRide.trainer_ort,
-        termine: myBookedRide.termine.map(t => ({
-          datum: t.datum,
-          ganztaegig: t.ganztaegig,
-          zeitVon: t.zeit_von,
-          zeitBis: t.zeit_bis,
-        })),
-        ort: myBookedRide.region,
-        region: myBookedRide.region,
-        gebucht: true,
-        preis: Math.round((myBookedRide.trainer_coaching_preis ?? 0) * 1.3),
-      });
-    }
-    
-    // Verfügbare Rides
-    for (const ride of dbCoachingRides) {
-      slots.push({
-        id: ride.auftrag_id,
-        coachName: `${ride.trainer_vorname || ''} ${ride.trainer_nachname || ''}`.trim() || 'Trainer',
-        coachAvatarUrl: ride.trainer_avatar_url,
-        coachVideoUrl: ride.trainer_video_url,
-        coachBio: ride.trainer_bio,
-        coachTelefon: ride.trainer_telefon,
-        coachEmail: ride.trainer_email,
-        coachOrt: ride.trainer_ort,
-        termine: ride.termine.map(t => ({
-          datum: t.datum,
-          ganztaegig: t.ganztaegig,
-          zeitVon: t.zeit_von,
-          zeitBis: t.zeit_bis,
-        })),
-        ort: ride.region,
-        region: ride.region,
-        gebucht: false,
-        preis: Math.round((ride.trainer_coaching_preis ?? 0) * 1.3),
-      });
-    }
-    
-    return slots;
-  })();
+  // DB-Rides → CoachingSlot[] Format für CoachingStep (gebuchter zuerst)
+  const coachingSlots = mapRidesToSlots(myBookedRide, dbCoachingRides);
 
   // Handle completed unterpunkt from AkademieModul page navigation
   useEffect(() => {
-    const navState = location.state as { 
+    const navState = location.state as {
       completedHauptmodulId?: string;
       completedUnterpunktId?: string;
-      completedModuleId?: string;
     } | null;
     
     if (navState?.completedHauptmodulId && navState?.completedUnterpunktId) {
@@ -517,13 +464,8 @@ export function OnboardingScreen({ onComplete, isPreview = false, onExitPreview,
       toast.success('Unterpunkt abgeschlossen!');
       goToStep('akademie');
       navigate('/', { replace: true, state: {} });
-    } else if (navState?.completedModuleId) {
-      completeAkademieModul(navState.completedModuleId);
-      toast.success('Modul abgeschlossen!');
-      goToStep('akademie');
-      navigate('/', { replace: true, state: {} });
     }
-  }, [location.state, completeAkademieModul, completeAkademieUnterpunkt, goToStep, navigate]);
+  }, [location.state, completeAkademieUnterpunkt, goToStep, navigate]);
 
   const isDbReady = dbStatus?.isTrainer
     ? dbStatus?.onboardingStatus === 'ready'

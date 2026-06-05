@@ -81,18 +81,6 @@ export interface EquipmentItem {
   kaufLink?: string;
 }
 
-// Akademie-Modul (Legacy - wird durch hierarchische Struktur ersetzt)
-export interface AkademieModul {
-  id: string;
-  titel: string;
-  beschreibung: string;
-  videoUrl: string;
-  dauerMinuten: number;
-  reihenfolge: number;
-  abgeschlossen: boolean;
-  abgeschlossenAt?: string;
-}
-
 // NEU: Hierarchische Akademie-Struktur
 export interface AkademieUnterpunkt {
   id: string;
@@ -169,8 +157,7 @@ export interface OnboardingState {
   equipmentStatus: Record<string, { hatEigenes: boolean; nachweisUrl?: string }>;
   
   // Schritt 5: Akademie
-  akademieModule: AkademieModul[]; // Legacy
-  akademieHauptmodule: AkademieHauptmodul[]; // NEU: Hierarchische Struktur
+  akademieHauptmodule: AkademieHauptmodul[]; // Hierarchische Struktur (aus DB)
   akademieTestBestanden: boolean;
   zertifikatUrl?: string;
   
