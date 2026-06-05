@@ -7665,6 +7665,36 @@ export type Database = {
           },
         ]
       }
+      sales_auftrag_korrektur_backup: {
+        Row: {
+          correction_id: string
+          created_at: string
+          id: number
+          object_id: string
+          object_type: string
+          reason: string
+          snapshot: Json
+        }
+        Insert: {
+          correction_id: string
+          created_at?: string
+          id?: never
+          object_id: string
+          object_type: string
+          reason: string
+          snapshot: Json
+        }
+        Update: {
+          correction_id?: string
+          created_at?: string
+          id?: never
+          object_id?: string
+          object_type?: string
+          reason?: string
+          snapshot?: Json
+        }
+        Relationships: []
+      }
       sales_clickup_vot_outbox: {
         Row: {
           enqueued_at: string
