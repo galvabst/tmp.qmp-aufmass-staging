@@ -226,7 +226,23 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
       });
   }, [allGroups, pipelineFilter, typFilter]);
 
+  const [kittens, setKittens] = useState<{ id: number; top: number; delay: number; duration: number; size: number; dir: 1 | -1 }[]>([]);
+  const launchKittens = () => {
+    const now = Date.now();
+    const items = Array.from({ length: 14 }, (_, i) => ({
+      id: now + i,
+      top: Math.random() * 80 + 5,
+      delay: Math.random() * 0.4,
+      duration: 1.2 + Math.random() * 0.9,
+      size: 28 + Math.random() * 28,
+      dir: (Math.random() > 0.5 ? 1 : -1) as 1 | -1,
+    }));
+    setKittens(items);
+    window.setTimeout(() => setKittens([]), 2600);
+  };
+
   const handleSync = async () => {
+    launchKittens();
     setSyncing(true);
     try {
       const { error } = await supabase.functions.invoke("reconcile-stripe-orders", {
@@ -242,6 +258,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
       setSyncing(false);
     }
   };
+
 
   const [liveSyncing, setLiveSyncing] = useState(false);
   const handleLiveSyncAll = async () => {
