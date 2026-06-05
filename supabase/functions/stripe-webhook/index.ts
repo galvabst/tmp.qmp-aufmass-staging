@@ -522,11 +522,33 @@ Deno.serve(async (req) => {
 
         if (invoice.subscription) {
           // Update legacy contractor_bestellungen
-          const { data: bestellungen } = await supabase
+          let { data: bestellungen } = await supabase
             .schema("thermocheck")
             .from("contractor_bestellungen")
             .select("id, stripe_payment_status")
             .eq("stripe_subscription_id", invoice.subscription as string);
+
+          // Fallback: link by customer_id when subscription_id was never persisted
+          // (e.g. row was created via unpaid checkout before v7 fix shipped)
+          if ((!bestellungen || bestellungen.length === 0) && invoice.customer) {
+            const { data: byCustomer } = await supabase
+              .schema("thermocheck")
+              .from("contractor_bestellungen")
+              .select("id, stripe_payment_status")
+              .eq("stripe_customer_id", invoice.customer as string)
+              .in("stripe_payment_status", ["pending", "failed"]);
+            if (byCustomer && byCustomer.length > 0) {
+              // Backfill subscription_id for the future
+              for (const o of byCustomer) {
+                await supabase
+                  .schema("thermocheck")
+                  .from("contractor_bestellungen")
+                  .update({ stripe_subscription_id: invoice.subscription as string })
+                  .eq("id", o.id);
+              }
+              bestellungen = byCustomer;
+            }
+          }
 
           if (bestellungen && bestellungen.length > 0) {
             for (const bestellung of bestellungen) {
