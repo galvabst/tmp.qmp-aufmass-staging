@@ -305,12 +305,28 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
             </CardTitle>
           </div>
           <div className="flex items-center gap-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" disabled={stripeLiveSyncing || liveSyncing || syncing} title="Stripe Live-Sync (Fallback)">
+                  <Zap className={`h-4 w-4 ${stripeLiveSyncing ? "animate-pulse text-amber-500" : "text-amber-600"}`} />
+                  <span className="ml-1 hidden sm:inline">Stripe Live-Sync</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuItem onClick={() => handleStripeLiveSync(24)} disabled={stripeLiveSyncing}>
+                  Letzte 24 Stunden abgleichen
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleStripeLiveSync(48)} disabled={stripeLiveSyncing}>
+                  Letzte 48 Stunden abgleichen
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {groups.length > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" onClick={handleLiveSyncAll} disabled={liveSyncing || syncing}>
-                    <Zap className={`h-4 w-4 ${liveSyncing ? "animate-pulse text-amber-500" : ""}`} />
-                    <span className="ml-1 hidden sm:inline">Live-Sync</span>
+                  <Button variant="ghost" size="sm" onClick={handleLiveSyncAll} disabled={liveSyncing || syncing || stripeLiveSyncing}>
+                    <RefreshCw className={`h-4 w-4 ${liveSyncing ? "animate-spin" : ""}`} />
+                    <span className="ml-1 hidden sm:inline">Sub-Sync (pro Techniker)</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
@@ -318,7 +334,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                 </TooltipContent>
               </Tooltip>
             )}
-            <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing || liveSyncing}>
+            <Button variant="ghost" size="sm" onClick={handleSync} disabled={syncing || liveSyncing || stripeLiveSyncing}>
               <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
               <span className="ml-1 hidden sm:inline">Abgleich</span>
             </Button>
