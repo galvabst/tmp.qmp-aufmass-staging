@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno&no-check";
 
-const WEBHOOK_VERSION = "2026-05-26-v6-subscription-tracker";
+const WEBHOOK_VERSION = "2026-06-05-v7-unpaid-link-fix";
 
 // ---------------------------------------------------------------
 // Subscription-Tracker Helpers
