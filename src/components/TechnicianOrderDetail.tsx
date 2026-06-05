@@ -487,9 +487,23 @@ Mit freundlichen Grüßen`;
                           ))}
                         </div>
                       </div>
-                      <Button size="sm" className="w-full" onClick={handleConfirmBooking} disabled={confirmingBooking || !allChecked}>
+                      <div>
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                          Exakt abgesprochene Uhrzeit
+                        </p>
+                        <input
+                          type="time"
+                          value={agreedTime}
+                          onChange={(e) => setAgreedTime(e.target.value)}
+                          className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Diese Uhrzeit wird gespeichert. Der Auftragsstatus bleibt unverändert.
+                        </p>
+                      </div>
+                      <Button size="sm" className="w-full" onClick={handleConfirmBooking} disabled={confirmingBooking || !canSubmitBooking}>
                         {confirmingBooking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                        {allChecked ? 'Als erledigt markieren' : 'Bitte alle Punkte abhaken'}
+                        {!allChecked ? 'Bitte alle Punkte abhaken' : !/^\d{2}:\d{2}$/.test(agreedTime) ? 'Uhrzeit angeben' : 'Als erledigt markieren'}
                       </Button>
                     </div>
                   )}
