@@ -31,31 +31,30 @@ async function getAuthHeaders() {
 }
 
 /**
- * Loads all approved orders with their billing status for admin management.
+ * Loads all billing records (contractor_abrechnungen) with order/customer/tech info.
+ *
+ * DIAGNOSE-STOPGAP (wird von TP1 ersetzt): Die alte Version filterte Aufträge auf
+ * `status = 'approved'` — ein Wert, den im System nichts je setzt, weshalb die
+ * Liste strukturell immer leer war. Diese Variante geht von den echten Abrechnungs-
+ * Datensätzen aus (Source of Truth) statt über den toten Auftrags-Filter.
  */
 export function useAdminAbrechnungen() {
   return useQuery({
     queryKey: ['admin-abrechnungen'],
     queryFn: async (): Promise<AdminAbrechnungItem[]> => {
-      // 1. Get approved orders
-      const { data: auftraege, error: aufErr } = await supabaseTC
-        .from('v_thermocheck_auftraege')
-        .select('id,kunde_vorname,kunde_nachname,zugewiesener_techniker_id,status,vereinbarter_preis')
-        .eq('status', 'approved')
-        .order('aktualisiert_am', { ascending: false })
-        .limit(500);
-
-      if (aufErr) throw aufErr;
-      if (!auftraege?.length) return [];
-
-      // 2. Get billing records
       const headers = await getAuthHeaders();
-      const ids = auftraege.map(a => a.id);
+
+      // 1. Alle Abrechnungs-Datensätze direkt laden (Source of Truth).
+      //    Kein order-by auf aktualisiert_am/updated_at — Spaltenname ist zwischen
+      //    Migrationen uneindeutig, ein falscher Name würde die Query 400en.
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/contractor_abrechnungen?thermocheck_auftrag_id=in.(${ids.join(',')})&select=id,thermocheck_auftrag_id,status,betrag,rechnung_eingegangen_am,geprueft_am,bezahlt_am`,
+        `${SUPABASE_URL}/rest/v1/contractor_abrechnungen?select=id,thermocheck_auftrag_id,status,betrag,rechnung_eingegangen_am,geprueft_am,bezahlt_am&limit=1000`,
         { headers }
       );
-      
+      if (!res.ok) {
+        // Fehler NICHT verschlucken — sonst sieht ein 4xx wie "keine Daten" aus.
+        throw new Error(`Abrechnungen laden fehlgeschlagen: ${res.status} ${await res.text()}`);
+      }
       const abrechnungen: Array<{
         id: string;
         thermocheck_auftrag_id: string;
@@ -64,35 +63,59 @@ export function useAdminAbrechnungen() {
         rechnung_eingegangen_am: string | null;
         geprueft_am: string | null;
         bezahlt_am: string | null;
-      }> = res.ok ? await res.json() : [];
+      }> = await res.json();
 
-      const abrMap = new Map(abrechnungen.map(a => [a.thermocheck_auftrag_id, a]));
+      if (!abrechnungen.length) return [];
 
-      // 3. Resolve technician names
-      const techIds = [...new Set(auftraege.map(a => a.zugewiesener_techniker_id).filter(Boolean))];
-      let nameMap = new Map<string, string>();
-      if (techIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id,vorname,nachname')
-          .in('id', techIds);
-        if (profiles) {
-          nameMap = new Map(profiles.map(p => [p.id, `${p.vorname || ''} ${p.nachname || ''}`.trim() || '–']));
+      // 2. Auftrags-Infos (Kunde, Techniker, Preis) für die referenzierten Aufträge.
+      const auftragIds = [...new Set(abrechnungen.map(a => a.thermocheck_auftrag_id))];
+      const { data: auftraege } = await supabaseTC
+        .from('v_thermocheck_auftraege')
+        .select('id,kunde_vorname,kunde_nachname,zugewiesener_techniker_id,vereinbarter_preis')
+        .in('id', auftragIds);
+      const auftragMap = new Map((auftraege ?? []).map(a => [a.id, a]));
+
+      // 3. Techniker-Namen best-effort auflösen: zugewiesener_techniker_id verweist
+      //    auf contractor_onboarding.id → profile_id → profiles. Schlägt etwas fehl,
+      //    bleibt der Name '–', die Liste lädt trotzdem.
+      const onbIds = [...new Set((auftraege ?? []).map(a => a.zugewiesener_techniker_id).filter(Boolean))];
+      const nameByOnbId = new Map<string, string>();
+      if (onbIds.length > 0) {
+        try {
+          const { data: onbs } = await supabaseTC
+            .from('contractor_onboarding')
+            .select('id,profile_id')
+            .in('id', onbIds);
+          const profIds = [...new Set((onbs ?? []).map(o => o.profile_id).filter(Boolean))];
+          if (profIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id,vorname,nachname')
+              .in('id', profIds);
+            const nameByProfId = new Map(
+              (profiles ?? []).map(p => [p.id, `${p.vorname || ''} ${p.nachname || ''}`.trim() || '–'])
+            );
+            (onbs ?? []).forEach(o => {
+              if (o.profile_id) nameByOnbId.set(o.id, nameByProfId.get(o.profile_id) || '–');
+            });
+          }
+        } catch {
+          // Namen sind nicht kritisch für die Diagnose — still ignorieren.
         }
       }
 
-      return auftraege.map((a): AdminAbrechnungItem => {
-        const abr = abrMap.get(a.id);
+      return abrechnungen.map((abr): AdminAbrechnungItem => {
+        const a = auftragMap.get(abr.thermocheck_auftrag_id);
         return {
-          id: abr?.id || a.id,
-          auftragId: a.id,
-          customerName: `${a.kunde_vorname || ''} ${a.kunde_nachname || ''}`.trim() || '–',
-          technikerName: nameMap.get(a.zugewiesener_techniker_id || '') || '–',
-          betrag: abr?.betrag ?? a.vereinbarter_preis ?? null,
-          status: abr?.status || 'offen',
-          rechnungEingegangenAm: abr?.rechnung_eingegangen_am || null,
-          geprueftAm: abr?.geprueft_am || null,
-          bezahltAm: abr?.bezahlt_am || null,
+          id: abr.id,
+          auftragId: abr.thermocheck_auftrag_id,
+          customerName: a ? `${a.kunde_vorname || ''} ${a.kunde_nachname || ''}`.trim() || '–' : '–',
+          technikerName: a?.zugewiesener_techniker_id ? (nameByOnbId.get(a.zugewiesener_techniker_id) || '–') : '–',
+          betrag: abr.betrag ?? a?.vereinbarter_preis ?? null,
+          status: abr.status,
+          rechnungEingegangenAm: abr.rechnung_eingegangen_am,
+          geprueftAm: abr.geprueft_am,
+          bezahltAm: abr.bezahlt_am,
         };
       });
     },

@@ -35,7 +35,7 @@ const STATUS_BADGE_VARIANT: Record<AbrechnungStatusEnum, 'secondary' | 'default'
 
 export function QGQueueView() {
   const { data: praxistests, isLoading: praxisLoading } = useAdminQGPraxistests();
-  const { data: abrechnungen, isLoading: abrLoading } = useAdminAbrechnungen();
+  const { data: abrechnungen, isLoading: abrLoading, isError: abrIsError, error: abrError } = useAdminAbrechnungen();
   const approveMutation = useApprovePraxistest();
   const updateAbrStatus = useUpdateAbrechnungStatus();
 
@@ -172,10 +172,15 @@ export function QGQueueView() {
 
         {/* Abrechnung Tab */}
         <TabsContent value="abrechnung">
-          {abrLoading ? <ListSkeleton count={4} showAvatar showBadge /> : (
+          {abrLoading ? <ListSkeleton count={4} showAvatar showBadge /> : abrIsError ? (
+            <div className="text-center py-8 px-4 text-destructive text-sm">
+              Fehler beim Laden der Abrechnungen:<br />
+              <span className="text-xs opacity-80">{abrError instanceof Error ? abrError.message : 'Unbekannter Fehler'}</span>
+            </div>
+          ) : (
             <div className="space-y-3">
               {!abrechnungen?.length ? (
-                <div className="text-center py-8 text-muted-foreground">Keine abgenommenen Aufträge</div>
+                <div className="text-center py-8 text-muted-foreground">Noch keine Abrechnungen vorhanden</div>
               ) : abrechnungen.map((item) => {
                 const next = NEXT_STATUS[item.status];
                 return (
