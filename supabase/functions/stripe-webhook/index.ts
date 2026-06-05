@@ -346,14 +346,21 @@ Deno.serve(async (req) => {
           console.warn(`[stripe-webhook] Payment NOT successful (status: ${session.payment_status}), NOT marking as paid`);
           actionType = "checkout_completed_unpaid";
 
-          // Still link session_id to orders for future lookup
+          // Still link session_id + subscription/customer/PI to orders so a later
+          // invoice.paid / payment_intent.succeeded event can find this row.
           const unpaidResult = await findOrdersForSession(supabase, session);
           if (unpaidResult.orders.length > 0) {
             for (const order of unpaidResult.orders) {
               await supabase
                 .schema("thermocheck")
                 .from("contractor_bestellungen")
-                .update({ stripe_session_id: session.id })
+                .update({
+                  stripe_session_id: session.id,
+                  stripe_subscription_id: (session.subscription as string) || null,
+                  stripe_customer_id: (session.customer as string) || null,
+                  stripe_payment_intent_id: (session.payment_intent as string) || null,
+                  webhook_received_at: new Date().toISOString(),
+                })
                 .eq("id", order.id);
               orderIds.push(order.id);
             }
