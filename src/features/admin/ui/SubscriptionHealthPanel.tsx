@@ -327,7 +327,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
         <CardContent>
           {/* Filterzeile */}
           <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-            <FilterChips
+            <FilterChips<PipelineFilter>
               label="Pipeline"
               value={pipelineFilter}
               onChange={setPipelineFilter}
@@ -337,7 +337,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
                 { value: "active", label: "Aktiv (THC)" },
               ]}
             />
-            <FilterChips
+            <FilterChips<TypFilter>
               label="Typ"
               value={typFilter}
               onChange={setTypFilter}
