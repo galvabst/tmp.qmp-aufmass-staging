@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // hours: optionales Zeitfenster für die DB-Vorauswahl. 0 = "alle in_progress Onboardings".
+    // hours: optionales Zeitfenster für Stripe-Zahlungen. 0 = alle Stripe-Zahlungen prüfen.
     let hours = 48;
     if (req.method === "POST") {
       try {
@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
     }
 
     // --- DB: alle pending/failed Bestellungen aus in_progress Onboardings ---
-    // hours=0 → keine Zeitschranke; sonst nur Bestellungen jünger als <hours>h.
+    // Wichtig: NICHT nach DB-created_at einschränken. Ein alter failed Versuch kann
+    // durch eine neue Stripe-Subscription aus den letzten 48h bezahlt worden sein.
     let q = supabase
       .schema("thermocheck")
       .from("contractor_bestellungen")
@@ -81,10 +82,7 @@ Deno.serve(async (req) => {
       .eq("contractor_onboarding.onboarding_status", "in_progress")
       .not("stripe_customer_id", "is", null);
 
-    if (hours > 0) {
-      const cutoff = new Date(Date.now() - hours * 3600 * 1000).toISOString();
-      q = q.gte("created_at", cutoff);
-    }
+    const stripeCutoffMs = hours > 0 ? Date.now() - hours * 3600 * 1000 : null;
 
     const { data: candidates, error: candErr } = await q;
     if (candErr) throw new Error(`load candidates: ${candErr.message}`);
@@ -141,6 +139,7 @@ Deno.serve(async (req) => {
           const paidAt = inv.status_transitions?.paid_at
             ? new Date(inv.status_transitions.paid_at * 1000).toISOString()
             : new Date().toISOString();
+          if (stripeCutoffMs && new Date(paidAt).getTime() < stripeCutoffMs) continue;
 
           const { data: rpcResult, error: rpcErr } = await supabase
             .schema("thermocheck")
@@ -188,6 +187,7 @@ Deno.serve(async (req) => {
           if (!failedKeys.has(produktKey)) continue;
 
           const paidAt = pi.created ? new Date(pi.created * 1000).toISOString() : new Date().toISOString();
+          if (stripeCutoffMs && new Date(paidAt).getTime() < stripeCutoffMs) continue;
 
           const { data: rpcResult, error: rpcErr } = await supabase
             .schema("thermocheck")
