@@ -7912,6 +7912,150 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_win_credits: {
+        Row: {
+          auftrag_id: string | null
+          clicked_by_user_id: string | null
+          created_at: string
+          id: string
+          lead_id: string
+          owner_at_win_mitarbeiter_id: string | null
+          seller_mitarbeiter_id: string
+          source: string
+          source_history_id: string | null
+          win_kind: string
+          won_at: string
+        }
+        Insert: {
+          auftrag_id?: string | null
+          clicked_by_user_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+          owner_at_win_mitarbeiter_id?: string | null
+          seller_mitarbeiter_id: string
+          source?: string
+          source_history_id?: string | null
+          win_kind: string
+          won_at: string
+        }
+        Update: {
+          auftrag_id?: string | null
+          clicked_by_user_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+          owner_at_win_mitarbeiter_id?: string | null
+          seller_mitarbeiter_id?: string
+          source?: string
+          source_history_id?: string | null
+          win_kind?: string
+          won_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_win_credits_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_clickup_vot_gap_report"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_field_sales_thc_audit"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_owner_at_win_mitarbeiter_id_fkey"
+            columns: ["owner_at_win_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_owner_at_win_mitarbeiter_id_fkey"
+            columns: ["owner_at_win_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_owner_at_win_mitarbeiter_id_fkey"
+            columns: ["owner_at_win_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_seller_mitarbeiter_id_fkey"
+            columns: ["seller_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "mitarbeiter"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_seller_mitarbeiter_id_fkey"
+            columns: ["seller_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_dialer_eligible_vertriebler"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_seller_mitarbeiter_id_fkey"
+            columns: ["seller_mitarbeiter_id"]
+            isOneToOne: false
+            referencedRelation: "vw_mitarbeiter_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_win_credits_win_kind_fkey"
+            columns: ["win_kind"]
+            isOneToOne: false
+            referencedRelation: "sales_win_kinds"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      sales_win_kinds: {
+        Row: {
+          code: string
+          is_active: boolean
+          is_ag_bucket: boolean
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          is_active?: boolean
+          is_ag_bucket?: boolean
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          is_active?: boolean
+          is_ag_bucket?: boolean
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       sales_wp_specs_cache: {
         Row: {
           bivalence_mode: string | null
@@ -14388,6 +14532,38 @@ export type Database = {
           weekly_termine: Json
         }[]
       }
+      get_field_sales_dashboard_v3: {
+        Args: { p_jahr: number; p_monat: number }
+        Returns: {
+          ag_brutto: number
+          ag_netto: number
+          ag_netto_summe: number
+          ag_no_show: number
+          ag_no_show_same_day: number
+          ag_offen: number
+          ag_rueckfuehrungen: number
+          ag_stattgefunden: number
+          ag_storno: number
+          ag_termin_gewonnen_netto: number
+          ag_termine_gesamt: number
+          ag_verloren: number
+          mitarbeiter_id: string
+          mitarbeiter_name: string
+          taetigkeit: string
+          thc_brutto: number
+          thc_netto: number
+          thc_no_show: number
+          thc_no_show_same_day: number
+          thc_offen: number
+          thc_rueckfuehrungen: number
+          thc_stattgefunden: number
+          thc_storno: number
+          thc_termin_gewonnen_netto: number
+          thc_termine_gesamt: number
+          thc_verloren_lead: number
+          weekly_termine: Json
+        }[]
+      }
       get_group_permissions: { Args: { _group_id: string }; Returns: Json }
       get_hauptstatus_for_substatus:
         | {
@@ -15814,6 +15990,32 @@ export type Database = {
           resolved_substatus: Database["public"]["Enums"]["baustellenstatus_substatus_enum"]
           skipped_count: number
         }[]
+      }
+      sales_convert_lead_to_kunde_atomic: {
+        Args: {
+          p_customer?: Json
+          p_existing_kunde_id?: string
+          p_final_signing_date: string
+          p_lead_id: string
+          p_netto: number
+          p_owner_id: string
+          p_pending_status: string
+          p_projektart: string
+          p_zahlungsart: string
+        }
+        Returns: Json
+      }
+      sales_record_win: {
+        Args: {
+          p_auftrag_id?: string
+          p_lead_id: string
+          p_seller_mitarbeiter_id: string
+          p_source?: string
+          p_source_history_id?: string
+          p_win_kind: string
+          p_won_at?: string
+        }
+        Returns: string
       }
       sales_replace_dokument: {
         Args: {
