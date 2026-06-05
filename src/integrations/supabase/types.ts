@@ -7665,36 +7665,6 @@ export type Database = {
           },
         ]
       }
-      sales_auftrag_korrektur_backup: {
-        Row: {
-          correction_id: string
-          created_at: string
-          id: number
-          object_id: string
-          object_type: string
-          reason: string
-          snapshot: Json
-        }
-        Insert: {
-          correction_id: string
-          created_at?: string
-          id?: never
-          object_id: string
-          object_type: string
-          reason: string
-          snapshot: Json
-        }
-        Update: {
-          correction_id?: string
-          created_at?: string
-          id?: never
-          object_id?: string
-          object_type?: string
-          reason?: string
-          snapshot?: Json
-        }
-        Relationships: []
-      }
       sales_clickup_vot_outbox: {
         Row: {
           enqueued_at: string
@@ -7786,6 +7756,7 @@ export type Database = {
           sort_order: number
           status_code: string
           updated_at: string
+          win_prob: number
         }
         Insert: {
           bucket: string
@@ -7797,6 +7768,7 @@ export type Database = {
           sort_order?: number
           status_code: string
           updated_at?: string
+          win_prob?: number
         }
         Update: {
           bucket?: string
@@ -7808,6 +7780,7 @@ export type Database = {
           sort_order?: number
           status_code?: string
           updated_at?: string
+          win_prob?: number
         }
         Relationships: []
       }
@@ -14730,12 +14703,40 @@ export type Database = {
           weekly_termine: Json
         }[]
       }
+      get_field_sales_drilldown_v3: {
+        Args: {
+          p_jahr: number
+          p_mitarbeiter_id: string
+          p_monat: number
+          p_type: string
+        }
+        Returns: {
+          auftrag_status: string
+          current_status: string
+          id: string
+          kunde_nachname: string
+          kunde_ort: string
+          kunde_vorname: string
+          lead_created_at: string
+          lead_id: string
+          lead_name: string
+          netto_summe: number
+          signier_datum: string
+          status: string
+          thc_status: string
+          verkaeufer_name: string
+          verlustgrund: string
+        }[]
+      }
       get_focus_leads: {
         Args: { p_mitarbeiter_id?: string }
         Returns: {
           bucket: string
+          days_in_stage: number
           days_since_activity: number
           deal_status: string
+          eur: number
+          expected_value: number
           has_future_visit: boolean
           has_pending_backfill: boolean
           is_due: boolean
@@ -14753,10 +14754,12 @@ export type Database = {
           open_deal: boolean
           open_thc: boolean
           pending_backfill_termin_id: string
+          pipeline: string
           projektart: string
           schwelle_tage: number
           score: number
           thc_status: string
+          win_prob: number
           wv_beschreibung: string
           wv_faellig_am: string
           wv_id: string
@@ -16202,6 +16205,16 @@ export type Database = {
           p_zahlungsart: string
         }
         Returns: Json
+      }
+      sales_reconcile_win_credits: {
+        Args: { p_dry_run?: boolean }
+        Returns: {
+          lead_id: string
+          seller_mitarbeiter_id: string
+          seller_source: string
+          win_kind: string
+          won_at: string
+        }[]
       }
       sales_record_win: {
         Args: {
