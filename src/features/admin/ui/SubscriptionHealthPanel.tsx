@@ -487,9 +487,9 @@ function TechnicianDetailDialog({
   }>(null);
 
   if (!group) return null;
-  const first = group.rows[0];
-  const fullName = `${first.vorname ?? ""} ${first.nachname ?? ""}`.trim() || "Unbenannter Techniker";
-  const ob = onboardingBadge(first);
+  const id = group.identity;
+  const fullName = `${id.vorname ?? ""} ${id.nachname ?? ""}`.trim() || "Unbenannter Techniker";
+  const ob = onboardingBadge(id);
 
   const handleLiveSync = async () => {
     setSyncing(true);
