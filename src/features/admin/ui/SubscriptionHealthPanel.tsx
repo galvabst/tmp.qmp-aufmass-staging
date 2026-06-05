@@ -226,7 +226,23 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
       });
   }, [allGroups, pipelineFilter, typFilter]);
 
+  const [kittens, setKittens] = useState<{ id: number; top: number; delay: number; duration: number; size: number; dir: 1 | -1 }[]>([]);
+  const launchKittens = () => {
+    const now = Date.now();
+    const items = Array.from({ length: 14 }, (_, i) => ({
+      id: now + i,
+      top: Math.random() * 80 + 5,
+      delay: Math.random() * 0.4,
+      duration: 1.2 + Math.random() * 0.9,
+      size: 28 + Math.random() * 28,
+      dir: (Math.random() > 0.5 ? 1 : -1) as 1 | -1,
+    }));
+    setKittens(items);
+    window.setTimeout(() => setKittens([]), 2600);
+  };
+
   const handleSync = async () => {
+    launchKittens();
     setSyncing(true);
     try {
       const { error } = await supabase.functions.invoke("reconcile-stripe-orders", {
@@ -242,6 +258,7 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
       setSyncing(false);
     }
   };
+
 
   const [liveSyncing, setLiveSyncing] = useState(false);
   const handleLiveSyncAll = async () => {
@@ -318,6 +335,29 @@ export function SubscriptionHealthPanel({ onSelectContractor }: SubscriptionHeal
 
   return (
     <TooltipProvider delayDuration={150}>
+      {kittens.length > 0 && (
+        <div className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
+          <style>{`
+            @keyframes kittyRunR { from { transform: translateX(-15vw) rotate(-4deg); } to { transform: translateX(115vw) rotate(4deg); } }
+            @keyframes kittyRunL { from { transform: translateX(115vw) scaleX(-1) rotate(-4deg); } to { transform: translateX(-15vw) scaleX(-1) rotate(4deg); } }
+          `}</style>
+          {kittens.map((k) => (
+            <div
+              key={k.id}
+              style={{
+                position: 'absolute',
+                top: `${k.top}%`,
+                left: 0,
+                fontSize: `${k.size}px`,
+                filter: 'hue-rotate(310deg) saturate(1.6) drop-shadow(0 2px 6px rgba(244,114,182,0.6))',
+                animation: `${k.dir === 1 ? 'kittyRunR' : 'kittyRunL'} ${k.duration}s linear ${k.delay}s forwards`,
+              }}
+            >
+              🐱
+            </div>
+          ))}
+        </div>
+      )}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div className="flex items-center gap-2">
