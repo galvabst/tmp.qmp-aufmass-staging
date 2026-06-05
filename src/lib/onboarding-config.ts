@@ -126,7 +126,7 @@ export const MOCK_PRODUCTS: OnboardingProduct[] = [
   {
     id: 'google-workspace',
     name: 'Google Workspace',
-    beschreibung: 'Deine @galvanic-bau.de E-Mail-Adresse',
+    beschreibung: 'Deine @galvanek-bau.de E-Mail-Adresse',
     preisNetto: 29.40,
     preisBrutto: 34.99,
     preisTyp: 'monatlich',
