@@ -11,7 +11,7 @@ import { FeldHilfeChat } from './FeldHilfeChat';
  * schweren Feldern — der hartnäckige „KI fragen"-Chat (mit Foto-Auswertung).
  * Rendert nichts, wenn das Feld keine Tiefe (sheet/kiFrage) hat.
  */
-export function FeldHilfeSheet({ hilfeKey }: { hilfeKey: string }) {
+export function FeldHilfeSheet({ hilfeKey, trigger }: { hilfeKey: string; trigger?: ReactNode }) {
   const h = feldHilfe(hilfeKey);
 
   if (!h || (!h.sheet && !h.kiFrage)) return null;
@@ -22,14 +22,16 @@ export function FeldHilfeSheet({ hilfeKey }: { hilfeKey: string }) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary shrink-0 rounded-lg px-2.5 py-1.5 active:scale-95 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
-          aria-label={`Hilfe zu „${titel}“`}
-        >
-          <HelpCircle className="w-4 h-4" />
-          <span>Hilfe</span>
-        </button>
+        {trigger ?? (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary shrink-0 rounded-lg px-2.5 py-1.5 active:scale-95 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
+            aria-label={`Hilfe zu „${titel}“`}
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span>Hilfe</span>
+          </button>
+        )}
       </SheetTrigger>
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
         <SheetHeader className="text-left">

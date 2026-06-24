@@ -227,8 +227,8 @@ export const FELD_HILFE: Record<string, FeldHilfe> = {
     sheet: {
       titel: 'Einfach-, Zweifach- oder Dreifachverglasung?',
       quellen: [
-        'Reflexionstest mit Flamme/Taschenlampe',
-        'Produktionsjahr/Bezeichnung im Abstandhalter (Randverbund) ablesen',
+        'Reflexionstest mit Flamme/Taschenlampe (einfachste Methode)',
+        'Glasrand = die schmale Kante der Scheibe dort, wo das Glas in den Rahmen übergeht. Fenster öffnen, seitlich auf die Glaskante schauen: man sieht die einzelnen Scheiben und den silbernen/schwarzen Abstandshalter dazwischen — manchmal mit eingeprägtem Code wie „4-16-4" (2 Zahlengruppen = 2-fach, 3 = 3-fach). Findest du ihn nicht: kein Problem, nimm den Reflextest.',
         'Originalrechnung des Fensterbauers / Eigentümer fragen',
       ],
       schritte: [

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
-import { Camera, Loader2, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Camera, Loader2, Sparkles, CheckCircle2, AlertTriangle, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { holeBildHinweis, type BildHinweis, type BildHinweisArt } from '../../data/bild-hinweis-client';
+import { FeldHilfeSheet } from './FeldHilfe';
 
 interface Props {
   art: BildHinweisArt;
@@ -24,6 +25,7 @@ const VERG_MAP: Record<string, 'einfach' | 'zweifach' | 'dreifach' | undefined> 
  * UNVERBINDLICHER Foto-Tipp für „Dach gedämmt?" bzw. „Verglasung". Research-Urteil:
  * nur Hinweis, nie Auto-Wert → Ergebnis wird nur per Pflicht-Klick übernommen, mit
  * Option „nicht beurteilbar"/„unklar" (dann kein Übernehmen, Laie entscheidet selbst).
+ * Wer unsicher ist, öffnet per „Frag die KI" den hartnäckigen Chat (Fotos + Rückfragen).
  */
 export function BildHinweisButton({ art, disabled, onDach, onVerglasung }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -39,15 +41,27 @@ export function BildHinweisButton({ art, disabled, onDach, onVerglasung }: Props
     setFehler(null);
     setRes(null);
     const r = await holeBildHinweis(file, art);
-    if (!r) setFehler('Konnte das Foto nicht auswerten (z. B. offline). Bitte selbst beurteilen.');
+    if (!r) setFehler('Konnte das Foto nicht auswerten (z. B. offline). Bitte selbst beurteilen oder die KI fragen.');
     else setRes(r);
     setLoading(false);
   };
 
-  const triggerText = art === 'dach' ? 'Foto-Tipp: Dachboden fotografieren' : 'Foto-Tipp: Fenster fotografieren';
+  const hilfeKey = art === 'dach' ? 'dach_gedaemmt' : 'verglasung';
+  const triggerText = art === 'dach' ? 'Foto-Tipp: Dachboden fotografieren' : 'Foto-Tipp: Reflexe am Glas zählen lassen';
   const dachMap = res ? DACH_MAP[res.ergebnis] : undefined;
   const vergMap = res ? VERG_MAP[res.ergebnis] : undefined;
   const eindeutig = art === 'dach' ? !!dachMap : !!vergMap;
+
+  const chatEskalation = (
+    <FeldHilfeSheet
+      hilfeKey={hilfeKey}
+      trigger={
+        <Button type="button" variant="ghost" size="sm" className="w-full justify-start text-xs h-auto py-1.5 text-primary">
+          <MessageCircle className="w-3.5 h-3.5" /> Unsicher? Frag die KI im Chat (Fotos + Rückfragen)
+        </Button>
+      }
+    />
+  );
 
   return (
     <div className="space-y-2">
@@ -56,6 +70,13 @@ export function BildHinweisButton({ art, disabled, onDach, onVerglasung }: Props
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
         {loading ? 'Foto wird ausgewertet…' : triggerText}
       </Button>
+
+      {art === 'verglasung' && !res && !loading && (
+        <p className="text-xs text-muted-foreground leading-snug">
+          So geht's: Handy-Blitz/Taschenlampe schräg ans Glas halten und das Foto mit den Spiegelbildern machen —
+          die KI zählt die Reflexe (2 = einfach, 4 = zweifach, 6 = dreifach). Kein „Glasrand"-Code nötig.
+        </p>
+      )}
 
       {fehler && (
         <p className="flex items-start gap-1.5 text-xs text-amber-600">
@@ -81,10 +102,12 @@ export function BildHinweisButton({ art, disabled, onDach, onVerglasung }: Props
               </Button>
             ) : null
           ) : (
-            <p className="text-xs text-amber-600">Nicht eindeutig erkennbar — bitte selbst beurteilen (Hilfe-Knopf am Feld nutzen).</p>
+            <p className="text-xs text-amber-600">Nicht eindeutig erkennbar — frag die KI, sie hilft dir mit Fotos &amp; Rückfragen Schritt für Schritt weiter:</p>
           )}
         </div>
       )}
+
+      {chatEskalation}
     </div>
   );
 }
