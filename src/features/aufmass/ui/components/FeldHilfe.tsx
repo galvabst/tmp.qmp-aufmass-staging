@@ -2,7 +2,9 @@ import { type ReactNode } from 'react';
 import { HelpCircle, MapPin, ListChecks, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { feldHilfe } from '../../data/feld-hilfe';
+import { FELD_BEISPIEL } from '../../data/foto-beispiele';
 import { FeldHilfeChat } from './FeldHilfeChat';
+import { FotoBeispiel } from './FotoBeispiel';
 
 /**
  * Ebene-2/3-Hilfe als Bottom-Sheet (NICHT Popover — Touch/Handschuhe/Sonne).
@@ -18,6 +20,7 @@ export function FeldHilfeSheet({ hilfeKey, trigger }: { hilfeKey: string; trigge
   const s = h.sheet;
   const kiFrage = h.kiFrage;
   const titel = s?.titel ?? 'Wo finde ich das?';
+  const beispiel = FELD_BEISPIEL[hilfeKey];
 
   return (
     <Sheet>
@@ -43,6 +46,8 @@ export function FeldHilfeSheet({ hilfeKey, trigger }: { hilfeKey: string; trigge
 
         <div className="mt-4 space-y-4 text-sm">
           {h.inline && <p className="text-foreground leading-relaxed">{h.inline}</p>}
+
+          {beispiel && <FotoBeispiel {...beispiel} />}
 
           {s?.bildUrl && (
             <img src={s.bildUrl} alt="" className="w-full rounded-xl border border-border" loading="lazy" />

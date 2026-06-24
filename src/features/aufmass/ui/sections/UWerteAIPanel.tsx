@@ -1,22 +1,35 @@
 import { useRef, useState, useEffect } from 'react';
-import { Camera, ImagePlus, Check, Loader2, Sparkles, AlertCircle, CheckCircle2, AlertTriangle, RefreshCw, X } from 'lucide-react';
+import { Camera, ImagePlus, Check, Loader2, Sparkles, AlertCircle, CheckCircle2, AlertTriangle, RefreshCw, X, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useUWertePruefung, type UWertePlausi, type UWertePruefung } from '../../hooks/useUWertePruefung';
 import { cn } from '@/lib/utils';
+import { FotoBeispiel } from '../components/FotoBeispiel';
+import { FeldHilfeSheet } from '../components/FeldHilfe';
+import { VIEW_BEISPIEL } from '../../data/foto-beispiele';
 
 type ViewCfg = { slug: string; label: string; hint: string; optional?: boolean };
 // Eigene geführte Aufnahme (wie Aufstellort) — getrennt von den Foto-Nachweisen
 // der Sektion. Pflicht = das Sichtbare, das die KI wirklich auswerten kann.
 const VIEWS: ViewCfg[] = [
-  { slug: 'fassade_uebersicht', label: 'Fassade-Übersicht', hint: 'Ganze Hauswand: Putz/Klinker/WDVS sichtbar? Fensterstil/Epoche' },
-  { slug: 'fenster_laibung_meterstab', label: 'Wanddicke (Meterstab)', hint: 'Meterstab in der Fensterlaibung — Wanddicke ablesbar (das harte Maß)' },
-  { slug: 'fenster_glasrand', label: 'Fenster / Glasrand', hint: 'Randverbund mit Jahreszahl, 2-/3-fach erkennbar' },
-  { slug: 'laibung_daemmung', label: 'Dämmung an Laibung', hint: 'Optional — sichtbare Dämmschicht an offener Laibung / Rollladenkasten', optional: true },
-  { slug: 'dachboden_sparren', label: 'Dachboden', hint: 'Optional — Sparren + Zwischensparren-Dämmung, falls zugänglich', optional: true },
-  { slug: 'kellerdecke', label: 'Kellerdecke', hint: 'Optional — Kellerdecke / Bodenplatte von unten, falls einsehbar', optional: true },
+  { slug: 'fassade_uebersicht', label: 'Fassade-Übersicht', hint: 'Stell dich gerade vor die Hauswand und fotografiere die GANZE Wand: Putz oder Klinker? Fensterstil? Daraus liest die KI Epoche & Bauart.' },
+  { slug: 'fenster_laibung_meterstab', label: 'Wanddicke (Meterstab)', hint: 'Das wichtigste Maß: Fenster öffnen, Zollstock/Meterstab quer in die Laibung legen (die Tiefe = Wanddicke) und so fotografieren, dass die Zahl lesbar ist.' },
+  { slug: 'fenster_glasrand', label: 'Fenster (Reflextest)', hint: 'Handy-Blitz schräg ans Glas halten und die Spiegelpunkte fotografieren: 2 = einfach, 4 = zweifach, 6 = dreifach. Kein „Glasrand"-Code nötig.' },
+  { slug: 'laibung_daemmung', label: 'Dämmung an Laibung', hint: 'Optional. Nur falls bei offenem Fenster an der Seite (Laibung) oder im Rollladenkasten eine helle Dämmschicht sichtbar ist. Siehst du keine → einfach überspringen.', optional: true },
+  { slug: 'dachboden_sparren', label: 'Dachboden', hint: 'Optional. Falls der Dachboden zugänglich ist: Dachschräge zwischen den Holzsparren fotografieren — ist da Dämmwolle? Kein Zugang → überspringen.', optional: true },
+  { slug: 'kellerdecke', label: 'Kellerdecke', hint: 'Optional. Falls der Keller einsehbar ist: Kellerdecke von unten fotografieren (Dämmplatten dran?). Nicht zugänglich → überspringen.', optional: true },
 ];
+
+/** View → passender Hilfe-Feld-Key für den „Frag die KI"-Chat. */
+const VIEW_HILFEKEY: Record<string, string> = {
+  fassade_uebersicht: 'fassade_gedaemmt',
+  fenster_laibung_meterstab: 'u_werte.aussenwand.mauerwerk_cm',
+  fenster_glasrand: 'verglasung',
+  laibung_daemmung: 'fassade_gedaemmt',
+  dachboden_sparren: 'dach_gedaemmt',
+  kellerdecke: 'u_werte.unten.art',
+};
 
 // empfehlung wird hier als PLAUSIBILITÄTS-Skala interpretiert (nicht als Sanierung).
 const PLAUSI_META: Record<UWertePlausi, { label: string; cls: string; icon: typeof CheckCircle2 }> = {
@@ -132,15 +145,28 @@ export function UWerteAIPanel({ auftragId, eingaben, disabled, onApplyVorschlag 
           <div className="rounded-lg border border-border bg-card p-3 space-y-2">
             <div>
               <p className="text-sm font-medium">{VIEWS.find((v) => v.slug === activeView)?.label}</p>
-              <p className="text-xs text-muted-foreground">{VIEWS.find((v) => v.slug === activeView)?.hint}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{VIEWS.find((v) => v.slug === activeView)?.hint}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+
+            {VIEW_BEISPIEL[activeView] && <FotoBeispiel {...VIEW_BEISPIEL[activeView]!} />}
+
+            <div className="flex flex-wrap items-center gap-2">
               <Button type="button" size="sm" variant="outline" onClick={() => inputRef.current?.click()} disabled={isUploading || disabled}>
                 <ImagePlus className="h-4 w-4 mr-1" /> Datei
               </Button>
               <Button type="button" size="sm" variant="outline" onClick={() => cameraRef.current?.click()} disabled={isUploading || disabled}>
                 <Camera className="h-4 w-4 mr-1" /> Foto aufnehmen
               </Button>
+              {VIEW_HILFEKEY[activeView] && (
+                <FeldHilfeSheet
+                  hilfeKey={VIEW_HILFEKEY[activeView]}
+                  trigger={
+                    <Button type="button" size="sm" variant="ghost" className="text-primary">
+                      <MessageCircle className="h-4 w-4 mr-1" /> Frag die KI
+                    </Button>
+                  }
+                />
+              )}
               {isUploading && <span className="flex items-center text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin mr-1" /> Hochladen…</span>}
             </div>
             <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" className="hidden" onChange={(e) => handleFile(e.target.files)} />
