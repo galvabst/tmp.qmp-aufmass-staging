@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { mockTypenschildScan } from './typenschild-scan-client';
 import { mockBildHinweis } from './bild-hinweis-client';
-import { hilfeKontext } from './feld-hilfe-chat-client';
+import { hilfeKontext, mockChatAntwort, frageFeldHilfeChat } from './feld-hilfe-chat-client';
 
 /**
  * Verträge der KI-Hilfe-Clients (DEV-Mocks + RAG-Kontext). Garantiert, dass der
@@ -47,5 +47,28 @@ describe('hilfeKontext (RAG-Grundlage für KI-Chat)', () => {
 
   it('liefert leeren Kontext für unbekannte Felder', () => {
     expect(hilfeKontext('gibt_es_nicht')).toBe('');
+  });
+});
+
+describe('Feld-Hilfe-Chat (hartnäckig, multimodal)', () => {
+  it('Text-Frage → Mock nudged Richtung Foto statt eines „unbekannt"-Auswegs', () => {
+    const a = mockChatAntwort('verglasung', [{ rolle: 'user', text: 'Wie finde ich das raus?' }]);
+    expect(a.length).toBeGreaterThan(20);
+    // Hartnäckigkeit: bietet das Anhängen eines Fotos als nächsten Schritt an.
+    expect(a).toContain('Foto');
+    // Kein bequemer Ausweg: schlägt NICHT vor, „unbekannt" einzutragen.
+    expect(a.toLowerCase()).not.toMatch(/trag.*unbekannt|unbekannt.*eintrag|„unbekannt" ein/);
+  });
+
+  it('Foto angehängt → Mock bestätigt das Bild und macht weiter (kein „unbekannt")', () => {
+    const a = mockChatAntwort('verglasung', [
+      { rolle: 'user', text: '', bildDataUrl: 'data:image/jpeg;base64,AAAA' },
+    ]);
+    expect(a.toLowerCase()).toMatch(/foto|bild/);
+    expect(a.toLowerCase()).not.toContain('unbekannt');
+  });
+
+  it('leerer Verlauf → null (kein KI-Call)', async () => {
+    expect(await frageFeldHilfeChat('verglasung', [])).toBeNull();
   });
 });

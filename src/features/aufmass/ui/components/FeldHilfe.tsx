@@ -1,38 +1,23 @@
-import { useState, type ReactNode } from 'react';
-import { HelpCircle, MapPin, ListChecks, AlertTriangle, Sparkles, Send, Loader2, type LucideIcon } from 'lucide-react';
+import { type ReactNode } from 'react';
+import { HelpCircle, MapPin, ListChecks, AlertTriangle, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { feldHilfe } from '../../data/feld-hilfe';
-import { frageFeldHilfe } from '../../data/feld-hilfe-chat-client';
+import { FeldHilfeChat } from './FeldHilfeChat';
 
 /**
  * Ebene-2/3-Hilfe als Bottom-Sheet (NICHT Popover — Touch/Handschuhe/Sonne).
  * Trigger ist ein dezenter „Hilfe"-Knopf neben dem Label; im Sheet stehen
  * „Wo finde ich das?"-Quellen, Vorgehen, typische Werte, Fallstricke und — bei
- * schweren Feldern — eine „KI fragen"-Eskalation. Rendert nichts, wenn das Feld
- * keine Tiefe (sheet/kiFrage) hat.
+ * schweren Feldern — der hartnäckige „KI fragen"-Chat (mit Foto-Auswertung).
+ * Rendert nichts, wenn das Feld keine Tiefe (sheet/kiFrage) hat.
  */
 export function FeldHilfeSheet({ hilfeKey }: { hilfeKey: string }) {
   const h = feldHilfe(hilfeKey);
-  const [frage, setFrage] = useState('');
-  const [antwort, setAntwort] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   if (!h || (!h.sheet && !h.kiFrage)) return null;
   const s = h.sheet;
   const kiFrage = h.kiFrage;
   const titel = s?.titel ?? 'Wo finde ich das?';
-
-  const stelleFrage = async (q: string) => {
-    const text = q.trim();
-    if (!text || loading) return;
-    setLoading(true);
-    setAntwort(null);
-    const a = await frageFeldHilfe(hilfeKey, text);
-    setAntwort(a ?? 'Die KI-Hilfe ist gerade nicht erreichbar (z. B. offline). Nutze die Tipps oben oder frag den Eigentümer.');
-    setLoading(false);
-  };
 
   return (
     <Sheet>
@@ -89,40 +74,7 @@ export function FeldHilfeSheet({ hilfeKey }: { hilfeKey: string }) {
             </HilfeBlock>
           )}
 
-          {kiFrage && (
-            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-                <Sparkles className="w-4 h-4" /> Immer noch unklar? Frag die KI
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  value={frage}
-                  onChange={(e) => setFrage(e.target.value)}
-                  placeholder={kiFrage}
-                  className="flex-1"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      stelleFrage(frage || kiFrage);
-                    }
-                  }}
-                />
-                <Button type="button" size="icon" disabled={loading} onClick={() => stelleFrage(frage || kiFrage)} aria-label="Frage senden">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                </Button>
-              </div>
-              <button
-                type="button"
-                className="text-xs text-primary underline underline-offset-2"
-                onClick={() => { setFrage(kiFrage); stelleFrage(kiFrage); }}
-              >
-                „{kiFrage}“ fragen
-              </button>
-              {antwort && (
-                <p className="text-xs text-foreground whitespace-pre-wrap border-t border-primary/20 pt-2 leading-relaxed">{antwort}</p>
-              )}
-            </div>
-          )}
+          {kiFrage && <FeldHilfeChat feldKey={hilfeKey} startfrage={kiFrage} />}
         </div>
       </SheetContent>
     </Sheet>
