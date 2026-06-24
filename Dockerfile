@@ -5,7 +5,9 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install --no-audit --no-fund
+# --legacy-peer-deps: react-leaflet@5 verlangt React 19, Projekt nutzt React 18
+# (lokal genauso installiert). Ohne den Flag bricht npm install mit ERESOLVE ab.
+RUN npm install --no-audit --no-fund --legacy-peer-deps
 COPY . .
 # Supabase-URL/anon-Key sind im Client hardcodiert (öffentlich) → kein Build-Secret nötig.
 # Prod-Build (import.meta.env.DEV=false) → KI-Foto-Check läuft immer echt (kein Mock).
