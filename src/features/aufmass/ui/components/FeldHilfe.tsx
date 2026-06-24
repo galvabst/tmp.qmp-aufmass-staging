@@ -24,7 +24,7 @@ export function FeldHilfeSheet({ hilfeKey }: { hilfeKey: string }) {
       <SheetTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary shrink-0 rounded-md px-1.5 py-1 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary shrink-0 rounded-lg px-2.5 py-1.5 active:scale-95 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
           aria-label={`Hilfe zu „${titel}“`}
         >
           <HelpCircle className="w-4 h-4" />

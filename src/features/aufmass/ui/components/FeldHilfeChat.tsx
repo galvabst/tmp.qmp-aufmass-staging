@@ -16,10 +16,11 @@ const OFFLINE_FALLBACK =
   'Die KI-Hilfe ist gerade nicht erreichbar (z. B. offline). Nutze die Tipps oben, frag den Eigentümer — oder mach ein Foto für später.';
 
 /**
- * Echter, hartnäckiger KI-Chat im Hilfe-Sheet (Ebene 3). Der Laie kann frei fragen
- * und Fotos anhängen; die KI behält den ganzen Verlauf, wertet Bilder aus und bleibt
- * dran, bis der Wert gefunden ist (sie bietet KEINEN bequemen „unbekannt"-Ausweg an).
- * Rein beratend — setzt nie selbst einen Feldwert.
+ * Echter, hartnäckiger KI-Chat im Hilfe-Sheet (Ebene 3) — mobile-first wie eine
+ * Handy-Chat-App (große Tap-Targets, lesbare Blasen, 16-px-Eingabe gegen iOS-Zoom,
+ * Safe-Area unten). Der Laie kann frei fragen und Fotos anhängen; die KI behält den
+ * ganzen Verlauf, wertet Bilder aus und bleibt dran, bis der Wert gefunden ist (sie
+ * bietet KEINEN bequemen „unbekannt"-Ausweg an). Rein beratend — setzt nie einen Wert.
  */
 export function FeldHilfeChat({ feldKey, startfrage }: Props) {
   const [verlauf, setVerlauf] = useState<ChatNachricht[]>([]);
@@ -76,12 +77,16 @@ export function FeldHilfeChat({ feldKey, startfrage }: Props) {
 
   return (
     <div className="rounded-2xl border border-primary/20 bg-primary/[0.03] overflow-hidden">
-      <div className="flex items-center gap-1.5 border-b border-primary/15 px-3 py-2 text-xs font-semibold text-primary">
+      <div className="flex items-center gap-1.5 border-b border-primary/15 px-3.5 py-2.5 text-xs font-semibold text-primary">
         <Sparkles className="w-4 h-4 shrink-0" />
         KI-Assistent — fragt so lange nach, bis ihr den Wert habt
       </div>
 
-      <div className="max-h-[44vh] overflow-y-auto px-3 py-3 space-y-3" aria-live="polite" aria-label="Chat-Verlauf">
+      <div
+        className="max-h-[46vh] min-h-[26vh] overflow-y-auto overscroll-contain px-3 py-3 space-y-3"
+        aria-live="polite"
+        aria-label="Chat-Verlauf"
+      >
         {leer && (
           <>
             <KiBlase>
@@ -93,7 +98,7 @@ export function FeldHilfeChat({ feldKey, startfrage }: Props) {
                 type="button"
                 disabled={loading}
                 onClick={() => void sendeNachricht(startfrage)}
-                className="ml-8 inline-block rounded-full border border-primary/40 bg-background px-3 py-1.5 text-xs text-primary hover:bg-primary/10 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="ml-9 inline-block rounded-full border border-primary/40 bg-background px-4 py-2 text-sm text-primary active:scale-[0.98] hover:bg-primary/10 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
               >
                 „{startfrage}" fragen
               </button>
@@ -106,9 +111,9 @@ export function FeldHilfeChat({ feldKey, startfrage }: Props) {
             <KiBlase key={i}>{n.text}</KiBlase>
           ) : (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-xs leading-relaxed text-primary-foreground whitespace-pre-wrap">
+              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground whitespace-pre-wrap">
                 {n.bildDataUrl && (
-                  <img src={n.bildDataUrl} alt="Angehängtes Foto" className="mb-1.5 w-32 max-w-full rounded-lg" />
+                  <img src={n.bildDataUrl} alt="Angehängtes Foto" className="mb-1.5 w-40 max-w-[60%] rounded-lg" />
                 )}
                 {n.text}
               </div>
@@ -118,35 +123,35 @@ export function FeldHilfeChat({ feldKey, startfrage }: Props) {
 
         {loading && (
           <KiBlase>
-            <span className="inline-flex gap-1 py-0.5" aria-label="KI denkt nach">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
+            <span className="inline-flex gap-1 py-1" aria-label="KI denkt nach">
+              <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60" />
             </span>
           </KiBlase>
         )}
         <div ref={endeRef} />
       </div>
 
-      <div className="border-t border-primary/15 p-2 space-y-2">
+      <div className="border-t border-primary/15 px-2 pt-2 space-y-2 pb-[calc(0.5rem_+_env(safe-area-inset-bottom))]">
         {bild && (
-          <div className="flex items-center gap-2 rounded-lg bg-background border border-border p-1.5">
-            <img src={bild} alt="Vorschau des angehängten Fotos" className="h-12 w-12 rounded-md object-cover" />
-            <span className="flex-1 text-xs text-muted-foreground">Foto angehängt</span>
+          <div className="flex items-center gap-2 rounded-xl bg-background border border-border p-1.5">
+            <img src={bild} alt="Vorschau des angehängten Fotos" className="h-14 w-14 rounded-lg object-cover" />
+            <span className="flex-1 text-sm text-muted-foreground">Foto angehängt</span>
             <button
               type="button"
               onClick={() => setBild(null)}
               aria-label="Foto entfernen"
-              className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+              className="rounded-lg p-2 text-muted-foreground active:scale-95 hover:bg-muted"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        {fehler && <p className="px-1 text-xs text-amber-600" role="status">{fehler}</p>}
+        {fehler && <p className="px-1 text-sm text-amber-600" role="status">{fehler}</p>}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-end gap-2">
           <input
             ref={fileRef}
             type="file"
@@ -160,17 +165,20 @@ export function FeldHilfeChat({ feldKey, startfrage }: Props) {
             type="button"
             size="icon"
             variant="outline"
-            className="shrink-0"
+            className="h-11 w-11 shrink-0 rounded-xl active:scale-95"
             onClick={() => fileRef.current?.click()}
             aria-label="Foto anhängen"
           >
-            <ImagePlus className="w-4 h-4" />
+            <ImagePlus className="w-5 h-5" />
           </Button>
           <Input
             value={eingabe}
             onChange={(e) => setEingabe(e.target.value)}
             placeholder="Frag die KI oder beschreib, was du siehst…"
-            className="flex-1"
+            aria-label="Nachricht an die KI"
+            enterKeyHint="send"
+            autoComplete="off"
+            className="flex-1 h-11 rounded-xl text-base"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -181,12 +189,12 @@ export function FeldHilfeChat({ feldKey, startfrage }: Props) {
           <Button
             type="button"
             size="icon"
-            className="shrink-0"
+            className="h-11 w-11 shrink-0 rounded-xl active:scale-95"
             disabled={loading || (!eingabe.trim() && !bild)}
             onClick={() => void sendeNachricht(eingabe)}
             aria-label="Nachricht senden"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </Button>
         </div>
       </div>
@@ -198,10 +206,10 @@ export function FeldHilfeChat({ feldKey, startfrage }: Props) {
 function KiBlase({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex gap-2">
-      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-        <Sparkles className="h-3.5 w-3.5" />
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+        <Sparkles className="h-4 w-4" />
       </div>
-      <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-background px-3 py-2 text-xs leading-relaxed text-foreground whitespace-pre-wrap">
+      <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-background px-3.5 py-2.5 text-sm leading-relaxed text-foreground whitespace-pre-wrap">
         {children}
       </div>
     </div>
