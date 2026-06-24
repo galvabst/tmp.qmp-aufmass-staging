@@ -2,6 +2,7 @@ import { UseFormReturn } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { AufmassDatePicker } from '../components/AufmassDatePicker';
+import { LabelMitHilfe } from '../components/LabelMitHilfe';
 import { Input } from '@/components/ui/input';
 
 interface Props {
@@ -22,7 +23,7 @@ export function KundendatenSection({ form, kundenName, disabled }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label>Inbetriebnahme Datum der bestehenden Heizung *</Label>
+        <LabelMitHilfe hilfeKey="heizung_inbetriebnahme_datum">Inbetriebnahme Datum der bestehenden Heizung *</LabelMitHilfe>
         <AufmassDatePicker
           value={watch('heizung_inbetriebnahme_datum') || ''}
           onChange={(v) => setValue('heizung_inbetriebnahme_datum', v)}
@@ -34,7 +35,7 @@ export function KundendatenSection({ form, kundenName, disabled }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label>Ist die bestehende Heizung funktionstüchtig? *</Label>
+        <LabelMitHilfe hilfeKey="heizung_funktionstuechtig">Ist die bestehende Heizung funktionstüchtig? *</LabelMitHilfe>
         <div className="flex gap-3">
           {[true, false].map((val) => (
             <button
@@ -55,7 +56,7 @@ export function KundendatenSection({ form, kundenName, disabled }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label>Datum des Bauantrags des Gebäudes *</Label>
+        <LabelMitHilfe hilfeKey="bauantrag_datum">Datum des Bauantrags des Gebäudes *</LabelMitHilfe>
         <AufmassDatePicker
           value={watch('bauantrag_datum') || ''}
           onChange={(v) => setValue('bauantrag_datum', v)}
@@ -67,7 +68,7 @@ export function KundendatenSection({ form, kundenName, disabled }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label>Wird nach dem Austausch noch mit fossilen Brennstoffen geheizt? *</Label>
+        <LabelMitHilfe hilfeKey="fossile_brennstoffe_nach_austausch">Wird nach dem Austausch noch mit fossilen Brennstoffen geheizt? *</LabelMitHilfe>
         <div className="flex gap-3">
           {[true, false].map((val) => (
             <button

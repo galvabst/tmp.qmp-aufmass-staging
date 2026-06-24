@@ -1,8 +1,8 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { numberFieldProps } from '../../data/aufmass-field-bounds';
+import { LabelMitHilfe, hilfeDescribedBy } from '../components/LabelMitHilfe';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -16,12 +16,12 @@ export function SanitaerSection({ form, disabled }: Props) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="anzahl_duschen">Wie viele Duschen sind vorhanden? *</Label>
-        <Input id="anzahl_duschen" {...numberFieldProps('anzahl_duschen')} {...register('anzahl_duschen', { valueAsNumber: true })} disabled={disabled} />
+        <LabelMitHilfe hilfeKey="anzahl_duschen" htmlFor="anzahl_duschen">Wie viele Duschen sind vorhanden? *</LabelMitHilfe>
+        <Input id="anzahl_duschen" aria-describedby={hilfeDescribedBy('anzahl_duschen')} {...numberFieldProps('anzahl_duschen')} {...register('anzahl_duschen', { valueAsNumber: true })} disabled={disabled} />
       </div>
 
       <div className="space-y-2">
-        <Label>Gibt es eine Regendusche? *</Label>
+        <LabelMitHilfe hilfeKey="hat_regendusche">Gibt es eine Regendusche? *</LabelMitHilfe>
         <div className="flex gap-3">
           {[true, false].map((val) => (
             <button key={String(val)} type="button" disabled={disabled}
@@ -35,8 +35,8 @@ export function SanitaerSection({ form, disabled }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="anzahl_badewannen">Wie viele Badewannen sind vorhanden? *</Label>
-        <Input id="anzahl_badewannen" {...numberFieldProps('anzahl_badewannen')} {...register('anzahl_badewannen', { valueAsNumber: true })} disabled={disabled} />
+        <LabelMitHilfe hilfeKey="anzahl_badewannen" htmlFor="anzahl_badewannen">Wie viele Badewannen sind vorhanden? *</LabelMitHilfe>
+        <Input id="anzahl_badewannen" aria-describedby={hilfeDescribedBy('anzahl_badewannen')} {...numberFieldProps('anzahl_badewannen')} {...register('anzahl_badewannen', { valueAsNumber: true })} disabled={disabled} />
       </div>
     </div>
   );

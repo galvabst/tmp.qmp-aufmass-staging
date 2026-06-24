@@ -6,6 +6,7 @@ import { SignatureField } from '../components/SignatureField';
 import { PhotoUploadField } from '../components/PhotoUploadField';
 import { useUploadVotBild } from '../../hooks/useVotBilder';
 import { BILD_KATEGORIEN } from '../../data/bild-kategorien';
+import { LabelMitHilfe } from '../components/LabelMitHilfe';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -68,10 +69,10 @@ export function AbschlussSection({ form, bilder, votFormularId, leadName, leadId
           onCheckedChange={(checked) => setValue('agb_akzeptiert', checked === true)}
           disabled={disabled}
         />
-        <label htmlFor="agb_akzeptiert" className="text-sm text-foreground leading-tight">
+        <LabelMitHilfe hilfeKey="agb_akzeptiert" htmlFor="agb_akzeptiert" className="text-sm text-foreground leading-tight">
           Alle Angaben wurden nach bestem Wissen und Gewissen korrekt zusammengestellt.
           Ich akzeptiere die Bedingungen. *
-        </label>
+        </LabelMitHilfe>
       </div>
 
       <SignatureField

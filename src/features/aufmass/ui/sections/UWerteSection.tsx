@@ -17,6 +17,8 @@ import {
 import { checkUWertePlausibilitaet } from '../../data/u-werte-plausibility';
 import { berechneUWerte, type UWertErgebnis } from '../../data/u-werte-berechnung';
 import { PhotoUploadField } from '../components/PhotoUploadField';
+import { LabelMitHilfe } from '../components/LabelMitHilfe';
+import { feldHilfe } from '../../data/feld-hilfe';
 import { UWerteAIPanel } from './UWerteAIPanel';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import type { VotBildKategorie } from '../../data/bild-kategorien';
@@ -99,9 +101,20 @@ export function UWerteSection({ form, bilder, votFormularId, leadName, leadId, a
   // (watch() → Tastendruck) und das Eingabefeld verliert den Fokus.
   const hilfe = (t: ReactNode) => <p className="text-xs text-muted-foreground leading-snug">{t}</p>;
 
+  // Label mit kontextueller Feld-Hilfe (Bottom-Sheet), wenn der Punkt-Pfad im
+  // Hilfe-Register existiert — sonst sauberes Fallback auf ein nacktes <Label>.
+  // `ohneInline`, weil dieser Abschnitt seine eigene (reichere) `help`-Microcopy
+  // unter dem Feld führt; nur die Ebene-2/3-Tiefe kommt dazu.
+  const feldLabel = (text: string, path: Path, htmlFor?: string) =>
+    feldHilfe(path) ? (
+      <LabelMitHilfe hilfeKey={path} htmlFor={htmlFor} ohneInline>{text}</LabelMitHilfe>
+    ) : (
+      <Label htmlFor={htmlFor}>{text}</Label>
+    );
+
   const sel = (o: { label: string; path: Path; current: string | undefined; values: readonly string[]; labels: Record<string, string>; help?: ReactNode; notizPath?: Path }) => (
     <div className="space-y-1.5">
-      <Label>{o.label}</Label>
+      {feldLabel(o.label, o.path)}
       <div role="group" aria-label={o.label} className="flex gap-2 flex-wrap">
         {o.values.map((v) => (
           <button key={v} type="button" disabled={disabled} onClick={() => set(o.path, v)} className={btnCls(o.current === v)}>{o.labels[v] ?? v}</button>
@@ -116,7 +129,7 @@ export function UWerteSection({ form, bilder, votFormularId, leadName, leadId, a
 
   const num = (o: { label: string; path: Path; min: number; max: number; step?: number; unit?: string; help?: ReactNode }) => (
     <div className="space-y-1.5">
-      <Label htmlFor={o.path}>{o.label}{o.unit ? ` (${o.unit})` : ''}</Label>
+      {feldLabel(`${o.label}${o.unit ? ` (${o.unit})` : ''}`, o.path, o.path)}
       <Input id={o.path} type="number" inputMode="decimal" min={o.min} max={o.max} step={o.step ?? 1}
         {...register(o.path, { valueAsNumber: true })} disabled={disabled} />
       {o.help && hilfe(o.help)}
@@ -125,7 +138,7 @@ export function UWerteSection({ form, bilder, votFormularId, leadName, leadId, a
 
   const jaNein = (o: { label: string; path: Path; current: boolean | undefined; help?: ReactNode }) => (
     <div className="space-y-1.5">
-      <Label>{o.label}</Label>
+      {feldLabel(o.label, o.path)}
       <div role="group" aria-label={o.label} className="flex gap-2">
         <button type="button" disabled={disabled} onClick={() => set(o.path, true)} className={`flex-1 ${btnCls(o.current === true)}`}>Ja</button>
         <button type="button" disabled={disabled} onClick={() => set(o.path, false)} className={`flex-1 ${btnCls(o.current === false)}`}>Nein</button>

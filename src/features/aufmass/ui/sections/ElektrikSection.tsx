@@ -1,8 +1,8 @@
 import { UseFormReturn } from 'react-hook-form';
-import { Label } from '@/components/ui/label';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
+import { LabelMitHilfe } from '../components/LabelMitHilfe';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -30,7 +30,7 @@ export function ElektrikSection({ form, bilder, votFormularId, leadName, leadId,
         votFormularId={votFormularId} leadName={leadName} leadId={leadId} auftragId={auftragId} disabled={disabled} />
 
       <div className="space-y-2">
-        <Label>Hat der Kunde eine Erdung? *</Label>
+        <LabelMitHilfe hilfeKey="hat_erdung">Hat der Kunde eine Erdung? *</LabelMitHilfe>
         <div className="flex gap-3">
           {[true, false].map((val) => (
             <button key={String(val)} type="button" disabled={disabled}

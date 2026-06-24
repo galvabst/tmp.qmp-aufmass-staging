@@ -1,6 +1,5 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { AlertTriangle } from 'lucide-react';
 import {
   AufmassDraftData,
@@ -10,6 +9,8 @@ import {
 } from '../../data/aufmass-schema';
 import { numberFieldProps } from '../../data/aufmass-field-bounds';
 import { issuesByField, PlausibilityIssue } from '../../data/aufmass-plausibility';
+import { LabelMitHilfe, hilfeDescribedBy } from '../components/LabelMitHilfe';
+import { BildHinweisButton } from '../components/BildHinweisButton';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -126,32 +127,32 @@ export function GebaeudedatenSection({ form, disabled }: Props) {
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <Label>Gebäudetyp *</Label>
+        <LabelMitHilfe hilfeKey="gebaeudetyp">Gebäudetyp *</LabelMitHilfe>
         <OptionRow ariaLabel="Gebäudetyp" values={GEBAEUDETYP_WERTE} labels={GEBAEUDETYP_LABEL} current={gebaeudetyp} onSelect={(v) => setValue('gebaeudetyp', v as AufmassDraftData['gebaeudetyp'])} disabled={disabled} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label htmlFor="beheizte_wohnflaeche_m2">Beheizte Wohnfläche (m²) *</Label>
-          <Input id="beheizte_wohnflaeche_m2" {...numberFieldProps('beheizte_wohnflaeche_m2')} {...register('beheizte_wohnflaeche_m2', { valueAsNumber: true })} disabled={disabled} />
+          <LabelMitHilfe hilfeKey="beheizte_wohnflaeche_m2" htmlFor="beheizte_wohnflaeche_m2">Beheizte Wohnfläche (m²) *</LabelMitHilfe>
+          <Input id="beheizte_wohnflaeche_m2" aria-describedby={hilfeDescribedBy('beheizte_wohnflaeche_m2')} {...numberFieldProps('beheizte_wohnflaeche_m2')} {...register('beheizte_wohnflaeche_m2', { valueAsNumber: true })} disabled={disabled} />
           <FieldHinweise issues={plausi.beheizte_wohnflaeche_m2} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="anzahl_etagen">Etagen *</Label>
-          <Input id="anzahl_etagen" {...numberFieldProps('anzahl_etagen')} {...register('anzahl_etagen', { valueAsNumber: true })} disabled={disabled} />
+          <LabelMitHilfe hilfeKey="anzahl_etagen" htmlFor="anzahl_etagen">Etagen *</LabelMitHilfe>
+          <Input id="anzahl_etagen" aria-describedby={hilfeDescribedBy('anzahl_etagen')} {...numberFieldProps('anzahl_etagen')} {...register('anzahl_etagen', { valueAsNumber: true })} disabled={disabled} />
           <FieldHinweise issues={plausi.anzahl_etagen} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="anzahl_bewohner">Bewohnerzahl *</Label>
-        <Input id="anzahl_bewohner" {...numberFieldProps('anzahl_bewohner')} {...register('anzahl_bewohner', { valueAsNumber: true })} disabled={disabled} />
+        <LabelMitHilfe hilfeKey="anzahl_bewohner" htmlFor="anzahl_bewohner">Bewohnerzahl *</LabelMitHilfe>
+        <Input id="anzahl_bewohner" aria-describedby={hilfeDescribedBy('anzahl_bewohner')} {...numberFieldProps('anzahl_bewohner')} {...register('anzahl_bewohner', { valueAsNumber: true })} disabled={disabled} />
         <FieldHinweise issues={plausi.anzahl_bewohner} />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="durchschnittsverbrauch_3_jahre">Verbrauch Ø letzte 3 Jahre (kWh bzw. Liter) *</Label>
-        <Input id="durchschnittsverbrauch_3_jahre" {...numberFieldProps('durchschnittsverbrauch_3_jahre')} {...register('durchschnittsverbrauch_3_jahre', { valueAsNumber: true })} disabled={disabled} />
+        <LabelMitHilfe hilfeKey="durchschnittsverbrauch_3_jahre" htmlFor="durchschnittsverbrauch_3_jahre">Verbrauch Ø letzte 3 Jahre (kWh bzw. Liter) *</LabelMitHilfe>
+        <Input id="durchschnittsverbrauch_3_jahre" aria-describedby={hilfeDescribedBy('durchschnittsverbrauch_3_jahre')} {...numberFieldProps('durchschnittsverbrauch_3_jahre')} {...register('durchschnittsverbrauch_3_jahre', { valueAsNumber: true })} disabled={disabled} />
         {/* Heizungsart wird erst in einem späteren Schritt erfasst → statischer Inline-Hinweis,
             damit ein Laie hier weiß, welche Einheit er eintragen muss (kein Schritt-Bezug nötig). */}
         <p className="text-xs text-muted-foreground">Gas/Wärmepumpe: Jahres-kWh · Öl: Jahres-Liter (wird intern umgerechnet)</p>
@@ -159,38 +160,40 @@ export function GebaeudedatenSection({ form, disabled }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label>Denkmalschutz? *</Label>
+        <LabelMitHilfe hilfeKey="hat_denkmalschutz">Denkmalschutz? *</LabelMitHilfe>
         <JaNein ariaLabel="Denkmalschutz" current={hatDenkmalschutz} onSelect={(v) => setValue('hat_denkmalschutz', v)} disabled={disabled} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label>Fassade gedämmt? *</Label>
+          <LabelMitHilfe hilfeKey="fassade_gedaemmt">Fassade gedämmt? *</LabelMitHilfe>
           <JaNein ariaLabel="Fassade gedämmt" current={fassade} onSelect={(v) => setValue('fassade_gedaemmt', v)} disabled={disabled} />
         </div>
         <div className="space-y-2">
-          <Label>Dach gedämmt? *</Label>
+          <LabelMitHilfe hilfeKey="dach_gedaemmt">Dach gedämmt? *</LabelMitHilfe>
           <JaNein ariaLabel="Dach gedämmt" current={dach} onSelect={(v) => setValue('dach_gedaemmt', v)} disabled={disabled} />
+          <BildHinweisButton art="dach" disabled={disabled} onDach={(g) => setValue('dach_gedaemmt', g)} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label>Rohrsystem *</Label>
+        <LabelMitHilfe hilfeKey="rohrsystem">Rohrsystem *</LabelMitHilfe>
         <OptionRow ariaLabel="Rohrsystem" values={ROHRSYSTEM_WERTE} labels={ROHRSYSTEM_LABEL} current={rohrsystem} onSelect={(v) => setValue('rohrsystem', v as AufmassDraftData['rohrsystem'])} disabled={disabled} />
       </div>
 
       <div className="space-y-2">
-        <Label>Verglasung *</Label>
+        <LabelMitHilfe hilfeKey="verglasung">Verglasung *</LabelMitHilfe>
         <OptionRow ariaLabel="Verglasung" values={VERGLASUNG_WERTE} labels={VERGLASUNG_LABEL} current={verglasung} onSelect={(v) => setValue('verglasung', v as AufmassDraftData['verglasung'])} disabled={disabled} />
+        <BildHinweisButton art="verglasung" disabled={disabled} onVerglasung={(w) => setValue('verglasung', w as AufmassDraftData['verglasung'])} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label>Kamin vorhanden? *</Label>
+          <LabelMitHilfe hilfeKey="hat_kamin">Kamin vorhanden? *</LabelMitHilfe>
           <JaNein ariaLabel="Kamin vorhanden" current={kamin} onSelect={(v) => setValue('hat_kamin', v)} disabled={disabled} />
         </div>
         <div className="space-y-2">
-          <Label>Solarthermie vorhanden? *</Label>
+          <LabelMitHilfe hilfeKey="hat_solarthermie">Solarthermie vorhanden? *</LabelMitHilfe>
           <JaNein ariaLabel="Solarthermie vorhanden" current={solarthermie} onSelect={(v) => setValue('hat_solarthermie', v)} disabled={disabled} />
         </div>
       </div>
@@ -199,13 +202,13 @@ export function GebaeudedatenSection({ form, disabled }: Props) {
         <p className="font-medium text-sm">Heizkreis-Temperaturen</p>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label htmlFor="vorlauftemperatur">Vorlauf (°C) *</Label>
-            <Input id="vorlauftemperatur" {...numberFieldProps('vorlauftemperatur')} {...register('vorlauftemperatur', { valueAsNumber: true })} disabled={disabled} />
+            <LabelMitHilfe hilfeKey="vorlauftemperatur" htmlFor="vorlauftemperatur">Vorlauf (°C) *</LabelMitHilfe>
+            <Input id="vorlauftemperatur" aria-describedby={hilfeDescribedBy('vorlauftemperatur')} {...numberFieldProps('vorlauftemperatur')} {...register('vorlauftemperatur', { valueAsNumber: true })} disabled={disabled} />
             <FieldHinweise issues={plausi.vorlauftemperatur} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ruecklauftemperatur">Rücklauf (°C) *</Label>
-            <Input id="ruecklauftemperatur" {...numberFieldProps('ruecklauftemperatur')} {...register('ruecklauftemperatur', { valueAsNumber: true })} disabled={disabled} />
+            <LabelMitHilfe hilfeKey="ruecklauftemperatur" htmlFor="ruecklauftemperatur">Rücklauf (°C) *</LabelMitHilfe>
+            <Input id="ruecklauftemperatur" aria-describedby={hilfeDescribedBy('ruecklauftemperatur')} {...numberFieldProps('ruecklauftemperatur')} {...register('ruecklauftemperatur', { valueAsNumber: true })} disabled={disabled} />
             <FieldHinweise issues={plausi.ruecklauftemperatur} />
           </div>
         </div>

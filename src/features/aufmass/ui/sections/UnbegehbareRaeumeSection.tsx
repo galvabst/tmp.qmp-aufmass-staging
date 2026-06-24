@@ -1,9 +1,9 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
+import { LabelMitHilfe } from '../components/LabelMitHilfe';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -26,7 +26,7 @@ export function UnbegehbareRaeumeSection({ form, bilder, votFormularId, leadName
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Nicht begehbare / nicht scanbare Räume *</Label>
+        <LabelMitHilfe hilfeKey="anzahl_unbegehbare_raeume" ohneInline>Nicht begehbare / nicht scanbare Räume *</LabelMitHilfe>
         <p className="text-xs text-muted-foreground">
           Räume, die du nicht betreten oder scannen konntest. <strong className="text-foreground">0 = alle Räume gescannt</strong> – bitte auch die 0 bewusst antippen.
         </p>

@@ -5,6 +5,7 @@ import { AufmassDraftData } from '../../data/aufmass-schema';
 import { PhotoUploadField } from '../components/PhotoUploadField';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { AufmassDatePicker } from '../components/AufmassDatePicker';
+import { LabelMitHilfe, hilfeDescribedBy } from '../components/LabelMitHilfe';
 import { ExternalLink } from 'lucide-react';
 
 interface Props {
@@ -30,14 +31,14 @@ export function TechnikerDatenSection({ form, bilder, votFormularId, leadName, l
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="techniker_name">Name Aufmaßtechniker *</Label>
-          <Input id="techniker_name" {...register('techniker_name')} disabled={disabled} placeholder="Dein vollständiger Name" />
+          <LabelMitHilfe hilfeKey="techniker_name" htmlFor="techniker_name">Name Aufmaßtechniker *</LabelMitHilfe>
+          <Input id="techniker_name" aria-describedby={hilfeDescribedBy('techniker_name')} {...register('techniker_name')} disabled={disabled} placeholder="Dein vollständiger Name" />
           {errors.techniker_name && <p className="text-xs text-destructive">{errors.techniker_name.message}</p>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="techniker_telefon">Telefonnummer *</Label>
-          <Input id="techniker_telefon" type="tel" {...register('techniker_telefon')} disabled={disabled} placeholder="Erreichbare Nummer" />
+          <LabelMitHilfe hilfeKey="techniker_telefon" htmlFor="techniker_telefon">Telefonnummer *</LabelMitHilfe>
+          <Input id="techniker_telefon" type="tel" aria-describedby={hilfeDescribedBy('techniker_telefon')} {...register('techniker_telefon')} disabled={disabled} placeholder="Erreichbare Nummer" />
           {errors.techniker_telefon && <p className="text-xs text-destructive">{errors.techniker_telefon.message}</p>}
         </div>
 
@@ -56,7 +57,7 @@ export function TechnikerDatenSection({ form, bilder, votFormularId, leadName, l
         </div>
 
         <div className="space-y-2">
-          <Label>Datum ThermoCheck *</Label>
+          <LabelMitHilfe hilfeKey="thermocheck_datum">Datum ThermoCheck *</LabelMitHilfe>
           <AufmassDatePicker
             value={watch('thermocheck_datum') || ''}
             onChange={(v) => setValue('thermocheck_datum', v)}

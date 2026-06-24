@@ -1,8 +1,8 @@
 import { UseFormReturn } from 'react-hook-form';
-import { Label } from '@/components/ui/label';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
+import { LabelMitHilfe } from '../components/LabelMitHilfe';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -29,7 +29,7 @@ export function HeizkoerperSection({ form, bilder, votFormularId, leadName, lead
       )}
 
       <div className="space-y-2">
-        <Label>Heizkörper-Typ *</Label>
+        <LabelMitHilfe hilfeKey="heizkoerper_typ">Heizkörper-Typ *</LabelMitHilfe>
         <div className="flex gap-2">
           {(['heizkoerper', 'fussbodenheizung', 'beides'] as const).map((val) => (
             <button key={val} type="button" disabled={disabled}

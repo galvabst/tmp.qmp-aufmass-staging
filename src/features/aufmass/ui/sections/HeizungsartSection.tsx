@@ -1,11 +1,12 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { numberFieldProps } from '../../data/aufmass-field-bounds';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
+import { LabelMitHilfe, hilfeDescribedBy } from '../components/LabelMitHilfe';
+import { TypenschildScanButton } from '../components/TypenschildScanButton';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -26,7 +27,7 @@ export function HeizungsartSection({ form, bilder, votFormularId, leadName, lead
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Art der alten Heizung *</Label>
+        <LabelMitHilfe hilfeKey="heizungsart">Art der alten Heizung *</LabelMitHilfe>
         <div className="flex gap-2">
           {(['gas', 'oel', 'sonstige'] as const).map((val) => (
             <button key={val} type="button" disabled={disabled}
@@ -39,12 +40,14 @@ export function HeizungsartSection({ form, bilder, votFormularId, leadName, lead
             </button>
           ))}
         </div>
+        {/* Das eine verlässliche KI-Foto-Feature: Typenschild scannen → Heizungsart vorschlagen. */}
+        <TypenschildScanButton disabled={disabled} onHeizungsart={(kat) => setValue('heizungsart', kat)} />
       </div>
 
       {isSonstige && (
         <div className="space-y-2">
-          <Label htmlFor="heizungsart_sonstige">Welche Heizungsart? *</Label>
-          <Input id="heizungsart_sonstige" {...register('heizungsart_sonstige')} disabled={disabled} />
+          <LabelMitHilfe hilfeKey="heizungsart_sonstige" htmlFor="heizungsart_sonstige">Welche Heizungsart? *</LabelMitHilfe>
+          <Input id="heizungsart_sonstige" aria-describedby={hilfeDescribedBy('heizungsart_sonstige')} {...register('heizungsart_sonstige')} disabled={disabled} />
           {errors.heizungsart_sonstige && <p className="text-xs text-destructive">{errors.heizungsart_sonstige.message}</p>}
         </div>
       )}
@@ -53,20 +56,20 @@ export function HeizungsartSection({ form, bilder, votFormularId, leadName, lead
         <div className="space-y-4 bg-card rounded-xl p-4 border border-border">
           <p className="font-medium text-sm">Öltank-Details</p>
           <div className="space-y-2">
-            <Label>Liter alle Öltanks zusammen *</Label>
-            <Input {...numberFieldProps('oeltank_liter_gesamt')} {...register('oeltank_liter_gesamt', { valueAsNumber: true })} disabled={disabled} />
+            <LabelMitHilfe hilfeKey="oeltank_liter_gesamt" htmlFor="oeltank_liter_gesamt">Liter alle Öltanks zusammen *</LabelMitHilfe>
+            <Input id="oeltank_liter_gesamt" aria-describedby={hilfeDescribedBy('oeltank_liter_gesamt')} {...numberFieldProps('oeltank_liter_gesamt')} {...register('oeltank_liter_gesamt', { valueAsNumber: true })} disabled={disabled} />
           </div>
           <div className="space-y-2">
-            <Label>Anzahl Öltanks *</Label>
-            <Input {...numberFieldProps('oeltank_anzahl')} {...register('oeltank_anzahl', { valueAsNumber: true })} disabled={disabled} />
+            <LabelMitHilfe hilfeKey="oeltank_anzahl" htmlFor="oeltank_anzahl">Anzahl Öltanks *</LabelMitHilfe>
+            <Input id="oeltank_anzahl" aria-describedby={hilfeDescribedBy('oeltank_anzahl')} {...numberFieldProps('oeltank_anzahl')} {...register('oeltank_anzahl', { valueAsNumber: true })} disabled={disabled} />
           </div>
           <div className="space-y-2">
-            <Label>Liter Öl aktuell in Tanks *</Label>
-            <Input {...numberFieldProps('oeltank_liter_aktuell')} {...register('oeltank_liter_aktuell', { valueAsNumber: true })} disabled={disabled} />
+            <LabelMitHilfe hilfeKey="oeltank_liter_aktuell" htmlFor="oeltank_liter_aktuell">Liter Öl aktuell in Tanks *</LabelMitHilfe>
+            <Input id="oeltank_liter_aktuell" aria-describedby={hilfeDescribedBy('oeltank_liter_aktuell')} {...numberFieldProps('oeltank_liter_aktuell')} {...register('oeltank_liter_aktuell', { valueAsNumber: true })} disabled={disabled} />
           </div>
           <div className="space-y-2">
-            <Label>Wie kann man den Tank raustransportieren? *</Label>
-            <Textarea {...register('oeltank_transport_beschreibung')} disabled={disabled} placeholder="Detailliert beschreiben..." />
+            <LabelMitHilfe hilfeKey="oeltank_transport_beschreibung" htmlFor="oeltank_transport_beschreibung">Wie kann man den Tank raustransportieren? *</LabelMitHilfe>
+            <Textarea id="oeltank_transport_beschreibung" aria-describedby={hilfeDescribedBy('oeltank_transport_beschreibung')} {...register('oeltank_transport_beschreibung')} disabled={disabled} placeholder="Detailliert beschreiben..." />
           </div>
           <PhotoUploadField
             kategorie="oeltank"

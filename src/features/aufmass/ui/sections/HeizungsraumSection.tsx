@@ -2,8 +2,9 @@ import { UseFormReturn } from 'react-hook-form';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { LabelMitHilfe } from '../components/LabelMitHilfe';
+import { FeldHilfeSheet } from '../components/FeldHilfe';
 
 const ANSCHLUSS_LEITUNGEN = [
   { key: 'vorlauf', label: 'Vorlauf' },
@@ -39,7 +40,7 @@ export function HeizungsraumSection({ form, bilder, votFormularId, leadName, lea
       />
 
       <div className="space-y-2">
-        <Label>Mehr Bilder vom Heizungsraum? *</Label>
+        <LabelMitHilfe hilfeKey="mehr_bilder_heizungsraum">Mehr Bilder vom Heizungsraum? *</LabelMitHilfe>
         <div className="flex gap-3">
           {[true, false].map((val) => (
             <button key={String(val)} type="button" disabled={disabled}
@@ -64,7 +65,7 @@ export function HeizungsraumSection({ form, bilder, votFormularId, leadName, lea
 
       {/* Heizungsraum verlegen */}
       <div className="space-y-2">
-        <Label>Heizungsraum verlegen? *</Label>
+        <LabelMitHilfe hilfeKey="heizungsraum_verlegen">Heizungsraum verlegen? *</LabelMitHilfe>
         <div className="flex gap-3">
           {[true, false].map((val) => (
             <button key={String(val)} type="button" disabled={disabled}
@@ -87,7 +88,10 @@ export function HeizungsraumSection({ form, bilder, votFormularId, leadName, lea
 
       {heizungsraumVerlegen && (
         <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-          <p className="text-sm font-medium text-foreground">Anschlüsse am neuen Standort</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm font-medium text-foreground">Anschlüsse am neuen Standort</p>
+            <FeldHilfeSheet hilfeKey="anschluss_gruppe" />
+          </div>
           {ANSCHLUSS_LEITUNGEN.map(({ key, label }) => {
             const vorhandenKey = `anschluss_${key}_vorhanden` as keyof AufmassDraftData;
             const distanzKey = `anschluss_${key}_distanz` as keyof AufmassDraftData;

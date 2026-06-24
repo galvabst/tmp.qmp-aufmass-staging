@@ -1,6 +1,5 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
@@ -9,6 +8,7 @@ import { SignatureField } from '../components/SignatureField';
 import { useUploadVotBild } from '../../hooks/useVotBilder';
 import { AufstellortAIPanel } from './AufstellortAIPanel';
 import type { AufstellortPruefung } from '../../hooks/useAufstellortPruefung';
+import { LabelMitHilfe, hilfeDescribedBy } from '../components/LabelMitHilfe';
 import { toast } from 'sonner';
 
 
@@ -91,7 +91,7 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
 
       {/* 1. Alternative */}
       <div className="space-y-2">
-        <Label>1. Alternative Aufstellort</Label>
+        <LabelMitHilfe hilfeKey="alternative_1_vorhanden">1. Alternative Aufstellort</LabelMitHilfe>
         <div className="flex gap-3">
           {[true, false].map((val) => (
             <button key={String(val)} type="button" disabled={disabled}
@@ -118,7 +118,7 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
 
           {/* 2. Alternative */}
           <div className="space-y-2">
-            <Label>2. Alternative Aufstellort</Label>
+            <LabelMitHilfe hilfeKey="alternative_2_vorhanden">2. Alternative Aufstellort</LabelMitHilfe>
             <div className="flex gap-3">
               {[true, false].map((val) => (
                 <button key={String(val)} type="button" disabled={disabled}
@@ -152,22 +152,22 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
         <p className="font-medium text-sm">Distanzen & Durchbrüche</p>
 
         <div className="space-y-1">
-          <Label htmlFor="distanz_ausseneinheit_kernloch">Distanz Außeneinheit → Kernlochbohrung (m) *</Label>
-          <Input id="distanz_ausseneinheit_kernloch" type="number" step="0.1" min="0" disabled={disabled}
+          <LabelMitHilfe hilfeKey="distanz_ausseneinheit_kernloch" htmlFor="distanz_ausseneinheit_kernloch">Distanz Außeneinheit → Kernlochbohrung (m) *</LabelMitHilfe>
+          <Input id="distanz_ausseneinheit_kernloch" aria-describedby={hilfeDescribedBy('distanz_ausseneinheit_kernloch')} type="number" step="0.1" min="0" disabled={disabled}
             {...register('distanz_ausseneinheit_kernloch', { valueAsNumber: true })} />
           {errors.distanz_ausseneinheit_kernloch && <p className="text-xs text-destructive">{errors.distanz_ausseneinheit_kernloch.message}</p>}
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="distanz_kernloch_innengeraet">Distanz Kernlochbohrung → Innengerät (m) *</Label>
-          <Input id="distanz_kernloch_innengeraet" type="number" step="0.1" min="0" disabled={disabled}
+          <LabelMitHilfe hilfeKey="distanz_kernloch_innengeraet" htmlFor="distanz_kernloch_innengeraet">Distanz Kernlochbohrung → Innengerät (m) *</LabelMitHilfe>
+          <Input id="distanz_kernloch_innengeraet" aria-describedby={hilfeDescribedBy('distanz_kernloch_innengeraet')} type="number" step="0.1" min="0" disabled={disabled}
             {...register('distanz_kernloch_innengeraet', { valueAsNumber: true })} />
           {errors.distanz_kernloch_innengeraet && <p className="text-xs text-destructive">{errors.distanz_kernloch_innengeraet.message}</p>}
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="anzahl_durchbrueche_kernloch">Anzahl Durchbrüche (Kernloch → Innengerät) *</Label>
-          <Input id="anzahl_durchbrueche_kernloch" type="number" step="1" min="0" disabled={disabled}
+          <LabelMitHilfe hilfeKey="anzahl_durchbrueche_kernloch" htmlFor="anzahl_durchbrueche_kernloch">Anzahl Durchbrüche (Kernloch → Innengerät) *</LabelMitHilfe>
+          <Input id="anzahl_durchbrueche_kernloch" aria-describedby={hilfeDescribedBy('anzahl_durchbrueche_kernloch')} type="number" step="1" min="0" disabled={disabled}
             {...register('anzahl_durchbrueche_kernloch', { valueAsNumber: true })} />
           {errors.anzahl_durchbrueche_kernloch && <p className="text-xs text-destructive">{errors.anzahl_durchbrueche_kernloch.message}</p>}
         </div>
@@ -193,8 +193,8 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
 
         {aufstellortAenderung === true && (
           <div className="space-y-1">
-            <Label htmlFor="distanz_alter_neuer_aufstellort">Distanz alter → neuer Aufstellort (m) *</Label>
-            <Input id="distanz_alter_neuer_aufstellort" type="number" step="0.1" min="0" disabled={disabled}
+            <LabelMitHilfe hilfeKey="distanz_alter_neuer_aufstellort" htmlFor="distanz_alter_neuer_aufstellort">Distanz alter → neuer Aufstellort (m) *</LabelMitHilfe>
+            <Input id="distanz_alter_neuer_aufstellort" aria-describedby={hilfeDescribedBy('distanz_alter_neuer_aufstellort')} type="number" step="0.1" min="0" disabled={disabled}
               {...register('distanz_alter_neuer_aufstellort', { valueAsNumber: true })} />
             {errors.distanz_alter_neuer_aufstellort && <p className="text-xs text-destructive">{errors.distanz_alter_neuer_aufstellort.message}</p>}
           </div>
@@ -211,12 +211,12 @@ export function AufstellortSection({ form, bilder, votFormularId, leadName, lead
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <Label htmlFor="kunde_bestaetigung_vorname">Vorname *</Label>
-            <Input id="kunde_bestaetigung_vorname" {...register('kunde_bestaetigung_vorname')} disabled={disabled} />
+            <LabelMitHilfe hilfeKey="kunde_bestaetigung_vorname" htmlFor="kunde_bestaetigung_vorname">Vorname *</LabelMitHilfe>
+            <Input id="kunde_bestaetigung_vorname" aria-describedby={hilfeDescribedBy('kunde_bestaetigung_vorname')} {...register('kunde_bestaetigung_vorname')} disabled={disabled} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="kunde_bestaetigung_nachname">Nachname *</Label>
-            <Input id="kunde_bestaetigung_nachname" {...register('kunde_bestaetigung_nachname')} disabled={disabled} />
+            <LabelMitHilfe hilfeKey="kunde_bestaetigung_nachname" htmlFor="kunde_bestaetigung_nachname">Nachname *</LabelMitHilfe>
+            <Input id="kunde_bestaetigung_nachname" aria-describedby={hilfeDescribedBy('kunde_bestaetigung_nachname')} {...register('kunde_bestaetigung_nachname')} disabled={disabled} />
           </div>
         </div>
 

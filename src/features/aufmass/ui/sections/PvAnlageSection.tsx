@@ -1,8 +1,8 @@
 import { UseFormReturn } from 'react-hook-form';
-import { Label } from '@/components/ui/label';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
+import { LabelMitHilfe } from '../components/LabelMitHilfe';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -26,7 +26,7 @@ export function PvAnlageSection({ form, bilder, votFormularId, leadName, leadId,
       </div>
 
       <div className="space-y-2">
-        <Label>Haben Sie bereits eine PV-Anlage? *</Label>
+        <LabelMitHilfe hilfeKey="hat_pv_anlage">Haben Sie bereits eine PV-Anlage? *</LabelMitHilfe>
         {/* Vorwarnung VOR der Auswahl: „Nein" öffnet 8 zusätzliche PV-Schritte.
             Ohne diesen Hinweis erwartet ein Laie, dass „Nein" Arbeit spart, und
             klickt evtl. falsch (steckt dann unerwartet im PV-Aufmaß fest). */}

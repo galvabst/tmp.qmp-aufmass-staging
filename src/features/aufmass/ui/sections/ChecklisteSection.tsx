@@ -1,11 +1,11 @@
 import { UseFormReturn } from 'react-hook-form';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AufmassDraftData } from '../../data/aufmass-schema';
 import { VotBild } from '../../hooks/useVotBilder';
 import { SignatureField } from '../components/SignatureField';
 import { useUploadVotBild } from '../../hooks/useVotBilder';
+import { LabelMitHilfe, hilfeDescribedBy } from '../components/LabelMitHilfe';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -50,13 +50,13 @@ export function ChecklisteSection({ form, bilder, votFormularId, leadName, leadI
             onCheckedChange={(checked) => setValue(key as any, checked === true)}
             disabled={disabled}
           />
-          <label htmlFor={key} className="text-sm text-foreground leading-tight">{label}</label>
+          <LabelMitHilfe hilfeKey={key} htmlFor={key} className="text-sm text-foreground leading-tight">{label}</LabelMitHilfe>
         </div>
       ))}
 
       <div className="space-y-2">
-        <Label htmlFor="bemerkungen">Bemerkungen / Infos</Label>
-        <Textarea id="bemerkungen" {...register('bemerkungen')} disabled={disabled} placeholder="Optionale Hinweise..." />
+        <LabelMitHilfe hilfeKey="bemerkungen" htmlFor="bemerkungen">Bemerkungen / Infos</LabelMitHilfe>
+        <Textarea id="bemerkungen" aria-describedby={hilfeDescribedBy('bemerkungen')} {...register('bemerkungen')} disabled={disabled} placeholder="Optionale Hinweise..." />
       </div>
 
       <SignatureField
