@@ -17,6 +17,10 @@ interface AufmassDatePickerProps {
   fromYear?: number;
   /** Latest selectable year */
   toYear?: number;
+  /** Latest selectable DAY — blocks any later day (z.B. keine Zukunft). */
+  toDate?: Date;
+  /** Earliest selectable DAY. */
+  fromDate?: Date;
 }
 
 const MONTHS = [
@@ -31,6 +35,8 @@ export function AufmassDatePicker({
   placeholder = 'Datum wählen',
   fromYear = 1900,
   toYear = new Date().getFullYear(),
+  toDate,
+  fromDate,
 }: AufmassDatePickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -43,13 +49,25 @@ export function AufmassDatePicker({
     }
   }, [value]);
 
-  const [viewMonth, setViewMonth] = useState<Date>(selectedDate ?? new Date());
+  const [viewMonth, setViewMonth] = useState<Date>(selectedDate ?? toDate ?? new Date());
+
+  // Tages-Grenzen schlagen die Jahres-Grenzen (sonst wären Zukunftsmonate im
+  // aktuellen Jahr wählbar, obwohl die Tage gesperrt sind).
+  const effToYear = toDate ? toDate.getFullYear() : toYear;
+  const effFromYear = fromDate ? fromDate.getFullYear() : fromYear;
 
   const years = useMemo(() => {
     const arr: number[] = [];
-    for (let y = toYear; y >= fromYear; y--) arr.push(y);
+    for (let y = effToYear; y >= effFromYear; y--) arr.push(y);
     return arr;
-  }, [fromYear, toYear]);
+  }, [effFromYear, effToYear]);
+
+  const disabledMatcher = useMemo<Array<{ after: Date } | { before: Date }> | undefined>(() => {
+    const m: Array<{ after: Date } | { before: Date }> = [];
+    if (toDate) m.push({ after: toDate });
+    if (fromDate) m.push({ before: fromDate });
+    return m.length ? m : undefined;
+  }, [fromDate, toDate]);
 
   const handleSelect = (date: Date | undefined) => {
     if (!date) return;
@@ -114,6 +132,9 @@ export function AufmassDatePicker({
           month={viewMonth}
           onMonthChange={setViewMonth}
           locale={de}
+          toDate={toDate}
+          fromDate={fromDate}
+          disabled={disabledMatcher}
           initialFocus
           className="p-3 pointer-events-auto"
         />

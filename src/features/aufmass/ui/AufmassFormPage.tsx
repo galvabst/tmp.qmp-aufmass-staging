@@ -1,14 +1,24 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { AufmassDraftData, aufmassSubmitSchema } from '../data/aufmass-schema';
+import { AufmassDraftData } from '../data/aufmass-schema';
+import { computeStepValidation } from '../data/aufmass-validation';
+import { checkPlausibility } from '../data/aufmass-plausibility';
+import { AutarcAbweichungenBanner } from './components/AutarcAbweichungenBanner';
+import { PlausibilityConfirmDialog } from './PlausibilityConfirmDialog';
 import { PvAufmassDraftData } from '../data/pv-aufmass-schema';
-import { useVotFormular, useUpsertVotFormular } from '../hooks/useVotFormular';
-import { usePvFormular, useUpsertPvFormular } from '../hooks/usePvFormular';
-import { useVotBilder } from '../hooks/useVotBilder';
+import { useGeoStandort } from '../hooks/useGeoStandort';
+import { useAufmassFormData } from '../hooks/useAufmassFormData';
+import { useAufmassSubmit } from '../hooks/useAufmassSubmit';
+import { getFotoStatus, resetFotoPruefung, subscribeFotoPruefung, getFotoPruefVersion } from '../state/foto-pruefung-store';
+import { pruefeFotoPraesenz, type FotoPraesenzContext } from '../data/foto-praesenz';
+import { bewerteFotoInhalt } from '../data/foto-inhalt-gate';
 import { AufmassFormStepper, StepConfig } from './AufmassFormStepper';
+import { GeoStatusCard } from './components/GeoStatusCard';
 import { TechnikerDatenSection } from './sections/TechnikerDatenSection';
 import { KundendatenSection } from './sections/KundendatenSection';
+import { GebaeudedatenSection } from './sections/GebaeudedatenSection';
+import { UWerteSection } from './sections/UWerteSection';
 import { PhotoOnlySection } from './sections/PhotoOnlySection';
 import { HeizungsraumSection } from './sections/HeizungsraumSection';
 import { HeizungsartSection } from './sections/HeizungsartSection';
@@ -29,14 +39,12 @@ import { PvUnterkonstruktionSection } from './sections/pv/PvUnterkonstruktionSec
 import { PvBlitzschutzSection } from './sections/pv/PvBlitzschutzSection';
 import { PvAbschlussSection } from './sections/pv/PvAbschlussSection';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
-import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
 
 const BASE_STEPS: StepConfig[] = [
   { title: 'Techniker-Daten', icon: '👤' },
   { title: 'Kundendaten', icon: '🏠' },
+  { title: 'Gebäudedaten', icon: '🏘️' },
   { title: 'Treppenabgang', icon: '🪜' },
   { title: 'Eingang Heizungsraum', icon: '🚪' },
   { title: 'Heizungsraum', icon: '🔥' },
@@ -69,105 +77,36 @@ export default function AufmassFormPage() {
   const { session } = useSupabaseSession();
   const userId = session?.user?.id;
 
-  // Load auftrag data
-  const { data: auftrag, isLoading: auftragLoading } = useQuery({
-    queryKey: ['thermocheck-auftrag-detail', auftragId],
-    enabled: !!auftragId,
-    queryFn: async () => {
-      const { data, error } = await supabaseTC
-        .from('v_thermocheck_auftraege' as any)
-        .select('*')
-        .eq('id', auftragId!)
-        .maybeSingle();
-      if (error) throw error;
-      return data as Record<string, any>;
-    },
-  });
-
-  // Load existing formular
-  const { data: formular, isLoading: formularLoading } = useVotFormular(auftragId);
-  const votFormularId = (formular as any)?.id as string | undefined;
-
-  // Auto-create formular record if none exists
-  const queryClient = useQueryClient();
-  const autoCreatingRef = useRef(false);
+  // KI-Foto-Verdicts beim Formularwechsel leeren (kein Übertrag zwischen Aufträgen).
   useEffect(() => {
-    if (formularLoading || formular || !auftragId || !userId || autoCreatingRef.current) return;
-    autoCreatingRef.current = true;
-    supabaseTC
-      .from('thermocheck_vot_formulare' as any)
-      .insert({ thermocheck_auftrag_id: auftragId, eingereicht_von: userId, status: 'entwurf' } as any)
-      .select()
-      .single()
-      .then(({ error }) => {
-        if (!error) {
-          queryClient.invalidateQueries({ queryKey: ['vot-formular', auftragId] });
-        } else if (error.code === '23503') {
-          console.error('Auftrag existiert nicht (FK-Verletzung):', auftragId);
-        } else {
-          console.warn('Auto-Create Formular fehlgeschlagen:', error.message);
-        }
-        autoCreatingRef.current = false;
-      });
-  }, [formularLoading, formular, auftragId, userId, queryClient]);
+    resetFotoPruefung();
+    return () => resetFotoPruefung();
+  }, [auftragId]);
 
-  // Load bilder
-  const { data: bilder = [] } = useVotBilder(votFormularId);
+  // Re-render, sobald ein KI-Foto-Verdict eintrifft (passt_nicht/ungeprueft/ok).
+  // Ohne diese Subscription bliebe der Stepper-Status (stepHasError) und der
+  // „X Pflichtfelder offen"-Zähler nach einem KI-Verdict stehen.
+  useSyncExternalStore(subscribeFotoPruefung, getFotoPruefVersion);
 
-  // THC form
-  const upsertMutation = useUpsertVotFormular();
+  // Forms
   const form = useForm<AufmassDraftData>({ defaultValues: {} });
-
-  // PV form
   const pvForm = useForm<PvAufmassDraftData>({ defaultValues: {} });
-  const { data: pvFormular, isLoading: pvFormularLoading } = usePvFormular(votFormularId);
-  const pvUpsertMutation = useUpsertPvFormular();
 
-  // Watch hat_pv_anlage for dynamic steps
+  // Daten laden + Prefill (eigener Hook)
+  const data = useAufmassFormData(auftragId, userId, session, form, pvForm);
+  const { bilder, votFormularId, isReadOnly, leadName, leadId, kundenName } = data;
+
+  // Geo-Check-in: einmal beim Start Geräte-GPS holen + gegen Kundenadresse abgleichen.
+  const geo = useGeoStandort(
+    votFormularId,
+    { strasse: data.auftrag?.kunde_strasse ?? undefined, plz: data.auftrag?.kunde_plz ?? undefined, ort: data.auftrag?.kunde_ort ?? undefined },
+    !isReadOnly,
+  );
+
+  // Watch hat_pv_anlage for dynamic steps.
+  // ACHTUNG — bewusste Inversion: hat_pv_anlage === false heißt KEINE bestehende
+  // PV-Anlage → PV-NEUINSTALLATIONS-Aufmaß (PV-Schritte einblenden). === true → keine.
   const hatPv = form.watch('hat_pv_anlage');
-
-  // Prefill — only fill keys that are still empty in the current form state.
-  // setValue() via buttons does NOT set the dirty flag, so a naive spread of
-  // server values would overwrite user's Ja/Nein clicks after a refetch.
-  const mergePrefill = <T extends Record<string, any>>(current: T, server: Record<string, any>): T => {
-    const next: any = { ...current };
-    for (const [k, v] of Object.entries(server)) {
-      if (next[k] === undefined || next[k] === null || next[k] === '') next[k] = v;
-    }
-    return next;
-  };
-
-  useEffect(() => {
-    if (!formular) return;
-    form.reset(mergePrefill(form.getValues(), formular as Record<string, any>), { keepDirtyValues: true });
-  }, [formular]);
-
-  useEffect(() => {
-    if (!pvFormular) return;
-    pvForm.reset(mergePrefill(pvForm.getValues(), pvFormular as Record<string, any>), { keepDirtyValues: true });
-  }, [pvFormular]);
-
-  // Prefill techniker data from profile
-  useEffect(() => {
-    if (!session?.user) return;
-    const meta = session.user.user_metadata;
-    if (!form.getValues('techniker_name') && meta?.name) {
-      form.setValue('techniker_name', meta.name);
-    }
-    if (!form.getValues('techniker_telefon') && meta?.telefon) {
-      form.setValue('techniker_telefon', meta.telefon);
-    }
-    if (!form.getValues('thermocheck_datum')) {
-      form.setValue('thermocheck_datum', new Date().toISOString().split('T')[0]);
-    }
-  }, [session]);
-
-  const isReadOnly = (formular as any)?.status === 'abgeschlossen';
-  const leadName = (auftrag as any)?.lead_name || (auftrag as any)?.kunde_nachname || 'unbekannt';
-  const leadId = (auftrag as any)?.lead_id || '';
-  const kundenName = `${(auftrag as any)?.kunde_vorname || ''} ${(auftrag as any)?.kunde_nachname || ''}`.trim() || 'Unbekannt';
-
-  // Dynamic steps based on hat_pv_anlage
   const showPvSteps = hatPv === false;
   const steps = useMemo(() => {
     return showPvSteps
@@ -177,154 +116,61 @@ export default function AufmassFormPage() {
 
   // Controlled stepper state — needed so handleSubmit can jump to missing fields
   const [currentStep, setCurrentStep] = useState(0);
+  const resolveStep = (baseStep: number) => (baseStep === -1 ? steps.length - 1 : baseStep);
 
-  /**
-   * Field → (label, base step index) map.
-   * Step indices reference BASE_STEPS positions. The Abschluss step uses -1 and is
-   * resolved dynamically (showPvSteps ? 21 : 13) so the link stays correct in both
-   * variants of the stepper.
-   */
-  const FIELD_META: Record<string, { label: string; step: number }> = useMemo(() => ({
-    techniker_name: { label: 'Techniker-Name', step: 0 },
-    techniker_telefon: { label: 'Telefonnummer', step: 0 },
-    thermocheck_datum: { label: 'Datum Thermocheck', step: 0 },
-    heizung_inbetriebnahme_datum: { label: 'Inbetriebnahme-Datum Heizung', step: 1 },
-    heizung_funktionstuechtig: { label: 'Heizung funktionstüchtig?', step: 1 },
-    bauantrag_datum: { label: 'Bauantrag-Datum', step: 1 },
-    fossile_brennstoffe_nach_austausch: { label: 'Fossile Brennstoffe nach Austausch?', step: 1 },
-    mehr_bilder_heizungsraum: { label: 'Mehr Bilder Heizungsraum?', step: 4 },
-    heizungsraum_verlegen: { label: 'Heizungsraum verlegen?', step: 4 },
-    anschluss_vorlauf_vorhanden: { label: 'Anschluss Vorlauf', step: 4 },
-    anschluss_vorlauf_distanz: { label: 'Distanz Vorlauf', step: 4 },
-    anschluss_ruecklauf_vorhanden: { label: 'Anschluss Rücklauf', step: 4 },
-    anschluss_ruecklauf_distanz: { label: 'Distanz Rücklauf', step: 4 },
-    anschluss_warmwasser_vorhanden: { label: 'Anschluss Warmwasser', step: 4 },
-    anschluss_warmwasser_distanz: { label: 'Distanz Warmwasser', step: 4 },
-    anschluss_kaltwasser_vorhanden: { label: 'Anschluss Kaltwasser', step: 4 },
-    anschluss_kaltwasser_distanz: { label: 'Distanz Kaltwasser', step: 4 },
-    anschluss_zirkulation_vorhanden: { label: 'Anschluss Zirkulation', step: 4 },
-    anschluss_zirkulation_distanz: { label: 'Distanz Zirkulation', step: 4 },
-    heizungsart: { label: 'Heizungsart', step: 5 },
-    heizungsart_sonstige: { label: 'Heizungsart (sonstige)', step: 5 },
-    oeltank_liter_gesamt: { label: 'Öltank Liter gesamt', step: 5 },
-    oeltank_anzahl: { label: 'Anzahl Öltanks', step: 5 },
-    oeltank_liter_aktuell: { label: 'Aktuelle Liter Öl', step: 5 },
-    oeltank_transport_beschreibung: { label: 'Öltank-Transport beschreiben', step: 5 },
-    heizkoerper_typ: { label: 'Heizkörper-Typ', step: 6 },
-    hat_erdung: { label: 'Erdung vorhanden?', step: 7 },
-    alternative_1_vorhanden: { label: '1. Alternative Aufstellort', step: 8 },
-    alternative_2_vorhanden: { label: '2. Alternative Aufstellort', step: 8 },
-    kunde_aufstellort_bestaetigt: { label: 'Kundenbestätigung Aufstellort', step: 8 },
-    kunde_bestaetigung_vorname: { label: 'Vorname Kundenbestätigung', step: 8 },
-    kunde_bestaetigung_nachname: { label: 'Nachname Kundenbestätigung', step: 8 },
-    distanz_ausseneinheit_kernloch: { label: 'Distanz Außeneinheit → Kernloch', step: 8 },
-    distanz_kernloch_innengeraet: { label: 'Distanz Kernloch → Innengerät', step: 8 },
-    anzahl_durchbrueche_kernloch: { label: 'Anzahl Durchbrüche Kernloch', step: 8 },
-    aufstellort_aenderung: { label: 'Aufstellort-Änderung?', step: 8 },
-    distanz_alter_neuer_aufstellort: { label: 'Distanz alter ↔ neuer Aufstellort', step: 8 },
-    anzahl_duschen: { label: 'Anzahl Duschen', step: 9 },
-    hat_regendusche: { label: 'Regendusche?', step: 9 },
-    anzahl_badewannen: { label: 'Anzahl Badewannen', step: 9 },
-    check_raeume_gescannt: { label: 'Räume gescannt bestätigen', step: 10 },
-    check_anzahl_raeume: { label: 'Anzahl Räume bestätigen', step: 10 },
-    check_aufstellort_besprochen: { label: 'Aufstellort besprochen bestätigen', step: 10 },
-    check_alle_bilder: { label: 'Alle Bilder bestätigen', step: 10 },
-    check_heizkoerper_aufgenommen: { label: 'Heizkörper aufgenommen bestätigen', step: 10 },
-    anzahl_unbegehbare_raeume: { label: 'Anzahl unbegehbare Räume', step: 11 },
-    hat_pv_anlage: { label: 'PV-Anlage vorhanden?', step: 12 },
-    agb_akzeptiert: { label: 'AGB akzeptieren', step: -1 },
-  }), []);
+  // Submit-Orchestrierung (eigener Hook)
+  const submit = useAufmassSubmit({
+    auftragId, userId, form, pvForm, bilder, votFormularId, leadName,
+    isReadOnly, showPvSteps, steps, resolveStep, setCurrentStep,
+  });
 
-  const resolveStep = (baseStep: number) =>
-    baseStep === -1 ? steps.length - 1 : baseStep;
+  // Live-Validierung → Schritt-Status + "X Pflichtfelder offen"-Leiste.
+  const liveValues = form.watch();
+  const liveValidation = computeStepValidation(liveValues, steps.length, resolveStep);
+  // Live-Plausibilität (deterministisch, gratis) → KI-Assistent „Prüfung". Beratend.
+  const livePlausi = checkPlausibility(liveValues);
 
-  const handleSaveDraft = async (silent = false) => {
-    if (!auftragId || !userId) return;
-    const values = form.getValues();
-    await upsertMutation.mutateAsync({ thermocheckAuftragId: auftragId, formData: values, userId, silent });
-
-    // Also save PV draft if active
-    if (showPvSteps && votFormularId) {
-      const pvValues = pvForm.getValues();
-      await pvUpsertMutation.mutateAsync({ votFormularId, formData: pvValues, userId, silent });
-    }
+  // watch() (nicht getValues()) → PV-bedingte Foto-Pflichten aktualisieren den
+  // Live-Stepper-Status sofort statt erst beim nächsten Render.
+  const pvLiveValues = pvForm.watch();
+  const fotoCtxLive: FotoPraesenzContext = {
+    istPvAufmass: showPvSteps,
+    istOel: liveValues.heizungsart === 'oel',
+    mehrBilderHeizungsraum: liveValues.mehr_bilder_heizungsraum === true,
+    hatErdung: liveValues.hat_erdung === true,
+    alternative1Vorhanden: liveValues.alternative_1_vorhanden === true,
+    alternative2Vorhanden: liveValues.alternative_2_vorhanden === true,
+    hatUnbegehbareRaeume: (liveValues.anzahl_unbegehbare_raeume ?? 0) > 0,
+    hatPvAnlage: liveValues.hat_pv_anlage === true,
+    pvHindernisseVorhanden: pvLiveValues.hindernisse_vorhanden === true,
+    pvOeffentlicheFlaeche: pvLiveValues.oeffentliche_flaeche === true,
+    pvBlitzschutzVorhanden: pvLiveValues.blitzschutz_vorhanden === true,
+    fensterGetauscht: liveValues.u_werte?.fenster?.getauscht === true,
   };
+  const fehlendeFotosLive = pruefeFotoPraesenz(bilder, fotoCtxLive);
+  // KI-Inhalts-Status live: jedes sichtbare Pflichtfoto, das NICHT positiv „ok" ist
+  // (passt_nicht / ungeprueft), ist ein offener Blocker — exakt das fail-closed
+  // Submit-Gate (bewerteFotoInhalt), nur ohne neue KI-Calls (liest nur den Store).
+  const fotoInhaltLive = bewerteFotoInhalt(bilder, fotoCtxLive, (id) => getFotoStatus(id)?.status);
+  const fotoInhaltOffen = fotoInhaltLive.falsch.length + fotoInhaltLive.ungeprueft.length;
+  // Haftungs-Checkbox bewusst NICHT im zod-Schema als Pflicht → hier additiv in den
+  // Live-Status einspeisen, damit die Bottom-Bar nicht fälschlich „vollständig" zeigt.
+  const haftungFehltLive = liveValues.u_werte_haftung_bestaetigt !== true;
+  const stepHasError = useMemo(() => {
+    const merged = [...liveValidation.stepHasError];
+    const markStep = (baseStep: number) => {
+      const step = resolveStep(baseStep);
+      if (step >= 0 && step < merged.length) merged[step] = true;
+    };
+    for (const f of fehlendeFotosLive) markStep(f.step);
+    for (const f of fotoInhaltLive.falsch) markStep(f.step);
+    for (const f of fotoInhaltLive.ungeprueft) markStep(f.step);
+    if (haftungFehltLive) markStep(2);
+    return merged;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveValidation.stepHasError, fehlendeFotosLive, fotoInhaltLive, haftungFehltLive, steps.length]);
 
-  // Auto-save every 2 minutes
-  useEffect(() => {
-    if (isReadOnly || !auftragId || !userId) return;
-    const interval = setInterval(() => {
-      if (upsertMutation.isPending || pvUpsertMutation.isPending) return;
-      handleSaveDraft(true);
-    }, 120_000);
-    return () => clearInterval(interval);
-  }, [isReadOnly, auftragId, userId, showPvSteps, votFormularId]);
-
-  const handleSubmit = async () => {
-    if (!auftragId || !userId) return;
-    const values = form.getValues();
-
-    // Full zod validation against submit schema → actionable feedback
-    const result = aufmassSubmitSchema.safeParse(values);
-    if (!result.success) {
-      // Group missing fields by step
-      const missingByStep = new Map<number, { field: string; label: string }[]>();
-      const unknownFields: string[] = [];
-
-      for (const issue of result.error.issues) {
-        const field = String(issue.path[0] ?? '');
-        const meta = FIELD_META[field];
-        if (!meta) {
-          if (field) unknownFields.push(field);
-          continue;
-        }
-        const step = resolveStep(meta.step);
-        const list = missingByStep.get(step) ?? [];
-        if (!list.find(e => e.field === field)) {
-          list.push({ field, label: meta.label });
-        }
-        missingByStep.set(step, list);
-      }
-
-      // Save draft silently so progress isn't lost
-      handleSaveDraft(true).catch(() => {});
-
-      // Jump to first missing step
-      const firstStep = [...missingByStep.keys()].sort((a, b) => a - b)[0];
-      const totalMissing = [...missingByStep.values()].reduce((n, l) => n + l.length, 0) + unknownFields.length;
-
-      // Build a compact summary (max 5 fields shown inline; rest condensed)
-      const allLabels = [...missingByStep.values()].flat().map(f => f.label);
-      const shown = allLabels.slice(0, 5).join(', ');
-      const rest = allLabels.length > 5 ? ` … +${allLabels.length - 5} weitere` : '';
-
-      toast.error(`Es fehlen noch ${totalMissing} Pflichtfeld${totalMissing === 1 ? '' : 'er'}`, {
-        description: shown ? `${shown}${rest}` : undefined,
-        duration: 10000,
-        action: firstStep != null
-          ? {
-              label: `Zu Schritt ${firstStep + 1}`,
-              onClick: () => setCurrentStep(firstStep),
-            }
-          : undefined,
-      });
-
-      // Auto-jump to first missing step for convenience
-      if (firstStep != null) setCurrentStep(firstStep);
-      return;
-    }
-
-    // Submit PV first if active
-    if (showPvSteps && votFormularId) {
-      const pvValues = pvForm.getValues();
-      await pvUpsertMutation.mutateAsync({ votFormularId, formData: pvValues, userId, isSubmit: true });
-    }
-
-    await upsertMutation.mutateAsync({ thermocheckAuftragId: auftragId, formData: result.data as any, userId, isSubmit: true });
-    navigate(-1);
-  };
-
-  if (auftragLoading || formularLoading) {
+  if (data.isLoading) {
     return (
       <div className="min-h-screen bg-background p-4 space-y-4">
         <Skeleton className="h-20 w-full rounded-2xl" />
@@ -338,49 +184,63 @@ export default function AufmassFormPage() {
   const pvSharedProps = { pvForm, bilder, votFormularId, leadName, leadId, auftragId: auftragId!, disabled: isReadOnly };
 
   const renderStep = (index: number) => {
-    // Base THC steps (0-12)
+    // Base THC steps (0-13)
     switch (index) {
       case 0: return <TechnikerDatenSection form={form} {...sharedProps} />;
       case 1: return <KundendatenSection form={form} kundenName={kundenName} disabled={isReadOnly} />;
-      case 2: return <PhotoOnlySection kategorie="treppenabgang" {...sharedProps} />;
-      case 3: return <PhotoOnlySection kategorie="eingang_heizungsraum" {...sharedProps} />;
-      case 4: return <HeizungsraumSection form={form} {...sharedProps} />;
-      case 5: return <HeizungsartSection form={form} {...sharedProps} />;
-      case 6: return <HeizkoerperSection form={form} {...sharedProps} />;
-      case 7: return <ElektrikSection form={form} {...sharedProps} />;
-      case 8: return <AufstellortSection form={form} {...sharedProps} />;
-      case 9: return <SanitaerSection form={form} disabled={isReadOnly} />;
-      case 10: return <ChecklisteSection form={form} {...sharedProps} />;
-      case 11: return <UnbegehbareRaeumeSection form={form} {...sharedProps} />;
-      case 12: return <PvAnlageSection form={form} {...sharedProps} />;
+      case 2: return (
+        <div className="space-y-6">
+          {/* Sprung-Anker: U-Werte/Gebäudehülle stehen weit unten in diesem Schritt;
+              auf Mobil sonst nur per langem Scrollen erreichbar (Critic-Finding). */}
+          <a
+            href="#u-werte-gebaeudehuelle"
+            className="block rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+          >
+            ↓ Direkt zur Gebäudehüllen-Erfassung (U-Werte)
+          </a>
+          <GebaeudedatenSection form={form} disabled={isReadOnly} />
+          <div id="u-werte-gebaeudehuelle" className="scroll-mt-20">
+            <UWerteSection form={form} {...sharedProps} />
+          </div>
+        </div>
+      );
+      case 3: return <PhotoOnlySection kategorie="treppenabgang" {...sharedProps} />;
+      case 4: return <PhotoOnlySection kategorie="eingang_heizungsraum" {...sharedProps} />;
+      case 5: return <HeizungsraumSection form={form} {...sharedProps} />;
+      case 6: return <HeizungsartSection form={form} {...sharedProps} />;
+      case 7: return <HeizkoerperSection form={form} {...sharedProps} />;
+      case 8: return <ElektrikSection form={form} {...sharedProps} />;
+      case 9: return <AufstellortSection form={form} {...sharedProps} />;
+      case 10: return <SanitaerSection form={form} disabled={isReadOnly} />;
+      case 11: return <ChecklisteSection form={form} {...sharedProps} />;
+      case 12: return <UnbegehbareRaeumeSection form={form} {...sharedProps} />;
+      case 13: return <PvAnlageSection form={form} {...sharedProps} />;
       default: break;
     }
 
-    // If PV steps are active (indices 13-20, Abschluss at 21)
+    // If PV steps are active (indices 14-21, Abschluss at 22)
     if (showPvSteps) {
       switch (index) {
-        case 13: return <PvAllgemeinSection pvForm={pvForm} disabled={isReadOnly} />;
-        case 14: return <PvDachSection {...pvSharedProps} />;
-        case 15: return <PvDachziegelSection {...pvSharedProps} />;
-        case 16: return <PvGeruestSection {...pvSharedProps} />;
-        case 17: return <PvDcKabelSection pvForm={pvForm} disabled={isReadOnly} />;
-        case 18: return <PvUnterkonstruktionSection pvForm={pvForm} disabled={isReadOnly} />;
-        case 19: return <PvBlitzschutzSection {...pvSharedProps} />;
-        case 20: return <PvAbschlussSection {...pvSharedProps} />;
-        case 21: return <AbschlussSection form={form} {...sharedProps} />;
+        case 14: return <PvAllgemeinSection pvForm={pvForm} disabled={isReadOnly} />;
+        case 15: return <PvDachSection {...pvSharedProps} />;
+        case 16: return <PvDachziegelSection {...pvSharedProps} />;
+        case 17: return <PvGeruestSection {...pvSharedProps} />;
+        case 18: return <PvDcKabelSection pvForm={pvForm} disabled={isReadOnly} />;
+        case 19: return <PvUnterkonstruktionSection pvForm={pvForm} disabled={isReadOnly} />;
+        case 20: return <PvBlitzschutzSection {...pvSharedProps} />;
+        case 21: return <PvAbschlussSection {...pvSharedProps} />;
+        case 22: return <AbschlussSection form={form} {...sharedProps} />;
         default: return null;
       }
     }
 
-    // Without PV: index 13 = Abschluss
-    if (index === 13) return <AbschlussSection form={form} {...sharedProps} />;
+    // Without PV: index 14 = Abschluss
+    if (index === 14) return <AbschlussSection form={form} {...sharedProps} />;
     return null;
   };
 
-  const isSaving = upsertMutation.isPending || pvUpsertMutation.isPending;
-
   const handleBack = () => {
-    const historyIndex = (window.history.state as any)?.idx ?? 0;
+    const historyIndex = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     if (historyIndex > 0) {
       navigate(-1);
       setTimeout(() => {
@@ -394,19 +254,75 @@ export default function AufmassFormPage() {
   };
 
   return (
-    <AufmassFormStepper
-      steps={steps}
-      renderStep={renderStep}
-      onBack={handleBack}
-      onSaveDraft={handleSaveDraft}
-      onSubmit={handleSubmit}
-      isSaving={isSaving}
-      isSubmitting={isSaving}
-      isReadOnly={isReadOnly}
-      currentStep={currentStep}
-      onStepChange={setCurrentStep}
-    >
-      {[]}
-    </AufmassFormStepper>
+    <>
+      <AufmassFormStepper
+        steps={steps}
+        renderStep={renderStep}
+        onBack={handleBack}
+        onSaveDraft={submit.handleSaveDraft}
+        onSubmit={submit.handleSubmit}
+        isSaving={submit.isSaving}
+        isSubmitting={submit.isSaving || submit.submitting}
+        isReadOnly={isReadOnly}
+        currentStep={currentStep}
+        onStepChange={setCurrentStep}
+        stepHasError={stepHasError}
+        openCount={
+          liveValidation.totalMissing +
+          // Tatsächlich fehlende EINZEL-Fotos, nicht nur Kategorien.
+          fehlendeFotosLive.reduce((n, f) => n + (f.minAnzahl - f.vorhanden), 0) +
+          // KI-abgelehnte/ungeprüfte Pflichtfotos als offene Pflichten mitzählen.
+          fotoInhaltOffen +
+          // Fehlende Hülle-Bestätigung als eine offene Pflicht mitzählen.
+          (haftungFehltLive ? 1 : 0)
+        }
+        onJumpToFirstError={() => {
+          const fotoStep = fehlendeFotosLive.length ? resolveStep(fehlendeFotosLive[0].step) : null;
+          // KI-abgelehnte/ungeprüfte Pflichtfotos als Sprungziel (nach Präsenz, vor Haftung).
+          const fotoInhaltStep =
+            fotoInhaltLive.falsch.length ? resolveStep(fotoInhaltLive.falsch[0].step)
+            : fotoInhaltLive.ungeprueft.length ? resolveStep(fotoInhaltLive.ungeprueft[0].step)
+            : null;
+          // Ist die Hülle-Bestätigung der EINZIGE offene Blocker → gezielt auf Schritt 2.
+          const haftungStep =
+            haftungFehltLive && liveValidation.firstErrorStep == null && fotoStep == null && fotoInhaltStep == null
+              ? resolveStep(2)
+              : null;
+          const target = liveValidation.firstErrorStep ?? fotoStep ?? fotoInhaltStep ?? haftungStep;
+          if (target != null) {
+            setCurrentStep(target);
+            if (haftungStep != null) {
+              // Anker steht weit unten im Gebäudedaten-Schritt → nach dem Render dorthin scrollen.
+              requestAnimationFrame(() => document.getElementById('u-werte-gebaeudehuelle')?.scrollIntoView({ behavior: 'smooth' }));
+            }
+          }
+        }}
+        liveWarnings={livePlausi}
+        topBanner={
+          <>
+            <GeoStatusCard geo={geo} />
+            <AutarcAbweichungenBanner
+              result={submit.autarcResult}
+              onClose={submit.clearAutarcResult}
+            />
+          </>
+        }
+      >
+        {[]}
+      </AufmassFormStepper>
+      {submit.softDialog && (
+        <PlausibilityConfirmDialog
+          findings={submit.softDialog.findings}
+          aiHinweise={submit.softDialog.aiHinweise}
+          aiLoading={submit.aiLoading}
+          begruendungen={submit.begruendungen}
+          onChange={submit.setBegruendung}
+          onKorrigieren={submit.handleKorrigieren}
+          onSubmit={submit.handleSoftConfirm}
+          onCancel={submit.cancelSoftDialog}
+          isSubmitting={submit.submitting || submit.isSaving}
+        />
+      )}
+    </>
   );
 }

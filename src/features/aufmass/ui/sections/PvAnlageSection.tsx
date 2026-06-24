@@ -27,6 +27,12 @@ export function PvAnlageSection({ form, bilder, votFormularId, leadName, leadId,
 
       <div className="space-y-2">
         <Label>Haben Sie bereits eine PV-Anlage? *</Label>
+        {/* Vorwarnung VOR der Auswahl: „Nein" öffnet 8 zusätzliche PV-Schritte.
+            Ohne diesen Hinweis erwartet ein Laie, dass „Nein" Arbeit spart, und
+            klickt evtl. falsch (steckt dann unerwartet im PV-Aufmaß fest). */}
+        <p className="text-xs text-muted-foreground">
+          Hinweis: „Nein" startet ein PV-Aufmaß und öffnet 8 zusätzliche Schritte.
+        </p>
         <div className="flex gap-3">
           {[true, false].map((val) => (
             <button key={String(val)} type="button" disabled={disabled}
@@ -34,7 +40,7 @@ export function PvAnlageSection({ form, bilder, votFormularId, leadName, leadId,
               className={`flex-1 py-3 px-4 rounded-lg border text-sm font-medium transition-colors ${
                 hatPv === val ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-foreground'
               }`}
-            >{val ? 'Ja' : 'Nein'}</button>
+            >{val ? 'Ja' : 'Nein (PV-Aufmaß starten)'}</button>
           ))}
         </div>
       </div>

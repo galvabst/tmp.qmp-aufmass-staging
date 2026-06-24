@@ -40,7 +40,20 @@ export function filterBilderByKategorie(bilder: VotBild[], kategorie: VotBildKat
   return bilder.filter(b => b.kategorie === kategorie);
 }
 
-/** Upload an image to storage + insert metadata */
+export interface DuplikatTreffer {
+  kategorie: string;
+  kunde: string;
+  datum: string;
+  /** 10 bei Hausschuhe-Duplikat (Abzug), sonst null (nur Warnung). */
+  abzug: number | null;
+}
+
+export interface UploadResult {
+  bild: VotBild;
+  duplikat: DuplikatTreffer | null;
+}
+
+/** Upload an image to storage + insert metadata (+ Hash/Dedup, falls Migration aktiv) */
 export function useUploadVotBild() {
   const queryClient = useQueryClient();
 
@@ -53,6 +66,9 @@ export function useUploadVotBild() {
       leadId,
       auftragId,
       reihenfolge,
+      sha256,
+      phash,
+      fileSizeBytes,
     }: {
       file: File;
       votFormularId: string;
@@ -61,7 +77,10 @@ export function useUploadVotBild() {
       leadId: string;
       auftragId: string;
       reihenfolge: number;
-    }) => {
+      sha256?: string;
+      phash?: string;
+      fileSizeBytes?: number;
+    }): Promise<UploadResult> => {
       const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       const storagePath = buildImageStoragePath(leadName, leadId, auftragId, kategorie, reihenfolge, ext);
 
@@ -72,21 +91,55 @@ export function useUploadVotBild() {
 
       if (uploadError) throw uploadError;
 
-      // Insert metadata (uses thermocheck client)
-      const { data, error: insertError } = await supabaseTC
-        .from('thermocheck_vot_bilder' as any)
-        .insert({
-          vot_formular_id: votFormularId,
-          kategorie,
-          storage_path: storagePath,
-          dateiname: `kunde_${sanitizeLeadName(leadName)}_${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`,
-          reihenfolge,
-        })
-        .select()
-        .single();
+      // DB-weiter Duplikat-Check (best effort; fehlt die Funktion → übersprungen).
+      let duplikat: DuplikatTreffer | null = null;
+      if (sha256 || phash) {
+        try {
+          const { data: dup } = await (supabaseTC as any).rpc('check_foto_duplikat', {
+            p_sha256: sha256 ?? null,
+            p_phash: phash ?? null,
+            p_aktuelles_formular: votFormularId,
+          });
+          const row = Array.isArray(dup) ? dup[0] : null;
+          if (row) {
+            duplikat = {
+              kategorie: row.original_kategorie,
+              kunde: row.original_kunde,
+              datum: row.original_datum,
+              abzug: kategorie === 'hausschuhe' ? 10 : null,
+            };
+          }
+        } catch {
+          // Migration noch nicht angewandt → Dedup still überspringen.
+        }
+      }
 
-      if (insertError) throw insertError;
-      return data as unknown as VotBild;
+      const dateiname = `kunde_${sanitizeLeadName(leadName)}_${kategorie}_${String(reihenfolge).padStart(3, '0')}.${ext}`;
+      const basis: Record<string, unknown> = {
+        vot_formular_id: votFormularId,
+        kategorie,
+        storage_path: storagePath,
+        dateiname,
+        reihenfolge,
+      };
+      const mitHash: Record<string, unknown> = {
+        ...basis,
+        sha256: sha256 ?? null,
+        phash: phash ?? null,
+        file_size_bytes: fileSizeBytes ?? null,
+        ist_duplikat: !!duplikat,
+        duplikat_quelle: duplikat ? `${duplikat.kunde} · ${duplikat.kategorie} · ${String(duplikat.datum).slice(0, 10)}` : null,
+        abzug_betrag: duplikat?.abzug ?? null,
+      };
+
+      // Mit Hash-Spalten versuchen; fehlen sie (Migration nicht angewandt) → Fallback.
+      let res = await supabaseTC.from('thermocheck_vot_bilder' as any).insert(mitHash).select().single();
+      if (res.error && /column .* does not exist|could not find/i.test(res.error.message ?? '')) {
+        res = await supabaseTC.from('thermocheck_vot_bilder' as any).insert(basis).select().single();
+      }
+      if (res.error) throw res.error;
+
+      return { bild: res.data as unknown as VotBild, duplikat };
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['vot-bilder', variables.votFormularId] });

@@ -61,6 +61,7 @@ export function TechnikerDatenSection({ form, bilder, votFormularId, leadName, l
             value={watch('thermocheck_datum') || ''}
             onChange={(v) => setValue('thermocheck_datum', v)}
             disabled={disabled}
+            toDate={new Date()}
             placeholder="Datum wählen"
           />
           {errors.thermocheck_datum && <p className="text-xs text-destructive">{errors.thermocheck_datum.message}</p>}

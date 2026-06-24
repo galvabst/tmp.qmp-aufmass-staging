@@ -56,7 +56,7 @@ export function AbschlussSection({ form, bilder, votFormularId, leadName, leadId
 
       <div className="bg-card rounded-xl p-4 border border-border">
         <p className="text-sm text-muted-foreground">
-          Du kannst über den Button "Daten prüfen" deine Eingabe nochmal überprüfen.
+          Alle Schritte lassen sich über die Phasen-Leiste oben jederzeit nochmals aufrufen und überprüfen.
           Falsche Angaben (auch Tippfehler!) können zu Verzögerungen und Mehrkosten führen.
         </p>
       </div>

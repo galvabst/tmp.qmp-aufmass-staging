@@ -2,6 +2,7 @@ import { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AufmassDraftData } from '../../data/aufmass-schema';
+import { numberFieldProps } from '../../data/aufmass-field-bounds';
 
 interface Props {
   form: UseFormReturn<AufmassDraftData>;
@@ -16,7 +17,7 @@ export function SanitaerSection({ form, disabled }: Props) {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="anzahl_duschen">Wie viele Duschen sind vorhanden? *</Label>
-        <Input id="anzahl_duschen" type="number" min={0} {...register('anzahl_duschen', { valueAsNumber: true })} disabled={disabled} />
+        <Input id="anzahl_duschen" {...numberFieldProps('anzahl_duschen')} {...register('anzahl_duschen', { valueAsNumber: true })} disabled={disabled} />
       </div>
 
       <div className="space-y-2">
@@ -35,7 +36,7 @@ export function SanitaerSection({ form, disabled }: Props) {
 
       <div className="space-y-2">
         <Label htmlFor="anzahl_badewannen">Wie viele Badewannen sind vorhanden? *</Label>
-        <Input id="anzahl_badewannen" type="number" min={0} {...register('anzahl_badewannen', { valueAsNumber: true })} disabled={disabled} />
+        <Input id="anzahl_badewannen" {...numberFieldProps('anzahl_badewannen')} {...register('anzahl_badewannen', { valueAsNumber: true })} disabled={disabled} />
       </div>
     </div>
   );

@@ -23,6 +23,7 @@ import { ArrowLeft, ClipboardList, MapPin, Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabaseTC } from '@/integrations/supabase/thermocheck-client';
+import type { AuftragViewData } from '../data/auftrag-view';
 import { AufstellortAIPanel } from './sections/AufstellortAIPanel';
 
 export default function AufstellortCheckPage() {
@@ -31,24 +32,24 @@ export default function AufstellortCheckPage() {
   const [showAlt1, setShowAlt1] = useState(false);
   const [showAlt2, setShowAlt2] = useState(false);
 
-  const { data: auftrag, isLoading } = useQuery({
+  const { data: auftrag, isLoading } = useQuery<AuftragViewData | null>({
     queryKey: ['thermocheck-auftrag-detail', auftragId],
     enabled: !!auftragId,
     queryFn: async () => {
       const { data, error } = await supabaseTC
-        .from('v_thermocheck_auftraege' as any)
+        .from('v_thermocheck_auftraege' as never)
         .select('*')
         .eq('id', auftragId!)
         .maybeSingle();
       if (error) throw error;
-      return data as Record<string, any>;
+      return (data ?? null) as AuftragViewData | null;
     },
   });
 
-  const leadId = (auftrag as any)?.lead_id || null;
+  const leadId = auftrag?.lead_id || null;
   const kundenName =
-    `${(auftrag as any)?.kunde_vorname || ''} ${(auftrag as any)?.kunde_nachname || ''}`.trim() ||
-    (auftrag as any)?.lead_name ||
+    `${auftrag?.kunde_vorname || ''} ${auftrag?.kunde_nachname || ''}`.trim() ||
+    auftrag?.lead_name ||
     'Unbekannt';
 
   if (isLoading) {

@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AufmassDraftData } from '../../data/aufmass-schema';
+import { numberFieldProps } from '../../data/aufmass-field-bounds';
 import { VotBild, filterBilderByKategorie } from '../../hooks/useVotBilder';
 import { PhotoUploadField } from '../components/PhotoUploadField';
 
@@ -53,15 +54,15 @@ export function HeizungsartSection({ form, bilder, votFormularId, leadName, lead
           <p className="font-medium text-sm">Öltank-Details</p>
           <div className="space-y-2">
             <Label>Liter alle Öltanks zusammen *</Label>
-            <Input type="number" {...register('oeltank_liter_gesamt', { valueAsNumber: true })} disabled={disabled} />
+            <Input {...numberFieldProps('oeltank_liter_gesamt')} {...register('oeltank_liter_gesamt', { valueAsNumber: true })} disabled={disabled} />
           </div>
           <div className="space-y-2">
             <Label>Anzahl Öltanks *</Label>
-            <Input type="number" {...register('oeltank_anzahl', { valueAsNumber: true })} disabled={disabled} />
+            <Input {...numberFieldProps('oeltank_anzahl')} {...register('oeltank_anzahl', { valueAsNumber: true })} disabled={disabled} />
           </div>
           <div className="space-y-2">
             <Label>Liter Öl aktuell in Tanks *</Label>
-            <Input type="number" {...register('oeltank_liter_aktuell', { valueAsNumber: true })} disabled={disabled} />
+            <Input {...numberFieldProps('oeltank_liter_aktuell')} {...register('oeltank_liter_aktuell', { valueAsNumber: true })} disabled={disabled} />
           </div>
           <div className="space-y-2">
             <Label>Wie kann man den Tank raustransportieren? *</Label>

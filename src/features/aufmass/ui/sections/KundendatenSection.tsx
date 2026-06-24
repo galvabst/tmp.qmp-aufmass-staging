@@ -27,6 +27,7 @@ export function KundendatenSection({ form, kundenName, disabled }: Props) {
           value={watch('heizung_inbetriebnahme_datum') || ''}
           onChange={(v) => setValue('heizung_inbetriebnahme_datum', v)}
           disabled={disabled}
+          toDate={new Date()}
           placeholder="Datum wählen"
         />
         {errors.heizung_inbetriebnahme_datum && <p className="text-xs text-destructive">{errors.heizung_inbetriebnahme_datum.message}</p>}
@@ -59,6 +60,7 @@ export function KundendatenSection({ form, kundenName, disabled }: Props) {
           value={watch('bauantrag_datum') || ''}
           onChange={(v) => setValue('bauantrag_datum', v)}
           disabled={disabled}
+          toDate={new Date()}
           placeholder="Datum wählen"
         />
         {errors.bauantrag_datum && <p className="text-xs text-destructive">{errors.bauantrag_datum.message}</p>}

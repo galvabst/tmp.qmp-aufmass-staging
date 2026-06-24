@@ -8,6 +8,8 @@ export type VotBildKategorie =
   | 'aufstellort_alt_1' | 'aufstellort_umgebung_alt_1' | 'aufstellort_alt_2'
   | 'aufstellort_umgebung_alt_2' | 'unterschrift_aufstellort' | 'unterschrift_techniker'
   | 'unterschrift_kunde_final' | 'pv_anlage' | 'unbegehbarer_raum'
+  // U-Werte / Gebäudehülle (geschichteter Aufbau)
+  | 'wanddicke_fenster_meterstab' | 'wandaufbau' | 'dachaufbau' | 'bodenaufbau' | 'fenster_originalrechnung'
   // PV-Aufmass Kategorien
   | 'pv_dach' | 'pv_drohne' | 'pv_sparrenabstand' | 'pv_dachziegel'
   | 'pv_hindernisse' | 'pv_geruest_oeffentlich' | 'pv_blitzschutz'
@@ -18,10 +20,13 @@ interface KategorieConfig {
   label: string;
   minAnzahl: number;
   hinweis?: string;
+  /** Vertragsstrafe in € bei Verstoß (falsches/dupliziertes Foto). Nur dort
+   *  gesetzt, wo ein Abzug vereinbart ist (z. B. Hausschuhe-Pflicht). */
+  abzugEuro?: number;
 }
 
 export const BILD_KATEGORIEN: Record<VotBildKategorie, KategorieConfig> = {
-  hausschuhe: { label: 'Galvanek-Hausschuhe', minAnzahl: 1, hinweis: 'Foto deiner Hausschuhe beim Kunden' },
+  hausschuhe: { label: 'Galvanek-Hausschuhe', minAnzahl: 1, hinweis: 'Foto deiner Hausschuhe beim Kunden', abzugEuro: 10 },
   treppenabgang: { label: 'Treppenabgang', minAnzahl: 4, hinweis: 'Von oben, unten, links, rechts' },
   eingang_heizungsraum: { label: 'Eingang Heizungsraum', minAnzahl: 3, hinweis: 'Von außen, von innen, Türbreite mit Meterstab' },
   heizungsraum: { label: 'Heizungsraum', minAnzahl: 1, hinweis: 'Fotos in alle Himmelsrichtungen, 1 Bild mit Meterstab' },
@@ -47,6 +52,12 @@ export const BILD_KATEGORIEN: Record<VotBildKategorie, KategorieConfig> = {
   unterschrift_kunde_final: { label: 'Unterschrift Kunde', minAnzahl: 1 },
   pv_anlage: { label: 'PV-Anlage', minAnzahl: 1 },
   unbegehbarer_raum: { label: 'Unbegehbarer Raum', minAnzahl: 1 },
+  // U-Werte / Gebäudehülle — Nachweis-Fotos (Wanddicke/Aufbau/Fenster-Rechnung)
+  wanddicke_fenster_meterstab: { label: 'Wanddicke (Meterstab im Fenster)', minAnzahl: 1, hinweis: 'Fenster öffnen, Meterstab/Zollstock in die Laibung halten, Wanddicke ablesbar fotografieren' },
+  wandaufbau: { label: 'Wandaufbau (optional)', minAnzahl: 0, hinweis: 'Nur falls sichtbar — z. B. an offener Fensterlaibung oder in der Bauphase. Sonst überspringen (Wanddicke deckt der Meterstab-Nachweis ab, der Aufbau die Auswahl oben).' },
+  dachaufbau: { label: 'Dachaufbau (optional)', minAnzahl: 0, hinweis: 'Nur falls zugänglich — Dachboden mit sichtbaren Sparren/Dämmung. Sonst überspringen.' },
+  bodenaufbau: { label: 'Bodenaufbau (optional)', minAnzahl: 0, hinweis: 'Falls sichtbar: Bodenplatte / Kellerdecke' },
+  fenster_originalrechnung: { label: 'Fenster-Originalrechnung', minAnzahl: 1, hinweis: 'Rechnung/Datenblatt der getauschten Fenster (U-Wert-Nachweis)' },
   // PV-Aufmass Kategorien
   pv_dach: { label: 'Bilder vom Dach', minAnzahl: 3, hinweis: 'Alle Hindernisse müssen gut zu sehen sein, Bilder müssen für Modulplanung nutzbar sein' },
   pv_drohne: { label: 'Drohnenfotos vom Dach', minAnzahl: 1 },

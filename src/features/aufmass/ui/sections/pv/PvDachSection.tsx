@@ -2,6 +2,7 @@ import { UseFormReturn } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { PvAufmassDraftData } from '../../../data/pv-aufmass-schema';
+import { numberFieldProps } from '../../../data/aufmass-field-bounds';
 import { VotBild, filterBilderByKategorie } from '../../../hooks/useVotBilder';
 import { PhotoUploadField } from '../../components/PhotoUploadField';
 
@@ -60,7 +61,7 @@ export function PvDachSection({ pvForm, bilder, votFormularId, leadName, leadId,
       {/* Neigung */}
       <div className="space-y-2">
         <Label>Dachneigung (°)</Label>
-        <Input type="number" placeholder="z.B. 30"
+        <Input {...numberFieldProps('dachneigung')} placeholder="z.B. 30"
           value={watch('dachneigung') ?? ''}
           onChange={(e) => setValue('dachneigung', e.target.value ? Number(e.target.value) : undefined)}
           disabled={disabled} />
@@ -140,7 +141,7 @@ export function PvDachSection({ pvForm, bilder, votFormularId, leadName, leadId,
       {aufdach && (
         <div className="space-y-2">
           <Label>Dämmstärke (mm)</Label>
-          <Input type="number" placeholder="z.B. 120"
+          <Input {...numberFieldProps('aufdachdaemmung_dicke')} placeholder="z.B. 120"
             value={watch('aufdachdaemmung_dicke') ?? ''}
             onChange={(e) => setValue('aufdachdaemmung_dicke', e.target.value ? Number(e.target.value) : undefined)}
             disabled={disabled} />

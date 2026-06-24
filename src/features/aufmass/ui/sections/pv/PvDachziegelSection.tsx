@@ -2,6 +2,7 @@ import { UseFormReturn } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { PvAufmassDraftData } from '../../../data/pv-aufmass-schema';
+import { numberFieldProps } from '../../../data/aufmass-field-bounds';
 import { VotBild, filterBilderByKategorie } from '../../../hooks/useVotBilder';
 import { PhotoUploadField } from '../../components/PhotoUploadField';
 
@@ -66,7 +67,7 @@ export function PvDachziegelSection({ pvForm, bilder, votFormularId, leadName, l
       {ziegelNeigung && (
         <div className="space-y-2">
           <Label>Neigungsgrad (°)</Label>
-          <Input type="number" placeholder="z.B. 5"
+          <Input {...numberFieldProps('ziegel_neigung_grad')} placeholder="z.B. 5"
             value={watch('ziegel_neigung_grad') ?? ''}
             onChange={(e) => setValue('ziegel_neigung_grad', e.target.value ? Number(e.target.value) : undefined)}
             disabled={disabled} />
